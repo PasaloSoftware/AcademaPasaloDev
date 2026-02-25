@@ -68,16 +68,77 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
     ]
     ```
 
-### 2. Listar Eventos de una Evaluación
+### 2. Descubrimiento de Capas por Categoría (Panel Lateral)
+Devuelve cursos "hermanos" para superposición visual de horarios.
+- **Endpoint:** `GET /class-events/discovery/layers/:courseCycleId`
+- **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Reglas:**
+  - El `courseCycleId` debe existir.
+  - Debe pertenecer al ciclo activo (`system_setting.ACTIVE_CYCLE_ID`).
+  - Solo incluye cursos del mismo `course_type` y del mismo ciclo activo.
+  - Excluye el `courseCycleId` origen.
+- **Data (Response):**
+    ```json
+    [
+      {
+        "courseCycleId": "string",
+        "courseId": "string",
+        "courseCode": "MAT-101",
+        "courseName": "Álgebra I",
+        "primaryColor": "#1A73E8",
+        "secondaryColor": "#D2E3FC",
+        "courseTypeCode": "CIENCIAS"
+      }
+    ]
+    ```
+
+### 3. Sesiones Globales Multi-Curso (Render de Capas)
+Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
+- **Endpoint:** `GET /class-events/global/sessions`
+- **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Query Params (Obligatorios):**
+  - `courseCycleIds`: CSV de IDs (`id1,id2,id3`)
+  - `startDate`: ISO-8601
+  - `endDate`: ISO-8601
+- **Reglas:**
+  - Todos los `courseCycleIds` deben pertenecer al mismo `course_type` y `academic_cycle`.
+  - Si mezcla categoría/ciclo, backend responde `400`.
+  - No devuelve eventos cancelados.
+- **Data (Response):**
+    ```json
+    [
+      {
+        "courseCycleId": "string",
+        "courseId": "string",
+        "courseCode": "MAT-101",
+        "courseName": "Álgebra I",
+        "primaryColor": "#1A73E8",
+        "secondaryColor": "#D2E3FC",
+        "sessions": [
+          {
+            "eventId": "string",
+            "evaluationId": "string",
+            "sessionNumber": 1,
+            "title": "Clase 1",
+            "topic": "Introducción",
+            "startDatetime": "2026-02-25T18:00:00.000Z",
+            "endDatetime": "2026-02-25T20:00:00.000Z"
+          }
+        ]
+      }
+    ]
+    ```
+
+### 4. Listar Eventos de una Evaluación
 - **Endpoint:** `GET /class-events/evaluation/:evaluationId`
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - **Data (Response):** `[ { ...ClassEventResponseDto } ]` (Ver estructura arriba).
 
-### 3. Detalle de un Evento
+### 5. Detalle de un Evento
 - **Endpoint:** `GET /class-events/:id`
 - **Data (Response):** Mismo objeto que en Calendario Unificado.
 
-### 4. Crear Nuevo Evento (Docente/Admin)
+### 6. Crear Nuevo Evento (Docente/Admin)
 - **Endpoint:** `POST /class-events`
 - **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - **Request Body:**
@@ -92,13 +153,16 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
       "liveMeetingUrl": string // URL válida de Zoom/Meet/Teams
     }
     ```
+- **Regla de colisión vigente:**
+  - El backend valida solapamiento contra todos los cursos del mismo `course_type` dentro del mismo `academic_cycle`.
+  - Excepción actual: `FACULTAD` queda aislado por su propio tipo.
 
-### 5. Actualizar / Cancelar Evento
+### 7. Actualizar / Cancelar Evento
 - **Patch:** `PATCH /class-events/:id` (Actualiza campos opcionales).
     * **Fields:** `title`, `topic`, `startDatetime`, `endDatetime`, `liveMeetingUrl`, `recordingUrl`.
 - **Cancel:** `DELETE /class-events/:id/cancel` (Marca como cancelada).
 
-### 6. Gestión de Profesores Invitados (Admin)
+### 8. Gestión de Profesores Invitados (Admin)
 Permite que otros profesores también sean anfitriones del evento.
 - **POST /class-events/:id/professors:** `body: { professorUserId: string }`
 - **DELETE /class-events/:id/professors/:professorId:** Quitar acceso.
@@ -361,8 +425,6 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
 - **POST /feedback/admin/:testimonyId/feature:** Destacar testimonio en la web.
     * `body: { isActive: boolean, displayOrder: number }`
     * **Efecto:** Invalida automáticamente el caché público.
-
-
 
 
 

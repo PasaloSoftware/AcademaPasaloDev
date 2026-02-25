@@ -90,6 +90,8 @@ export const technicalSettings = {
       // src/modules/events/application/class-events.service.ts
       classEventsCacheTtlSeconds: 1800, // 30m
       // src/modules/events/application/class-events.service.ts
+      calendarLockTimeoutSeconds: 10, // 10s
+      // src/modules/events/application/class-events.service.ts
       cycleActiveCacheTtlSeconds: 3600, // 60m
       // src/modules/events/application/class-events.service.ts
       professorAssignmentCacheTtlSeconds: 3600, // 60m

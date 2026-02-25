@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   ConflictException,
@@ -7,13 +7,18 @@ import {
   Logger,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
 import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
+import {
+  CalendarDiscoveryLayerRow,
+  CourseCycleCategoryMetaRow,
+  CourseCycleRepository,
+} from '@modules/courses/infrastructure/course-cycle.repository';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
@@ -32,12 +37,41 @@ import {
   ROLE_CODES,
 } from '@common/constants/role-codes.constants';
 import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
+import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
+
+export type DiscoveryLayer = CalendarDiscoveryLayerRow;
+export type GlobalSessionItem = {
+  eventId: string;
+  evaluationId: string;
+  sessionNumber: number;
+  title: string;
+  topic: string;
+  startDatetime: Date;
+  endDatetime: Date;
+};
+
+export type GlobalSessionGroup = {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  sessions: GlobalSessionItem[];
+};
+
+type CategoryCycleContext = {
+  courseTypeId: string;
+  academicCycleId: string;
+};
 
 @Injectable()
 export class ClassEventsService {
   private readonly logger = new Logger(ClassEventsService.name);
   private readonly EVENT_CACHE_TTL =
     technicalSettings.cache.events.classEventsCacheTtlSeconds;
+  private readonly CALENDAR_LOCK_TIMEOUT_SECONDS =
+    technicalSettings.cache.events.calendarLockTimeoutSeconds;
   private readonly CYCLE_ACTIVE_CACHE_TTL =
     technicalSettings.cache.events.cycleActiveCacheTtlSeconds;
   private readonly PROFESSOR_ASSIGNMENT_CACHE_TTL =
@@ -49,6 +83,43 @@ export class ClassEventsService {
     return `cache:class-event-recording-status:code:${code}`;
   }
 
+  private getCalendarLockKey(
+    courseTypeId: string,
+    academicCycleId: string,
+  ): string {
+    return `calendar-lock:ct:${courseTypeId}:ac:${academicCycleId}`;
+  }
+
+  private async acquireCalendarLock(
+    manager: EntityManager,
+    courseTypeId: string,
+    academicCycleId: string,
+  ): Promise<string> {
+    const lockKey = this.getCalendarLockKey(courseTypeId, academicCycleId);
+    const rawRows: unknown = await manager.query(
+      'SELECT GET_LOCK(?, ?) AS acquired',
+      [lockKey, this.CALENDAR_LOCK_TIMEOUT_SECONDS],
+    );
+    const rows = Array.isArray(rawRows)
+      ? (rawRows as Array<{ acquired?: number | string | null }>)
+      : [];
+    const acquiredRaw = rows?.[0]?.acquired;
+    const acquired = acquiredRaw === 1 || acquiredRaw === '1';
+    if (!acquired) {
+      throw new ConflictException(
+        'Otro proceso está planificando horarios en este grupo académico. Inténtalo nuevamente.',
+      );
+    }
+    return lockKey;
+  }
+
+  private async releaseCalendarLock(
+    manager: EntityManager,
+    lockKey: string,
+  ): Promise<void> {
+    await manager.query('SELECT RELEASE_LOCK(?) AS released', [lockKey]);
+  }
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly classEventRepository: ClassEventRepository,
@@ -57,6 +128,8 @@ export class ClassEventsService {
     private readonly evaluationRepository: EvaluationRepository,
     private readonly enrollmentEvaluationRepository: EnrollmentEvaluationRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
+    private readonly courseCycleRepository: CourseCycleRepository,
+    private readonly authSettingsService: AuthSettingsService,
     private readonly userRepository: UserRepository,
     private readonly cacheService: RedisCacheService,
   ) {}
@@ -76,6 +149,7 @@ export class ClassEventsService {
     if (!evaluation) {
       throw new NotFoundException('Evaluación no encontrada');
     }
+    await this.assertMutationAllowedForEvaluation(creatorUser, evaluation);
 
     this.validateEventDates(
       startDatetime,
@@ -84,65 +158,95 @@ export class ClassEventsService {
       evaluation.endDate,
     );
 
-    const overlap = await this.classEventRepository.findOverlap(
-      evaluation.courseCycleId,
-      startDatetime,
-      endDatetime,
-    );
-
-    if (overlap) {
-      throw new ConflictException(
-        `El horario ya está ocupado por la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
+    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
+    const academicCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!courseTypeId || !academicCycleId) {
+      throw new InternalServerErrorException(
+        'No se pudo resolver la categoría o ciclo académico del curso',
       );
     }
 
-    return await this.dataSource.transaction(async (manager) => {
-      const notAvailableStatusId = await this.getRecordingStatusIdByCode(
-        CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+    const categoryCycleContext: CategoryCycleContext = {
+      courseTypeId,
+      academicCycleId,
+    };
+
+    const created = await this.dataSource.transaction(async (manager) => {
+      const lockKey = await this.acquireCalendarLock(
         manager,
+        courseTypeId,
+        academicCycleId,
       );
 
-      const existingSession =
-        await this.classEventRepository.findByEvaluationAndSessionNumber(
-          evaluationId,
-          sessionNumber,
+      try {
+        const overlap = await this.classEventRepository.findOverlap(
+          evaluation.courseCycleId,
+          startDatetime,
+          endDatetime,
+          undefined,
           manager,
         );
 
-      if (existingSession) {
-        throw new ConflictException(
-          `Ya existe la sesión ${sessionNumber} para esta evaluación`,
+        if (overlap) {
+          throw new ConflictException(
+            `El horario ya está ocupado por la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
+          );
+        }
+
+        const notAvailableStatusId = await this.getRecordingStatusIdByCode(
+          CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+          manager,
         );
+
+        const existingSession =
+          await this.classEventRepository.findByEvaluationAndSessionNumber(
+            evaluationId,
+            sessionNumber,
+            manager,
+          );
+
+        if (existingSession) {
+          throw new ConflictException(
+            `Ya existe la sesión ${sessionNumber} para esta evaluación`,
+          );
+        }
+
+        const classEvent = await this.classEventRepository.create(
+          {
+            evaluationId,
+            sessionNumber,
+            title,
+            topic,
+            startDatetime,
+            endDatetime,
+            liveMeetingUrl,
+            recordingStatusId: notAvailableStatusId,
+            isCancelled: false,
+            createdBy: creatorUser.id,
+            createdAt: new Date(),
+            updatedAt: null,
+          },
+          manager,
+        );
+
+        await this.classEventProfessorRepository.assignProfessor(
+          classEvent.id,
+          creatorUser.id,
+          manager,
+        );
+
+        return classEvent;
+      } finally {
+        await this.releaseCalendarLock(manager, lockKey);
       }
-
-      const classEvent = await this.classEventRepository.create(
-        {
-          evaluationId,
-          sessionNumber,
-          title,
-          topic,
-          startDatetime,
-          endDatetime,
-          liveMeetingUrl,
-          recordingStatusId: notAvailableStatusId,
-          isCancelled: false,
-          createdBy: creatorUser.id,
-          createdAt: new Date(),
-          updatedAt: null,
-        },
-        manager,
-      );
-
-      await this.classEventProfessorRepository.assignProfessor(
-        classEvent.id,
-        creatorUser.id,
-        manager,
-      );
-
-      await this.invalidateEventCache(evaluationId);
-
-      return classEvent;
     });
+
+    await this.invalidateEventCache(
+      evaluationId,
+      undefined,
+      categoryCycleContext,
+    );
+    return created;
   }
 
   async getEventsByEvaluation(
@@ -205,6 +309,13 @@ export class ClassEventsService {
     }
 
     this.validateEventOwnership(event.createdBy, user);
+    const evaluation = await this.evaluationRepository.findByIdWithCycle(
+      event.evaluationId,
+    );
+    if (!evaluation) {
+      throw new NotFoundException('Evaluación no encontrada');
+    }
+    await this.assertMutationAllowedForEvaluation(user, evaluation);
 
     const updateData: Partial<ClassEvent> = {};
     if (title !== undefined) updateData.title = title;
@@ -215,36 +326,6 @@ export class ClassEventsService {
       updateData.liveMeetingUrl = liveMeetingUrl;
     if (recordingUrl !== undefined) updateData.recordingUrl = recordingUrl;
 
-    if (startDatetime || endDatetime) {
-      const finalStart = startDatetime || event.startDatetime;
-      const finalEnd = endDatetime || event.endDatetime;
-
-      const evaluation = await this.evaluationRepository.findByIdWithCycle(
-        event.evaluationId,
-      );
-      if (evaluation) {
-        this.validateEventDates(
-          finalStart,
-          finalEnd,
-          evaluation.startDate,
-          evaluation.endDate,
-        );
-
-        const overlap = await this.classEventRepository.findOverlap(
-          evaluation.courseCycleId,
-          finalStart,
-          finalEnd,
-          eventId,
-        );
-
-        if (overlap) {
-          throw new ConflictException(
-            `No es posible actualizar el horario. Existe un cruce con la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
-          );
-        }
-      }
-    }
-
     if (recordingUrl !== undefined) {
       const readyStatusId = await this.getRecordingStatusIdByCode(
         CLASS_EVENT_RECORDING_STATUS_CODES.READY,
@@ -252,9 +333,70 @@ export class ClassEventsService {
       updateData.recordingStatusId = readyStatusId;
     }
 
-    const updated = await this.classEventRepository.update(eventId, updateData);
+    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
+    const academicCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!courseTypeId || !academicCycleId) {
+      throw new InternalServerErrorException(
+        'No se pudo resolver la categoría o ciclo académico del curso',
+      );
+    }
+    const categoryCycleContext: CategoryCycleContext = {
+      courseTypeId,
+      academicCycleId,
+    };
 
-    await this.invalidateEventCache(event.evaluationId, eventId);
+    let updated: ClassEvent;
+    if (startDatetime || endDatetime) {
+      const finalStart = startDatetime || event.startDatetime;
+      const finalEnd = endDatetime || event.endDatetime;
+
+      this.validateEventDates(
+        finalStart,
+        finalEnd,
+        evaluation.startDate,
+        evaluation.endDate,
+      );
+
+      updated = await this.dataSource.transaction(async (manager) => {
+        const lockKey = await this.acquireCalendarLock(
+          manager,
+          courseTypeId,
+          academicCycleId,
+        );
+
+        try {
+          const overlap = await this.classEventRepository.findOverlap(
+            evaluation.courseCycleId,
+            finalStart,
+            finalEnd,
+            eventId,
+            manager,
+          );
+
+          if (overlap) {
+            throw new ConflictException(
+              `No es posible actualizar el horario. Existe un cruce con la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
+            );
+          }
+
+          return await this.classEventRepository.update(
+            eventId,
+            updateData,
+            manager,
+          );
+        } finally {
+          await this.releaseCalendarLock(manager, lockKey);
+        }
+      });
+    } else {
+      updated = await this.classEventRepository.update(eventId, updateData);
+    }
+
+    await this.invalidateEventCache(
+      event.evaluationId,
+      eventId,
+      categoryCycleContext,
+    );
 
     return updated;
   }
@@ -270,6 +412,13 @@ export class ClassEventsService {
     }
 
     this.validateEventOwnership(event.createdBy, user);
+    const evaluation = await this.evaluationRepository.findByIdWithCycle(
+      event.evaluationId,
+    );
+    if (!evaluation) {
+      throw new NotFoundException('Evaluación no encontrada');
+    }
+    await this.assertMutationAllowedForEvaluation(user, evaluation);
 
     await this.classEventRepository.cancelEvent(eventId);
 
@@ -490,7 +639,251 @@ export class ClassEventsService {
     );
 
     await this.cacheService.set(cacheKey, events, this.EVENT_CACHE_TTL);
+    await Promise.all([
+      this.cacheService.addToIndex(
+        CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX(userId),
+        cacheKey,
+        this.EVENT_CACHE_TTL,
+      ),
+      this.cacheService.addToIndex(
+        CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_INDEX,
+        cacheKey,
+        this.EVENT_CACHE_TTL,
+      ),
+    ]);
     return events;
+  }
+
+  async getDiscoveryLayers(courseCycleId: string): Promise<DiscoveryLayer[]> {
+    const sourceCourseCycle =
+      await this.courseCycleRepository.findFullById(courseCycleId);
+    if (!sourceCourseCycle) {
+      throw new NotFoundException('Curso no encontrado');
+    }
+
+    const activeCycleId = await this.authSettingsService.getActiveCycleId();
+    if (sourceCourseCycle.academicCycleId !== activeCycleId) {
+      throw new BadRequestException(
+        'El curso no está activo en el ciclo actual',
+      );
+    }
+
+    const courseTypeId = sourceCourseCycle.course?.courseTypeId;
+    if (!courseTypeId) {
+      throw new InternalServerErrorException(
+        'No se pudo resolver la categoría del curso',
+      );
+    }
+
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.DISCOVERY_LAYERS(
+      courseCycleId,
+      courseTypeId,
+      activeCycleId,
+    );
+    const cached = await this.cacheService.get<DiscoveryLayer[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const layers =
+      await this.courseCycleRepository.findSiblingLayersByCategoryAndCycle(
+        courseCycleId,
+        activeCycleId,
+      );
+
+    await this.cacheService.set(cacheKey, layers, this.EVENT_CACHE_TTL);
+    await this.cacheService.addToIndex(
+      CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(courseTypeId, activeCycleId),
+      cacheKey,
+      this.EVENT_CACHE_TTL,
+    );
+    return layers;
+  }
+
+  private validateAndResolveGlobalSessionsGroup(
+    metadataRows: CourseCycleCategoryMetaRow[],
+    requestedCourseCycleIds: string[],
+  ): { courseTypeId: string; academicCycleId: string } {
+    if (metadataRows.length !== requestedCourseCycleIds.length) {
+      throw new NotFoundException('Uno o más cursos no fueron encontrados');
+    }
+
+    const base = metadataRows[0];
+    const hasDifferentGroup = metadataRows.some(
+      (row) =>
+        row.courseTypeId !== base.courseTypeId ||
+        row.academicCycleId !== base.academicCycleId,
+    );
+    if (hasDifferentGroup) {
+      throw new BadRequestException(
+        'Todos los cursos deben pertenecer a la misma categoría y ciclo académico',
+      );
+    }
+
+    return {
+      courseTypeId: base.courseTypeId,
+      academicCycleId: base.academicCycleId,
+    };
+  }
+
+  private async resolveCategoryCycleGroupByEvaluationId(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const evaluation =
+      await this.evaluationRepository.findByIdWithCycle(evaluationId);
+    if (!evaluation) {
+      return null;
+    }
+
+    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
+    const academicCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!courseTypeId || !academicCycleId) {
+      return null;
+    }
+
+    return CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_GROUP(
+      courseTypeId,
+      academicCycleId,
+    );
+  }
+
+  private resolveCategoryCycleGroupByContext(
+    context?: CategoryCycleContext,
+  ): string | null {
+    if (!context?.courseTypeId || !context.academicCycleId) {
+      return null;
+    }
+    return CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_GROUP(
+      context.courseTypeId,
+      context.academicCycleId,
+    );
+  }
+
+  private resolveCategoryCycleIndexByContext(
+    context?: CategoryCycleContext,
+  ): string | null {
+    if (!context?.courseTypeId || !context.academicCycleId) {
+      return null;
+    }
+    return CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+      context.courseTypeId,
+      context.academicCycleId,
+    );
+  }
+
+  private async resolveCategoryCycleIndexByEvaluationId(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const evaluation =
+      await this.evaluationRepository.findByIdWithCycle(evaluationId);
+    if (!evaluation) {
+      return null;
+    }
+
+    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
+    const academicCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!courseTypeId || !academicCycleId) {
+      return null;
+    }
+
+    return CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+      courseTypeId,
+      academicCycleId,
+    );
+  }
+
+  async getGlobalSessions(
+    courseCycleIds: string[],
+    startDate: Date,
+    endDate: Date,
+  ): Promise<GlobalSessionGroup[]> {
+    const uniqueCourseCycleIds = [...new Set(courseCycleIds)];
+    if (uniqueCourseCycleIds.length === 0) {
+      return [];
+    }
+
+    const metadataRows =
+      await this.courseCycleRepository.findCategoryMetadataByIds(
+        uniqueCourseCycleIds,
+      );
+    const { courseTypeId, academicCycleId } =
+      this.validateAndResolveGlobalSessionsGroup(
+        metadataRows,
+        uniqueCourseCycleIds,
+      );
+
+    const orderedCourseCycleIds = [...uniqueCourseCycleIds].sort();
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.GLOBAL_SESSIONS(
+      courseTypeId,
+      academicCycleId,
+      startDate.toISOString(),
+      endDate.toISOString(),
+      orderedCourseCycleIds.join(','),
+    );
+    const cached = await this.cacheService.get<GlobalSessionGroup[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const rows =
+      await this.classEventRepository.findGlobalSessionsByCourseCyclesAndRange(
+        uniqueCourseCycleIds,
+        startDate,
+        endDate,
+      );
+
+    const grouped = new Map<string, GlobalSessionGroup>();
+    for (const row of rows) {
+      const existing = grouped.get(row.courseCycleId);
+      if (existing) {
+        existing.sessions.push({
+          eventId: row.eventId,
+          evaluationId: row.evaluationId,
+          sessionNumber: row.sessionNumber,
+          title: row.title,
+          topic: row.topic,
+          startDatetime: row.startDatetime,
+          endDatetime: row.endDatetime,
+        });
+        continue;
+      }
+
+      grouped.set(row.courseCycleId, {
+        courseCycleId: row.courseCycleId,
+        courseId: row.courseId,
+        courseCode: row.courseCode,
+        courseName: row.courseName,
+        primaryColor: row.primaryColor,
+        secondaryColor: row.secondaryColor,
+        sessions: [
+          {
+            eventId: row.eventId,
+            evaluationId: row.evaluationId,
+            sessionNumber: row.sessionNumber,
+            title: row.title,
+            topic: row.topic,
+            startDatetime: row.startDatetime,
+            endDatetime: row.endDatetime,
+          },
+        ],
+      });
+    }
+
+    const groupedSessions = [...grouped.values()];
+    await this.cacheService.set(
+      cacheKey,
+      groupedSessions,
+      this.EVENT_CACHE_TTL,
+    );
+    await this.cacheService.addToIndex(
+      CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+        courseTypeId,
+        academicCycleId,
+      ),
+      cacheKey,
+      this.EVENT_CACHE_TTL,
+    );
+    return groupedSessions;
   }
 
   async isCycleActive(evaluationId: string): Promise<boolean> {
@@ -524,18 +917,58 @@ export class ClassEventsService {
   private async invalidateEventCache(
     evaluationId: string,
     eventId?: string,
+    categoryCycleContext?: CategoryCycleContext,
   ): Promise<void> {
-    await this.cacheService.del(
-      CLASS_EVENT_CACHE_KEYS.EVALUATION_LIST(evaluationId),
-    );
-
+    const deleteOps: Promise<unknown>[] = [
+      this.cacheService.del(
+        CLASS_EVENT_CACHE_KEYS.EVALUATION_LIST(evaluationId),
+      ),
+    ];
     if (eventId) {
-      await this.cacheService.del(CLASS_EVENT_CACHE_KEYS.DETAIL(eventId));
+      deleteOps.push(
+        this.cacheService.del(CLASS_EVENT_CACHE_KEYS.DETAIL(eventId)),
+      );
+    }
+    await Promise.all(deleteOps);
+
+    const categoryCycleGroup =
+      this.resolveCategoryCycleGroupByContext(categoryCycleContext) ??
+      (await this.resolveCategoryCycleGroupByEvaluationId(evaluationId));
+    const categoryCycleIndex =
+      this.resolveCategoryCycleIndexByContext(categoryCycleContext) ??
+      (await this.resolveCategoryCycleIndexByEvaluationId(evaluationId));
+    const affectedUserIds =
+      await this.classEventRepository.findAffectedScheduleUserIdsByEvaluation(
+        evaluationId,
+      );
+    const uniqueAffectedUserIds = [...new Set(affectedUserIds)];
+
+    const invalidateOps: Promise<unknown>[] = [];
+    if (categoryCycleIndex) {
+      invalidateOps.push(this.cacheService.invalidateIndex(categoryCycleIndex));
+    } else if (categoryCycleGroup) {
+      invalidateOps.push(this.cacheService.invalidateGroup(categoryCycleGroup));
+    }
+    const userInvalidationThreshold = 100;
+    if (uniqueAffectedUserIds.length > userInvalidationThreshold) {
+      invalidateOps.push(
+        this.cacheService.invalidateIndex(
+          CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_INDEX,
+        ),
+      );
+    } else {
+      for (const userId of uniqueAffectedUserIds) {
+        invalidateOps.push(
+          this.cacheService.invalidateIndex(
+            CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX(userId),
+          ),
+        );
+      }
     }
 
-    await this.cacheService.invalidateGroup(
-      CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_GROUP,
-    );
+    if (invalidateOps.length > 0) {
+      await Promise.all(invalidateOps);
+    }
   }
 
   private async getRecordingStatusIdByCode(
@@ -566,11 +999,50 @@ export class ClassEventsService {
     return status.id;
   }
 
-  private validateEventOwnership(creatorId: string, user: User): void {
+  private isAdminUser(user: User): boolean {
     const roles = (user.roles || []).map((r) => r.code);
-    const isAdmin = ADMIN_ROLE_CODES.some((roleCode) =>
-      roles.includes(roleCode),
-    );
+    return ADMIN_ROLE_CODES.some((roleCode) => roles.includes(roleCode));
+  }
+
+  private async assertMutationAllowedForEvaluation(
+    user: User,
+    evaluation: {
+      id: string;
+      courseCycle?: { academicCycleId: string } | null;
+    },
+  ): Promise<void> {
+    if (this.isAdminUser(user)) {
+      return;
+    }
+
+    const activeCycleId = await this.authSettingsService.getActiveCycleId();
+    const evaluationCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!evaluationCycleId) {
+      throw new InternalServerErrorException(
+        'No se pudo resolver el ciclo académico de la evaluación',
+      );
+    }
+
+    if (evaluationCycleId !== activeCycleId) {
+      throw new BadRequestException(
+        'Solo puedes modificar eventos de tu curso en el ciclo actual',
+      );
+    }
+
+    const isAssigned =
+      await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
+        evaluation.id,
+        user.id,
+      );
+    if (!isAssigned) {
+      throw new ForbiddenException(
+        'No tienes permisos para modificar eventos de esta evaluación',
+      );
+    }
+  }
+
+  private validateEventOwnership(creatorId: string, user: User): void {
+    const isAdmin = this.isAdminUser(user);
 
     if (!isAdmin && creatorId !== user.id) {
       throw new ForbiddenException(

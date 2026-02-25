@@ -15,6 +15,7 @@ import { CreateClassEventDto } from '@modules/events/dto/create-class-event.dto'
 import { UpdateClassEventDto } from '@modules/events/dto/update-class-event.dto';
 import { AssignProfessorDto } from '@modules/events/dto/assign-professor.dto';
 import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.dto';
+import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -142,6 +143,28 @@ export class ClassEventsController {
       end,
     );
     return await this.mapEventsToResponse(events, user);
+  }
+
+  @Get('discovery/layers/:courseCycleId')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Capas de calendario obtenidas exitosamente')
+  async getDiscoveryLayers(
+    @Param('courseCycleId') courseCycleId: string,
+  ): Promise<Awaited<ReturnType<ClassEventsService['getDiscoveryLayers']>>> {
+    return await this.classEventsService.getDiscoveryLayers(courseCycleId);
+  }
+
+  @Get('global/sessions')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Sesiones globales obtenidas exitosamente')
+  async getGlobalSessions(
+    @Query() query: GlobalSessionsQueryDto,
+  ): Promise<Awaited<ReturnType<ClassEventsService['getGlobalSessions']>>> {
+    return await this.classEventsService.getGlobalSessions(
+      query.courseCycleIds,
+      new Date(query.startDate),
+      new Date(query.endDate),
+    );
   }
 
   @Get('evaluation/:evaluationId')

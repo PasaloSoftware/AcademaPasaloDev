@@ -27,6 +27,22 @@ export type AdminCourseCycleListRow = {
   }>;
 };
 
+export type CalendarDiscoveryLayerRow = {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  courseTypeCode: string;
+};
+
+export type CourseCycleCategoryMetaRow = {
+  courseCycleId: string;
+  academicCycleId: string;
+  courseTypeId: string;
+};
+
 @Injectable()
 export class CourseCycleRepository {
   constructor(
@@ -164,6 +180,71 @@ export class CourseCycleRepository {
       .where('cc.courseId = :courseId', { courseId })
       .andWhere('ac.code = :cycleCode', { cycleCode })
       .getOne();
+  }
+
+  async findSiblingLayersByCategoryAndCycle(
+    courseCycleId: string,
+    activeCycleId: string,
+  ): Promise<CalendarDiscoveryLayerRow[]> {
+    const rows = await this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .innerJoin(
+        'course_type',
+        'courseType',
+        'courseType.id = course.course_type_id',
+      )
+      .innerJoin('course_cycle', 'targetCc', 'targetCc.id = :courseCycleId', {
+        courseCycleId,
+      })
+      .innerJoin(
+        'course',
+        'targetCourse',
+        'targetCourse.id = targetCc.course_id',
+      )
+      .where('cc.academic_cycle_id = :activeCycleId', { activeCycleId })
+      .andWhere('cc.id != :courseCycleId', { courseCycleId })
+      .andWhere('course.course_type_id = targetCourse.course_type_id')
+      .select([
+        'cc.id AS courseCycleId',
+        'course.id AS courseId',
+        'course.code AS courseCode',
+        'course.name AS courseName',
+        'course.primary_color AS primaryColor',
+        'course.secondary_color AS secondaryColor',
+        'courseType.code AS courseTypeCode',
+      ])
+      .orderBy('course.name', 'ASC')
+      .getRawMany<CalendarDiscoveryLayerRow>();
+
+    return rows.map((row) => ({
+      courseCycleId: row.courseCycleId,
+      courseId: row.courseId,
+      courseCode: row.courseCode,
+      courseName: row.courseName,
+      primaryColor: row.primaryColor || null,
+      secondaryColor: row.secondaryColor || null,
+      courseTypeCode: row.courseTypeCode,
+    }));
+  }
+
+  async findCategoryMetadataByIds(
+    courseCycleIds: string[],
+  ): Promise<CourseCycleCategoryMetaRow[]> {
+    if (courseCycleIds.length === 0) {
+      return [];
+    }
+
+    return await this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .where('cc.id IN (:...courseCycleIds)', { courseCycleIds })
+      .select([
+        'cc.id AS courseCycleId',
+        'cc.academic_cycle_id AS academicCycleId',
+        'course.course_type_id AS courseTypeId',
+      ])
+      .getRawMany<CourseCycleCategoryMetaRow>();
   }
 
   async findAdminCourseCyclesPage(

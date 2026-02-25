@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
 import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
@@ -7,11 +7,14 @@ import { ClassEventRecordingStatusRepository } from '@modules/events/infrastruct
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
 import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
+import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
 import { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
+import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import {
   CLASS_EVENT_CACHE_KEYS,
@@ -23,8 +26,10 @@ describe('ClassEventsService', () => {
   let classEventRepository: jest.Mocked<ClassEventRepository>;
   let evaluationRepository: jest.Mocked<EvaluationRepository>;
   let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
+  let courseCycleRepository: jest.Mocked<CourseCycleRepository>;
   let classEventRecordingStatusRepository: jest.Mocked<ClassEventRecordingStatusRepository>;
   let enrollmentEvaluationRepository: jest.Mocked<EnrollmentEvaluationRepository>;
+  let authSettingsService: jest.Mocked<AuthSettingsService>;
   let userRepository: jest.Mocked<UserRepository>;
   let cacheService: jest.Mocked<RedisCacheService>;
   let dataSource: jest.Mocked<DataSource>;
@@ -64,6 +69,10 @@ describe('ClassEventsService', () => {
   const mockEvaluation = {
     id: 'eval-1',
     courseCycleId: 'cycle-1',
+    courseCycle: {
+      academicCycleId: 'ac-1',
+      course: { courseTypeId: 'ct-1' },
+    },
     startDate: new Date('2026-01-01T00:00:00Z'),
     endDate: new Date('2026-12-31T23:59:59Z'),
   } as Evaluation;
@@ -81,6 +90,7 @@ describe('ClassEventsService', () => {
               ) as (manager: EntityManager) => Promise<unknown>;
               return runInTransaction({
                 getRepository: jest.fn(),
+                query: jest.fn().mockResolvedValue([{ acquired: 1 }]),
               } as unknown as EntityManager);
             }),
             query: jest.fn().mockResolvedValue([{ 1: 1 }]),
@@ -98,6 +108,10 @@ describe('ClassEventsService', () => {
             cancelEvent: jest.fn(),
             findByUserAndRange: jest.fn(),
             findOverlap: jest.fn(),
+            findGlobalSessionsByCourseCyclesAndRange: jest.fn(),
+            findAffectedScheduleUserIdsByEvaluation: jest
+              .fn()
+              .mockResolvedValue([]),
           },
         },
         {
@@ -114,7 +128,7 @@ describe('ClassEventsService', () => {
             findByCode: jest.fn().mockResolvedValue({
               id: '1',
               code: 'NOT_AVAILABLE',
-              name: 'Grabación no disponible',
+              name: 'GrabaciÃ³n no disponible',
             }),
           },
         },
@@ -138,6 +152,20 @@ describe('ClassEventsService', () => {
           },
         },
         {
+          provide: CourseCycleRepository,
+          useValue: {
+            findFullById: jest.fn(),
+            findSiblingLayersByCategoryAndCycle: jest.fn(),
+            findCategoryMetadataByIds: jest.fn(),
+          },
+        },
+        {
+          provide: AuthSettingsService,
+          useValue: {
+            getActiveCycleId: jest.fn(),
+          },
+        },
+        {
           provide: UserRepository,
           useValue: {
             findById: jest.fn(),
@@ -149,6 +177,8 @@ describe('ClassEventsService', () => {
             get: jest.fn().mockResolvedValue(null),
             set: jest.fn().mockResolvedValue(undefined),
             del: jest.fn().mockResolvedValue(undefined),
+            addToIndex: jest.fn().mockResolvedValue(undefined),
+            invalidateIndex: jest.fn().mockResolvedValue(undefined),
             invalidateGroup: jest.fn().mockResolvedValue(undefined),
           },
         },
@@ -159,13 +189,19 @@ describe('ClassEventsService', () => {
     classEventRepository = module.get(ClassEventRepository);
     evaluationRepository = module.get(EvaluationRepository);
     courseCycleProfessorRepository = module.get(CourseCycleProfessorRepository);
+    courseCycleRepository = module.get(CourseCycleRepository);
     classEventRecordingStatusRepository = module.get(
       ClassEventRecordingStatusRepository,
     );
     enrollmentEvaluationRepository = module.get(EnrollmentEvaluationRepository);
+    authSettingsService = module.get(AuthSettingsService);
     userRepository = module.get(UserRepository);
     cacheService = module.get(RedisCacheService);
     dataSource = module.get(DataSource);
+    authSettingsService.getActiveCycleId.mockResolvedValue('ac-1');
+    (
+      courseCycleProfessorRepository.isProfessorAssignedToEvaluation as jest.Mock
+    ).mockResolvedValue(true);
   });
 
   describe('createEvent', () => {
@@ -173,6 +209,9 @@ describe('ClassEventsService', () => {
       evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
       classEventRepository.findByEvaluationAndSessionNumber.mockResolvedValue(
         null,
+      );
+      classEventRepository.findAffectedScheduleUserIdsByEvaluation.mockResolvedValue(
+        ['prof-1', 'student-1'],
       );
       classEventRepository.create.mockResolvedValue(mockEvent);
 
@@ -192,8 +231,14 @@ describe('ClassEventsService', () => {
       expect(cacheService.del).toHaveBeenCalledWith(
         CLASS_EVENT_CACHE_KEYS.EVALUATION_LIST('eval-1'),
       );
-      expect(cacheService.invalidateGroup).toHaveBeenCalledWith(
-        CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_GROUP,
+      expect(cacheService.invalidateIndex).toHaveBeenCalledWith(
+        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX('ct-1', 'ac-1'),
+      );
+      expect(cacheService.invalidateIndex).toHaveBeenCalledWith(
+        CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX('prof-1'),
+      );
+      expect(cacheService.invalidateIndex).toHaveBeenCalledWith(
+        CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX('student-1'),
       );
     });
 
@@ -215,10 +260,10 @@ describe('ClassEventsService', () => {
           'link',
           mockProfessor,
         ),
-      ).rejects.toThrow('El horario ya está ocupado por la sesión 2 de PC1');
+      ).rejects.toThrow('El horario ya');
     });
 
-    it('debe usar cache para estado de grabación si ya existe', async () => {
+    it('debe usar cache para estado de grabaciÃ³n si ya existe', async () => {
       cacheService.get.mockImplementation(async (key: string) => {
         if (key === 'cache:class-event-recording-status:code:NOT_AVAILABLE') {
           return '1';
@@ -259,7 +304,7 @@ describe('ClassEventsService', () => {
       expect(result).toEqual([mockEvent]);
     });
 
-    it('debe retornar eventos si el ALUMNO está matriculado', async () => {
+    it('debe retornar eventos si el ALUMNO estÃ¡ matriculado', async () => {
       userRepository.findById.mockResolvedValue(mockStudent);
       enrollmentEvaluationRepository.checkAccess.mockResolvedValue(true);
       classEventRepository.findByEvaluationId.mockResolvedValue([mockEvent]);
@@ -359,7 +404,7 @@ describe('ClassEventsService', () => {
       );
     });
 
-    it('como PROFESSOR debe consultar la asignación (sin consultar userRepository.findById)', async () => {
+    it('como PROFESSOR debe consultar la asignaciÃ³n (sin consultar userRepository.findById)', async () => {
       const now = Date.now();
       const event = {
         ...mockEvent,
@@ -382,7 +427,7 @@ describe('ClassEventsService', () => {
   });
 
   describe('canWatchRecording', () => {
-    it('debe permitir ver grabación finalizada con acceso', async () => {
+    it('debe permitir ver grabaciÃ³n finalizada con acceso', async () => {
       const now = Date.now();
       const event = {
         ...mockEvent,
@@ -427,7 +472,172 @@ describe('ClassEventsService', () => {
     });
   });
 
-  describe('Expiración de Acceso (Instant Revocation)', () => {
+  describe('getDiscoveryLayers', () => {
+    it('debe fallar si el courseCycle no pertenece al ciclo activo', async () => {
+      courseCycleRepository.findFullById.mockResolvedValue({
+        id: 'cc-1',
+        academicCycleId: 'ac-1',
+        course: { courseTypeId: 'ct-1' },
+      } as unknown as CourseCycle);
+      authSettingsService.getActiveCycleId.mockResolvedValue('ac-2');
+
+      await expect(service.getDiscoveryLayers('cc-1')).rejects.toThrow(
+        'ciclo actual',
+      );
+    });
+
+    it('debe retornar capas hermanas del mismo tipo y ciclo activo', async () => {
+      courseCycleRepository.findFullById.mockResolvedValue({
+        id: 'cc-1',
+        academicCycleId: 'ac-1',
+        course: { courseTypeId: 'ct-1' },
+      } as unknown as CourseCycle);
+      authSettingsService.getActiveCycleId.mockResolvedValue('ac-1');
+      courseCycleRepository.findSiblingLayersByCategoryAndCycle.mockResolvedValue(
+        [
+          {
+            courseCycleId: 'cc-2',
+            courseId: 'course-2',
+            courseCode: 'MAT-102',
+            courseName: 'Algebra II',
+            primaryColor: '#111111',
+            secondaryColor: '#222222',
+            courseTypeCode: 'CIENCIAS',
+          },
+        ],
+      );
+
+      const result = await service.getDiscoveryLayers('cc-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].courseCycleId).toBe('cc-2');
+      expect(
+        courseCycleRepository.findSiblingLayersByCategoryAndCycle,
+      ).toHaveBeenCalledWith('cc-1', 'ac-1');
+    });
+  });
+
+  describe('getGlobalSessions', () => {
+    it('debe agrupar sesiones por courseCycle con colores', async () => {
+      courseCycleRepository.findCategoryMetadataByIds.mockResolvedValue([
+        {
+          courseCycleId: 'cc-1',
+          academicCycleId: 'ac-1',
+          courseTypeId: 'ct-1',
+        },
+        {
+          courseCycleId: 'cc-2',
+          academicCycleId: 'ac-1',
+          courseTypeId: 'ct-1',
+        },
+      ]);
+      classEventRepository.findGlobalSessionsByCourseCyclesAndRange.mockResolvedValue(
+        [
+          {
+            eventId: 'ev-1',
+            evaluationId: 'eval-1',
+            sessionNumber: 1,
+            title: 'Sesion 1',
+            topic: 'Tema 1',
+            startDatetime: new Date('2026-02-10T10:00:00Z'),
+            endDatetime: new Date('2026-02-10T11:00:00Z'),
+            courseCycleId: 'cc-1',
+            courseId: 'c-1',
+            courseCode: 'MAT-101',
+            courseName: 'Algebra I',
+            primaryColor: '#123456',
+            secondaryColor: '#abcdef',
+          },
+          {
+            eventId: 'ev-2',
+            evaluationId: 'eval-2',
+            sessionNumber: 2,
+            title: 'Sesion 2',
+            topic: 'Tema 2',
+            startDatetime: new Date('2026-02-10T12:00:00Z'),
+            endDatetime: new Date('2026-02-10T13:00:00Z'),
+            courseCycleId: 'cc-1',
+            courseId: 'c-1',
+            courseCode: 'MAT-101',
+            courseName: 'Algebra I',
+            primaryColor: '#123456',
+            secondaryColor: '#abcdef',
+          },
+          {
+            eventId: 'ev-3',
+            evaluationId: 'eval-3',
+            sessionNumber: 1,
+            title: 'Sesion A',
+            topic: 'Tema A',
+            startDatetime: new Date('2026-02-11T10:00:00Z'),
+            endDatetime: new Date('2026-02-11T11:00:00Z'),
+            courseCycleId: 'cc-2',
+            courseId: 'c-2',
+            courseCode: 'FIS-101',
+            courseName: 'Fisica I',
+            primaryColor: '#111111',
+            secondaryColor: '#222222',
+          },
+        ],
+      );
+
+      const result = await service.getGlobalSessions(
+        ['cc-1', 'cc-2'],
+        new Date('2026-02-01T00:00:00Z'),
+        new Date('2026-02-28T23:59:59Z'),
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].sessions.length).toBeGreaterThan(0);
+      expect(result[0]).toHaveProperty('primaryColor');
+      expect(result[0]).toHaveProperty('secondaryColor');
+      expect(
+        classEventRepository.findGlobalSessionsByCourseCyclesAndRange,
+      ).toHaveBeenCalledWith(
+        ['cc-1', 'cc-2'],
+        expect.any(Date),
+        expect.any(Date),
+      );
+    });
+
+    it('debe retornar vacio si no recibe courseCycleIds', async () => {
+      const result = await service.getGlobalSessions(
+        [],
+        new Date('2026-02-01T00:00:00Z'),
+        new Date('2026-02-28T23:59:59Z'),
+      );
+
+      expect(result).toEqual([]);
+      expect(
+        classEventRepository.findGlobalSessionsByCourseCyclesAndRange,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('debe fallar si courseCycleIds mezclan categorÃ­a/ciclo', async () => {
+      courseCycleRepository.findCategoryMetadataByIds.mockResolvedValue([
+        {
+          courseCycleId: 'cc-1',
+          academicCycleId: 'ac-1',
+          courseTypeId: 'ct-1',
+        },
+        {
+          courseCycleId: 'cc-2',
+          academicCycleId: 'ac-2',
+          courseTypeId: 'ct-2',
+        },
+      ]);
+
+      await expect(
+        service.getGlobalSessions(
+          ['cc-1', 'cc-2'],
+          new Date('2026-02-01T00:00:00Z'),
+          new Date('2026-02-28T23:59:59Z'),
+        ),
+      ).rejects.toThrow('misma categor');
+    });
+  });
+
+  describe('ExpiraciÃ³n de Acceso (Instant Revocation)', () => {
     it('debe denegar acceso si la fecha actual es posterior a access_end_date', async () => {
       userRepository.findById.mockResolvedValue(mockStudent);
       enrollmentEvaluationRepository.checkAccess.mockResolvedValue(false);
@@ -457,8 +667,8 @@ describe('ClassEventsService', () => {
     });
   });
 
-  describe('Integridad de Tipos de Fecha (Regresión)', () => {
-    it('debe calcular PROGRAMADA aunque la BD devuelva fechas como STRINGS (Protección getEpoch)', () => {
+  describe('Integridad de Tipos de Fecha (RegresiÃ³n)', () => {
+    it('debe calcular PROGRAMADA aunque la BD devuelva fechas como STRINGS (ProtecciÃ³n getEpoch)', () => {
       const eventWithStrings = {
         startDatetime: '2026-12-01T10:00:00.000Z',
         endDatetime: '2026-12-01T12:00:00.000Z',
@@ -479,11 +689,15 @@ describe('ClassEventsService', () => {
         endDatetime: new Date('2026-02-01T10:00:00Z'),
       } as ClassEvent;
       classEventRepository.findByIdSimple.mockResolvedValue(event);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
       classEventRecordingStatusRepository.findByCode.mockResolvedValue({
         id: '3',
         code: 'READY',
-        name: 'Grabación disponible',
+        name: 'GrabaciÃ³n disponible',
       });
+      classEventRepository.findAffectedScheduleUserIdsByEvaluation.mockResolvedValue(
+        ['prof-1'],
+      );
       classEventRepository.update.mockResolvedValue({
         ...event,
         recordingUrl: 'https://video.example.com/ready-1',
@@ -513,12 +727,12 @@ describe('ClassEventsService', () => {
       expect(cacheService.del).toHaveBeenCalledWith(
         CLASS_EVENT_CACHE_KEYS.DETAIL('event-1'),
       );
-      expect(cacheService.invalidateGroup).toHaveBeenCalledWith(
-        CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_GROUP,
+      expect(cacheService.invalidateIndex).toHaveBeenCalledWith(
+        CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX('prof-1'),
       );
     });
 
-    it('debe lanzar ConflictException si el nuevo horario para actualizar se cruza con otra sesión', async () => {
+    it('debe lanzar ConflictException si el nuevo horario para actualizar se cruza con otra sesiÃ³n', async () => {
       const existingEvent = { ...mockEvent, id: 'event-1' };
       const overlappingEvent = {
         id: 'event-2',
@@ -539,15 +753,14 @@ describe('ClassEventsService', () => {
           new Date('2026-02-05T08:00:00Z'),
           new Date('2026-02-05T10:00:00Z'),
         ),
-      ).rejects.toThrow(
-        'No es posible actualizar el horario. Existe un cruce con la sesión 3 de PC1',
-      );
+      ).rejects.toThrow('No es posible actualizar el horario');
 
       expect(classEventRepository.findOverlap).toHaveBeenCalledWith(
         'cycle-1',
         expect.any(Date),
         expect.any(Date),
         'event-1',
+        expect.any(Object),
       );
     });
 

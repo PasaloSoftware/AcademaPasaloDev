@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { NestErrorResponse } from '@common/interfaces/nest-error-response.interface';
+import { technicalSettings } from '@config/technical-settings';
 
 interface RequestWithUrl {
   url: string;
@@ -79,7 +80,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
       return exception.message;
     }
-    return 'Error Interno del Servidor. Por favor contacte con la academia.';
+    return technicalSettings.responses.defaultInternalServerErrorMessage;
   }
 
   private getErrorName(status: HttpStatus): string {
