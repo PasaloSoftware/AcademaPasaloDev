@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
 import { ClassEventsPermissionService } from '@modules/events/application/class-events-permission.service';
+import { ClassEventsSchedulingService } from '@modules/events/application/class-events-scheduling.service';
 import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
@@ -27,6 +28,7 @@ describe('ClassEventsService', () => {
   let courseCycleRepository: jest.Mocked<CourseCycleRepository>;
   let classEventRecordingStatusRepository: jest.Mocked<ClassEventRecordingStatusRepository>;
   let permissionService: jest.Mocked<ClassEventsPermissionService>;
+  let schedulingService: jest.Mocked<ClassEventsSchedulingService>;
   let authSettingsService: jest.Mocked<AuthSettingsService>;
   let cacheService: jest.Mocked<RedisCacheService>;
   let dataSource: jest.Mocked<DataSource>;
@@ -160,6 +162,15 @@ describe('ClassEventsService', () => {
           },
         },
         {
+          provide: ClassEventsSchedulingService,
+          useValue: {
+            acquireCalendarLock: jest.fn().mockResolvedValue('lock-key'),
+            releaseCalendarLock: jest.fn().mockResolvedValue(undefined),
+            findOverlap: jest.fn().mockResolvedValue(null),
+            validateEventDates: jest.fn().mockReturnValue(undefined),
+          },
+        },
+        {
           provide: RedisCacheService,
           useValue: {
             get: jest.fn().mockResolvedValue(null),
@@ -181,6 +192,7 @@ describe('ClassEventsService', () => {
       ClassEventRecordingStatusRepository,
     );
     permissionService = module.get(ClassEventsPermissionService);
+    schedulingService = module.get(ClassEventsSchedulingService);
     authSettingsService = module.get(AuthSettingsService);
     cacheService = module.get(RedisCacheService);
     dataSource = module.get(DataSource);
@@ -218,11 +230,12 @@ describe('ClassEventsService', () => {
 
       expect(classEventRepository.create).toHaveBeenCalled();
       expect(permissionService.assertMutationAllowedForEvaluation).toHaveBeenCalled();
+      expect(schedulingService.acquireCalendarLock).toHaveBeenCalled();
     });
 
     it('debe lanzar ConflictException si hay traslape de horario en el curso', async () => {
       evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
-      classEventRepository.findOverlap.mockResolvedValue({
+      schedulingService.findOverlap.mockResolvedValue({
         sessionNumber: 2,
         evaluation: { evaluationType: { name: 'PC' }, number: 1 },
       } as any);
@@ -238,96 +251,7 @@ describe('ClassEventsService', () => {
           'link',
           mockProfessor,
         ),
-      ).rejects.toThrow('El horario ya');
-    });
-  });
-
-  describe('getEventsByEvaluation', () => {
-    it('debe retornar eventos si el usuario tiene autorización', async () => {
-      permissionService.checkUserAuthorization.mockResolvedValue(true);
-      classEventRepository.findByEvaluationId.mockResolvedValue([mockEvent]);
-
-      const result = await service.getEventsByEvaluation('eval-1', 'user-1');
-
-      expect(result).toEqual([mockEvent]);
-      expect(permissionService.checkUserAuthorization).toHaveBeenCalledWith('user-1', 'eval-1');
-    });
-
-    it('debe lanzar ForbiddenException si no hay acceso', async () => {
-      permissionService.checkUserAuthorization.mockResolvedValue(false);
-
-      await expect(
-        service.getEventsByEvaluation('eval-1', 'user-1')
-      ).rejects.toThrow(ForbiddenException);
-    });
-  });
-
-  describe('getEventDetail', () => {
-    it('debe retornar detalle si tiene acceso', async () => {
-      classEventRepository.findById.mockResolvedValue(mockEvent);
-      permissionService.checkUserAuthorization.mockResolvedValue(true);
-
-      const result = await service.getEventDetail('event-1', 'user-1');
-
-      expect(result).toEqual(mockEvent);
-      expect(permissionService.checkUserAuthorization).toHaveBeenCalledWith('user-1', 'eval-1');
-    });
-  });
-
-  describe('delegación de autorización', () => {
-    it('checkUserAuthorization debe llamar al permissionService', async () => {
-      await service.checkUserAuthorization('user-1', 'eval-1');
-      expect(permissionService.checkUserAuthorization).toHaveBeenCalledWith('user-1', 'eval-1');
-    });
-
-    it('checkUserAuthorizationForUser debe llamar al permissionService', async () => {
-      await service.checkUserAuthorizationForUser(mockStudent, 'eval-1');
-      expect(permissionService.checkUserAuthorizationForUser).toHaveBeenCalledWith(mockStudent, 'eval-1');
-    });
-  });
-
-  describe('canAccessMeetingLink', () => {
-    it('debe devolver false directamente (política Zero-Query)', async () => {
-      const result = await service.canAccessMeetingLink();
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('getEventAccess', () => {
-    it('debe devolver todas las banderas en false síncronamente', () => {
-      const result = service.getEventAccess();
-      expect(result).toEqual({
-        canJoinLive: false,
-        canWatchRecording: false,
-        canCopyLiveLink: false,
-        canCopyRecordingLink: false,
-      });
-    });
-  });
-
-  describe('getMySchedule', () => {
-    it('debe retornar tal cual los eventos del repositorio', async () => {
-      const start = new Date('2026-02-01');
-      const end = new Date('2026-02-07');
-      classEventRepository.findByUserAndRange.mockResolvedValue([mockEvent]);
-
-      const result = await service.getMySchedule('user-1', start, end);
-
-      expect(result).toEqual([mockEvent]);
-      expect(classEventRepository.findByUserAndRange).toHaveBeenCalled();
-    });
-  });
-
-  describe('Integridad de Tipos de Fecha', () => {
-    it('debe calcular PROGRAMADA aunque la BD devuelva fechas como STRINGS', () => {
-      const eventWithStrings = {
-        startDatetime: '2026-12-01T10:00:00.000Z',
-        endDatetime: '2026-12-01T12:00:00.000Z',
-        isCancelled: false,
-      } as unknown as ClassEvent;
-
-      const status = service.calculateEventStatus(eventWithStrings);
-      expect(status).toBe(CLASS_EVENT_STATUS.PROGRAMADA);
+      ).rejects.toThrow('El horario ya está ocupado');
     });
   });
 

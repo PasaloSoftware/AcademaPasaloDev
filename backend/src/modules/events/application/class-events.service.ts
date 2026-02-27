@@ -35,14 +35,13 @@ import {
 } from '@modules/events/domain/class-event.constants';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
 import { ClassEventsPermissionService } from '@modules/events/application/class-events-permission.service';
+import { ClassEventsSchedulingService } from '@modules/events/application/class-events-scheduling.service';
 
 @Injectable()
 export class ClassEventsService {
   private readonly logger = new Logger(ClassEventsService.name);
   private readonly EVENT_CACHE_TTL =
     technicalSettings.cache.events.classEventsCacheTtlSeconds;
-  private readonly CALENDAR_LOCK_TIMEOUT_SECONDS =
-    technicalSettings.cache.events.calendarLockTimeoutSeconds;
   private readonly CYCLE_ACTIVE_CACHE_TTL =
     technicalSettings.cache.events.cycleActiveCacheTtlSeconds;
   private readonly RECORDING_STATUS_CACHE_TTL =
@@ -50,43 +49,6 @@ export class ClassEventsService {
 
   private getRecordingStatusCacheKey(code: string): string {
     return `cache:class-event-recording-status:code:${code}`;
-  }
-
-  private getCalendarLockKey(
-    courseTypeId: string,
-    academicCycleId: string,
-  ): string {
-    return `calendar-lock:ct:${courseTypeId}:ac:${academicCycleId}`;
-  }
-
-  private async acquireCalendarLock(
-    manager: EntityManager,
-    courseTypeId: string,
-    academicCycleId: string,
-  ): Promise<string> {
-    const lockKey = this.getCalendarLockKey(courseTypeId, academicCycleId);
-    const rawRows: unknown = await manager.query(
-      'SELECT GET_LOCK(?, ?) AS acquired',
-      [lockKey, this.CALENDAR_LOCK_TIMEOUT_SECONDS],
-    );
-    const rows = Array.isArray(rawRows)
-      ? (rawRows as Array<{ acquired?: number | string | null }>)
-      : [];
-    const acquiredRaw = rows?.[0]?.acquired;
-    const acquired = acquiredRaw === 1 || acquiredRaw === '1';
-    if (!acquired) {
-      throw new ConflictException(
-        'Otro proceso está planificando horarios en este grupo académico. Inténtalo nuevamente.',
-      );
-    }
-    return lockKey;
-  }
-
-  private async releaseCalendarLock(
-    manager: EntityManager,
-    lockKey: string,
-  ): Promise<void> {
-    await manager.query('SELECT RELEASE_LOCK(?) AS released', [lockKey]);
   }
 
   constructor(
@@ -98,6 +60,7 @@ export class ClassEventsService {
     private readonly courseCycleRepository: CourseCycleRepository,
     private readonly authSettingsService: AuthSettingsService,
     private readonly permissionService: ClassEventsPermissionService,
+    private readonly schedulingService: ClassEventsSchedulingService,
     private readonly cacheService: RedisCacheService,
   ) {}
 
@@ -121,7 +84,7 @@ export class ClassEventsService {
       evaluation,
     );
 
-    this.validateEventDates(
+    this.schedulingService.validateEventDates(
       startDatetime,
       endDatetime,
       evaluation.startDate,
@@ -142,14 +105,14 @@ export class ClassEventsService {
     };
 
     const created = await this.dataSource.transaction(async (manager) => {
-      const lockKey = await this.acquireCalendarLock(
+      const lockKey = await this.schedulingService.acquireCalendarLock(
         manager,
         courseTypeId,
         academicCycleId,
       );
 
       try {
-        const overlap = await this.classEventRepository.findOverlap(
+        const overlap = await this.schedulingService.findOverlap(
           evaluation.courseCycleId,
           startDatetime,
           endDatetime,
@@ -207,7 +170,7 @@ export class ClassEventsService {
 
         return classEvent;
       } finally {
-        await this.releaseCalendarLock(manager, lockKey);
+        await this.schedulingService.releaseCalendarLock(manager, lockKey);
       }
     });
 
@@ -323,7 +286,7 @@ export class ClassEventsService {
       const finalStart = startDatetime || event.startDatetime;
       const finalEnd = endDatetime || event.endDatetime;
 
-      this.validateEventDates(
+      this.schedulingService.validateEventDates(
         finalStart,
         finalEnd,
         evaluation.startDate,
@@ -331,14 +294,14 @@ export class ClassEventsService {
       );
 
       updated = await this.dataSource.transaction(async (manager) => {
-        const lockKey = await this.acquireCalendarLock(
+        const lockKey = await this.schedulingService.acquireCalendarLock(
           manager,
           courseTypeId,
           academicCycleId,
         );
 
         try {
-          const overlap = await this.classEventRepository.findOverlap(
+          const overlap = await this.schedulingService.findOverlap(
             evaluation.courseCycleId,
             finalStart,
             finalEnd,
@@ -358,7 +321,7 @@ export class ClassEventsService {
             manager,
           );
         } finally {
-          await this.releaseCalendarLock(manager, lockKey);
+          await this.schedulingService.releaseCalendarLock(manager, lockKey);
         }
       });
     } else {
@@ -888,35 +851,5 @@ export class ClassEventsService {
       this.RECORDING_STATUS_CACHE_TTL,
     );
     return status.id;
-  }
-
-  private validateEventDates(
-    startDatetime: Date,
-    endDatetime: Date,
-    evaluationStart: Date,
-    evaluationEnd: Date,
-  ): void {
-    const startTime = getEpoch(startDatetime);
-    const endTime = getEpoch(endDatetime);
-    const evalStartTime = getEpoch(evaluationStart);
-    const evalEndTime = getEpoch(evaluationEnd);
-
-    if (endTime <= startTime) {
-      throw new BadRequestException(
-        'La fecha de fin debe ser posterior a la fecha de inicio',
-      );
-    }
-
-    if (startTime < evalStartTime || startTime > evalEndTime) {
-      throw new BadRequestException(
-        'La fecha de inicio debe estar dentro del rango de la evaluación',
-      );
-    }
-
-    if (endTime < evalStartTime || endTime > evalEndTime) {
-      throw new BadRequestException(
-        'La fecha de fin debe estar dentro del rango de la evaluación',
-      );
-    }
   }
 }

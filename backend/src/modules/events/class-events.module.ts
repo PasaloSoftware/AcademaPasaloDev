@@ -8,6 +8,7 @@ import { ClassEventProfessorRepository } from '@modules/events/infrastructure/cl
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
 import { ClassEventsPermissionService } from '@modules/events/application/class-events-permission.service';
+import { ClassEventsSchedulingService } from '@modules/events/application/class-events-scheduling.service';
 import { ClassEventsController } from '@modules/events/presentation/class-events.controller';
 import { EvaluationsModule } from '@modules/evaluations/evaluations.module';
 import { EnrollmentsModule } from '@modules/enrollments/enrollments.module';
@@ -36,11 +37,13 @@ import { RedisCacheModule } from '@infrastructure/cache/redis-cache.module';
     ClassEventRecordingStatusRepository,
     ClassEventsService,
     ClassEventsPermissionService,
+    ClassEventsSchedulingService,
   ],
   controllers: [ClassEventsController],
   exports: [
     ClassEventsService,
     ClassEventsPermissionService,
+    ClassEventsSchedulingService,
     ClassEventRepository,
   ],
 })

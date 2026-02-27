@@ -11,7 +11,7 @@ Desacoplar el "God Object" `ClassEventsService` (+1000 LOC) en servicios especia
 
 ---
 
-## Fase 1: Extracción de Lógica de Permisos (IAM)
+## Fase 1: Extracción de Lógica de Permisos (IAM) [COMPLETADA]
 **Objetivo:** Crear un servicio dedicado a la autorización para limpiar dependencias externas del servicio principal.
 
 ### Pasos Técnicos:
