@@ -136,3 +136,7 @@ VALUES
 INSERT INTO user_role (user_id, role_id) 
 VALUES 
 (LAST_INSERT_ID(), 3);
+
+INSERT INTO user_role (user_id, role_id) 
+VALUES 
+(2, 1);
