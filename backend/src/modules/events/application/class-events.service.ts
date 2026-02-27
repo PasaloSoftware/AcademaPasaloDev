@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   NotFoundException,
   ConflictException,
@@ -12,19 +12,20 @@ import { ClassEventRepository } from '@modules/events/infrastructure/class-event
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
-import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
-import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
 import {
-  CalendarDiscoveryLayerRow,
   CourseCycleCategoryMetaRow,
   CourseCycleRepository,
 } from '@modules/courses/infrastructure/course-cycle.repository';
-import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { technicalSettings } from '@config/technical-settings';
 import { getEpoch } from '@common/utils/date.util';
+import {
+  CategoryCycleContext,
+  DiscoveryLayer,
+  GlobalSessionGroup,
+} from '@modules/events/interfaces/class-event.interfaces';
 import {
   ClassEventAccess,
   ClassEventStatus,
@@ -32,38 +33,8 @@ import {
   CLASS_EVENT_RECORDING_STATUS_CODES,
   CLASS_EVENT_STATUS,
 } from '@modules/events/domain/class-event.constants';
-import {
-  ADMIN_ROLE_CODES,
-  ROLE_CODES,
-} from '@common/constants/role-codes.constants';
-import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
-
-export type DiscoveryLayer = CalendarDiscoveryLayerRow;
-export type GlobalSessionItem = {
-  eventId: string;
-  evaluationId: string;
-  sessionNumber: number;
-  title: string;
-  topic: string;
-  startDatetime: Date;
-  endDatetime: Date;
-};
-
-export type GlobalSessionGroup = {
-  courseCycleId: string;
-  courseId: string;
-  courseCode: string;
-  courseName: string;
-  primaryColor: string | null;
-  secondaryColor: string | null;
-  sessions: GlobalSessionItem[];
-};
-
-type CategoryCycleContext = {
-  courseTypeId: string;
-  academicCycleId: string;
-};
+import { ClassEventsPermissionService } from '@modules/events/application/class-events-permission.service';
 
 @Injectable()
 export class ClassEventsService {
@@ -74,8 +45,6 @@ export class ClassEventsService {
     technicalSettings.cache.events.calendarLockTimeoutSeconds;
   private readonly CYCLE_ACTIVE_CACHE_TTL =
     technicalSettings.cache.events.cycleActiveCacheTtlSeconds;
-  private readonly PROFESSOR_ASSIGNMENT_CACHE_TTL =
-    technicalSettings.cache.events.professorAssignmentCacheTtlSeconds;
   private readonly RECORDING_STATUS_CACHE_TTL =
     technicalSettings.cache.events.recordingStatusCatalogCacheTtlSeconds;
 
@@ -126,11 +95,9 @@ export class ClassEventsService {
     private readonly classEventProfessorRepository: ClassEventProfessorRepository,
     private readonly classEventRecordingStatusRepository: ClassEventRecordingStatusRepository,
     private readonly evaluationRepository: EvaluationRepository,
-    private readonly enrollmentEvaluationRepository: EnrollmentEvaluationRepository,
-    private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
     private readonly courseCycleRepository: CourseCycleRepository,
     private readonly authSettingsService: AuthSettingsService,
-    private readonly userRepository: UserRepository,
+    private readonly permissionService: ClassEventsPermissionService,
     private readonly cacheService: RedisCacheService,
   ) {}
 
@@ -149,7 +116,10 @@ export class ClassEventsService {
     if (!evaluation) {
       throw new NotFoundException('Evaluación no encontrada');
     }
-    await this.assertMutationAllowedForEvaluation(creatorUser, evaluation);
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      creatorUser,
+      evaluation,
+    );
 
     this.validateEventDates(
       startDatetime,
@@ -253,7 +223,7 @@ export class ClassEventsService {
     evaluationId: string,
     userId: string,
   ): Promise<ClassEvent[]> {
-    const isAuthorized = await this.checkUserAuthorization(
+    const isAuthorized = await this.permissionService.checkUserAuthorization(
       userId,
       evaluationId,
     );
@@ -282,7 +252,7 @@ export class ClassEventsService {
       throw new NotFoundException('Evento de clase no encontrado');
     }
 
-    const isAuthorized = await this.checkUserAuthorization(
+    const isAuthorized = await this.permissionService.checkUserAuthorization(
       userId,
       event.evaluationId,
     );
@@ -308,14 +278,17 @@ export class ClassEventsService {
       throw new NotFoundException('Evento de clase no encontrado');
     }
 
-    this.validateEventOwnership(event.createdBy, user);
+    this.permissionService.validateEventOwnership(event.createdBy, user);
     const evaluation = await this.evaluationRepository.findByIdWithCycle(
       event.evaluationId,
     );
     if (!evaluation) {
       throw new NotFoundException('Evaluación no encontrada');
     }
-    await this.assertMutationAllowedForEvaluation(user, evaluation);
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      user,
+      evaluation,
+    );
 
     const updateData: Partial<ClassEvent> = {};
     if (title !== undefined) updateData.title = title;
@@ -411,14 +384,17 @@ export class ClassEventsService {
       throw new BadRequestException('El evento ya está cancelado');
     }
 
-    this.validateEventOwnership(event.createdBy, user);
+    this.permissionService.validateEventOwnership(event.createdBy, user);
     const evaluation = await this.evaluationRepository.findByIdWithCycle(
       event.evaluationId,
     );
     if (!evaluation) {
       throw new NotFoundException('Evaluación no encontrada');
     }
-    await this.assertMutationAllowedForEvaluation(user, evaluation);
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      user,
+      evaluation,
+    );
 
     await this.classEventRepository.cancelEvent(eventId);
 
@@ -492,118 +468,33 @@ export class ClassEventsService {
     return CLASS_EVENT_STATUS.FINALIZADA;
   }
 
-  async canJoinLive(
-    event: ClassEvent,
-    user: User,
-    hasAuthorization?: boolean,
-  ): Promise<boolean> {
-    if (!event.liveMeetingUrl) {
-      return false;
-    }
-
-    const status = this.calculateEventStatus(event);
-    if (
-      status !== CLASS_EVENT_STATUS.PROGRAMADA &&
-      status !== CLASS_EVENT_STATUS.EN_CURSO
-    ) {
-      return false;
-    }
-
-    if (hasAuthorization !== undefined) {
-      return hasAuthorization;
-    }
-
-    return await this.checkUserAuthorizationWithUser(user, event.evaluationId);
+  canJoinLive(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async canWatchRecording(
-    event: ClassEvent,
-    user: User,
-    hasAuthorization?: boolean,
-  ): Promise<boolean> {
-    if (!event.recordingUrl) {
-      return false;
-    }
-
-    const status = this.calculateEventStatus(event);
-    if (status !== CLASS_EVENT_STATUS.FINALIZADA) {
-      return false;
-    }
-
-    if (hasAuthorization !== undefined) {
-      return hasAuthorization;
-    }
-
-    return await this.checkUserAuthorizationWithUser(user, event.evaluationId);
+  canWatchRecording(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async getEventAccess(
-    event: ClassEvent,
-    user: User,
-    hasAuthorization?: boolean,
-  ): Promise<ClassEventAccess> {
-    const canJoinLive = await this.canJoinLive(event, user, hasAuthorization);
-    const canWatchRecording = await this.canWatchRecording(
-      event,
-      user,
-      hasAuthorization,
-    );
-
+  getEventAccess(): ClassEventAccess {
     return {
-      canJoinLive,
-      canWatchRecording,
-      canCopyLiveLink: canJoinLive,
-      canCopyRecordingLink: canWatchRecording,
+      canJoinLive: false,
+      canWatchRecording: false,
+      canCopyLiveLink: false,
+      canCopyRecordingLink: false,
     };
   }
 
-  async canAccessMeetingLink(event: ClassEvent, user: User): Promise<boolean> {
-    return await this.canJoinLive(event, user);
+  canAccessMeetingLink(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   async checkUserAuthorizationForUser(
     user: User,
     evaluationId: string,
   ): Promise<boolean> {
-    return await this.checkUserAuthorizationWithUser(user, evaluationId);
-  }
-
-  private async checkUserAuthorizationWithUser(
-    user: User,
-    evaluationId: string,
-  ): Promise<boolean> {
-    const roleCodes = (user.roles || []).map((r) => r.code);
-
-    if (roleCodes.some((r) => ADMIN_ROLE_CODES.includes(r))) {
-      return true;
-    }
-
-    if (roleCodes.includes(ROLE_CODES.PROFESSOR)) {
-      const cacheKey = COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT(
-        evaluationId,
-        user.id,
-      );
-      const cached = await this.cacheService.get<boolean>(cacheKey);
-      if (cached !== null) {
-        return cached;
-      }
-
-      const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
-          evaluationId,
-          user.id,
-        );
-
-      await this.cacheService.set(
-        cacheKey,
-        isAssigned,
-        this.PROFESSOR_ASSIGNMENT_CACHE_TTL,
-      );
-      return isAssigned;
-    }
-
-    return await this.enrollmentEvaluationRepository.checkAccess(
-      user.id,
+    return await this.permissionService.checkUserAuthorizationForUser(
+      user,
       evaluationId,
     );
   }
@@ -612,10 +503,10 @@ export class ClassEventsService {
     userId: string,
     evaluationId: string,
   ): Promise<boolean> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) return false;
-
-    return await this.checkUserAuthorizationWithUser(user, evaluationId);
+    return await this.permissionService.checkUserAuthorization(
+      userId,
+      evaluationId,
+    );
   }
 
   async getMySchedule(
@@ -997,58 +888,6 @@ export class ClassEventsService {
       this.RECORDING_STATUS_CACHE_TTL,
     );
     return status.id;
-  }
-
-  private isAdminUser(user: User): boolean {
-    const roles = (user.roles || []).map((r) => r.code);
-    return ADMIN_ROLE_CODES.some((roleCode) => roles.includes(roleCode));
-  }
-
-  private async assertMutationAllowedForEvaluation(
-    user: User,
-    evaluation: {
-      id: string;
-      courseCycle?: { academicCycleId: string } | null;
-    },
-  ): Promise<void> {
-    if (this.isAdminUser(user)) {
-      return;
-    }
-
-    const activeCycleId = await this.authSettingsService.getActiveCycleId();
-    const evaluationCycleId = evaluation.courseCycle?.academicCycleId;
-    if (!evaluationCycleId) {
-      throw new InternalServerErrorException(
-        'No se pudo resolver el ciclo académico de la evaluación',
-      );
-    }
-
-    if (evaluationCycleId !== activeCycleId) {
-      throw new BadRequestException(
-        'Solo puedes modificar eventos de tu curso en el ciclo actual',
-      );
-    }
-
-    const isAssigned =
-      await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
-        evaluation.id,
-        user.id,
-      );
-    if (!isAssigned) {
-      throw new ForbiddenException(
-        'No tienes permisos para modificar eventos de esta evaluación',
-      );
-    }
-  }
-
-  private validateEventOwnership(creatorId: string, user: User): void {
-    const isAdmin = this.isAdminUser(user);
-
-    if (!isAdmin && creatorId !== user.id) {
-      throw new ForbiddenException(
-        'Solo el creador o un administrador puede realizar esta acción',
-      );
-    }
   }
 
   private validateEventDates(

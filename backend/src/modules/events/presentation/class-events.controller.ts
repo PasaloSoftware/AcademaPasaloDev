@@ -29,67 +29,19 @@ import { ROLE_CODES } from '@common/constants/role-codes.constants';
 export class ClassEventsController {
   constructor(private readonly classEventsService: ClassEventsService) {}
 
-  private async mapEventsToResponse(
+  private mapEventsToResponse(
     events: Awaited<ReturnType<ClassEventsService['getEventsByEvaluation']>>,
-    user: User,
-  ): Promise<ClassEventResponseDto[]> {
-    const authorizationByEvaluation = new Map<string, boolean>();
-
-    return Promise.all(
-      events.map(async (event) => {
-        const status = this.classEventsService.calculateEventStatus(event);
-        const needsAuthorization = Boolean(
-          event.liveMeetingUrl || event.recordingUrl,
-        );
-        let hasAuthorization = false;
-
-        if (needsAuthorization) {
-          const cachedAuthorization = authorizationByEvaluation.get(
-            event.evaluationId,
-          );
-          hasAuthorization =
-            cachedAuthorization !== undefined
-              ? cachedAuthorization
-              : await this.classEventsService.checkUserAuthorizationForUser(
-                  user,
-                  event.evaluationId,
-                );
-
-          authorizationByEvaluation.set(event.evaluationId, hasAuthorization);
-        }
-
-        const access = await this.classEventsService.getEventAccess(
-          event,
-          user,
-          hasAuthorization,
-        );
-
-        return ClassEventResponseDto.fromEntity(event, status, access);
-      }),
-    );
+  ): ClassEventResponseDto[] {
+    return events.map((event) => {
+      const status = this.classEventsService.calculateEventStatus(event);
+      const access = this.classEventsService.getEventAccess();
+      return ClassEventResponseDto.fromEntity(event, status, access);
+    });
   }
 
-  private async mapEventToResponse(
-    event: ClassEvent,
-    user: User,
-  ): Promise<ClassEventResponseDto> {
+  private mapEventToResponse(event: ClassEvent): ClassEventResponseDto {
     const status = this.classEventsService.calculateEventStatus(event);
-    const needsAuthorization = Boolean(
-      event.liveMeetingUrl || event.recordingUrl,
-    );
-    const hasAuthorization = needsAuthorization
-      ? await this.classEventsService.checkUserAuthorizationForUser(
-          user,
-          event.evaluationId,
-        )
-      : false;
-
-    const access = await this.classEventsService.getEventAccess(
-      event,
-      user,
-      hasAuthorization,
-    );
-
+    const access = this.classEventsService.getEventAccess();
     return ClassEventResponseDto.fromEntity(event, status, access);
   }
 
@@ -116,7 +68,7 @@ export class ClassEventsController {
       event.id,
       user.id,
     );
-    return await this.mapEventToResponse(eventDetail, user);
+    return this.mapEventToResponse(eventDetail);
   }
 
   @Get('my-schedule')
@@ -142,7 +94,7 @@ export class ClassEventsController {
       start,
       end,
     );
-    return await this.mapEventsToResponse(events, user);
+    return this.mapEventsToResponse(events);
   }
 
   @Get('discovery/layers/:courseCycleId')
@@ -182,7 +134,7 @@ export class ClassEventsController {
       return [];
     }
 
-    return await this.mapEventsToResponse(events, user);
+    return this.mapEventsToResponse(events);
   }
 
   @Get(':id')
@@ -192,7 +144,7 @@ export class ClassEventsController {
     @CurrentUser() user: User,
   ): Promise<ClassEventResponseDto> {
     const event = await this.classEventsService.getEventDetail(id, user.id);
-    return await this.mapEventToResponse(event, user);
+    return this.mapEventToResponse(event);
   }
 
   @Patch(':id')
@@ -218,7 +170,7 @@ export class ClassEventsController {
       event.id,
       user.id,
     );
-    return await this.mapEventToResponse(eventDetail, user);
+    return this.mapEventToResponse(eventDetail);
   }
 
   @Delete(':id/cancel')
