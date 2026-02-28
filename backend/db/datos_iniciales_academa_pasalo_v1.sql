@@ -140,3 +140,14 @@ VALUES
 INSERT INTO user_role (user_id, role_id) 
 VALUES 
 (2, 1);
+
+INSERT INTO notification_type (code, name) VALUES
+('NEW_MATERIAL',    'Nuevo Material Disponible'),
+('CLASS_SCHEDULED', 'Nueva Clase Programada'),
+('CLASS_UPDATED',   'Clase Actualizada'),
+('CLASS_CANCELLED', 'Clase Cancelada'),
+('CLASS_REMINDER',  'Recordatorio de Clase');
+
+INSERT INTO system_setting (setting_key, setting_value, description, created_at) VALUES
+('NOTIFICATION_CLEANUP_RETENTION_DAYS', '180', 'Días de retención de notificaciones antes de la depuración automática mensual.', NOW()),
+('NOTIFICATION_REMINDER_MINUTES',       '1440', 'Minutos de antelación con los que se envía el recordatorio de clase (default: 24h).', NOW());

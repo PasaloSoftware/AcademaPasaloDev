@@ -80,6 +80,12 @@ export class ClassEventsSchedulingService {
     const evalStartTime = getEpoch(evaluationStart);
     const evalEndTime = getEpoch(evaluationEnd);
 
+    if (startTime <= Date.now()) {
+      throw new BadRequestException(
+        'La fecha de inicio de la clase debe ser una fecha futura',
+      );
+    }
+
     if (endTime <= startTime) {
       throw new BadRequestException(
         'La fecha de fin debe ser posterior a la fecha de inicio',

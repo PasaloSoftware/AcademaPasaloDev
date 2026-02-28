@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS class_event;
 DROP TABLE IF EXISTS academic_event;
 DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS notification;
+DROP TABLE IF EXISTS notification_type;
 DROP TABLE IF EXISTS deletion_request;
 DROP TABLE IF EXISTS material;
 DROP TABLE IF EXISTS file_version;
