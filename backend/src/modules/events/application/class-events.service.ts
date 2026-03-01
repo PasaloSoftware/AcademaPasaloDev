@@ -12,14 +12,12 @@ import { ClassEventRepository } from '@modules/events/infrastructure/class-event
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
-import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
-import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
-import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { technicalSettings } from '@config/technical-settings';
 import { getEpoch } from '@common/utils/date.util';
+import { CategoryCycleContext } from '@modules/events/interfaces/class-event.interfaces';
 import {
   ClassEventAccess,
   ClassEventStatus,
@@ -27,27 +25,18 @@ import {
   CLASS_EVENT_RECORDING_STATUS_CODES,
   CLASS_EVENT_STATUS,
 } from '@modules/events/domain/class-event.constants';
-import {
-  ADMIN_ROLE_CODES,
-  ROLE_CODES,
-} from '@common/constants/role-codes.constants';
-import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
+import { ClassEventsPermissionService } from '@modules/events/application/class-events-permission.service';
+import { ClassEventsSchedulingService } from '@modules/events/application/class-events-scheduling.service';
+import { ClassEventsCacheService } from '@modules/events/application/class-events-cache.service';
+import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
 
 @Injectable()
 export class ClassEventsService {
   private readonly logger = new Logger(ClassEventsService.name);
   private readonly EVENT_CACHE_TTL =
     technicalSettings.cache.events.classEventsCacheTtlSeconds;
-  private readonly CYCLE_ACTIVE_CACHE_TTL =
-    technicalSettings.cache.events.cycleActiveCacheTtlSeconds;
-  private readonly PROFESSOR_ASSIGNMENT_CACHE_TTL =
-    technicalSettings.cache.events.professorAssignmentCacheTtlSeconds;
   private readonly RECORDING_STATUS_CACHE_TTL =
     technicalSettings.cache.events.recordingStatusCatalogCacheTtlSeconds;
-
-  private getRecordingStatusCacheKey(code: string): string {
-    return `cache:class-event-recording-status:code:${code}`;
-  }
 
   constructor(
     private readonly dataSource: DataSource,
@@ -55,10 +44,11 @@ export class ClassEventsService {
     private readonly classEventProfessorRepository: ClassEventProfessorRepository,
     private readonly classEventRecordingStatusRepository: ClassEventRecordingStatusRepository,
     private readonly evaluationRepository: EvaluationRepository,
-    private readonly enrollmentEvaluationRepository: EnrollmentEvaluationRepository,
-    private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
-    private readonly userRepository: UserRepository,
+    private readonly permissionService: ClassEventsPermissionService,
+    private readonly schedulingService: ClassEventsSchedulingService,
+    private readonly cacheModuleService: ClassEventsCacheService,
     private readonly cacheService: RedisCacheService,
+    private readonly notificationsDispatchService: NotificationsDispatchService,
   ) {}
 
   async createEvent(
@@ -76,80 +66,121 @@ export class ClassEventsService {
     if (!evaluation) {
       throw new NotFoundException('Evaluación no encontrada');
     }
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      creatorUser,
+      evaluation,
+    );
 
-    this.validateEventDates(
+    this.schedulingService.validateEventDates(
       startDatetime,
       endDatetime,
       evaluation.startDate,
       evaluation.endDate,
     );
 
-    const overlap = await this.classEventRepository.findOverlap(
-      evaluation.courseCycleId,
-      startDatetime,
-      endDatetime,
-    );
-
-    if (overlap) {
-      throw new ConflictException(
-        `El horario ya está ocupado por la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
+    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
+    const academicCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!courseTypeId || !academicCycleId) {
+      throw new InternalServerErrorException(
+        'No se pudo resolver la categoría o ciclo académico del curso',
       );
     }
 
-    return await this.dataSource.transaction(async (manager) => {
-      const notAvailableStatusId = await this.getRecordingStatusIdByCode(
-        CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+    const categoryCycleContext: CategoryCycleContext = {
+      courseTypeId,
+      academicCycleId,
+    };
+
+    const created = await this.dataSource.transaction(async (manager) => {
+      const lockKey = await this.schedulingService.acquireCalendarLock(
         manager,
+        courseTypeId,
+        academicCycleId,
       );
 
-      const existingSession =
-        await this.classEventRepository.findByEvaluationAndSessionNumber(
-          evaluationId,
-          sessionNumber,
+      try {
+        const overlap = await this.schedulingService.findOverlap(
+          evaluation.courseCycleId,
+          startDatetime,
+          endDatetime,
+          undefined,
           manager,
         );
 
-      if (existingSession) {
-        throw new ConflictException(
-          `Ya existe la sesión ${sessionNumber} para esta evaluación`,
+        if (overlap) {
+          throw new ConflictException(
+            `El horario ya está ocupado por la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
+          );
+        }
+
+        const notAvailableStatusId = await this.getRecordingStatusIdByCode(
+          CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+          manager,
         );
+
+        const existingSession =
+          await this.classEventRepository.findByEvaluationAndSessionNumber(
+            evaluationId,
+            sessionNumber,
+            manager,
+          );
+
+        if (existingSession) {
+          throw new ConflictException(
+            `Ya existe la sesión ${sessionNumber} para esta evaluación`,
+          );
+        }
+
+        const classEvent = await this.classEventRepository.create(
+          {
+            evaluationId,
+            sessionNumber,
+            title,
+            topic,
+            startDatetime,
+            endDatetime,
+            liveMeetingUrl,
+            recordingStatusId: notAvailableStatusId,
+            isCancelled: false,
+            createdBy: creatorUser.id,
+            createdAt: new Date(),
+            updatedAt: null,
+          },
+          manager,
+        );
+
+        await this.classEventProfessorRepository.assignProfessor(
+          classEvent.id,
+          creatorUser.id,
+          manager,
+        );
+
+        return classEvent;
+      } finally {
+        await this.schedulingService.releaseCalendarLock(manager, lockKey);
       }
-
-      const classEvent = await this.classEventRepository.create(
-        {
-          evaluationId,
-          sessionNumber,
-          title,
-          topic,
-          startDatetime,
-          endDatetime,
-          liveMeetingUrl,
-          recordingStatusId: notAvailableStatusId,
-          isCancelled: false,
-          createdBy: creatorUser.id,
-          createdAt: new Date(),
-          updatedAt: null,
-        },
-        manager,
-      );
-
-      await this.classEventProfessorRepository.assignProfessor(
-        classEvent.id,
-        creatorUser.id,
-        manager,
-      );
-
-      await this.invalidateEventCache(evaluationId);
-
-      return classEvent;
     });
+
+    await this.cacheModuleService.invalidateForEvaluation(
+      evaluationId,
+      undefined,
+      categoryCycleContext,
+    );
+
+    void this.notificationsDispatchService.dispatchClassScheduled(created.id);
+    void this.notificationsDispatchService.scheduleClassReminder(
+      created.id,
+      created.startDatetime,
+    );
+
+    return created;
   }
 
   async getEventsByEvaluation(
     evaluationId: string,
     userId: string,
   ): Promise<ClassEvent[]> {
-    const isAuthorized = await this.checkUserAuthorization(
+    const isAuthorized = await this.permissionService.checkUserAuthorization(
       userId,
       evaluationId,
     );
@@ -178,7 +209,7 @@ export class ClassEventsService {
       throw new NotFoundException('Evento de clase no encontrado');
     }
 
-    const isAuthorized = await this.checkUserAuthorization(
+    const isAuthorized = await this.permissionService.checkUserAuthorization(
       userId,
       event.evaluationId,
     );
@@ -204,7 +235,17 @@ export class ClassEventsService {
       throw new NotFoundException('Evento de clase no encontrado');
     }
 
-    this.validateEventOwnership(event.createdBy, user);
+    this.permissionService.validateEventOwnership(event.createdBy, user);
+    const evaluation = await this.evaluationRepository.findByIdWithCycle(
+      event.evaluationId,
+    );
+    if (!evaluation) {
+      throw new NotFoundException('Evaluación no encontrada');
+    }
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      user,
+      evaluation,
+    );
 
     const updateData: Partial<ClassEvent> = {};
     if (title !== undefined) updateData.title = title;
@@ -215,36 +256,6 @@ export class ClassEventsService {
       updateData.liveMeetingUrl = liveMeetingUrl;
     if (recordingUrl !== undefined) updateData.recordingUrl = recordingUrl;
 
-    if (startDatetime || endDatetime) {
-      const finalStart = startDatetime || event.startDatetime;
-      const finalEnd = endDatetime || event.endDatetime;
-
-      const evaluation = await this.evaluationRepository.findByIdWithCycle(
-        event.evaluationId,
-      );
-      if (evaluation) {
-        this.validateEventDates(
-          finalStart,
-          finalEnd,
-          evaluation.startDate,
-          evaluation.endDate,
-        );
-
-        const overlap = await this.classEventRepository.findOverlap(
-          evaluation.courseCycleId,
-          finalStart,
-          finalEnd,
-          eventId,
-        );
-
-        if (overlap) {
-          throw new ConflictException(
-            `No es posible actualizar el horario. Existe un cruce con la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
-          );
-        }
-      }
-    }
-
     if (recordingUrl !== undefined) {
       const readyStatusId = await this.getRecordingStatusIdByCode(
         CLASS_EVENT_RECORDING_STATUS_CODES.READY,
@@ -252,9 +263,78 @@ export class ClassEventsService {
       updateData.recordingStatusId = readyStatusId;
     }
 
-    const updated = await this.classEventRepository.update(eventId, updateData);
+    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
+    const academicCycleId = evaluation.courseCycle?.academicCycleId;
+    if (!courseTypeId || !academicCycleId) {
+      throw new InternalServerErrorException(
+        'No se pudo resolver la categoría o ciclo académico del curso',
+      );
+    }
+    const categoryCycleContext: CategoryCycleContext = {
+      courseTypeId,
+      academicCycleId,
+    };
 
-    await this.invalidateEventCache(event.evaluationId, eventId);
+    let updated: ClassEvent;
+    if (startDatetime || endDatetime) {
+      const finalStart = startDatetime || event.startDatetime;
+      const finalEnd = endDatetime || event.endDatetime;
+
+      this.schedulingService.validateEventDates(
+        finalStart,
+        finalEnd,
+        evaluation.startDate,
+        evaluation.endDate,
+      );
+
+      updated = await this.dataSource.transaction(async (manager) => {
+        const lockKey = await this.schedulingService.acquireCalendarLock(
+          manager,
+          courseTypeId,
+          academicCycleId,
+        );
+
+        try {
+          const overlap = await this.schedulingService.findOverlap(
+            evaluation.courseCycleId,
+            finalStart,
+            finalEnd,
+            eventId,
+            manager,
+          );
+
+          if (overlap) {
+            throw new ConflictException(
+              `No es posible actualizar el horario. Existe un cruce con la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
+            );
+          }
+
+          return await this.classEventRepository.update(
+            eventId,
+            updateData,
+            manager,
+          );
+        } finally {
+          await this.schedulingService.releaseCalendarLock(manager, lockKey);
+        }
+      });
+    } else {
+      updated = await this.classEventRepository.update(eventId, updateData);
+    }
+
+    await this.cacheModuleService.invalidateForEvaluation(
+      event.evaluationId,
+      eventId,
+      categoryCycleContext,
+    );
+
+    void this.notificationsDispatchService.dispatchClassUpdated(eventId);
+    if (startDatetime !== undefined) {
+      void this.notificationsDispatchService.scheduleClassReminder(
+        eventId,
+        updated.startDatetime,
+      );
+    }
 
     return updated;
   }
@@ -269,11 +349,27 @@ export class ClassEventsService {
       throw new BadRequestException('El evento ya está cancelado');
     }
 
-    this.validateEventOwnership(event.createdBy, user);
+    this.permissionService.validateEventOwnership(event.createdBy, user);
+    const evaluation = await this.evaluationRepository.findByIdWithCycle(
+      event.evaluationId,
+    );
+    if (!evaluation) {
+      throw new NotFoundException('Evaluación no encontrada');
+    }
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      user,
+      evaluation,
+    );
 
     await this.classEventRepository.cancelEvent(eventId);
 
-    await this.invalidateEventCache(event.evaluationId, eventId);
+    await this.cacheModuleService.invalidateForEvaluation(
+      event.evaluationId,
+      eventId,
+    );
+
+    void this.notificationsDispatchService.dispatchClassCancelled(eventId);
+    void this.notificationsDispatchService.cancelClassReminder(eventId);
   }
 
   async assignProfessor(
@@ -290,7 +386,10 @@ export class ClassEventsService {
       professorUserId,
     );
 
-    await this.invalidateEventCache(event.evaluationId, eventId);
+    await this.cacheModuleService.invalidateForEvaluation(
+      event.evaluationId,
+      eventId,
+    );
   }
 
   async removeProfessor(
@@ -322,15 +421,21 @@ export class ClassEventsService {
       professorUserId,
     );
 
-    await this.invalidateEventCache(event.evaluationId, eventId);
+    await this.cacheModuleService.invalidateForEvaluation(
+      event.evaluationId,
+      eventId,
+    );
   }
 
-  calculateEventStatus(event: ClassEvent): ClassEventStatus {
+  calculateEventStatus(
+    event: ClassEvent,
+    nowReference?: Date,
+  ): ClassEventStatus {
     if (event.isCancelled) {
       return CLASS_EVENT_STATUS.CANCELADA;
     }
 
-    const nowTime = getEpoch(new Date());
+    const nowTime = getEpoch(nowReference || new Date());
     const startTime = getEpoch(event.startDatetime);
     const endTime = getEpoch(event.endDatetime);
 
@@ -343,118 +448,33 @@ export class ClassEventsService {
     return CLASS_EVENT_STATUS.FINALIZADA;
   }
 
-  async canJoinLive(
-    event: ClassEvent,
-    user: User,
-    hasAuthorization?: boolean,
-  ): Promise<boolean> {
-    if (!event.liveMeetingUrl) {
-      return false;
-    }
-
-    const status = this.calculateEventStatus(event);
-    if (
-      status !== CLASS_EVENT_STATUS.PROGRAMADA &&
-      status !== CLASS_EVENT_STATUS.EN_CURSO
-    ) {
-      return false;
-    }
-
-    if (hasAuthorization !== undefined) {
-      return hasAuthorization;
-    }
-
-    return await this.checkUserAuthorizationWithUser(user, event.evaluationId);
+  canJoinLive(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async canWatchRecording(
-    event: ClassEvent,
-    user: User,
-    hasAuthorization?: boolean,
-  ): Promise<boolean> {
-    if (!event.recordingUrl) {
-      return false;
-    }
-
-    const status = this.calculateEventStatus(event);
-    if (status !== CLASS_EVENT_STATUS.FINALIZADA) {
-      return false;
-    }
-
-    if (hasAuthorization !== undefined) {
-      return hasAuthorization;
-    }
-
-    return await this.checkUserAuthorizationWithUser(user, event.evaluationId);
+  canWatchRecording(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async getEventAccess(
-    event: ClassEvent,
-    user: User,
-    hasAuthorization?: boolean,
-  ): Promise<ClassEventAccess> {
-    const canJoinLive = await this.canJoinLive(event, user, hasAuthorization);
-    const canWatchRecording = await this.canWatchRecording(
-      event,
-      user,
-      hasAuthorization,
-    );
-
+  getEventAccess(): ClassEventAccess {
     return {
-      canJoinLive,
-      canWatchRecording,
-      canCopyLiveLink: canJoinLive,
-      canCopyRecordingLink: canWatchRecording,
+      canJoinLive: false,
+      canWatchRecording: false,
+      canCopyLiveLink: false,
+      canCopyRecordingLink: false,
     };
   }
 
-  async canAccessMeetingLink(event: ClassEvent, user: User): Promise<boolean> {
-    return await this.canJoinLive(event, user);
+  canAccessMeetingLink(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   async checkUserAuthorizationForUser(
     user: User,
     evaluationId: string,
   ): Promise<boolean> {
-    return await this.checkUserAuthorizationWithUser(user, evaluationId);
-  }
-
-  private async checkUserAuthorizationWithUser(
-    user: User,
-    evaluationId: string,
-  ): Promise<boolean> {
-    const roleCodes = (user.roles || []).map((r) => r.code);
-
-    if (roleCodes.some((r) => ADMIN_ROLE_CODES.includes(r))) {
-      return true;
-    }
-
-    if (roleCodes.includes(ROLE_CODES.PROFESSOR)) {
-      const cacheKey = COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT(
-        evaluationId,
-        user.id,
-      );
-      const cached = await this.cacheService.get<boolean>(cacheKey);
-      if (cached !== null) {
-        return cached;
-      }
-
-      const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
-          evaluationId,
-          user.id,
-        );
-
-      await this.cacheService.set(
-        cacheKey,
-        isAssigned,
-        this.PROFESSOR_ASSIGNMENT_CACHE_TTL,
-      );
-      return isAssigned;
-    }
-
-    return await this.enrollmentEvaluationRepository.checkAccess(
-      user.id,
+    return await this.permissionService.checkUserAuthorizationForUser(
+      user,
       evaluationId,
     );
   }
@@ -463,78 +483,9 @@ export class ClassEventsService {
     userId: string,
     evaluationId: string,
   ): Promise<boolean> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) return false;
-
-    return await this.checkUserAuthorizationWithUser(user, evaluationId);
-  }
-
-  async getMySchedule(
-    userId: string,
-    start: Date,
-    end: Date,
-  ): Promise<ClassEvent[]> {
-    const cacheKey = CLASS_EVENT_CACHE_KEYS.MY_SCHEDULE(
+    return await this.permissionService.checkUserAuthorization(
       userId,
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0],
-    );
-
-    const cached = await this.cacheService.get<ClassEvent[]>(cacheKey);
-    if (cached) return cached;
-
-    const events = await this.classEventRepository.findByUserAndRange(
-      userId,
-      start,
-      end,
-    );
-
-    await this.cacheService.set(cacheKey, events, this.EVENT_CACHE_TTL);
-    return events;
-  }
-
-  async isCycleActive(evaluationId: string): Promise<boolean> {
-    const cacheKey = `cache:cycle-active:${evaluationId}`;
-    const cached = await this.cacheService.get<boolean>(cacheKey);
-    if (cached !== null) {
-      return cached;
-    }
-
-    const evaluation =
-      await this.evaluationRepository.findByIdWithCycle(evaluationId);
-    if (!evaluation) {
-      return false;
-    }
-
-    const now = new Date();
-    const cycleStart = new Date(evaluation.courseCycle.academicCycle.startDate);
-    const cycleEnd = new Date(evaluation.courseCycle.academicCycle.endDate);
-
-    const isActive = now >= cycleStart && now <= cycleEnd;
-
-    await this.cacheService.set(
-      cacheKey,
-      isActive,
-      this.CYCLE_ACTIVE_CACHE_TTL,
-    );
-
-    return isActive;
-  }
-
-  private async invalidateEventCache(
-    evaluationId: string,
-    eventId?: string,
-  ): Promise<void> {
-    await this.cacheService.del(
-      CLASS_EVENT_CACHE_KEYS.EVALUATION_LIST(evaluationId),
-    );
-
-    if (eventId) {
-      await this.cacheService.del(CLASS_EVENT_CACHE_KEYS.DETAIL(eventId));
-    }
-
-    await this.cacheService.invalidateGroup(
-      CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_GROUP,
+      evaluationId,
     );
   }
 
@@ -542,7 +493,7 @@ export class ClassEventsService {
     code: string,
     manager?: import('typeorm').EntityManager,
   ): Promise<string> {
-    const cacheKey = this.getRecordingStatusCacheKey(code);
+    const cacheKey = this.cacheModuleService.getRecordingStatusCacheKey(code);
     const cached = await this.cacheService.get<string>(cacheKey);
     if (cached) {
       return cached;
@@ -564,48 +515,5 @@ export class ClassEventsService {
       this.RECORDING_STATUS_CACHE_TTL,
     );
     return status.id;
-  }
-
-  private validateEventOwnership(creatorId: string, user: User): void {
-    const roles = (user.roles || []).map((r) => r.code);
-    const isAdmin = ADMIN_ROLE_CODES.some((roleCode) =>
-      roles.includes(roleCode),
-    );
-
-    if (!isAdmin && creatorId !== user.id) {
-      throw new ForbiddenException(
-        'Solo el creador o un administrador puede realizar esta acción',
-      );
-    }
-  }
-
-  private validateEventDates(
-    startDatetime: Date,
-    endDatetime: Date,
-    evaluationStart: Date,
-    evaluationEnd: Date,
-  ): void {
-    const startTime = getEpoch(startDatetime);
-    const endTime = getEpoch(endDatetime);
-    const evalStartTime = getEpoch(evaluationStart);
-    const evalEndTime = getEpoch(evaluationEnd);
-
-    if (endTime <= startTime) {
-      throw new BadRequestException(
-        'La fecha de fin debe ser posterior a la fecha de inicio',
-      );
-    }
-
-    if (startTime < evalStartTime || startTime > evalEndTime) {
-      throw new BadRequestException(
-        'La fecha de inicio debe estar dentro del rango de la evaluación',
-      );
-    }
-
-    if (endTime < evalStartTime || endTime > evalEndTime) {
-      throw new BadRequestException(
-        'La fecha de fin debe estar dentro del rango de la evaluación',
-      );
-    }
   }
 }

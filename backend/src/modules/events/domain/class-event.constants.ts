@@ -29,6 +29,27 @@ export const CLASS_EVENT_CACHE_KEYS = {
   DETAIL: (eventId: string) => `cache:class-event:${eventId}`,
   MY_SCHEDULE: (userId: string, start: string, end: string) =>
     `cache:my-schedule:user:${userId}:from:${start}:to:${end}`,
+  USER_SCHEDULE_INDEX: (userId: string) =>
+    `cache:index:my-schedule:user:${userId}`,
+  GLOBAL_SCHEDULE_INDEX: 'cache:index:my-schedule:all',
   USER_SCHEDULE_GROUP: (userId: string) => `cache:my-schedule:user:${userId}:*`,
   GLOBAL_SCHEDULE_GROUP: 'cache:my-schedule:*',
+  CATEGORY_CYCLE_GROUP: (courseTypeId: string, academicCycleId: string) =>
+    `cache:class-events:category-cycle:course-type:${courseTypeId}:cycle:${academicCycleId}:*`,
+  CATEGORY_CYCLE_INDEX: (courseTypeId: string, academicCycleId: string) =>
+    `cache:index:class-events:category-cycle:course-type:${courseTypeId}:cycle:${academicCycleId}`,
+  DISCOVERY_LAYERS: (
+    courseCycleId: string,
+    courseTypeId: string,
+    academicCycleId: string,
+  ) =>
+    `cache:class-events:category-cycle:course-type:${courseTypeId}:cycle:${academicCycleId}:discovery:course-cycle:${courseCycleId}`,
+  GLOBAL_SESSIONS: (
+    courseTypeId: string,
+    academicCycleId: string,
+    startDateIso: string,
+    endDateIso: string,
+    courseCycleIdsKey: string,
+  ) =>
+    `cache:class-events:category-cycle:course-type:${courseTypeId}:cycle:${academicCycleId}:global:start:${startDateIso}:end:${endDateIso}:cycles:${courseCycleIdsKey}`,
 } as const;

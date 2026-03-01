@@ -337,19 +337,35 @@ CREATE TABLE deletion_request (
   FOREIGN KEY (deletion_request_status_id) REFERENCES deletion_request_status(id)
 );
 
+CREATE TABLE notification_type (
+  id   BIGINT       PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(50)  NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  CONSTRAINT uq_notification_type_code UNIQUE (code)
+);
+
 CREATE TABLE notification (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  message VARCHAR(500) NOT NULL,
-  created_at DATETIME NOT NULL
+  id                   BIGINT       PRIMARY KEY AUTO_INCREMENT,
+  notification_type_id BIGINT       NOT NULL,
+  title                VARCHAR(255) NOT NULL,
+  message              VARCHAR(500) NOT NULL,
+  entity_type          VARCHAR(50)  NULL,
+  entity_id            BIGINT       NULL,
+  created_at           DATETIME     NOT NULL,
+  CONSTRAINT fk_notification_type
+    FOREIGN KEY (notification_type_id) REFERENCES notification_type(id)
 );
 
 CREATE TABLE user_notification (
-  user_id BIGINT NOT NULL,
-  notification_id BIGINT NOT NULL,
-  is_read BOOLEAN NOT NULL,
+  user_id         BIGINT   NOT NULL,
+  notification_id BIGINT   NOT NULL,
+  is_read         BOOLEAN  NOT NULL DEFAULT FALSE,
+  read_at         DATETIME NULL,
   PRIMARY KEY (user_id, notification_id),
-  FOREIGN KEY (user_id) REFERENCES user(id),
-  FOREIGN KEY (notification_id) REFERENCES notification(id)
+  CONSTRAINT fk_un_user
+    FOREIGN KEY (user_id) REFERENCES user(id),
+  CONSTRAINT fk_un_notification
+    FOREIGN KEY (notification_id) REFERENCES notification(id) ON DELETE CASCADE
 );
 
 CREATE TABLE audit_log (
@@ -454,6 +470,9 @@ ON course_cycle(course_id, academic_cycle_id);
 CREATE INDEX idx_evaluation_course_cycle
 ON evaluation(course_cycle_id);
 
+CREATE INDEX idx_course_cycle_professor_user_active
+ON course_cycle_professor(professor_user_id, revoked_at, course_cycle_id);
+
 CREATE INDEX idx_evaluation_type_number
 ON evaluation(evaluation_type_id, number);
 
@@ -474,6 +493,9 @@ ON material(class_event_id);
 
 CREATE INDEX idx_material_status
 ON material(material_status_id);
+
+CREATE INDEX idx_material_folder_status
+ON material(material_folder_id, material_status_id);
 
 CREATE INDEX idx_material_visibility
 ON material(visible_from, visible_until);
@@ -496,8 +518,11 @@ ON material(file_version_id);
 CREATE INDEX idx_audit_log_user_date
 ON audit_log(user_id, event_datetime);
 
-CREATE INDEX idx_user_notification_read
-ON user_notification(user_id, is_read);
+CREATE INDEX idx_notification_created_at ON notification(created_at);
+
+CREATE INDEX idx_user_notification_unread          ON user_notification(user_id, is_read);
+CREATE INDEX idx_user_notification_date            ON user_notification(user_id, notification_id DESC);
+CREATE INDEX idx_user_notification_notification_id ON user_notification(notification_id);
 
 CREATE INDEX idx_deletion_request_status
 ON deletion_request(deletion_request_status_id);

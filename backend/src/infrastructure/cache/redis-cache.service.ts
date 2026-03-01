@@ -107,6 +107,65 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async delMany(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+
+    try {
+      const chunkSize = 500;
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        const chunk = keys.slice(i, i + chunkSize);
+        if (chunk.length > 0) {
+          await this.redisClient.del(...chunk);
+        }
+      }
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al eliminar multiples llaves de cache',
+        keysCount: keys.length,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  async addToIndex(
+    indexKey: string,
+    cacheKey: string,
+    ttlSeconds?: number,
+  ): Promise<void> {
+    try {
+      await this.redisClient.sadd(indexKey, cacheKey);
+      if (ttlSeconds && ttlSeconds > 0) {
+        await this.redisClient.expire(indexKey, ttlSeconds);
+      }
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al indexar llave de cache',
+        indexKey,
+        cacheKey,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  async invalidateIndex(indexKey: string): Promise<void> {
+    try {
+      const keys = await this.redisClient.smembers(indexKey);
+      if (keys.length > 0) {
+        await this.delMany(keys);
+      }
+      await this.redisClient.del(indexKey);
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al invalidar indice de cache',
+        indexKey,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   async invalidateGroup(pattern: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const stream = this.redisClient.scanStream({

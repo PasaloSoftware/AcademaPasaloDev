@@ -11,10 +11,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
+import { ClassEventsQueryService } from '@modules/events/application/class-events-query.service';
 import { CreateClassEventDto } from '@modules/events/dto/create-class-event.dto';
 import { UpdateClassEventDto } from '@modules/events/dto/update-class-event.dto';
 import { AssignProfessorDto } from '@modules/events/dto/assign-professor.dto';
 import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.dto';
+import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -26,69 +28,26 @@ import { ROLE_CODES } from '@common/constants/role-codes.constants';
 @Controller('class-events')
 @Auth()
 export class ClassEventsController {
-  constructor(private readonly classEventsService: ClassEventsService) {}
+  constructor(
+    private readonly classEventsService: ClassEventsService,
+    private readonly classEventsQueryService: ClassEventsQueryService,
+  ) {}
 
-  private async mapEventsToResponse(
+  private mapEventsToResponse(
     events: Awaited<ReturnType<ClassEventsService['getEventsByEvaluation']>>,
-    user: User,
-  ): Promise<ClassEventResponseDto[]> {
-    const authorizationByEvaluation = new Map<string, boolean>();
+  ): ClassEventResponseDto[] {
+    const now = new Date();
+    const access = this.classEventsService.getEventAccess();
 
-    return Promise.all(
-      events.map(async (event) => {
-        const status = this.classEventsService.calculateEventStatus(event);
-        const needsAuthorization = Boolean(
-          event.liveMeetingUrl || event.recordingUrl,
-        );
-        let hasAuthorization = false;
-
-        if (needsAuthorization) {
-          const cachedAuthorization = authorizationByEvaluation.get(
-            event.evaluationId,
-          );
-          hasAuthorization =
-            cachedAuthorization !== undefined
-              ? cachedAuthorization
-              : await this.classEventsService.checkUserAuthorizationForUser(
-                  user,
-                  event.evaluationId,
-                );
-
-          authorizationByEvaluation.set(event.evaluationId, hasAuthorization);
-        }
-
-        const access = await this.classEventsService.getEventAccess(
-          event,
-          user,
-          hasAuthorization,
-        );
-
-        return ClassEventResponseDto.fromEntity(event, status, access);
-      }),
-    );
+    return events.map((event) => {
+      const status = this.classEventsService.calculateEventStatus(event, now);
+      return ClassEventResponseDto.fromEntity(event, status, access);
+    });
   }
 
-  private async mapEventToResponse(
-    event: ClassEvent,
-    user: User,
-  ): Promise<ClassEventResponseDto> {
+  private mapEventToResponse(event: ClassEvent): ClassEventResponseDto {
     const status = this.classEventsService.calculateEventStatus(event);
-    const needsAuthorization = Boolean(
-      event.liveMeetingUrl || event.recordingUrl,
-    );
-    const hasAuthorization = needsAuthorization
-      ? await this.classEventsService.checkUserAuthorizationForUser(
-          user,
-          event.evaluationId,
-        )
-      : false;
-
-    const access = await this.classEventsService.getEventAccess(
-      event,
-      user,
-      hasAuthorization,
-    );
-
+    const access = this.classEventsService.getEventAccess();
     return ClassEventResponseDto.fromEntity(event, status, access);
   }
 
@@ -115,7 +74,7 @@ export class ClassEventsController {
       event.id,
       user.id,
     );
-    return await this.mapEventToResponse(eventDetail, user);
+    return this.mapEventToResponse(eventDetail);
   }
 
   @Get('my-schedule')
@@ -136,12 +95,38 @@ export class ClassEventsController {
       ? new Date(endDate)
       : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const events = await this.classEventsService.getMySchedule(
+    const events = await this.classEventsQueryService.getMySchedule(
       user.id,
       start,
       end,
     );
-    return await this.mapEventsToResponse(events, user);
+    return this.mapEventsToResponse(events);
+  }
+
+  @Get('discovery/layers/:courseCycleId')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Capas de calendario obtenidas exitosamente')
+  async getDiscoveryLayers(
+    @Param('courseCycleId') courseCycleId: string,
+  ): Promise<
+    Awaited<ReturnType<ClassEventsQueryService['getDiscoveryLayers']>>
+  > {
+    return await this.classEventsQueryService.getDiscoveryLayers(courseCycleId);
+  }
+
+  @Get('global/sessions')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Sesiones globales obtenidas exitosamente')
+  async getGlobalSessions(
+    @Query() query: GlobalSessionsQueryDto,
+  ): Promise<
+    Awaited<ReturnType<ClassEventsQueryService['getGlobalSessions']>>
+  > {
+    return await this.classEventsQueryService.getGlobalSessions(
+      query.courseCycleIds,
+      new Date(query.startDate),
+      new Date(query.endDate),
+    );
   }
 
   @Get('evaluation/:evaluationId')
@@ -159,7 +144,7 @@ export class ClassEventsController {
       return [];
     }
 
-    return await this.mapEventsToResponse(events, user);
+    return this.mapEventsToResponse(events);
   }
 
   @Get(':id')
@@ -169,7 +154,7 @@ export class ClassEventsController {
     @CurrentUser() user: User,
   ): Promise<ClassEventResponseDto> {
     const event = await this.classEventsService.getEventDetail(id, user.id);
-    return await this.mapEventToResponse(event, user);
+    return this.mapEventToResponse(event);
   }
 
   @Patch(':id')
@@ -195,7 +180,7 @@ export class ClassEventsController {
       event.id,
       user.id,
     );
-    return await this.mapEventToResponse(eventDetail, user);
+    return this.mapEventToResponse(eventDetail);
   }
 
   @Delete(':id/cancel')

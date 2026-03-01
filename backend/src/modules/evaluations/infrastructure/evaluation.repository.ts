@@ -38,7 +38,11 @@ export class EvaluationRepository {
   async findByIdWithCycle(id: string): Promise<Evaluation | null> {
     return await this.evaluationOrm.findOne({
       where: { id },
-      relations: ['courseCycle', 'courseCycle.academicCycle'],
+      relations: [
+        'courseCycle',
+        'courseCycle.academicCycle',
+        'courseCycle.course',
+      ],
     });
   }
 

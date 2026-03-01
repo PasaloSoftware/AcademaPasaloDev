@@ -90,6 +90,8 @@ export const technicalSettings = {
       // src/modules/events/application/class-events.service.ts
       classEventsCacheTtlSeconds: 1800, // 30m
       // src/modules/events/application/class-events.service.ts
+      calendarLockTimeoutSeconds: 10, // 10s
+      // src/modules/events/application/class-events.service.ts
       cycleActiveCacheTtlSeconds: 3600, // 60m
       // src/modules/events/application/class-events.service.ts
       professorAssignmentCacheTtlSeconds: 3600, // 60m
@@ -105,6 +107,8 @@ export const technicalSettings = {
       courseContentCacheTtlSeconds: 600, // 10m
       // src/modules/courses/application/courses.service.ts
       professorAssignmentCacheTtlSeconds: 3600, // 60m
+      // src/modules/courses/application/courses.service.ts
+      courseCycleExistsCacheTtlSeconds: 30, // 30s
     },
 
     enrollments: {
@@ -122,6 +126,15 @@ export const technicalSettings = {
     materials: {
       // src/modules/materials/application/materials.service.ts
       materialsExplorerCacheTtlSeconds: 300, // 5m
+    },
+
+    notifications: {
+      // src/modules/notifications/infrastructure/notification-type.repository.ts
+      notificationTypeCacheTtlSeconds: 21600, // 6h — catálogo estático
+      // src/modules/notifications/application/notification-recipients.service.ts
+      activeEnrollmentStatusCacheTtlSeconds: 21600, // 6h — catálogo estático
+      // src/modules/notifications/infrastructure/user-notification.repository.ts
+      unreadCountCacheTtlSeconds: 60,
     },
   },
 
@@ -209,9 +222,9 @@ export const technicalSettings = {
     // src/infrastructure/queue/queue.module.ts
     backoffType: 'exponential' as const,
     // src/infrastructure/queue/queue.module.ts
-    removeOnComplete: true,
+    removeOnCompleteCount: 50,
     // src/infrastructure/queue/queue.module.ts
-    removeOnFail: false,
+    removeOnFailCount: 100,
   },
 
   audit: {
@@ -225,5 +238,30 @@ export const technicalSettings = {
     cleanupBatchSize: 5000,
     // src/modules/audit/infrastructure/audit-log.repository.ts
     maxCleanupBatchesPerRun: 100,
+  },
+
+  notifications: {
+    // src/modules/notifications/application/notifications.service.ts
+    cleanupCronPattern: '0 0 2 1 * *',
+    // src/modules/notifications/infrastructure/processors/notification-dispatch.processor.ts
+    retentionDefaultDays: 180,
+    // src/modules/notifications/infrastructure/processors/notification-dispatch.processor.ts
+    retentionMinSafeDays: 30,
+    // src/modules/notifications/infrastructure/processors/notification-dispatch.processor.ts
+    cleanupBatchSize: 1000,
+    // src/modules/notifications/infrastructure/processors/notification-dispatch.processor.ts
+    maxCleanupBatchesPerRun: 100,
+    // src/modules/notifications/application/notifications-dispatch.service.ts
+    reminderDefaultMinutes: 1440,
+    // src/modules/notifications/application/notifications-dispatch.service.ts
+    reminderMinMinutes: 30,
+    // src/modules/notifications/application/notifications-dispatch.service.ts
+    reminderMaxMinutes: 10080,
+    // src/modules/notifications/application/notifications-dispatch.service.ts
+    reminderMinEnqueueMs: 120000, // 2 minutos — delay mínimo para encolar recordatorio
+    // src/modules/notifications/infrastructure/processors/notification-dispatch.processor.ts
+    workerLockDurationMs: 120000, // 2 minutos — lockDuration del worker BullMQ
+    // src/modules/notifications/dto/get-notifications-query.dto.ts
+    defaultPageLimit: 20,
   },
 } as const;

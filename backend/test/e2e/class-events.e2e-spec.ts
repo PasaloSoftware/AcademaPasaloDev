@@ -23,7 +23,11 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   let professor: { user: User; token: string };
   let student: { user: User; token: string };
   let courseCycle: CourseCycle;
+  let sameCategoryCourseCycle: CourseCycle;
+  let differentCategoryCourseCycle: CourseCycle;
   let evaluation: Evaluation;
+  let sameCategoryEvaluation: Evaluation;
+  let differentCategoryEvaluation: Evaluation;
   let createdEventId: string;
 
   const now = new Date();
@@ -86,11 +90,67 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       `COURSE-EVENT-${Date.now()}`,
       'Eventos 101',
     );
+    const sameCategoryCourse = await seeder.createCourse(
+      `COURSE-EVENT-SAME-${Date.now()}`,
+      'Eventos Ciencias 102',
+    );
+    const differentCategoryCourse = await seeder.createCourse(
+      `COURSE-EVENT-DIFF-${Date.now()}`,
+      'Eventos Letras 201',
+    );
+
+    const sciencesTypeRows = await dataSource.query(
+      "SELECT id FROM course_type WHERE code = 'CIENCIAS' LIMIT 1",
+    );
+    const lettersTypeRows = await dataSource.query(
+      "SELECT id FROM course_type WHERE code = 'LETRAS' LIMIT 1",
+    );
+    const sciencesTypeId = sciencesTypeRows[0]?.id;
+    const lettersTypeId = lettersTypeRows[0]?.id;
+
+    await dataSource.query(
+      'UPDATE course SET course_type_id = ? WHERE id IN (?, ?)',
+      [sciencesTypeId, course.id, sameCategoryCourse.id],
+    );
+    await dataSource.query(
+      'UPDATE course SET course_type_id = ? WHERE id = ?',
+      [lettersTypeId, differentCategoryCourse.id],
+    );
+
     courseCycle = await seeder.linkCourseCycle(course.id, cycle.id);
+    sameCategoryCourseCycle = await seeder.linkCourseCycle(
+      sameCategoryCourse.id,
+      cycle.id,
+    );
+    differentCategoryCourseCycle = await seeder.linkCourseCycle(
+      differentCategoryCourse.id,
+      cycle.id,
+    );
+
+    await dataSource.query(
+      `INSERT INTO system_setting (setting_key, setting_value, description, created_at, updated_at)
+       VALUES ('ACTIVE_CYCLE_ID', ?, 'Ciclo activo para pruebas E2E', NOW(), NOW())
+       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()`,
+      [cycle.id],
+    );
 
     // Iniciar evaluación ayer para garantizar acceso activo hoy
     evaluation = await seeder.createEvaluation(
       courseCycle.id,
+      EVALUATION_TYPE_CODES.PC,
+      1,
+      formatDate(yesterday),
+      formatDate(nextWeek),
+    );
+    sameCategoryEvaluation = await seeder.createEvaluation(
+      sameCategoryCourseCycle.id,
+      EVALUATION_TYPE_CODES.PC,
+      1,
+      formatDate(yesterday),
+      formatDate(nextWeek),
+    );
+    differentCategoryEvaluation = await seeder.createEvaluation(
+      differentCategoryCourseCycle.id,
       EVALUATION_TYPE_CODES.PC,
       1,
       formatDate(yesterday),
@@ -111,8 +171,15 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     );
 
     await dataSource.query(
-      'INSERT INTO course_cycle_professor (course_cycle_id, professor_user_id, assigned_at) VALUES (?, ?, NOW())',
-      [courseCycle.id, professor.user.id],
+      'INSERT INTO course_cycle_professor (course_cycle_id, professor_user_id, assigned_at) VALUES (?, ?, NOW()), (?, ?, NOW()), (?, ?, NOW())',
+      [
+        courseCycle.id,
+        professor.user.id,
+        sameCategoryCourseCycle.id,
+        professor.user.id,
+        differentCategoryCourseCycle.id,
+        professor.user.id,
+      ],
     );
 
     // Matricular alumno y forzar limpieza de caché
@@ -174,6 +241,44 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       );
     });
 
+    it('debe rechazar creación si el horario se cruza con otro curso de la misma categoría', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: sameCategoryEvaluation.id,
+          sessionNumber: 1,
+          title: 'Clase Ciencias Paralela',
+          topic: 'Colisión Global',
+          startDatetime: new Date(tomorrow.getTime() + 1800000).toISOString(),
+          endDatetime: new Date(tomorrow.getTime() + 5400000).toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/9988776655',
+        })
+        .expect(409);
+
+      expect(response.body.message).toContain(
+        'El horario ya está ocupado por la sesión 1',
+      );
+    });
+
+    it('debe permitir creación si el horario se cruza con curso de categoría distinta', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: differentCategoryEvaluation.id,
+          sessionNumber: 1,
+          title: 'Clase Letras Paralela',
+          topic: 'Sin colisión entre categorías',
+          startDatetime: new Date(tomorrow.getTime() + 1800000).toISOString(),
+          endDatetime: new Date(tomorrow.getTime() + 5400000).toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/4455667788',
+        })
+        .expect(201);
+
+      expect(response.body.data).toHaveProperty('id');
+    });
+
     it('debe rechazar creación por alumno (403)', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/class-events')
@@ -200,6 +305,73 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
 
       expect(Array.isArray(response.body.data)).toBe(true);
       expect(response.body.data.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('GET /api/v1/class-events/discovery/layers/:courseCycleId', () => {
+    it('debe devolver solo cursos hermanos de la misma categoría en el ciclo activo', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/discovery/layers/${courseCycle.id}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body.data)).toBe(true);
+      const items = response.body.data as Array<{ courseCycleId: string }>;
+      const returnedIds = items.map((item) => item.courseCycleId);
+
+      expect(returnedIds).toContain(sameCategoryCourseCycle.id);
+      expect(returnedIds).not.toContain(courseCycle.id);
+      expect(returnedIds).not.toContain(differentCategoryCourseCycle.id);
+    });
+  });
+
+  describe('GET /api/v1/class-events/global/sessions', () => {
+    it('debe devolver sesiones agrupadas por curso-ciclo con colores', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: sameCategoryEvaluation.id,
+          sessionNumber: 77,
+          title: 'Layer Session A',
+          topic: 'Layer Topic A',
+          startDatetime: new Date(tomorrow.getTime() + 21600000).toISOString(),
+          endDatetime: new Date(tomorrow.getTime() + 25200000).toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/1212121212',
+        })
+        .expect(201);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/class-events/global/sessions')
+        .query({
+          courseCycleIds: `${courseCycle.id},${sameCategoryCourseCycle.id}`,
+          startDate: yesterday.toISOString(),
+          endDate: nextWeek.toISOString(),
+        })
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body.data)).toBe(true);
+      const groups = response.body.data as Array<{
+        courseCycleId: string;
+        primaryColor: string | null;
+        secondaryColor: string | null;
+        sessions: unknown[];
+      }>;
+
+      const mainGroup = groups.find(
+        (group) => group.courseCycleId === courseCycle.id,
+      );
+      const siblingGroup = groups.find(
+        (group) => group.courseCycleId === sameCategoryCourseCycle.id,
+      );
+
+      expect(mainGroup).toBeDefined();
+      expect(siblingGroup).toBeDefined();
+      expect(mainGroup?.sessions.length).toBeGreaterThan(0);
+      expect(siblingGroup?.sessions.length).toBeGreaterThan(0);
+      expect(mainGroup).toHaveProperty('primaryColor');
+      expect(mainGroup).toHaveProperty('secondaryColor');
     });
   });
 
