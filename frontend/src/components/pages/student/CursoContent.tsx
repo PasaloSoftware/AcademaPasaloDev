@@ -13,8 +13,8 @@ import {
   PreviousCycleContentResponse,
   PreviousCycleEvaluation,
 } from "@/types/curso";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import EvaluationContent from "@/components/pages/student/EvaluationContent";
 
 interface CursoContentProps {
   cursoId: string; // Este es el courseCycleId
@@ -442,6 +442,7 @@ function BancoCategoryCard({
 // ============================================
 
 export default function CursoContent({ cursoId }: CursoContentProps) {
+  const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
 
   // Datos del enrollment (para header: nombre, profesor, tipo, nivel)
@@ -466,13 +467,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [previousCycleContent, setPreviousCycleContent] =
     useState<PreviousCycleContentResponse | null>(null);
   const [loadingPreviousContent, setLoadingPreviousContent] = useState(false);
-
-  // Vista de detalle de evaluación (drill-down desde "Ver Clases")
-  const [selectedEvaluation, setSelectedEvaluation] = useState<{
-    id: string;
-    shortName: string;
-    fullName: string;
-  } | null>(null);
 
   // Loading general (enrollment)
   const [loadingEnrollment, setLoadingEnrollment] = useState(true);
@@ -656,22 +650,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     { key: "banco", label: "Banco de Enunciados" },
   ];
 
-  // Si hay una evaluación seleccionada, mostrar el detalle
-  if (selectedEvaluation) {
-    return (
-      <EvaluationContent
-        evaluationId={selectedEvaluation.id}
-        evaluationName={selectedEvaluation.shortName}
-        evaluationFullName={selectedEvaluation.fullName}
-        courseName={courseName}
-        onBack={() => {
-          setSelectedEvaluation(null);
-          setBreadcrumbItems([{ label: "Cursos" }, { label: courseName }]);
-        }}
-      />
-    );
-  }
-
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* ========================================
@@ -806,11 +784,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     key={evaluation.id}
                     evaluation={evaluation}
                     onSelect={(eval_) =>
-                      setSelectedEvaluation({
-                        id: eval_.id,
-                        shortName: eval_.shortName,
-                        fullName: eval_.fullName,
-                      })
+                      router.push(
+                        `/plataforma/curso/${cursoId}/evaluacion/${eval_.id}`,
+                      )
                     }
                   />
                 ))}

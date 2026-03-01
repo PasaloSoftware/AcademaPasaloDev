@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { classEventService } from "@/services/classEvent.service";
 import { materialsService } from "@/services/materials.service";
+import { enrollmentService } from "@/services/enrollment.service";
 import type { ClassEvent } from "@/types/classEvent";
 import type { ClassEventMaterial } from "@/types/material";
+import type { Enrollment } from "@/types/enrollment";
 import Icon from "@/components/ui/Icon";
 
 interface EvaluationContentProps {
-  evaluationId: string;
-  evaluationName: string;
-  evaluationFullName: string;
-  courseName: string;
-  onBack: () => void;
+  cursoId: string;
+  evalId: string;
 }
 
 type EvalTabOption = "sesiones" | "material";
@@ -320,17 +320,21 @@ function ClassSessionCard({
 // ============================================
 
 export default function EvaluationContent({
-  evaluationId,
-  evaluationName,
-  evaluationFullName,
-  courseName,
-  onBack,
+  cursoId,
+  evalId,
 }: EvaluationContentProps) {
   const { setBreadcrumbItems } = useBreadcrumb();
+
   const [activeTab, setActiveTab] = useState<EvalTabOption>("sesiones");
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [errorEvents, setErrorEvents] = useState<string | null>(null);
+
+  // Nombre del curso (desde enrollment)
+  const [courseName, setCourseName] = useState<string>("");
+
+  // Nombre de la evaluación (desde la respuesta del API de class events)
+  const [evaluationName, setEvaluationName] = useState<string>("");
 
   // Materiales por classEventId
   const [materialsByEvent, setMaterialsByEvent] = useState<
@@ -340,15 +344,38 @@ export default function EvaluationContent({
     Record<string, boolean>
   >({});
 
+  // Cargar nombre del curso desde enrollment
+  useEffect(() => {
+    async function loadCourseName() {
+      try {
+        const response = await enrollmentService.getMyCourses();
+        const enrollments: Enrollment[] = Array.isArray(response)
+          ? response
+          : response.data || [];
+        const found = enrollments.find(
+          (e) => e.courseCycle.id === cursoId,
+        );
+        if (found) {
+          setCourseName(found.courseCycle.course.name);
+        }
+      } catch (err) {
+        console.error("Error al cargar nombre del curso:", err);
+      }
+    }
+
+    loadCourseName();
+  }, [cursoId]);
+
   // Breadcrumb: Cursos > Nombre del curso > Ciclo Vigente > PC1
   useEffect(() => {
+    if (!courseName) return;
     setBreadcrumbItems([
       { label: "Cursos" },
-      { label: courseName },
+      { label: courseName, href: `/plataforma/curso/${cursoId}` },
       { label: "Ciclo Vigente" },
       { label: evaluationName },
     ]);
-  }, [setBreadcrumbItems, courseName, evaluationName]);
+  }, [setBreadcrumbItems, courseName, evaluationName, cursoId]);
 
   // Cargar sesiones de clase
   useEffect(() => {
@@ -357,8 +384,11 @@ export default function EvaluationContent({
       setErrorEvents(null);
       try {
         const data =
-          await classEventService.getEvaluationEvents(evaluationId);
+          await classEventService.getEvaluationEvents(evalId);
         setEvents(data);
+        if (data.length > 0 && data[0].evaluationName) {
+          setEvaluationName(data[0].evaluationName);
+        }
       } catch (err) {
         console.error("Error al cargar sesiones:", err);
         setErrorEvents("Error al cargar las sesiones de clase");
@@ -368,7 +398,7 @@ export default function EvaluationContent({
     }
 
     loadEvents();
-  }, [evaluationId]);
+  }, [evalId]);
 
   // Cargar materiales para cada sesión
   useEffect(() => {
@@ -408,8 +438,8 @@ export default function EvaluationContent({
           BACK LINK
           ======================================== */}
       <div className="self-stretch px-12 mb-6">
-        <button
-          onClick={onBack}
+        <Link
+          href={`/plataforma/curso/${cursoId}`}
           className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2"
         >
           <Icon
@@ -420,7 +450,7 @@ export default function EvaluationContent({
           <span className="text-text-accent-primary text-base font-medium leading-4">
             Volver al Ciclo Vigente
           </span>
-        </button>
+        </Link>
       </div>
 
       {/* ========================================
