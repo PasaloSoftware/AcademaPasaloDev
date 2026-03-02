@@ -460,3 +460,115 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
 
 
 
+
+---
+
+## UPDATE FRONTEND CONTRACT - FASES 2, 3 Y 4 (2026-03-02)
+
+Esta seccion resume los contratos actuales para frontend de forma estricta y sin ambiguedades.
+
+### 1) Admin - Definir estructura por course_cycle
+
+- Endpoint: `PUT /courses/cycle/:courseCycleId/evaluation-structure`
+- Roles: `ADMIN`, `SUPER_ADMIN`
+- Body:
+```json
+{
+  "evaluationTypeIds": ["1", "2", "6"]
+}
+```
+- Validaciones backend:
+1. `courseCycleId` debe existir.
+2. `evaluationTypeIds` no puede ser vacio.
+3. No se permiten ids duplicados.
+4. Todos los ids deben existir en `evaluation_type`.
+5. Si la estructura enviada es igual a la actual, no se hacen escrituras (idempotente).
+- Respuesta 200:
+```json
+{
+  "courseCycleId": "4",
+  "evaluationTypeIds": ["1", "2", "6"]
+}
+```
+- Errores esperados:
+1. `400` payload invalido (vacio, duplicados, ids inexistentes, ids vacios).
+2. `404` course_cycle no existe.
+3. `403` si rol no autorizado.
+
+### 2) Alumno - Obtener estructura del tab Banco
+
+- Endpoint: `GET /courses/cycle/:courseCycleId/bank-structure`
+- Roles: `STUDENT`
+- Reglas de acceso:
+1. Requiere matricula activa en ese `courseCycleId`.
+2. Si no tiene matricula activa: `403`.
+- Respuesta 200:
+```json
+{
+  "courseCycleId": "4",
+  "cycleCode": "2026-0",
+  "items": [
+    {
+      "evaluationTypeId": "2",
+      "evaluationTypeCode": "EX",
+      "evaluationTypeName": "Examen"
+    },
+    {
+      "evaluationTypeId": "1",
+      "evaluationTypeCode": "PC",
+      "evaluationTypeName": "Practica Calificada"
+    }
+  ]
+}
+```
+- Nota frontend:
+1. Mostrar cards segun `items`.
+2. No hardcodear tipos.
+3. El orden llega desde backend (por code).
+
+### 3) Admin - Crear evaluacion con validacion estricta de estructura
+
+- Endpoint: `POST /evaluations`
+- Roles: `ADMIN`, `SUPER_ADMIN`
+- Body:
+```json
+{
+  "courseCycleId": "4",
+  "evaluationTypeId": "1",
+  "number": 3,
+  "startDate": "2026-03-10T05:00:00.000Z",
+  "endDate": "2026-03-10T23:59:59.000Z"
+}
+```
+- Reglas nuevas obligatorias:
+1. `evaluationTypeId` debe existir en la estructura activa del `course_cycle`.
+2. Si el `course_cycle` no tiene estructura activa: `400`.
+3. Si el tipo no esta permitido en la estructura: `400`.
+4. Se mantiene validacion de fechas dentro del ciclo academico.
+- Errores esperados:
+1. `400` tipo no permitido, estructura vacia, fechas invalidas, typeId vacio.
+2. `404` course_cycle no existe.
+
+### 4) Impacto esperado en frontend
+
+1. En admin, configurar estructura por ciclo antes de crear evaluaciones nuevas.
+2. En alumno, usar `bank-structure` para render del tab Banco.
+3. No inferir acceso por labels.
+4. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion.
+
+### 5) Cache y consistencia
+
+1. Cuando admin actualiza `evaluation-structure`, backend invalida:
+   - cache de contenido por ciclo
+   - cache de bank structure por ciclo
+2. Cuando admin crea evaluacion (`POST /evaluations`), backend invalida cache de contenido por ciclo.
+3. Con esto, frontend debe ver cambios sin esperar TTL largo.
+
+### 6) SQL de desarrollo actualizado
+
+Se actualizo `db/datos_prueba_cursos_y_matriculas.sql` para poblar `course_cycle_allowed_evaluation_type` en ciclos actual e historicos para los cursos de prueba.
+
+Objetivo:
+1. Permitir que `bank-structure` devuelva data real desde seed.
+2. Permitir que `POST /evaluations` valide contra estructura activa desde seed.
+3. Mantener entorno reproducible al recrear schema+data.

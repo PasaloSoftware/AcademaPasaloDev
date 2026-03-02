@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In } from 'typeorm';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { EvaluationType } from '@modules/evaluations/domain/evaluation-type.entity';
 
@@ -19,6 +19,17 @@ export class EvaluationRepository {
   ): Promise<EvaluationType | null> {
     const repo = manager ? manager.getRepository(EvaluationType) : this.typeOrm;
     return await repo.findOne({ where: { code } });
+  }
+
+  async findTypesByIds(ids: string[]): Promise<EvaluationType[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    return await this.typeOrm.find({
+      where: { id: In(ids) },
+      order: { id: 'ASC' },
+    });
   }
 
   async findByCourseCycle(courseCycleId: string): Promise<Evaluation[]> {

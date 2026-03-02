@@ -55,3 +55,26 @@ export class StudentPreviousCycleContentResponseDto {
   @Type(() => StudentEvaluationCardDto)
   evaluations: StudentEvaluationCardDto[];
 }
+
+export class StudentBankStructureItemDto {
+  @Expose()
+  evaluationTypeId: string;
+
+  @Expose()
+  evaluationTypeCode: string;
+
+  @Expose()
+  evaluationTypeName: string;
+}
+
+export class StudentBankStructureResponseDto {
+  @Expose()
+  courseCycleId: string;
+
+  @Expose()
+  cycleCode: string;
+
+  @Expose()
+  @Type(() => StudentBankStructureItemDto)
+  items: StudentBankStructureItemDto[];
+}

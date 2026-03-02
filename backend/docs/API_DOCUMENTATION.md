@@ -609,3 +609,15 @@ El sistema no expone WebSocket ni Server-Sent Events. La actualización del esta
 | Código | Causa |
 |---|---|
 | `404 Not Found` | La notificación no existe o no pertenece al usuario autenticado. |
+
+---
+
+## Update 2026-03-02 - Cursos/Evaluaciones
+
+Para contratos actuales de frontend sobre:
+1. `PUT /courses/cycle/:courseCycleId/evaluation-structure`
+2. `GET /courses/cycle/:courseCycleId/bank-structure`
+3. `POST /evaluations` con validacion estricta por estructura
+
+Revisar en detalle: `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
+`UPDATE FRONTEND CONTRACT - FASES 2, 3 Y 4 (2026-03-02)`.

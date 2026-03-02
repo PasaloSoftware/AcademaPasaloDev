@@ -73,8 +73,14 @@ export class CourseCycleRepository {
     });
   }
 
-  async findById(id: string): Promise<CourseCycle | null> {
-    return await this.ormRepository.findOne({
+  async findById(
+    id: string,
+    manager?: EntityManager,
+  ): Promise<CourseCycle | null> {
+    const repo = manager
+      ? manager.getRepository(CourseCycle)
+      : this.ormRepository;
+    return await repo.findOne({
       where: { id },
       relations: { academicCycle: true },
     });
