@@ -1,270 +1,280 @@
-# Plan Implementacion Videos Drive Embed
+# Plan Implementacion Drive Links - Videos y Documentos
 
-Fecha: 2026-03-01
-Estado: Documento base de trabajo para ejecucion por fases.
+Fecha base: 2026-03-01  
+Ultima actualizacion: 2026-03-02  
+Estado: Documento base de ejecucion por fases.
 
 ## 1. Objetivo
-Implementar visualizacion de videos embebidos desde Google Drive en la plataforma, con control de acceso gobernado por backend y sincronizacion automatica de permisos por grupos de Google Workspace.
+Implementar entrega de contenido educativo desde Google Drive con URLs directas para:
+1. Videos.
+2. Documentos.
 
-Este documento define:
-1. Base que ya existe y esta validada.
-2. Lo que falta para cerrar implementacion profesional.
-3. Estrategia por fases con validacion, tests y pausa obligatoria al cierre de cada fase.
+Manteniendo:
+1. Control de acceso academico vigente.
+2. Revocacion por cambios de matricula/acceso.
+3. Menor carga de trafico en EC2 (Drive sirve los bytes).
 
-## 2. Base ya disponible (no partimos desde cero)
+## 2. Contexto real del sistema (base ya existente)
 ### 2.1 Backend actual
-1. Autenticacion solo con Google ya operativa.
-2. Control de acceso academico por backend ya implementado (rol activo, matriculas, accesos por evaluacion, revocaciones).
-3. Integracion Google Drive para storage ya implementada:
-   - proveedor `GDRIVE`
-   - estructura base `uploads/objects/archivado`
-   - subida, descarga por stream API, borrado
-4. Modulo de clases ya expone `recordingUrl` y `recordingStatus`.
-5. BullMQ ya esta integrado en plataforma para procesos asincronos.
+1. Login con Google ya operativo.
+2. Reglas de acceso academico ya implementadas en backend.
+3. Storage Drive para materiales ya existe (subida, descarga, borrado).
+4. Roles y validaciones de acceso a materiales ya existen.
 
-### 2.2 Google Workspace / Admin SDK
-1. Domain-wide delegation configurada para service account.
-2. Admin SDK API habilitada en GCP.
-3. Scopes validados para:
-   - lectura de grupos
-   - creacion/actualizacion de grupos
-   - gestion de miembros
-4. Prueba real ejecutada:
-   - crear grupo
-   - leer grupo
-   - actualizar grupo
-   - agregar miembro
-   - quitar miembro
-   Resultado: OK.
+### 2.2 Modelo de acceso academico vigente (clave para diseno)
+1. El acceso de alumno se valida por evaluacion (`enrollment_evaluation`), no solo por curso.
+2. Se valida estado activo + ventana temporal + matricula no cancelada.
+3. Matricula `PARTIAL` puede acceder solo a algunas evaluaciones.
+4. Matricula `FULL` accede a todas las evaluaciones del scope aplicable.
 
-### 2.3 Variables de entorno base documentadas
+Implicancia directa:
+1. La unidad de permiso en Drive debe alinearse con evaluacion.
+2. Grupo por curso/ciclo no replica correctamente `PARTIAL`.
+
+## 3. Decisiones tecnicas confirmadas
+### 3.1 Unidad de permiso en Drive
+1. Grupo por evaluacion (canon).
+2. Mismo grupo para videos y documentos de esa evaluacion.
+
+Ejemplo:
+1. `ev-552-viewers@academiapasalo.com`
+
+### 3.2 Estructura minima de carpetas
+No usar carpeta global unica para todo el contenido.
+
+Estructura minima recomendada:
+1. `uploads/objects/ev_<evaluationId>/videos`
+2. `uploads/objects/ev_<evaluationId>/documentos`
+
+Notas:
+1. Separa operacion por tipo de contenido sin duplicar grupos.
+2. `evaluationId` es la llave tecnica principal.
+3. Puedes agregar nombres legibles, pero el mapeo oficial debe ser por ID.
+
+### 3.3 Entrega al frontend
+1. Videos: URL directa de Drive para visualizacion embebida.
+2. Documentos: URL directa de Drive para visualizacion/descarga.
+3. En ambos casos, backend decide si entrega URL o no.
+
+### 3.4 Regla de excepcion para visibilidad fina
+Para contenido que use `visibleFrom/visibleUntil`:
+1. Mantener gate/proxy desde backend (segun endpoint y caso).
+2. No depender solo de permiso de grupo en Drive para esa regla.
+
+Razon:
+1. Drive no aplica nativamente la logica de visibilidad fina por item como lo hace backend.
+
+## 4. Por que se hace asi (justificacion)
+1. Trafico alto: URLs directas reducen carga de EC2.
+2. Reglas iguales para video/documento: un solo grupo por evaluacion evita complejidad innecesaria.
+3. Modelo academico actual: acceso real es por evaluacion, por eso grupo por evaluacion.
+4. Revocacion: al quitar miembro del grupo, URL antigua deja de funcionar para ese usuario.
+5. Operacion: subcarpetas separadas (`videos`/`documentos`) simplifican orden y auditoria.
+
+## 5. Lo que SI y NO garantiza este enfoque
+### 5.1 Si garantiza
+1. Control de acceso a origen (Drive) segun estado academico.
+2. Revocacion posterior por baja/cancelacion/vencimiento.
+3. Escalabilidad mejor que proxy continuo en backend.
+
+### 5.2 No garantiza
+1. Impedir al 100% que un usuario conserve copia local si ya pudo ver/descargar.
+
+## 6. Variables de entorno requeridas
 1. `GOOGLE_APPLICATION_CREDENTIALS`
 2. `GOOGLE_DRIVE_ROOT_FOLDER_ID`
 3. `GOOGLE_WORKSPACE_ADMIN_EMAIL`
 4. `GOOGLE_WORKSPACE_GROUP_DOMAIN`
+5. `STORAGE_PROVIDER=GDRIVE` (segun entorno)
 
-## 3. Alcance funcional objetivo
-1. Videos se almacenan en Drive, no en EC2.
-2. Frontend consume URL embebida (`preview`) solo cuando backend autoriza.
-3. Permisos Drive se gestionan por grupos (no por usuario por archivo).
-4. Fuente de verdad de acceso: plataforma (matriculas y accesos por evaluacion).
-5. Revocacion automatica: al perder acceso academico, se remueve del grupo correspondiente.
+## 7. Alcance funcional objetivo unificado
+1. Provision automatica de recursos Drive por evaluacion:
+   - carpeta `videos`
+   - carpeta `documentos`
+   - grupo viewer
+2. Permiso de lectura de ambas carpetas al mismo grupo.
+3. Sincronizacion automatica de miembros por eventos de negocio.
+4. Reconciliacion periodica como fallback.
+5. Endpoints de entrega de URL autorizada para frontend.
+6. Excepcion controlada para items con `visibleFrom/visibleUntil`.
 
-## 4. Decisiones tecnicas recomendadas
-### 4.1 Unidad de permiso
-Usar grupo por evaluacion (recomendado) para calzar con tu modelo de acceso actual.
-
-Ejemplo:
-1. Grupo: `ev-552-viewers@academiapasalo.com`
-2. Carpeta: `uploads/{ciclo}/{curso}/{evaluacion}/videos`
-3. Permiso carpeta -> grupo viewer.
-
-### 4.2 Estructura de carpetas Drive
-Crear por codigo, con componentes legibles + ids para evitar ambiguedad operativa.
-
-Ejemplo:
-`uploads/2026-1/CC_184-MAT101/EV_552-PC1/videos`
-
-### 4.3 Identificador de video
-Guardar `driveFileId` como identificador tecnico principal.
-El nombre del archivo es operativo/visual, no llave de negocio.
-
-### 4.4 Seguridad
-1. No usar "public with link" para videos protegidos.
-2. Compartir por grupos restringidos.
-3. Backend entrega embed URL solo si el usuario tiene acceso vigente.
-
-## 5. Gaps pendientes para cerrar implementacion
-1. Modelo persistente de mapeo academico <-> Drive:
-   - scope academico (courseCycle/evaluation)
-   - driveFolderId para videos
-   - groupEmail/groupId viewer
-2. Servicio de sincronizacion de grupos:
-   - upsert grupo
-   - add/remove miembros idempotente
-3. Pipeline asincrono de sync de permisos con BullMQ:
-   - trigger por eventos de negocio
-   - reintentos y DLQ
-4. Reconciliacion periodica (fallback):
-   - recalculo estado real en plataforma
-   - correccion de diferencias con Workspace
-5. API de videos embebidos:
-   - endpoint para obtener metadata + embed URL autorizada
-6. Auditoria y observabilidad:
-   - logs de altas/bajas de permisos
-   - metricas de errores de sync
-
-## 6. Estrategia de implementacion por fases
+## 8. Fases de implementacion
 Regla obligatoria para todas las fases:
-1. Desarrollo profesional y optimizado.
-2. Al terminar una fase:
-   - actualizar/crear tests de la fase
+1. Implementacion profesional y optimizada.
+2. Al cierre de cada fase:
+   - actualizar/crear tests
    - ejecutar pruebas impactadas
    - detenerse
-   - entregar informe al usuario
-   - esperar aprobacion/correcciones
-3. Solo continuar con la siguiente fase cuando el usuario apruebe.
+   - reportar resultados
+   - esperar aprobacion
 
----
-
-## Fase 1 - Fundacion de modelo y contratos
+### Fase 1 - Fundacion de modelo unificado
 Estado: PENDIENTE
 
 Objetivo:
-Definir estructura persistente y contratos de dominio para videos + permisos Drive por evaluacion.
+Definir modelos persistentes para scope evaluacion + recursos Drive compartidos para videos/documentos.
 
 Entregables:
-1. Entidades/tablas para mapping:
-   - scope academico
-   - folder videos Drive
-   - grupo viewer
-2. Interfaces de servicio para:
-   - resolucion de scope
-   - resolucion de folder/grupo
-3. Reglas de naming estandar para grupo y carpeta.
-4. DTOs base de respuesta de video embebido.
+1. Tabla de mapeo por evaluacion:
+   - evaluationId
+   - driveFolderIdBase (ev_<id>)
+   - driveVideosFolderId
+   - driveDocumentosFolderId
+   - groupEmail/groupId
+2. Contratos de servicio:
+   - resolver scope academico
+   - resolver/provisionar carpeta y grupo
+3. Reglas estandar de naming.
+4. DTOs base de respuesta para URL autorizada.
 
-Tests requeridos:
-1. Unit tests de validacion de naming y resolucion de scope.
-2. Unit tests de mapeo de entidades/dto.
+Tests:
+1. Unit de naming.
+2. Unit de resolucion de scope.
+3. Unit de mapeo entidad/dto.
 
 Criterio de cierre:
-1. Modelo consistente con matriculas actuales.
-2. Sin ambiguedad de ownership ni duplicidad de grupos/carpetas.
+1. Modelo sin ambiguedad y alineado al acceso por evaluacion.
 
-Pausa obligatoria:
-Entregar informe de fase y esperar validacion del usuario.
-
----
-
-## Fase 2 - Provision de carpetas y grupos
+### Fase 2 - Provision idempotente de carpetas y grupo
 Estado: PENDIENTE
 
 Objetivo:
-Automatizar creacion/obtencion idempotente de carpeta `videos` y grupo viewer por evaluacion.
+Crear/obtener de forma idempotente carpeta base de evaluacion + subcarpetas + grupo.
 
 Entregables:
-1. Servicio Drive folder provisioner (`find-or-create`).
-2. Servicio Workspace group provisioner (`find-or-create`).
-3. Enlace carpeta <-> grupo (permiso reader).
-4. Persistencia del resultado en tabla de mapping.
+1. Drive provisioner:
+   - `find-or-create` carpeta base evaluacion.
+   - `find-or-create` subcarpetas `videos` y `documentos`.
+2. Workspace provisioner:
+   - `find-or-create` grupo viewer por evaluacion.
+3. Vincular permisos:
+   - grupo viewer -> read en ambas subcarpetas.
+4. Persistir IDs y metadatos en BD.
 
-Tests requeridos:
-1. Unit tests con mocks de Google APIs:
-   - grupo existente/no existente
-   - carpeta existente/no existente
-   - casos ambiguos/errores API
-2. Test de idempotencia (doble provision no duplica recursos).
+Tests:
+1. Unit con mocks (existente/no existente/ambiguedad/error API).
+2. Test de idempotencia (doble provision no duplica).
 
 Criterio de cierre:
-1. Provision repetible sin duplicados.
-2. Manejo de errores con mensajes operativos claros.
+1. Provision repetible, trazable y sin duplicados.
 
-Pausa obligatoria:
-Entregar informe de fase y esperar validacion del usuario.
-
----
-
-## Fase 3 - Sync de membresia por eventos de negocio
+### Fase 3 - Sync por eventos de negocio
 Estado: PENDIENTE
 
 Objetivo:
-Sincronizar altas/bajas de miembros en grupos segun cambios de acceso academico.
+Sincronizar membresia del grupo segun matriculas y accesos por evaluacion.
 
 Entregables:
-1. Jobs BullMQ para:
-   - grant access
-   - revoke access
-2. Hooks en puntos de negocio:
+1. Jobs BullMQ:
+   - grant member
+   - revoke member
+2. Triggers por eventos:
    - matricula creada
    - matricula cancelada
-   - revocacion/reactivacion de acceso evaluacion
-   - asignacion/revocacion profesor (si aplica visualizacion)
-3. Idempotencia en add/remove miembros.
-4. Retry policy y DLQ.
+   - alta/baja de acceso por evaluacion
+   - cambios relevantes de profesor (si aplica visualizacion)
+3. Idempotencia add/remove.
+4. Retry y DLQ.
 
-Tests requeridos:
-1. Unit tests de encolado.
-2. Unit tests de processor.
-3. E2E de casos clave de matricula y revocacion.
+Tests:
+1. Unit de encolado.
+2. Unit de processors.
+3. E2E de grant/revoke en casos clave.
 
 Criterio de cierre:
-1. Cambios academicos generan sync correcto en background.
-2. Fallos temporales quedan en retry sin perder evento.
+1. Los cambios academicos se reflejan en grupos sin drift inmediato.
 
-Pausa obligatoria:
-Entregar informe de fase y esperar validacion del usuario.
-
----
-
-## Fase 4 - Reconciliacion y consistencia temporal
+### Fase 4 - Reconciliacion periodica
 Estado: PENDIENTE
 
 Objetivo:
-Agregar fallback robusto para expiracion por fecha fin y recuperacion ante fallos.
+Corregir desalineaciones por fallos transitorios o propagacion tardia.
 
 Entregables:
-1. Job periodico de reconciliacion:
-   - calcula miembros esperados por evaluacion
-   - compara con grupo actual
-   - aplica delta add/remove
+1. Job periodico:
+   - miembros esperados por evaluacion
+   - miembros reales del grupo
+   - delta add/remove
 2. Telemetria de drift detectado/corregido.
-3. Estrategia de throttling para no golpear cuotas API.
+3. Throttling para cuotas API.
 
-Tests requeridos:
-1. Unit tests de calculo de delta.
-2. Unit tests de comportamiento ante errores parciales.
-3. Prueba integrada de correccion de drift.
+Tests:
+1. Unit de calculo de delta.
+2. Unit de errores parciales.
+3. Prueba integrada de convergencia.
 
 Criterio de cierre:
-1. Expiracion por fecha se refleja aun si falla evento puntual.
-2. Drift converge automaticamente.
+1. El sistema converge automaticamente a estado correcto.
 
-Pausa obligatoria:
-Entregar informe de fase y esperar validacion del usuario.
-
----
-
-## Fase 5 - API de consumo para frontend y hardening
+### Fase 5 - API de consumo frontend (direct URL)
 Estado: PENDIENTE
 
 Objetivo:
-Exponer consumo final para UI de videos embebidos con seguridad y UX estable.
+Exponer endpoints para que frontend reciba URL directa solo cuando este autorizado.
 
 Entregables:
-1. Endpoint de consulta de video embebido:
-   - valida acceso actual
-   - retorna embed URL + metadata
-2. Politica de no exponer URL cuando no hay acceso.
-3. Auditoria de consultas sensibles.
-4. Documentacion API final para frontend.
+1. Endpoint video (embed/direct):
+   - valida acceso vigente
+   - retorna URL + metadata
+2. Endpoint documento (view/download direct):
+   - valida acceso vigente
+   - retorna URL + metadata
+3. Politica clara:
+   - si no hay acceso, no devolver URL.
+4. Auditoria de consultas sensibles.
 
-Tests requeridos:
-1. Unit de autorizacion.
-2. E2E de perfiles (permitido/denegado/revocado).
-3. E2E de acceso luego de expiracion.
+Tests:
+1. Unit autorizacion.
+2. E2E permitido/denegado/revocado.
+3. E2E post-cancelacion/post-vencimiento.
 
 Criterio de cierre:
-1. Frontend integra sin ambiguedad.
-2. Seguridad y trazabilidad listas para produccion.
+1. Front integra sin ambiguedad y con trazabilidad.
 
-Pausa obligatoria:
-Entregar informe final de fase y esperar validacion del usuario.
+### Fase 6 - Excepcion visibleFrom/visibleUntil
+Estado: PENDIENTE
 
-## 7. Riesgos y mitigaciones
-1. Propagacion de permisos Google no instantanea.
-   Mitigacion: eventos + reconciliacion periodica.
-2. Cuotas API de Admin SDK/Drive.
-   Mitigacion: batching, retries exponenciales, rate limit.
-3. Drift por fallos transitorios.
-   Mitigacion: reconciliacion, logs y alertas.
-4. Exposicion accidental por comparticion publica.
-   Mitigacion: politicas de comparticion estrictas y validaciones de compliance.
+Objetivo:
+Cubrir los casos menos frecuentes que requieren visibilidad fina por fecha.
 
-## 8. Checklist de arranque para fase 1
-1. Confirmar naming final de grupos y carpetas.
-2. Confirmar unidad de permiso (evaluacion) como canon.
-3. Confirmar politica de borrado de grupos (manual solamente).
-4. Confirmar politica de archivado de videos en Drive.
-5. Confirmar alcance inicial (solo alumnos + profesores asignados, o tambien admins).
+Entregables:
+1. Regla de ruteo:
+   - contenido normal: URL directa.
+   - contenido con visibilidad fina: gate/proxy backend.
+2. Documentacion de contrato frontend para ambos caminos.
+3. Observabilidad de uso de esta via de excepcion.
 
+Tests:
+1. Unit de decision de ruta (direct vs proxy).
+2. E2E con fechas antes/dentro/despues de ventana.
+
+Criterio de cierre:
+1. Se respeta visibilidad fina sin degradar el camino masivo de alto trafico.
+
+## 9. Reglas operativas fijas
+1. No usar `public with link` para contenido protegido.
+2. No crear grupos separados por videos/documentos si las reglas son identicas.
+3. No usar carpeta global unica para todo el contenido de todas las evaluaciones.
+4. Crear grupos de forma lazy (solo cuando exista contenido o necesidad real).
+5. Mantener reconciliacion periodica activa.
+6. No borrar grupos automaticamente al cierre de ciclo sin politica definida.
+
+## 10. Riesgos y mitigaciones
+1. Propagacion de permisos no instantanea.
+   Mitigacion: retries + reconciliacion.
+2. Cuotas de APIs de Google.
+   Mitigacion: batching, backoff, throttling.
+3. Drift por eventos perdidos.
+   Mitigacion: reconciliacion periodica y auditoria.
+4. Exposicion accidental por mala comparticion.
+   Mitigacion: validaciones de compliance y pruebas automatizadas.
+
+## 11. Checklist de arranque
+1. Confirmar naming final de grupo por evaluacion.
+2. Confirmar naming final de carpeta base y subcarpetas.
+3. Confirmar politica de miembros para profesores/admins.
+4. Confirmar SLA de reconciliacion (cada cuanto corre).
+5. Confirmar politica de retencion/archivo por ciclo.
+6. Confirmar contrato frontend para:
+   - URL directa (camino principal)
+   - proxy/gate por visibilidad fina (camino excepcional)
