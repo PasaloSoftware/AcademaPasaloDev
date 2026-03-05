@@ -1,7 +1,7 @@
 # Plan Implementacion Drive Links - Videos y Documentos
 
 Fecha base: 2026-03-01  
-Ultima actualizacion: 2026-03-02  
+Ultima actualizacion: 2026-03-05  
 Estado: Documento base de ejecucion por fases.
 
 ## 1. Objetivo
@@ -207,7 +207,7 @@ Criterio de cierre:
 1. El sistema converge automaticamente a estado correcto.
 
 ### Fase 5 - API de consumo frontend (direct URL)
-Estado: PENDIENTE
+Estado: COMPLETADA (backend)
 
 Objetivo:
 Exponer endpoints para que frontend reciba URL directa solo cuando este autorizado.
@@ -221,7 +221,7 @@ Entregables:
    - retorna URL + metadata
 3. Politica clara:
    - si no hay acceso, no devolver URL.
-4. Auditoria de consultas sensibles.
+4. Sin auditoria de consultas de links (politica actual).
 
 Tests:
 1. Unit autorizacion.

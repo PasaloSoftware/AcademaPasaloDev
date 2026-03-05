@@ -41,7 +41,7 @@ describe('MediaAccessReconciliationService', () => {
     );
   });
 
-  it('registra scheduler de reconciliacion al iniciar', async () => {
+  it('registra scheduler de reconciliación al iniciar', async () => {
     await service.onApplicationBootstrap();
 
     expect(mediaAccessQueue.add).toHaveBeenCalledWith(
@@ -84,7 +84,9 @@ describe('MediaAccessReconciliationService', () => {
       groupEmail: 'ev-200-viewers@academiapasalo.com',
       memberEmail: 'student2@academiapasalo.com',
     });
-    expect(workspaceGroupsService.removeMemberFromGroup).not.toHaveBeenCalledWith(
+    expect(
+      workspaceGroupsService.removeMemberFromGroup,
+    ).not.toHaveBeenCalledWith(
       expect.objectContaining({
         memberEmail: 'owner@academiapasalo.com',
       }),

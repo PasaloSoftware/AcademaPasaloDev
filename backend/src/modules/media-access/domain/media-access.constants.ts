@@ -8,6 +8,16 @@ export const MEDIA_ACCESS_MODES = {
   BACKEND_PROXY: 'BACKEND_PROXY',
 } as const;
 
+export const MEDIA_VIDEO_LINK_MODES = {
+  EMBED: 'embed',
+  DIRECT: 'direct',
+} as const;
+
+export const MEDIA_DOCUMENT_LINK_MODES = {
+  VIEW: 'view',
+  DOWNLOAD: 'download',
+} as const;
+
 export const MEDIA_ACCESS_MEMBERSHIP_ACTIONS = {
   GRANT: 'GRANT',
   REVOKE: 'REVOKE',
@@ -30,5 +40,9 @@ export type MediaContentKind =
   (typeof MEDIA_CONTENT_KINDS)[keyof typeof MEDIA_CONTENT_KINDS];
 export type MediaAccessMode =
   (typeof MEDIA_ACCESS_MODES)[keyof typeof MEDIA_ACCESS_MODES];
+export type MediaVideoLinkMode =
+  (typeof MEDIA_VIDEO_LINK_MODES)[keyof typeof MEDIA_VIDEO_LINK_MODES];
+export type MediaDocumentLinkMode =
+  (typeof MEDIA_DOCUMENT_LINK_MODES)[keyof typeof MEDIA_DOCUMENT_LINK_MODES];
 export type MediaAccessMembershipAction =
   (typeof MEDIA_ACCESS_MEMBERSHIP_ACTIONS)[keyof typeof MEDIA_ACCESS_MEMBERSHIP_ACTIONS];

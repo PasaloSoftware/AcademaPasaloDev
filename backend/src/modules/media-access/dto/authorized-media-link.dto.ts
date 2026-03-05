@@ -19,11 +19,23 @@ export class AuthorizedMediaLinkDto {
   evaluationId: string;
 
   @Expose()
-  driveFileId: string;
+  driveFileId: string | null = null;
 
   @Expose()
   url: string;
 
   @Expose()
   expiresAt: Date | null;
+
+  @Expose()
+  requestedMode: string;
+
+  @Expose()
+  fileName: string | null = null;
+
+  @Expose()
+  mimeType: string | null = null;
+
+  @Expose()
+  storageProvider: string | null = null;
 }

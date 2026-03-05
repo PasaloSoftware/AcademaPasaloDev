@@ -283,6 +283,14 @@ export class MaterialsAdminService {
       reviewComment: adminComment?.trim() || null,
       updatedAt: new Date(),
     });
+
+    await this.auditService.logAction(
+      adminId,
+      AUDIT_ACTION_CODES.FILE_EDIT,
+      AUDIT_ENTITY_TYPES.DELETION_REQUEST,
+      requestId,
+      manager,
+    );
   }
 
   async hardDeleteMaterial(adminId: string, materialId: string): Promise<void> {

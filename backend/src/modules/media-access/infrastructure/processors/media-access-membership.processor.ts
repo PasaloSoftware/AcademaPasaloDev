@@ -72,12 +72,12 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       normalizedAction !== MEDIA_ACCESS_MEMBERSHIP_ACTIONS.REVOKE
     ) {
       throw new UnrecoverableError(
-        `Accion de sync de membresia invalida: ${String(action)}`,
+        `Acción de sync de membresía inválida: ${String(action)}`,
       );
     }
     if (!normalizedUserId || !normalizedEvaluationId) {
       throw new UnrecoverableError(
-        'Payload incompleto para sync de membresia media-access',
+        'Payload incompleto para sync de membresía media-access',
       );
     }
 
@@ -86,7 +86,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     });
     if (!user?.email) {
       throw new UnrecoverableError(
-        `Usuario ${normalizedUserId} no encontrado para sync de membresia`,
+        `Usuario ${normalizedUserId} no encontrado para sync de membresía`,
       );
     }
     const normalizedUserEmail = user.email.trim().toLowerCase();
@@ -100,7 +100,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
         this.logger.log({
           context: MediaAccessMembershipProcessor.name,
           message:
-            'Grant omitido: el usuario no tiene acceso efectivo vigente a la evaluacion',
+            'Grant omitido: el usuario no tiene acceso efectivo vigente a la evaluación',
           evaluationId: normalizedEvaluationId,
           userId: normalizedUserId,
           source: normalizedSource,
@@ -118,7 +118,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
 
       this.logger.log({
         context: MediaAccessMembershipProcessor.name,
-        message: 'Membresia Drive otorgada',
+        message: 'Membresía Drive otorgada',
         evaluationId: normalizedEvaluationId,
         userId: normalizedUserId,
         userEmail: normalizedUserEmail,
@@ -136,7 +136,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       this.logger.log({
         context: MediaAccessMembershipProcessor.name,
         message:
-          'Revocacion omitida: evaluacion sin scope activo persistido en Drive',
+          'Revocación omitida: evaluación sin scope activo persistido en Drive',
         evaluationId: normalizedEvaluationId,
         userId: normalizedUserId,
         source: normalizedSource,
@@ -152,7 +152,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       this.logger.log({
         context: MediaAccessMembershipProcessor.name,
         message:
-          'Revocacion omitida: el usuario mantiene acceso efectivo a la evaluacion',
+          'Revocación omitida: el usuario mantiene acceso efectivo a la evaluación',
         evaluationId: normalizedEvaluationId,
         userId: normalizedUserId,
         source: normalizedSource,
@@ -167,7 +167,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
 
     this.logger.log({
       context: MediaAccessMembershipProcessor.name,
-      message: 'Membresia Drive revocada',
+      message: 'Membresía Drive revocada',
       evaluationId: normalizedEvaluationId,
       userId: normalizedUserId,
       userEmail: normalizedUserEmail,

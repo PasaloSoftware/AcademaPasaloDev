@@ -29,6 +29,19 @@ import { ClassEventsPermissionService } from '@modules/events/application/class-
 import { ClassEventsSchedulingService } from '@modules/events/application/class-events-scheduling.service';
 import { ClassEventsCacheService } from '@modules/events/application/class-events-cache.service';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
+import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
+import { AuthorizedMediaLinkDto } from '@modules/media-access/dto/authorized-media-link.dto';
+import {
+  MEDIA_ACCESS_MODES,
+  MEDIA_CONTENT_KINDS,
+  MEDIA_VIDEO_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
+import type { MediaVideoLinkMode } from '@modules/media-access/domain/media-access.constants';
+import {
+  buildDrivePreviewUrl,
+  buildDriveViewUrl,
+  extractDriveFileIdFromUrl,
+} from '@modules/media-access/domain/media-access-url.util';
 
 @Injectable()
 export class ClassEventsService {
@@ -218,6 +231,44 @@ export class ClassEventsService {
     }
 
     return event;
+  }
+
+  async getAuthorizedRecordingLink(
+    user: User,
+    eventId: string,
+    mode: MediaVideoLinkMode = MEDIA_VIDEO_LINK_MODES.EMBED,
+  ): Promise<AuthorizedMediaLinkDto> {
+    const event = await this.getEventDetail(eventId, user.id);
+    if (!event.recordingUrl) {
+      throw new NotFoundException(
+        'Grabacion no disponible para este evento de clase',
+      );
+    }
+
+    const driveFileId = extractDriveFileIdFromUrl(event.recordingUrl);
+    if (!driveFileId) {
+      throw new BadRequestException(
+        'Grabacion sin ID de archivo Drive. Configure URL de Drive para control de acceso',
+      );
+    }
+
+    const url =
+      mode === MEDIA_VIDEO_LINK_MODES.DIRECT
+        ? buildDriveViewUrl(driveFileId)
+        : buildDrivePreviewUrl(driveFileId);
+
+    return {
+      contentKind: MEDIA_CONTENT_KINDS.VIDEO,
+      accessMode: MEDIA_ACCESS_MODES.DIRECT_URL,
+      evaluationId: event.evaluationId,
+      driveFileId,
+      url,
+      expiresAt: null,
+      requestedMode: mode,
+      fileName: null,
+      mimeType: null,
+      storageProvider: driveFileId ? STORAGE_PROVIDER_CODES.GDRIVE : null,
+    };
   }
 
   async updateEvent(

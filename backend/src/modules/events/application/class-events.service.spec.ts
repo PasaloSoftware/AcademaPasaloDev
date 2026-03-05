@@ -13,9 +13,13 @@ import { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CLASS_EVENT_STATUS } from '@modules/events/domain/class-event.constants';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
+import {
+  MEDIA_ACCESS_MODES,
+  MEDIA_VIDEO_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
 
 describe('ClassEventsService', () => {
   let service: ClassEventsService;
@@ -265,6 +269,60 @@ describe('ClassEventsService', () => {
       expect(classEventRepository.update).toHaveBeenCalled();
       expect(permissionService.validateEventOwnership).toHaveBeenCalled();
       expect(cacheModuleService.invalidateForEvaluation).toHaveBeenCalled();
+    });
+  });
+
+  describe('getAuthorizedRecordingLink', () => {
+    it('debe devolver URL embed de Drive cuando la grabacion es de Drive', async () => {
+      classEventRepository.findById.mockResolvedValue({
+        ...mockEvent,
+        recordingUrl: 'https://drive.google.com/file/d/drive-abc-1/view',
+      } as ClassEvent);
+
+      const result = await service.getAuthorizedRecordingLink(
+        mockProfessor,
+        'event-1',
+        MEDIA_VIDEO_LINK_MODES.EMBED,
+      );
+
+      expect(result.accessMode).toBe(MEDIA_ACCESS_MODES.DIRECT_URL);
+      expect(result.driveFileId).toBe('drive-abc-1');
+      expect(result.url).toContain('/preview');
+      expect(result.requestedMode).toBe(MEDIA_VIDEO_LINK_MODES.EMBED);
+    });
+
+    it('debe rechazar grabacion cuando URL no tiene ID Drive', async () => {
+      classEventRepository.findById.mockResolvedValue({
+        ...mockEvent,
+        recordingUrl: 'https://video.example.com/recording-1',
+      } as ClassEvent);
+
+      await expect(
+        service.getAuthorizedRecordingLink(mockProfessor, 'event-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe lanzar NotFoundException si no existe grabacion disponible', async () => {
+      classEventRepository.findById.mockResolvedValue({
+        ...mockEvent,
+        recordingUrl: null,
+      } as ClassEvent);
+
+      await expect(
+        service.getAuthorizedRecordingLink(mockProfessor, 'event-1'),
+      ).rejects.toThrow('Grabacion no disponible');
+    });
+
+    it('debe lanzar ForbiddenException cuando el usuario no tiene acceso vigente', async () => {
+      permissionService.checkUserAuthorization.mockResolvedValue(false);
+      classEventRepository.findById.mockResolvedValue({
+        ...mockEvent,
+        recordingUrl: 'https://drive.google.com/file/d/drive-abc-1/view',
+      } as ClassEvent);
+
+      await expect(
+        service.getAuthorizedRecordingLink(mockProfessor, 'event-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

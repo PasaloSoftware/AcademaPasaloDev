@@ -55,7 +55,7 @@ describe('MediaAccessMembershipProcessor', () => {
     );
   });
 
-  it('otorga membresia y provisiona si no existe scope activo', async () => {
+  it('otorga membresía y provisiona si no existe scope activo', async () => {
     (dataSource.query as jest.Mock).mockResolvedValueOnce([{ hasAccess: 1 }]);
     (userRepository.findOne as jest.Mock).mockResolvedValue({
       id: '10',
@@ -111,7 +111,7 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(provisioningService.provisionByEvaluationId).not.toHaveBeenCalled();
   });
 
-  it('revoca membresia cuando existe scope activo', async () => {
+  it('revoca membresía cuando existe scope activo', async () => {
     (userRepository.findOne as jest.Mock).mockResolvedValue({
       id: '10',
       email: 'student@test.com',
@@ -141,7 +141,7 @@ describe('MediaAccessMembershipProcessor', () => {
     });
   });
 
-  it('omite revocacion cuando aun tiene acceso efectivo', async () => {
+  it('omite revocación cuando aún tiene acceso efectivo', async () => {
     (userRepository.findOne as jest.Mock).mockResolvedValue({
       id: '10',
       email: 'student@test.com',
@@ -168,7 +168,7 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(workspaceGroupsService.removeMemberFromGroup).not.toHaveBeenCalled();
   });
 
-  it('lanza error no recuperable para accion invalida', async () => {
+  it('lanza error no recuperable para acción inválida', async () => {
     await expect(
       processor.process({
         id: 'job-3',
@@ -183,7 +183,7 @@ describe('MediaAccessMembershipProcessor', () => {
     ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 
-  it('ejecuta reconciliacion para job de reconciliacion', async () => {
+  it('ejecuta reconciliación para job de reconciliación', async () => {
     await processor.process({
       id: 'job-reconcile',
       name: MEDIA_ACCESS_JOB_NAMES.RECONCILE_SCOPES,

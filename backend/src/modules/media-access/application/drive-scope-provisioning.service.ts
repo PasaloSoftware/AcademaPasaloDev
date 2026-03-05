@@ -149,7 +149,7 @@ export class DriveScopeProvisioningService {
     );
     if (!keyFile) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuracion',
+        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuración',
       );
     }
 
@@ -161,7 +161,7 @@ export class DriveScopeProvisioningService {
     const requestClient = client as unknown as GoogleRequestClient;
     if (typeof requestClient.request !== 'function') {
       throw new InternalServerErrorException(
-        'Cliente de Google Drive invalido',
+        'Cliente de Google Drive inválido',
       );
     }
     return requestClient;
@@ -173,7 +173,7 @@ export class DriveScopeProvisioningService {
     ).trim();
     if (!rootFolderId) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_DRIVE_ROOT_FOLDER_ID en configuracion',
+        'Falta GOOGLE_DRIVE_ROOT_FOLDER_ID en configuración',
       );
     }
     return rootFolderId;
@@ -191,7 +191,7 @@ export class DriveScopeProvisioningService {
 
     if (!payload.id) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID invalido: no existe',
+        'GOOGLE_DRIVE_ROOT_FOLDER_ID inválido: no existe',
       );
     }
     if (payload.mimeType !== 'application/vnd.google-apps.folder') {
@@ -241,7 +241,7 @@ export class DriveScopeProvisioningService {
     const payload = createResponse.data;
     if (!payload.id) {
       throw new InternalServerErrorException(
-        `Google Drive no devolvio ID de carpeta ${folderName}`,
+        `Google Drive no devolvió ID de carpeta ${folderName}`,
       );
     }
 

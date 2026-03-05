@@ -18,7 +18,7 @@ describe('MediaAccessMembershipDispatchService', () => {
     );
   });
 
-  it('deduplica jobs y normaliza payload para grants por evaluacion', async () => {
+  it('deduplica jobs y normaliza payload para grants por evaluación', async () => {
     await service.enqueueGrantForUserEvaluations(
       ' 100 ',
       ['200', '200', ' 300 ', ''],

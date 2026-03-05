@@ -105,7 +105,7 @@ export class MediaAccessMembershipDispatchService {
     } catch (error) {
       this.logger.warn({
         context: MediaAccessMembershipDispatchService.name,
-        message: 'No se pudo encolar sync de membresia en Media Access',
+        message: 'No se pudo encolar sync de membresía en Media Access',
         action,
         source: normalizedSource,
         totalJobs: jobs.length,

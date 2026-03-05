@@ -94,7 +94,9 @@ describe('EvaluationDriveAccessProvisioningService', () => {
       name: 'Evaluacion 552 viewers',
       description: 'Acceso viewer para contenido de evaluacion 552',
     });
-    expect(driveScopeProvisioningService.ensureGroupReaderPermission).toHaveBeenCalledWith(
+    expect(
+      driveScopeProvisioningService.ensureGroupReaderPermission,
+    ).toHaveBeenCalledWith(
       'scope-folder-id',
       'ev-552-viewers@academiapasalo.com',
     );

@@ -78,7 +78,7 @@ export class WorkspaceGroupsService {
 
     if (!response.data.id || !response.data.email) {
       throw new InternalServerErrorException(
-        'Google Workspace no devolvio grupo valido',
+        'Google Workspace no devolvió grupo válido',
       );
     }
 
@@ -152,7 +152,7 @@ export class WorkspaceGroupsService {
       if (status !== 404) {
         throw error;
       }
-      // Idempotencia para revocacion repetida.
+      // Idempotencia para revocación repetida.
       return;
     }
 
@@ -274,12 +274,12 @@ export class WorkspaceGroupsService {
 
     if (!keyFile) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuracion',
+        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuración',
       );
     }
     if (!adminEmail) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_WORKSPACE_ADMIN_EMAIL en configuracion',
+        'Falta GOOGLE_WORKSPACE_ADMIN_EMAIL en configuración',
       );
     }
     if (!fs.existsSync(keyFile)) {
@@ -297,13 +297,13 @@ export class WorkspaceGroupsService {
       };
     } catch {
       throw new InternalServerErrorException(
-        'No se pudo parsear GOOGLE_APPLICATION_CREDENTIALS como JSON valido',
+        'No se pudo parsear GOOGLE_APPLICATION_CREDENTIALS como JSON válido',
       );
     }
 
     if (!parsed.client_email || !parsed.private_key) {
       throw new InternalServerErrorException(
-        'Credenciales de service account invalidas para Google Workspace',
+        'Credenciales de service account inválidas para Google Workspace',
       );
     }
 

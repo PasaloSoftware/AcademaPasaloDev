@@ -17,6 +17,7 @@ import { UpdateClassEventDto } from '@modules/events/dto/update-class-event.dto'
 import { AssignProfessorDto } from '@modules/events/dto/assign-professor.dto';
 import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.dto';
 import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
+import { GetAuthorizedRecordingLinkQueryDto } from '@modules/events/dto/get-authorized-recording-link-query.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -155,6 +156,26 @@ export class ClassEventsController {
   ): Promise<ClassEventResponseDto> {
     const event = await this.classEventsService.getEventDetail(id, user.id);
     return this.mapEventToResponse(event);
+  }
+
+  @Get(':id/recording-link')
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
+  @ResponseMessage('URL autorizada de grabacion obtenida exitosamente')
+  async getAuthorizedRecordingLink(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Query() query: GetAuthorizedRecordingLinkQueryDto,
+  ) {
+    return await this.classEventsService.getAuthorizedRecordingLink(
+      user,
+      id,
+      query.mode,
+    );
   }
 
   @Patch(':id')

@@ -34,7 +34,7 @@ export class DriveScopeNamingService {
     const normalized = String(evaluationId || '').trim();
     if (!/^\d+$/.test(normalized)) {
       throw new InternalServerErrorException(
-        'evaluationId invalido para naming de Drive',
+        'evaluationId inválido para naming de Drive',
       );
     }
     return normalized;
@@ -49,7 +49,7 @@ export class DriveScopeNamingService {
 
     if (!domain) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_WORKSPACE_GROUP_DOMAIN en configuracion',
+        'Falta GOOGLE_WORKSPACE_GROUP_DOMAIN en configuración',
       );
     }
 

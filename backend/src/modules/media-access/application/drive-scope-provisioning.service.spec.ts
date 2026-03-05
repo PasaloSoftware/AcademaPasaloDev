@@ -61,4 +61,3 @@ describe('DriveScopeProvisioningService', () => {
     ).resolves.toBeUndefined();
   });
 });
-

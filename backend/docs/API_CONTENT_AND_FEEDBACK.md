@@ -137,6 +137,9 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
 ### 5. Detalle de un Evento
 - **Endpoint:** `GET /class-events/:id`
 - **Data (Response):** Mismo objeto que en Calendario Unificado.
+- **Endpoint:** `GET /class-events/:id/recording-link?mode=embed|direct`
+- **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Comportamiento:** Retorna URL autorizada de grabacion solo cuando el backend valida acceso vigente y la grabacion usa Drive.
 
 ### 6. Crear Nuevo Evento (Docente/Admin)
 - **Endpoint:** `POST /class-events`
@@ -368,6 +371,9 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
 - **Endpoint:** `GET /materials/:id/download`
 - **Roles:** `STUDENT` (con acceso), `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - **Comportamiento:** Retorna stream binario con headers `Content-Type` y `Content-Disposition`.
+- **Endpoint:** `GET /materials/:id/authorized-link?mode=view|download`
+- **Roles:** `STUDENT` (con acceso), `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Comportamiento:** Retorna URL autorizada solo si el backend valida acceso vigente.
 
 ### 3. Gestión Administrativa (Upload/Config)
 - **POST /materials/folders:** Crear carpeta.

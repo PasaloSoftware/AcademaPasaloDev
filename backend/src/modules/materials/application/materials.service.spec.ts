@@ -25,6 +25,10 @@ import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MATERIAL_CACHE_KEYS } from '@modules/materials/domain/material.constants';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
+import {
+  MEDIA_ACCESS_MODES,
+  MEDIA_DOCUMENT_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
 
 const mockFolder = (
   id = '1',
@@ -331,13 +335,6 @@ describe('MaterialsService', () => {
 
       expect(storageService.saveFile).toHaveBeenCalled();
       expect(result).toBeDefined();
-      expect(auditService.logAction).toHaveBeenCalledWith(
-        'prof-1',
-        'FILE_UPLOAD',
-        AUDIT_ENTITY_TYPES.MATERIAL,
-        'saved-id',
-        expect.anything(),
-      );
     });
 
     it('should reject upload when classEvent does not belong to folder evaluation', async () => {
@@ -950,6 +947,85 @@ describe('MaterialsService', () => {
 
       expect(result.materialId).toBe('mat-1');
       expect(result.lastModifiedAt).toEqual(createdAt);
+    });
+  });
+
+  describe('getAuthorizedDocumentLink', () => {
+    it('should return a direct Drive preview URL when resource provider is GDRIVE', async () => {
+      materialRepo.findById.mockResolvedValue({
+        id: 'mat-1',
+        materialFolderId: 'folder-1',
+        displayName: 'Guia 1',
+        fileResource: {
+          originalName: 'guia-1.pdf',
+          mimeType: 'application/pdf',
+          storageProvider: 'GDRIVE',
+          storageKey: 'drive-file-1',
+          storageUrl: null,
+        },
+      } as unknown as Material);
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      accessEngine.hasAccess.mockResolvedValue(true);
+
+      const result = await service.getAuthorizedDocumentLink(
+        mockStudent,
+        'mat-1',
+        MEDIA_DOCUMENT_LINK_MODES.VIEW,
+      );
+
+      expect(result.accessMode).toBe(MEDIA_ACCESS_MODES.DIRECT_URL);
+      expect(result.driveFileId).toBe('drive-file-1');
+      expect(result.url).toContain('/preview');
+      expect(result.requestedMode).toBe(MEDIA_DOCUMENT_LINK_MODES.VIEW);
+      expect(auditService.logAction).not.toHaveBeenCalled();
+    });
+
+    it('should return backend proxy URL when resource provider is LOCAL', async () => {
+      materialRepo.findById.mockResolvedValue({
+        id: 'mat-7',
+        materialFolderId: 'folder-1',
+        displayName: 'Guia local',
+        fileResource: {
+          originalName: 'guia-local.pdf',
+          mimeType: 'application/pdf',
+          storageProvider: 'LOCAL',
+          storageKey: 'local-key',
+          storageUrl: '/tmp/local-key',
+        },
+      } as unknown as Material);
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      accessEngine.hasAccess.mockResolvedValue(true);
+
+      const result = await service.getAuthorizedDocumentLink(
+        mockStudent,
+        'mat-7',
+        MEDIA_DOCUMENT_LINK_MODES.DOWNLOAD,
+      );
+
+      expect(result.accessMode).toBe(MEDIA_ACCESS_MODES.BACKEND_PROXY);
+      expect(result.driveFileId).toBeNull();
+      expect(result.url).toBe('/materials/mat-7/download');
+      expect(result.requestedMode).toBe(MEDIA_DOCUMENT_LINK_MODES.DOWNLOAD);
+    });
+
+    it('should deny when student no longer has enrollment access', async () => {
+      materialRepo.findById.mockResolvedValue({
+        id: 'mat-1',
+        materialFolderId: 'folder-1',
+        fileResource: {
+          originalName: 'guia-1.pdf',
+          mimeType: 'application/pdf',
+          storageProvider: 'GDRIVE',
+          storageKey: 'drive-file-1',
+          storageUrl: null,
+        },
+      } as unknown as Material);
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      accessEngine.hasAccess.mockResolvedValue(false);
+
+      await expect(
+        service.getAuthorizedDocumentLink(mockStudent, 'mat-1'),
+      ).rejects.toThrow('No tienes acceso a este contenido educativo');
     });
   });
 

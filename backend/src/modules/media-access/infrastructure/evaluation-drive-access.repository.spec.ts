@@ -78,22 +78,20 @@ describe('EvaluationDriveAccessRepository', () => {
   });
 
   it('should recover from duplicate key race and return updated concurrent row', async () => {
-    ormRepository.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: '12',
-        evaluationId: '552',
-        scopeKey: 'old_scope',
-        viewerGroupEmail: 'old@academiapasalo.com',
-        driveScopeFolderId: null,
-        driveVideosFolderId: null,
-        driveDocumentsFolderId: null,
-        driveArchivedFolderId: null,
-        viewerGroupId: null,
-        isActive: false,
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-        updatedAt: null,
-      } as EvaluationDriveAccess);
+    ormRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: '12',
+      evaluationId: '552',
+      scopeKey: 'old_scope',
+      viewerGroupEmail: 'old@academiapasalo.com',
+      driveScopeFolderId: null,
+      driveVideosFolderId: null,
+      driveDocumentsFolderId: null,
+      driveArchivedFolderId: null,
+      viewerGroupId: null,
+      isActive: false,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: null,
+    } as EvaluationDriveAccess);
 
     ormRepository.create.mockImplementation(
       (entity) => entity as unknown as EvaluationDriveAccess,

@@ -50,6 +50,17 @@ import {
   STORAGE_PROVIDER_CODES,
 } from '@modules/materials/domain/material.constants';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
+import { AuthorizedMediaLinkDto } from '@modules/media-access/dto/authorized-media-link.dto';
+import {
+  MEDIA_ACCESS_MODES,
+  MEDIA_CONTENT_KINDS,
+  MEDIA_DOCUMENT_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
+import type { MediaDocumentLinkMode } from '@modules/media-access/domain/media-access.constants';
+import {
+  buildDriveDownloadUrl,
+  buildDrivePreviewUrl,
+} from '@modules/media-access/domain/media-access-url.util';
 
 @Injectable()
 export class MaterialsService {
@@ -366,14 +377,6 @@ export class MaterialsService {
         });
         const savedMaterial = await manager.save(materialEntity);
 
-        await this.auditService.logAction(
-          user.id,
-          AUDIT_ACTION_CODES.FILE_UPLOAD,
-          AUDIT_ENTITY_TYPES.MATERIAL,
-          savedMaterial.id,
-          manager,
-        );
-
         return savedMaterial;
       });
 
@@ -579,14 +582,6 @@ export class MaterialsService {
 
         const updatedMaterial = await manager.save(freshMaterial);
 
-        await this.auditService.logAction(
-          user.id,
-          AUDIT_ACTION_CODES.FILE_EDIT,
-          AUDIT_ENTITY_TYPES.MATERIAL,
-          updatedMaterial.id,
-          manager,
-        );
-
         return updatedMaterial;
       });
 
@@ -753,6 +748,66 @@ export class MaterialsService {
     };
   }
 
+  async getAuthorizedDocumentLink(
+    user: UserWithSession,
+    materialId: string,
+    mode: MediaDocumentLinkMode = MEDIA_DOCUMENT_LINK_MODES.VIEW,
+  ): Promise<AuthorizedMediaLinkDto> {
+    const material = await this.materialRepository.findById(materialId);
+    if (!material) {
+      throw new NotFoundException('Material no encontrado');
+    }
+
+    const folder = await this.folderRepository.findById(
+      material.materialFolderId,
+    );
+    if (!folder) {
+      throw new NotFoundException('Carpeta contenedora no encontrada');
+    }
+
+    await this.checkAuthorizedAccess(
+      user,
+      folder.evaluationId,
+      folder,
+      material,
+    );
+
+    const resource = material.fileResource;
+    if (!resource) {
+      throw new InternalServerErrorException(
+        'Integridad de datos corrupta: Material sin recurso fisico',
+      );
+    }
+
+    const isDriveResource =
+      resource.storageProvider === STORAGE_PROVIDER_CODES.GDRIVE;
+    const driveFileId = isDriveResource ? resource.storageKey : null;
+
+    const url =
+      isDriveResource && driveFileId
+        ? mode === MEDIA_DOCUMENT_LINK_MODES.DOWNLOAD
+          ? buildDriveDownloadUrl(driveFileId)
+          : buildDrivePreviewUrl(driveFileId)
+        : this.buildMaterialDownloadProxyPath(material.id);
+
+    const accessMode = isDriveResource
+      ? MEDIA_ACCESS_MODES.DIRECT_URL
+      : MEDIA_ACCESS_MODES.BACKEND_PROXY;
+
+    return {
+      contentKind: MEDIA_CONTENT_KINDS.DOCUMENT,
+      accessMode,
+      evaluationId: folder.evaluationId,
+      driveFileId,
+      url,
+      expiresAt: null,
+      requestedMode: mode,
+      fileName: material.displayName || resource.originalName,
+      mimeType: resource.mimeType,
+      storageProvider: resource.storageProvider,
+    };
+  }
+
   async getMaterialLastModified(
     user: UserWithSession,
     materialId: string,
@@ -878,6 +933,10 @@ export class MaterialsService {
       visibleFrom: startDate,
       visibleUntil: endDate,
     };
+  }
+
+  private buildMaterialDownloadProxyPath(materialId: string): string {
+    return `/materials/${encodeURIComponent(materialId)}/download`;
   }
 
   private async assertCanManageEvaluation(

@@ -52,7 +52,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     const summary = await this.reconcileActiveScopes();
     this.logger.log({
       context: MediaAccessReconciliationService.name,
-      message: 'Reconciliacion de media access completada',
+      message: 'Reconciliación de media access completada',
       ...summary,
     });
   }
@@ -82,7 +82,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       processedBatches += 1;
       if (processedBatches > MAX_SCOPE_BATCHES) {
         throw new Error(
-          `Safety stop en reconciliacion: excedido maximo de lotes (${MAX_SCOPE_BATCHES})`,
+          `Safety stop en reconciliación: excedido máximo de lotes (${MAX_SCOPE_BATCHES})`,
         );
       }
 
@@ -129,7 +129,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
 
         this.logger.log({
           context: MediaAccessReconciliationService.name,
-          message: 'Reconciliacion procesada para scope de evaluacion',
+          message: 'Reconciliación procesada para scope de evaluación',
           evaluationId: scope.evaluationId,
           scopeId: scope.id,
           expectedMembers: delta.expectedEmails.length,
@@ -142,7 +142,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       const nextScopeId = String(scopes[scopes.length - 1].id);
       if (nextScopeId === lastScopeId) {
         throw new Error(
-          `Safety stop en reconciliacion: cursor no avanza (scopeId=${nextScopeId})`,
+          `Safety stop en reconciliación: cursor no avanza (scopeId=${nextScopeId})`,
         );
       }
       lastScopeId = nextScopeId;
@@ -170,7 +170,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       this.logger.log({
         context: MediaAccessReconciliationService.name,
         message:
-          'Scheduler de reconciliacion de media access registrado por primera vez',
+          'Scheduler de reconciliación de media access registrado por primera vez',
         jobName,
         cronPattern,
       });
@@ -192,7 +192,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     );
     this.logger.log({
       context: MediaAccessReconciliationService.name,
-      message: 'Scheduler de reconciliacion actualizado',
+      message: 'Scheduler de reconciliación actualizado',
       jobName,
       previousPattern: existingPattern,
       cronPattern,
