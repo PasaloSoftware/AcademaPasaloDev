@@ -43,6 +43,10 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       await this.reconciliationService.runReconciliation();
       return;
     }
+    if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS) {
+      await this.reconciliationService.runStaffViewersSyncOnly();
+      return;
+    }
     if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP) {
       await this.handleSyncMembership(
         job as Job<MediaAccessMembershipSyncJobPayload>,
@@ -98,9 +102,8 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       );
     }
 
-    const scope = await this.provisioningService.provisionByEvaluationId(
-      evaluationId,
-    );
+    const scope =
+      await this.provisioningService.provisionByEvaluationId(evaluationId);
     if (!scope.isActive || !scope.viewerGroupEmail) {
       throw new UnrecoverableError(
         `Scope Drive incompleto tras recover para evaluación ${evaluationId}`,
@@ -355,7 +358,11 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     );
 
     return result
-      .map((row) => String(row.email || '').trim().toLowerCase())
+      .map((row) =>
+        String(row.email || '')
+          .trim()
+          .toLowerCase(),
+      )
       .filter((email) => !!email);
   }
 
@@ -364,14 +371,18 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
   ): Array<{ email: string; role: string }> {
     const deduplicated = new Map<string, { email: string; role: string }>();
     for (const member of members || []) {
-      const email = String(member?.email || '').trim().toLowerCase();
+      const email = String(member?.email || '')
+        .trim()
+        .toLowerCase();
       if (!email) {
         continue;
       }
       if (!deduplicated.has(email)) {
         deduplicated.set(email, {
           email,
-          role: String(member?.role || '').trim().toUpperCase(),
+          role: String(member?.role || '')
+            .trim()
+            .toUpperCase(),
         });
       }
     }
@@ -382,6 +393,3 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     return role === 'MEMBER' || role === '';
   }
 }
-
-
-

@@ -9,4 +9,3 @@ export class RecoverEvaluationScopeDto {
   @IsBoolean()
   pruneExtraMembers?: boolean;
 }
-

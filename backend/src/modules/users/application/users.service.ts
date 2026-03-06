@@ -6,6 +6,8 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { User } from '@modules/users/domain/user.entity';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
@@ -14,11 +16,17 @@ import { CreateUserDto } from '@modules/users/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
 import { IdentitySecurityService } from '@modules/users/application/identity-security.service';
 import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security.constants';
+import { QUEUES } from '@infrastructure/queue/queue.constants';
+import {
+  MEDIA_ACCESS_JOB_NAMES,
+  MEDIA_ACCESS_SYNC_SOURCES,
+} from '@modules/media-access/domain/media-access.constants';
 import {
   DatabaseError,
   MySqlErrorCode,
 } from '@common/interfaces/database-error.interface';
 import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
+import { ADMIN_ROLE_CODES } from '@common/constants/role-codes.constants';
 
 @Injectable()
 export class UsersService {
@@ -29,6 +37,8 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     private readonly roleRepository: RoleRepository,
     private readonly identitySecurityService: IdentitySecurityService,
+    @InjectQueue(QUEUES.MEDIA_ACCESS)
+    private readonly mediaAccessQueue: Queue,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -137,111 +147,192 @@ export class UsersService {
   }
 
   async assignRole(userId: string, roleCode: string): Promise<User> {
-    return await this.dataSource.transaction(async (manager) => {
-      const user = await this.userRepository.findById(userId, manager);
-      if (!user) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
+    const transactionResult = await this.dataSource.transaction(
+      async (manager) => {
+        const user = await this.userRepository.findById(userId, manager);
+        if (!user) {
+          throw new NotFoundException('Usuario no encontrado');
+        }
 
-      const role = await this.roleRepository.findByCode(roleCode, manager);
-      if (!role) {
-        throw new NotFoundException(`Rol ${roleCode} no encontrado`);
-      }
+        const role = await this.roleRepository.findByCode(roleCode, manager);
+        if (!role) {
+          throw new NotFoundException(`Rol ${roleCode} no encontrado`);
+        }
 
-      const hasRole = user.roles.some((r) => r.code === roleCode);
-      if (hasRole) {
-        throw new ConflictException('El usuario ya tiene este rol asignado');
-      }
-
-      user.roles.push(role);
-      user.updatedAt = new Date();
-
-      let updatedUser: User;
-      try {
-        updatedUser = await this.userRepository.save(user, manager);
-      } catch (error) {
-        const errno = getErrnoFromDbError(error as DatabaseError);
-        if (errno === MySqlErrorCode.DUPLICATE_ENTRY) {
+        const hasRole = user.roles.some((r) => r.code === roleCode);
+        if (hasRole) {
           throw new ConflictException('El usuario ya tiene este rol asignado');
         }
-        throw error;
-      }
 
-      this.logger.log({
-        level: 'info',
-        context: UsersService.name,
-        message: 'Rol asignado al usuario',
-        userId,
-        roleCode,
-      });
+        user.roles.push(role);
+        user.updatedAt = new Date();
 
-      await this.identitySecurityService.invalidateUserIdentity(userId, {
-        revokeSessions: false,
-        reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
-        manager,
-      });
+        let updatedUser: User;
+        try {
+          updatedUser = await this.userRepository.save(user, manager);
+        } catch (error) {
+          const errno = getErrnoFromDbError(error as DatabaseError);
+          if (errno === MySqlErrorCode.DUPLICATE_ENTRY) {
+            throw new ConflictException(
+              'El usuario ya tiene este rol asignado',
+            );
+          }
+          throw error;
+        }
 
-      return updatedUser;
+        this.logger.log({
+          level: 'info',
+          context: UsersService.name,
+          message: 'Rol asignado al usuario',
+          userId,
+          roleCode,
+        });
+
+        await this.identitySecurityService.invalidateUserIdentity(userId, {
+          revokeSessions: false,
+          reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
+          manager,
+        });
+
+        return {
+          updatedUser,
+          shouldEnqueueStaffReconciliation:
+            this.shouldTriggerStaffReconciliationForRoleCode(roleCode),
+        };
+      },
+    );
+
+    await this.enqueueImmediateStaffReconciliationIfNeeded({
+      userId,
+      roleCode,
+      event: 'ASSIGN_ROLE',
+      shouldEnqueue: transactionResult.shouldEnqueueStaffReconciliation,
     });
+
+    return transactionResult.updatedUser;
   }
 
   async removeRole(userId: string, roleCode: string): Promise<User> {
-    return await this.dataSource.transaction(async (manager) => {
-      const user = await this.userRepository.findById(userId, manager);
-      if (!user) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
+    const transactionResult = await this.dataSource.transaction(
+      async (manager) => {
+        const user = await this.userRepository.findById(userId, manager);
+        if (!user) {
+          throw new NotFoundException('Usuario no encontrado');
+        }
 
-      const roleIndex = user.roles.findIndex((r) => r.code === roleCode);
-      if (roleIndex === -1) {
-        throw new NotFoundException('El usuario no tiene este rol asignado');
-      }
+        const roleIndex = user.roles.findIndex((r) => r.code === roleCode);
+        if (roleIndex === -1) {
+          throw new NotFoundException('El usuario no tiene este rol asignado');
+        }
 
-      user.roles.splice(roleIndex, 1);
-      user.updatedAt = new Date();
+        user.roles.splice(roleIndex, 1);
+        user.updatedAt = new Date();
 
-      let updatedUser: User;
-      try {
-        updatedUser = await this.userRepository.save(user, manager);
-      } catch (error) {
-        const errno = getErrnoFromDbError(error as DatabaseError);
+        let updatedUser: User;
+        try {
+          updatedUser = await this.userRepository.save(user, manager);
+        } catch (error) {
+          const errno = getErrnoFromDbError(error as DatabaseError);
 
-        if (
-          errno === MySqlErrorCode.LOCK_WAIT_TIMEOUT ||
-          errno === MySqlErrorCode.DEADLOCK
-        ) {
-          throw new ServiceUnavailableException(
-            'La operación no pudo completarse por alta concurrencia. Intente nuevamente.',
+          if (
+            errno === MySqlErrorCode.LOCK_WAIT_TIMEOUT ||
+            errno === MySqlErrorCode.DEADLOCK
+          ) {
+            throw new ServiceUnavailableException(
+              'La operación no pudo completarse por alta concurrencia. Intente nuevamente.',
+            );
+          }
+
+          if (errno === MySqlErrorCode.FOREIGN_KEY_CONSTRAINT_FAIL) {
+            throw new ConflictException(
+              'No se pudo remover el rol por restricciones de integridad.',
+            );
+          }
+
+          throw new InternalServerErrorException(
+            'No se pudo remover el rol. Intente nuevamente.',
           );
         }
 
-        if (errno === MySqlErrorCode.FOREIGN_KEY_CONSTRAINT_FAIL) {
-          throw new ConflictException(
-            'No se pudo remover el rol por restricciones de integridad.',
-          );
-        }
+        this.logger.log({
+          level: 'info',
+          context: UsersService.name,
+          message: 'Rol removido del usuario',
+          userId,
+          roleCode,
+        });
 
-        throw new InternalServerErrorException(
-          'No se pudo remover el rol. Intente nuevamente.',
-        );
-      }
+        await this.identitySecurityService.invalidateUserIdentity(userId, {
+          revokeSessions: false,
+          reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
+          manager,
+        });
 
-      this.logger.log({
-        level: 'info',
-        context: UsersService.name,
-        message: 'Rol removido del usuario',
-        userId,
-        roleCode,
-      });
+        return {
+          updatedUser,
+          shouldEnqueueStaffReconciliation:
+            this.shouldTriggerStaffReconciliationForRoleCode(roleCode),
+        };
+      },
+    );
 
-      await this.identitySecurityService.invalidateUserIdentity(userId, {
-        revokeSessions: false,
-        reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
-        manager,
-      });
-
-      return updatedUser;
+    await this.enqueueImmediateStaffReconciliationIfNeeded({
+      userId,
+      roleCode,
+      event: 'REMOVE_ROLE',
+      shouldEnqueue: transactionResult.shouldEnqueueStaffReconciliation,
     });
+
+    return transactionResult.updatedUser;
+  }
+
+  private async enqueueImmediateStaffReconciliationIfNeeded(input: {
+    userId: string;
+    roleCode: string;
+    event: 'ASSIGN_ROLE' | 'REMOVE_ROLE';
+    shouldEnqueue: boolean;
+  }): Promise<void> {
+    if (!input.shouldEnqueue) {
+      return;
+    }
+    const normalizedRoleCode = String(input.roleCode || '')
+      .trim()
+      .toUpperCase();
+
+    try {
+      await this.mediaAccessQueue.add(
+        MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS,
+        {
+          source: MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+          event: input.event,
+          userId: input.userId,
+          roleCode: normalizedRoleCode,
+          triggeredAt: new Date().toISOString(),
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: 50,
+        },
+      );
+    } catch (error) {
+      this.logger.error({
+        context: UsersService.name,
+        message: 'No se pudo encolar reconciliacion inmediata de media access',
+        userId: input.userId,
+        roleCode: normalizedRoleCode,
+        event: input.event,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private shouldTriggerStaffReconciliationForRoleCode(
+    roleCode: string,
+  ): boolean {
+    const normalizedRoleCode = String(roleCode || '')
+      .trim()
+      .toUpperCase();
+    return ADMIN_ROLE_CODES.includes(normalizedRoleCode);
   }
 
   private shouldInvalidateIdentityOnUpdate(

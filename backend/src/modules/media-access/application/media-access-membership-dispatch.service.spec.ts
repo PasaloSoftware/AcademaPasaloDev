@@ -45,7 +45,9 @@ describe('MediaAccessMembershipDispatchService', () => {
     expect(jobs[0].data.evaluationId).toBe('200');
     expect(jobs[0].data.source).toBe('ENROLLMENT_CREATED');
     expect(jobs[0].data.requestedAt).toBeDefined();
-    expect(jobs[0].opts?.jobId).toBe('media-access__membership__GRANT__100__200');
+    expect(jobs[0].opts?.jobId).toBe(
+      'media-access__membership__GRANT__100__200',
+    );
     expect(jobs[0].opts?.removeOnComplete).toBe(true);
   });
 

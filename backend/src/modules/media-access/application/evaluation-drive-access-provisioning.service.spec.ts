@@ -7,6 +7,8 @@ import { DriveScopeProvisioningService } from '@modules/media-access/application
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
 import { EvaluationDriveAccess } from '@modules/media-access/domain/evaluation-drive-access.entity';
+import { technicalSettings } from '@config/technical-settings';
+import { MEDIA_ACCESS_STAFF_GROUP_METADATA } from '@modules/media-access/domain/media-access.constants';
 
 describe('EvaluationDriveAccessProvisioningService', () => {
   let service: EvaluationDriveAccessProvisioningService;
@@ -17,6 +19,8 @@ describe('EvaluationDriveAccessProvisioningService', () => {
   let driveAccessRepo: jest.Mocked<EvaluationDriveAccessRepository>;
 
   beforeEach(() => {
+    (technicalSettings as any).mediaAccess.staffViewersGroupEmail = '';
+
     evaluationRepo = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<Evaluation>>;
@@ -123,5 +127,62 @@ describe('EvaluationDriveAccessProvisioningService', () => {
       isActive: true,
     });
     expect(result.id).toBe('200');
+  });
+
+  it('should also share scope with global staff viewers group when configured', async () => {
+    (technicalSettings as any).mediaAccess.staffViewersGroupEmail =
+      'staff-viewers@academiapasalo.com';
+    evaluationRepo.findOne.mockResolvedValue({ id: '552' } as Evaluation);
+    namingService.buildForEvaluation.mockReturnValue({
+      evaluationId: '552',
+      scopeKey: 'ev_552',
+      baseFolderName: 'ev_552',
+      videosFolderName: 'videos',
+      documentsFolderName: 'documentos',
+      archivedFolderName: 'archivado',
+      viewerGroupEmail: 'ev-552-viewers@academiapasalo.com',
+    });
+    workspaceGroupsService.findOrCreateGroup
+      .mockResolvedValueOnce({
+        id: 'group-id-1',
+        email: 'ev-552-viewers@academiapasalo.com',
+      })
+      .mockResolvedValueOnce({
+        id: 'group-id-staff',
+        email: 'staff-viewers@academiapasalo.com',
+      });
+    driveScopeProvisioningService.provisionFolders.mockResolvedValue({
+      scopeFolderId: 'scope-folder-id',
+      videosFolderId: 'videos-folder-id',
+      documentsFolderId: 'docs-folder-id',
+      archivedFolderId: 'archived-folder-id',
+    });
+    driveAccessRepo.upsertByEvaluationId
+      .mockResolvedValueOnce({
+        id: '150',
+        evaluationId: '552',
+      } as unknown as EvaluationDriveAccess)
+      .mockResolvedValueOnce({
+        id: '200',
+        evaluationId: '552',
+      } as unknown as EvaluationDriveAccess);
+
+    await service.provisionByEvaluationId('552');
+
+    expect(workspaceGroupsService.findOrCreateGroup).toHaveBeenNthCalledWith(
+      2,
+      {
+        email: 'staff-viewers@academiapasalo.com',
+        name: MEDIA_ACCESS_STAFF_GROUP_METADATA.NAME,
+        description: MEDIA_ACCESS_STAFF_GROUP_METADATA.DESCRIPTION,
+      },
+    );
+    expect(
+      driveScopeProvisioningService.ensureGroupReaderPermission,
+    ).toHaveBeenNthCalledWith(
+      2,
+      'scope-folder-id',
+      'staff-viewers@academiapasalo.com',
+    );
   });
 });

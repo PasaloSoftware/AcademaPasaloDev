@@ -77,9 +77,7 @@ export class FeedbackService {
         uniqueName,
         file.buffer,
         file.mimetype,
-        targetDriveFolderId
-          ? { targetDriveFolderId }
-          : undefined,
+        targetDriveFolderId ? { targetDriveFolderId } : undefined,
       );
       photoUrl = storedPhoto.storageUrl ?? storedPhoto.storageKey;
     } else if (dto.photoSource === PhotoSource.PROFILE) {

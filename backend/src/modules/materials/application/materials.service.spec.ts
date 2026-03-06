@@ -271,7 +271,9 @@ describe('MaterialsService', () => {
       folderRepo.findById
         .mockResolvedValueOnce(mockFolder('child-1', '100', 'root-1'))
         .mockResolvedValueOnce(mockFolder('root-1', '100', null));
-      folderRepo.create.mockResolvedValue(mockFolder('grandchild-1', '100', 'child-1'));
+      folderRepo.create.mockResolvedValue(
+        mockFolder('grandchild-1', '100', 'child-1'),
+      );
 
       const result = await service.createFolder(mockProfessor, {
         evaluationId: '100',

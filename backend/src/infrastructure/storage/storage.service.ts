@@ -171,7 +171,9 @@ export class StorageService implements OnModuleInit {
     expectedParentFolderId: string,
   ): Promise<boolean> {
     const normalizedFileId = String(fileId || '').trim();
-    const normalizedExpectedParent = String(expectedParentFolderId || '').trim();
+    const normalizedExpectedParent = String(
+      expectedParentFolderId || '',
+    ).trim();
     if (!normalizedFileId || !normalizedExpectedParent) {
       return false;
     }
@@ -243,7 +245,8 @@ export class StorageService implements OnModuleInit {
     const explicitTargetFolderId = String(
       options?.targetDriveFolderId || '',
     ).trim();
-    const folderId = explicitTargetFolderId || (await this.getDriveObjectsFolderId());
+    const folderId =
+      explicitTargetFolderId || (await this.getDriveObjectsFolderId());
 
     const metadata = {
       name: fileName,

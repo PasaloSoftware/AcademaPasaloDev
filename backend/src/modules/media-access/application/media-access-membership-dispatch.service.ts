@@ -215,5 +215,3 @@ export class MediaAccessMembershipDispatchService {
     ].join('__');
   }
 }
-
-

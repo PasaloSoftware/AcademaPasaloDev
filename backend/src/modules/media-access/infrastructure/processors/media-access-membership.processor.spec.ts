@@ -43,6 +43,7 @@ describe('MediaAccessMembershipProcessor', () => {
     reconciliationService = {
       onApplicationBootstrap: jest.fn(),
       runReconciliation: jest.fn().mockResolvedValue(undefined),
+      runStaffViewersSyncOnly: jest.fn().mockResolvedValue(undefined),
       reconcileActiveScopes: jest.fn(),
     } as unknown as jest.Mocked<MediaAccessReconciliationService>;
 
@@ -194,6 +195,18 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(reconciliationService.runReconciliation).toHaveBeenCalledTimes(1);
   });
 
+  it('ejecuta sync de staff-viewers para job liviano', async () => {
+    await processor.process({
+      id: 'job-staff-sync',
+      name: MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS,
+      data: {},
+    } as unknown as Job);
+
+    expect(reconciliationService.runStaffViewersSyncOnly).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
   it('recupera scope y reconcilia miembros en job manual de recover', async () => {
     provisioningService.provisionByEvaluationId.mockResolvedValue({
       id: '1',
@@ -261,7 +274,9 @@ describe('MediaAccessMembershipProcessor', () => {
       },
     } as unknown as Job);
 
-    expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledTimes(1);
+    expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledTimes(
+      1,
+    );
     expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-20-viewers@academiapasalo.com',
       memberEmail: 'legacy@test.com',
@@ -278,4 +293,3 @@ describe('MediaAccessMembershipProcessor', () => {
     ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 });
-

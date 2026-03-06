@@ -63,7 +63,9 @@ describeLive('E2E Live: Materials + Google Drive', () => {
         'SELECT drive_documents_folder_id AS driveDocumentsFolderId FROM evaluation_drive_access WHERE evaluation_id = ? LIMIT 1',
         [evaluationId],
       )) as Array<{ driveDocumentsFolderId?: string | null }>;
-      const folderId = String(scopeRows[0]?.driveDocumentsFolderId || '').trim();
+      const folderId = String(
+        scopeRows[0]?.driveDocumentsFolderId || '',
+      ).trim();
       if (folderId) {
         return folderId;
       }
@@ -172,7 +174,9 @@ describeLive('E2E Live: Materials + Google Drive', () => {
     );
 
     await request(app.getHttpServer())
-      .post(`/api/v1/admin/media-access/evaluations/${evaluation.id}/recover-scope`)
+      .post(
+        `/api/v1/admin/media-access/evaluations/${evaluation.id}/recover-scope`,
+      )
       .set('Authorization', `Bearer ${admin.token}`)
       .send({
         reconcileMembers: true,

@@ -1,14 +1,11 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { QUEUES } from '@infrastructure/queue/queue.constants';
-import { JobScheduler } from '@infrastructure/queue/queue.interfaces';
 import { technicalSettings } from '@config/technical-settings';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
-import { MEDIA_ACCESS_JOB_NAMES } from '@modules/media-access/domain/media-access.constants';
+import { MEDIA_ACCESS_STAFF_GROUP_METADATA } from '@modules/media-access/domain/media-access.constants';
+import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
 
 type ReconciliationSummary = {
   scopesProcessed: number;
@@ -17,6 +14,10 @@ type ReconciliationSummary = {
   actualMembersTotal: number;
   addedMembersTotal: number;
   removedMembersTotal: number;
+  staffExpectedMembersTotal: number;
+  staffActualMembersTotal: number;
+  staffAddedMembersTotal: number;
+  staffRemovedMembersTotal: number;
 };
 
 type ReconciliationScopeDelta = {
@@ -36,19 +37,16 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
   private readonly logger = new Logger(MediaAccessReconciliationService.name);
 
   constructor(
-    @InjectQueue(QUEUES.MEDIA_ACCESS)
-    private readonly mediaAccessQueue: Queue,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly evaluationDriveAccessRepository: EvaluationDriveAccessRepository,
     private readonly workspaceGroupsService: WorkspaceGroupsService,
+    private readonly driveScopeProvisioningService: DriveScopeProvisioningService,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
-    if (!technicalSettings.queue.enableRepeatSchedulers) {
-      return;
-    }
-    await this.setupReconciliationScheduler();
+  onApplicationBootstrap(): void {
+    // Cron deshabilitado por decision de arquitectura.
+    // El fallback queda manual por endpoint admin (por evaluationId).
   }
 
   async runReconciliation(): Promise<void> {
@@ -76,7 +74,17 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       actualMembersTotal: 0,
       addedMembersTotal: 0,
       removedMembersTotal: 0,
+      staffExpectedMembersTotal: 0,
+      staffActualMembersTotal: 0,
+      staffAddedMembersTotal: 0,
+      staffRemovedMembersTotal: 0,
     };
+
+    const staffDelta = await this.reconcileStaffViewersGroup();
+    summary.staffExpectedMembersTotal = staffDelta.expectedCount;
+    summary.staffActualMembersTotal = staffDelta.actualCount;
+    summary.staffAddedMembersTotal = staffDelta.addedCount;
+    summary.staffRemovedMembersTotal = staffDelta.removedCount;
 
     let lastScopeId = '0';
     let processedBatches = 0;
@@ -99,6 +107,9 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       }
 
       for (const scope of scopes) {
+        await this.ensureStaffGroupReaderPermissionForScope(
+          scope.driveScopeFolderId,
+        );
         const delta = await this.computeScopeDelta(
           scope.evaluationId,
           scope.viewerGroupEmail,
@@ -152,54 +163,6 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     }
 
     return summary;
-  }
-
-  private async setupReconciliationScheduler(): Promise<void> {
-    const jobName = MEDIA_ACCESS_JOB_NAMES.RECONCILE_SCOPES;
-    const cronPattern = technicalSettings.mediaAccess.reconciliationCronPattern;
-
-    const schedulers =
-      (await this.mediaAccessQueue.getJobSchedulers()) as unknown as JobScheduler[];
-    const existing = schedulers.find((scheduler) => scheduler.name === jobName);
-
-    if (!existing) {
-      await this.mediaAccessQueue.add(
-        jobName,
-        {},
-        {
-          repeat: { pattern: cronPattern },
-        },
-      );
-      this.logger.log({
-        context: MediaAccessReconciliationService.name,
-        message:
-          'Scheduler de reconciliación de media access registrado por primera vez',
-        jobName,
-        cronPattern,
-      });
-      return;
-    }
-
-    const existingPattern = existing.cron ?? existing.pattern;
-    if (existingPattern === cronPattern) {
-      return;
-    }
-
-    await this.mediaAccessQueue.removeJobScheduler(jobName);
-    await this.mediaAccessQueue.add(
-      jobName,
-      {},
-      {
-        repeat: { pattern: cronPattern },
-      },
-    );
-    this.logger.log({
-      context: MediaAccessReconciliationService.name,
-      message: 'Scheduler de reconciliación actualizado',
-      jobName,
-      previousPattern: existingPattern,
-      cronPattern,
-    });
   }
 
   private async computeScopeDelta(
@@ -275,6 +238,125 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     return expectedEmailSet;
   }
 
+  async runStaffViewersSyncOnly(): Promise<{
+    expectedCount: number;
+    actualCount: number;
+    addedCount: number;
+    removedCount: number;
+  }> {
+    return await this.reconcileStaffViewersGroup();
+  }
+
+  private async reconcileStaffViewersGroup(): Promise<{
+    expectedCount: number;
+    actualCount: number;
+    addedCount: number;
+    removedCount: number;
+  }> {
+    const configuredGroupEmail = this.getConfiguredStaffGroupEmail();
+    if (!configuredGroupEmail) {
+      return {
+        expectedCount: 0,
+        actualCount: 0,
+        addedCount: 0,
+        removedCount: 0,
+      };
+    }
+
+    const group = await this.workspaceGroupsService.findOrCreateGroup({
+      email: configuredGroupEmail,
+      name: MEDIA_ACCESS_STAFF_GROUP_METADATA.NAME,
+      description: MEDIA_ACCESS_STAFF_GROUP_METADATA.DESCRIPTION,
+    });
+    const groupEmail = String(group.email || configuredGroupEmail)
+      .trim()
+      .toLowerCase();
+
+    const expectedEmailSet = await this.resolveExpectedStaffEmailSet();
+    const groupMembers =
+      await this.workspaceGroupsService.listGroupMembers(groupEmail);
+    const normalizedMembers = this.normalizeGroupMembers(groupMembers);
+    const actualEmailSet = new Set(
+      normalizedMembers.map((member) => member.email || ''),
+    );
+    const removableEmailSet = new Set(
+      normalizedMembers
+        .filter((member) => this.isRemovableMemberRole(member.role))
+        .map((member) => member.email || ''),
+    );
+
+    let addedCount = 0;
+    for (const email of expectedEmailSet) {
+      if (actualEmailSet.has(email)) {
+        continue;
+      }
+      await this.workspaceGroupsService.ensureMemberInGroup({
+        groupEmail,
+        memberEmail: email,
+      });
+      addedCount += 1;
+    }
+
+    let removedCount = 0;
+    for (const email of removableEmailSet) {
+      if (expectedEmailSet.has(email)) {
+        continue;
+      }
+      await this.workspaceGroupsService.removeMemberFromGroup({
+        groupEmail,
+        memberEmail: email,
+      });
+      removedCount += 1;
+    }
+
+    return {
+      expectedCount: expectedEmailSet.size,
+      actualCount: actualEmailSet.size,
+      addedCount,
+      removedCount,
+    };
+  }
+
+  private async resolveExpectedStaffEmailSet(): Promise<Set<string>> {
+    const rows = await this.dataSource.query<Array<{ email: string | null }>>(
+      `SELECT DISTINCT LOWER(TRIM(u.email)) AS email
+       FROM user u
+       INNER JOIN user_role ur ON ur.user_id = u.id
+       INNER JOIN role r ON r.id = ur.role_id
+       WHERE u.is_active = 1
+         AND r.code IN ('ADMIN', 'SUPER_ADMIN')
+         AND u.email IS NOT NULL
+         AND TRIM(u.email) <> ''`,
+    );
+
+    const expectedEmailSet = new Set<string>();
+    for (const row of rows) {
+      const normalizedEmail = String(row.email || '')
+        .trim()
+        .toLowerCase();
+      if (!normalizedEmail) {
+        continue;
+      }
+      expectedEmailSet.add(normalizedEmail);
+    }
+    return expectedEmailSet;
+  }
+
+  private async ensureStaffGroupReaderPermissionForScope(
+    driveScopeFolderId: string | null,
+  ): Promise<void> {
+    const configuredGroupEmail = this.getConfiguredStaffGroupEmail();
+    const normalizedFolderId = String(driveScopeFolderId || '').trim();
+    if (!configuredGroupEmail || !normalizedFolderId) {
+      return;
+    }
+
+    await this.driveScopeProvisioningService.ensureGroupReaderPermission(
+      normalizedFolderId,
+      configuredGroupEmail,
+    );
+  }
+
   private normalizeGroupMembers(members: GroupMember[]): GroupMember[] {
     const deduplicated = new Map<string, GroupMember>();
     for (const member of members) {
@@ -307,6 +389,14 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       setTimeout(resolve, ms);
     });
   }
+
+  private getConfiguredStaffGroupEmail(): string {
+    return String(
+      technicalSettings.mediaAccess.staffViewersGroupEmail ||
+        process.env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL ||
+        '',
+    )
+      .trim()
+      .toLowerCase();
+  }
 }
-
-

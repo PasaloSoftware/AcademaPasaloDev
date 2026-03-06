@@ -7,6 +7,18 @@ const envNumberOrDefault = (envName: string, fallback: number): number => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const envStringOrDefault = (envName: string, fallback: string): string => {
+  const raw = process.env[envName];
+  if (raw == null) {
+    return fallback;
+  }
+  const normalized = String(raw).trim();
+  if (!normalized) {
+    return fallback;
+  }
+  return normalized;
+};
+
 export const technicalSettings = {
   throttler: {
     // src/app.module.ts
@@ -239,9 +251,15 @@ export const technicalSettings = {
   queue: {
     enableRepeatSchedulers: process.env.DISABLE_REPEAT_SCHEDULERS !== '1',
     // src/infrastructure/queue/queue.module.ts
-    defaultAttempts: Math.max(1, envNumberOrDefault('QUEUE_DEFAULT_ATTEMPTS', 3)),
+    defaultAttempts: Math.max(
+      1,
+      envNumberOrDefault('QUEUE_DEFAULT_ATTEMPTS', 3),
+    ),
     // src/infrastructure/queue/queue.module.ts
-    backoffDelayMs: Math.max(0, envNumberOrDefault('QUEUE_BACKOFF_DELAY_MS', 5000)),
+    backoffDelayMs: Math.max(
+      0,
+      envNumberOrDefault('QUEUE_BACKOFF_DELAY_MS', 5000),
+    ),
     // src/infrastructure/queue/queue.module.ts
     backoffType: 'exponential' as const,
     // src/infrastructure/queue/queue.module.ts
@@ -251,7 +269,10 @@ export const technicalSettings = {
   },
 
   mediaAccess: {
-    reconciliationCronPattern: '0 */30 * * * *',
+    staffViewersGroupEmail: envStringOrDefault(
+      'GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL',
+      '',
+    ),
     reconciliationScopeBatchSize: 100,
     reconciliationMutationDelayMs: 50,
   },

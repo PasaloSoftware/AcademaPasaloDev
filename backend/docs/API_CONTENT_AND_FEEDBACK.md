@@ -129,48 +129,41 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
     ]
     ```
 
-### 4. Listar Eventos de una Evaluación
-- **Endpoint:** `GET /class-events/evaluation/:evaluationId`
-- **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Data (Response):** `[ { ...ClassEventResponseDto } ]` (Ver estructura arriba).
-
-### 5. Detalle de un Evento
-- **Endpoint:** `GET /class-events/:id`
-- **Data (Response):** Mismo objeto que en Calendario Unificado.
-- **Endpoint:** `GET /class-events/:id/recording-link?mode=embed|direct`
-- **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Comportamiento:** Retorna URL autorizada de grabacion solo cuando el backend valida acceso vigente y la grabacion usa Drive.
-
-### 6. Crear Nuevo Evento (Docente/Admin)
-- **Endpoint:** `POST /class-events`
-- **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Request Body:**
-    ```typescript
-    {
-      "evaluationId": string,
-      "sessionNumber": number,
-      "title": string,
-      "topic": string,
-      "startDatetime": "ISO-8601",
-      "endDatetime": "ISO-8601",
-      "liveMeetingUrl": string // URL válida de Zoom/Meet/Teams
-    }
-    ```
-- **Regla de colisión vigente:**
-  - El backend valida solapamiento contra todos los cursos del mismo `course_type` dentro del mismo `academic_cycle`.
-  - Excepción actual: `FACULTAD` queda aislado por su propio tipo.
-
-### 7. Actualizar / Cancelar Evento
-- **Patch:** `PATCH /class-events/:id` (Actualiza campos opcionales).
-    * **Fields:** `title`, `topic`, `startDatetime`, `endDatetime`, `liveMeetingUrl`, `recordingUrl`.
-- **Cancel:** `DELETE /class-events/:id/cancel` (Marca como cancelada).
-
-### 8. Gestión de Profesores Invitados (Admin)
-Permite que otros profesores también sean anfitriones del evento.
-- **POST /class-events/:id/professors:** `body: { professorUserId: string }`
-- **DELETE /class-events/:id/professors/:professorId:** Quitar acceso.
-- **Roles:** `ADMIN`, `SUPER_ADMIN`.
-
+### 4. Gestion Administrativa Avanzada (Moderacion)
+- **GET /admin/materials/requests/pending:** listar solicitudes pendientes de eliminacion con metadata del material para decision administrativa.
+    * **Roles:** `ADMIN`, `SUPER_ADMIN`
+    * **Response (`data`):** array con objetos:
+      - `id`: string (requestId)
+      - `entityType`: string
+      - `entityId`: string
+      - `reason`: string | null
+      - `createdAt`: string ISO
+      - `requestedBy`: object
+      - `requestedBy.id`: string
+      - `requestedBy.email`: string | null
+      - `requestedBy.firstName`: string | null
+      - `requestedBy.lastName1`: string | null
+      - `requestedBy.lastName2`: string | null
+      - `material`: object | null
+      - `material.id`: string
+      - `material.displayName`: string | null
+      - `material.originalName`: string | null
+      - `material.mimeType`: string | null
+      - `material.storageProvider`: `LOCAL` | `GDRIVE` | `S3` | null
+      - `material.previewUrl`: string | null (Drive `/preview` cuando aplica)
+      - `material.viewUrl`: string | null (Drive `/view` cuando aplica)
+      - `material.downloadUrl`: string | null (Drive directo o proxy `/materials/:id/download`)
+      - `material.authorizedViewPath`: string | null (`/materials/:id/authorized-link?mode=view`)
+    * **Notas de integracion frontend:**
+      - usar `material.displayName` como etiqueta principal en tabla/listado.
+      - usar `material.originalName` como apoyo tecnico para distinguir archivos similares.
+      - en UI de revision, priorizar `authorizedViewPath` para abrir contenido validado por backend.
+      - `previewUrl/viewUrl/downloadUrl` son utilidades para inspeccion/operacion administrativa.
+- **POST /admin/materials/requests/:id/review:** Aprobar o rechazar solicitud.
+    * **Roles:** `ADMIN`, `SUPER_ADMIN`
+    * `body: { action: 'APPROVE' | 'REJECT', adminComment?: string }`
+- **DELETE /admin/materials/:id/hard-delete:** Eliminacion fisica permanente (irreversible).
+    * **Roles:** `SUPER_ADMIN`
 ---
 
 ## ÉPICA: GESTIÓN ACADÉMICA CORE (`/cycles`, `/courses`)
@@ -367,14 +360,33 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
     }
     ```
 
-### 2. Descarga de Archivos
+### 2. Descarga y Link Autorizado de Archivos
 - **Endpoint:** `GET /materials/:id/download`
 - **Roles:** `STUDENT` (con acceso), `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Comportamiento:** Retorna stream binario con headers `Content-Type` y `Content-Disposition`.
+- **Comportamiento:** retorna stream binario con headers `Content-Type` y `Content-Disposition`.
+- **Notas de backend:**
+    * Para recursos locales/proxy, este endpoint es la salida principal de descarga.
+    * Para recursos Drive, el backend igual valida alcance por evaluacion antes de devolver datos.
+
 - **Endpoint:** `GET /materials/:id/authorized-link?mode=view|download`
 - **Roles:** `STUDENT` (con acceso), `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Comportamiento:** Retorna URL autorizada solo si el backend valida acceso vigente.
-
+- **Query Params:**
+    * `mode`: `view` | `download`
+- **Response (`data`):**
+    * `contentKind`: `DOCUMENT`
+    * `accessMode`: `DIRECT_URL` | `BACKEND_PROXY`
+    * `evaluationId`: string
+    * `driveFileId`: string | null
+    * `url`: string
+    * `expiresAt`: string | null
+    * `requestedMode`: `view` | `download`
+    * `fileName`: string
+    * `mimeType`: string
+    * `storageProvider`: `LOCAL` | `GDRIVE` | `S3`
+- **Validaciones criticas (si storage es GDRIVE):**
+    * valida que el material pertenezca a la evaluacion autorizada para el usuario.
+    * valida que el archivo este dentro de la subcarpeta de documentos del scope Drive de esa evaluacion.
+    * si el archivo esta fuera del scope esperado, responde `403`.
 ### 3. Gestión Administrativa (Upload/Config)
 - **POST /materials/folders:** Crear carpeta.
     * `body: { evaluationId: string, parentFolderId?: string, name: string, visibleFrom?: string, visibleUntil?: string }`
@@ -404,15 +416,41 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
 - **POST /materials/request-deletion:** Flujo seguro de borrado.
     * `body: { entityType: 'material', entityId: string, reason: string }`
 
-### 4. Gestión Administrativa Avanzada (Moderación)
-- **GET /admin/materials/requests/pending:** Listar solicitudes de eliminación pendientes.
+### 4. Gestion Administrativa Avanzada (Moderacion)
+- **GET /admin/materials/requests/pending:** listar solicitudes pendientes de eliminacion con metadata del material para decision administrativa.
     * **Roles:** `ADMIN`, `SUPER_ADMIN`
+    * **Response (`data`):** array con objetos:
+      - `id`: string (requestId)
+      - `entityType`: string
+      - `entityId`: string
+      - `reason`: string | null
+      - `createdAt`: string ISO
+      - `requestedBy`: object
+      - `requestedBy.id`: string
+      - `requestedBy.email`: string | null
+      - `requestedBy.firstName`: string | null
+      - `requestedBy.lastName1`: string | null
+      - `requestedBy.lastName2`: string | null
+      - `material`: object | null
+      - `material.id`: string
+      - `material.displayName`: string | null
+      - `material.originalName`: string | null
+      - `material.mimeType`: string | null
+      - `material.storageProvider`: `LOCAL` | `GDRIVE` | `S3` | null
+      - `material.previewUrl`: string | null (Drive `/preview` cuando aplica)
+      - `material.viewUrl`: string | null (Drive `/view` cuando aplica)
+      - `material.downloadUrl`: string | null (Drive directo o proxy `/materials/:id/download`)
+      - `material.authorizedViewPath`: string | null (`/materials/:id/authorized-link?mode=view`)
+    * **Notas de integracion frontend:**
+      - usar `material.displayName` como etiqueta principal en tabla/listado.
+      - usar `material.originalName` como apoyo tecnico para distinguir archivos similares.
+      - en UI de revision, priorizar `authorizedViewPath` para abrir contenido validado por backend.
+      - `previewUrl/viewUrl/downloadUrl` son utilidades para inspeccion/operacion administrativa.
 - **POST /admin/materials/requests/:id/review:** Aprobar o rechazar solicitud.
     * **Roles:** `ADMIN`, `SUPER_ADMIN`
     * `body: { action: 'APPROVE' | 'REJECT', adminComment?: string }`
-- **DELETE /admin/materials/:id/hard-delete:** Eliminación física permanente (irreversible).
+- **DELETE /admin/materials/:id/hard-delete:** Eliminacion fisica permanente (irreversible).
     * **Roles:** `SUPER_ADMIN`
-
 ---
 
 ## ÉPICA: FEEDBACK Y REPUTACIÓN (`/feedback`)
@@ -578,4 +616,7 @@ Objetivo:
 1. Permitir que `bank-structure` devuelva data real desde seed.
 2. Permitir que `POST /evaluations` valide contra estructura activa desde seed.
 3. Mantener entorno reproducible al recrear schema+data.
+
+
+
 

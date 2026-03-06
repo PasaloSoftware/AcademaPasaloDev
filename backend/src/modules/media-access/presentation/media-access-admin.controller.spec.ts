@@ -70,11 +70,10 @@ describe('MediaAccessAdminController', () => {
     (evaluationRepository.findOne as jest.Mock).mockResolvedValue(null);
 
     await expect(
-      controller.recoverEvaluationScope(
-        { id: '10' } as never,
-        '999',
-        { reconcileMembers: true, pruneExtraMembers: false },
-      ),
+      controller.recoverEvaluationScope({ id: '10' } as never, '999', {
+        reconcileMembers: true,
+        pruneExtraMembers: false,
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

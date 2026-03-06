@@ -7,6 +7,8 @@ import { WorkspaceGroupsService } from '@modules/media-access/application/worksp
 import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import { EvaluationDriveAccess } from '@modules/media-access/domain/evaluation-drive-access.entity';
+import { MEDIA_ACCESS_STAFF_GROUP_METADATA } from '@modules/media-access/domain/media-access.constants';
+import { technicalSettings } from '@config/technical-settings';
 
 @Injectable()
 export class EvaluationDriveAccessProvisioningService {
@@ -62,6 +64,7 @@ export class EvaluationDriveAccessProvisioningService {
       folders.scopeFolderId,
       names.viewerGroupEmail,
     );
+    await this.ensureStaffGroupReaderPermission(folders.scopeFolderId);
 
     const persisted =
       await this.evaluationDriveAccessRepository.upsertByEvaluationId({
@@ -77,5 +80,35 @@ export class EvaluationDriveAccessProvisioningService {
       });
 
     return persisted;
+  }
+
+  private async ensureStaffGroupReaderPermission(
+    folderId: string,
+  ): Promise<void> {
+    const configuredGroupEmail = this.getConfiguredStaffGroupEmail();
+    if (!configuredGroupEmail) {
+      return;
+    }
+
+    const staffGroup = await this.workspaceGroupsService.findOrCreateGroup({
+      email: configuredGroupEmail,
+      name: MEDIA_ACCESS_STAFF_GROUP_METADATA.NAME,
+      description: MEDIA_ACCESS_STAFF_GROUP_METADATA.DESCRIPTION,
+    });
+
+    await this.driveScopeProvisioningService.ensureGroupReaderPermission(
+      folderId,
+      staffGroup.email,
+    );
+  }
+
+  private getConfiguredStaffGroupEmail(): string {
+    return String(
+      technicalSettings.mediaAccess.staffViewersGroupEmail ||
+        process.env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL ||
+        '',
+    )
+      .trim()
+      .toLowerCase();
   }
 }

@@ -129,15 +129,13 @@ describe('StorageService', () => {
     });
     const service = new StorageService(configService);
     const mockClient = {
-      request: jest
-        .fn()
-        .mockResolvedValueOnce({
-          data: {
-            id: 'root-1',
-            mimeType: 'application/vnd.google-apps.folder',
-            trashed: false,
-          },
-        }),
+      request: jest.fn().mockResolvedValueOnce({
+        data: {
+          id: 'root-1',
+          mimeType: 'application/vnd.google-apps.folder',
+          trashed: false,
+        },
+      }),
     };
     googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
 

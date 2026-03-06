@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import type { EntityManager } from 'typeorm';
 import { DataSource } from 'typeorm';
 
@@ -12,6 +13,11 @@ import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security
 import type { DatabaseError } from '@common/interfaces/database-error.interface';
 import { MySqlErrorCode } from '@common/interfaces/database-error.interface';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import { QUEUES } from '@infrastructure/queue/queue.constants';
+import {
+  MEDIA_ACCESS_JOB_NAMES,
+  MEDIA_ACCESS_SYNC_SOURCES,
+} from '@modules/media-access/domain/media-access.constants';
 
 describe('UsersService', () => {
   let usersService: UsersService;
@@ -41,6 +47,10 @@ describe('UsersService', () => {
     invalidateUserIdentity: jest.fn(),
   };
 
+  const mediaAccessQueueMock = {
+    add: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -53,6 +63,10 @@ describe('UsersService', () => {
         {
           provide: IdentitySecurityService,
           useValue: identitySecurityServiceMock,
+        },
+        {
+          provide: getQueueToken(QUEUES.MEDIA_ACCESS),
+          useValue: mediaAccessQueueMock,
         },
       ],
     }).compile();
@@ -128,6 +142,18 @@ describe('UsersService', () => {
       expect.objectContaining({
         revokeSessions: false,
         reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
+      }),
+    );
+    expect(mediaAccessQueueMock.add).toHaveBeenCalledWith(
+      MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS,
+      expect.objectContaining({
+        source: MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+        event: 'ASSIGN_ROLE',
+        userId: '1',
+        roleCode: ROLE_CODES.ADMIN,
+      }),
+      expect.objectContaining({
+        removeOnComplete: true,
       }),
     );
   });
@@ -303,5 +329,47 @@ describe('UsersService', () => {
         reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
       }),
     );
+    expect(mediaAccessQueueMock.add).toHaveBeenCalledWith(
+      MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS,
+      expect.objectContaining({
+        source: MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+        event: 'REMOVE_ROLE',
+        userId: '1',
+        roleCode: ROLE_CODES.ADMIN,
+      }),
+      expect.objectContaining({
+        removeOnComplete: true,
+      }),
+    );
+  });
+
+  it('assignRole: no encola reconciliacion para rol no admin', async () => {
+    const user = {
+      id: '1',
+      email: 'a@test.com',
+      firstName: 'A',
+      lastName1: null,
+      lastName2: null,
+      phone: null,
+      career: null,
+      profilePhotoUrl: null,
+      photoSource: PhotoSource.NONE,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: null,
+      roles: [],
+    };
+    const role = { id: '3', code: ROLE_CODES.PROFESSOR, name: 'Professor' };
+
+    userRepositoryMock.findById.mockResolvedValue(user);
+    roleRepositoryMock.findByCode.mockResolvedValue(role);
+    userRepositoryMock.save.mockResolvedValue({
+      ...user,
+      roles: [role],
+    });
+
+    await usersService.assignRole('1', ROLE_CODES.PROFESSOR);
+
+    expect(mediaAccessQueueMock.add).not.toHaveBeenCalled();
   });
 });

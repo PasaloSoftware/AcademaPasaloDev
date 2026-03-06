@@ -305,13 +305,17 @@ _Todos los endpoints requieren JWT y una sesión activa en BD._
 - **Endpoint:** `DELETE /:id`
 - **Roles:** `ADMIN`, `SUPER_ADMIN`
 
-### 7. Gestión de Roles
+### 7. Gestion de Roles
 
 - **Asignar:** `POST /:id/roles/:roleCode`
   - **Roles:** `SUPER_ADMIN`
 - **Remover:** `DELETE /:id/roles/:roleCode`
   - **Roles:** `SUPER_ADMIN`
-
+- **Comportamiento adicional de seguridad/media access (nuevo):**
+  - Cuando el `roleCode` es `ADMIN` o `SUPER_ADMIN`, el backend encola reconciliacion inmediata de acceso media para grupo global staff viewers.
+  - Esto reduce ventana de acceso residual cuando se revoca rol administrativo.
+  - Se mantiene reconciliacion periodica como fallback para drift operativo.
+  - Nota: la propagacion final de permisos en Google puede tardar unos segundos/minutos (dependencia externa).
 ---
 
 ## EPICA 5: Matriculas (Enrollments)
@@ -621,3 +625,5 @@ Para contratos actuales de frontend sobre:
 
 Revisar en detalle: `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
 `UPDATE FRONTEND CONTRACT - FASES 2, 3 Y 4 (2026-03-02)`.
+
+

@@ -329,5 +329,3 @@ export class WorkspaceGroupsService {
     return maybeError.response?.status ?? maybeError.code;
   }
 }
-
-
