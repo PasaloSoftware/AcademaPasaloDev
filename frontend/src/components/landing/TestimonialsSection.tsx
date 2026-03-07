@@ -64,19 +64,19 @@ function StarRating({ count }: { count: number }) {
 
 export default function TestimonialsSection() {
   return (
-    <section id="testimonios" className="scroll-mt-20 px-6 md:px-16 lg:px-28 py-20 bg-bg-primary flex flex-col items-center gap-10">
+    <section id="testimonios" className="scroll-mt-20 px-4 py-10 md:px-16 lg:px-28 md:py-20 bg-bg-primary flex flex-col items-center gap-6 md:gap-10">
       {/* Header */}
       <div className="w-full flex flex-col items-center gap-4 px-5">
-        <div className="flex flex-col items-center gap-3">
-          <span className="px-4 py-2 bg-bg-accent-light rounded-full text-text-accent-primary text-sm font-medium leading-4">
+        <div className="flex flex-col items-center gap-2 md:gap-3">
+          <span className="px-3 py-1 md:px-4 md:py-2 bg-bg-accent-light rounded-full text-text-accent-primary text-xs md:text-sm font-medium leading-3 md:leading-4">
             RESULTADOS COMPROBADOS
           </span>
-          <h2 className="w-full text-center text-text-primary text-3xl md:text-5xl font-bold leading-tight md:leading-[56px]">
+          <h2 className="w-full text-center text-text-primary text-3xl md:text-5xl font-bold leading-8 md:leading-[56px]">
             Historias de Éxito
           </h2>
         </div>
         <div className="w-full lg:px-60">
-          <p className="text-center text-text-secondary text-base md:text-xl font-normal leading-6">
+          <p className="text-center text-text-secondary text-xs md:text-xl font-normal leading-4 md:leading-6">
             Nuestros alumnos comparten su experiencia logrando sus metas
             académicas con nuestro método especializado.
           </p>
@@ -84,27 +84,27 @@ export default function TestimonialsSection() {
       </div>
 
       {/* Testimonial cards */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {testimonials.map((t) => (
           <div
             key={t.name}
-            className="h-60 p-5 relative bg-bg-primary rounded-lg card-shadow outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-2"
+            className="h-52 md:h-60 p-5 relative bg-bg-primary rounded-lg card-shadow outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-2"
           >
             {/* Header: avatar + info + stars */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1 md:gap-2">
               <div className="flex items-center gap-4">
                 <div
-                  className={`w-12 h-12 ${t.avatarColor} rounded-full flex justify-center items-center`}
+                  className={`w-10 h-10 md:w-12 md:h-12 ${t.avatarColor} rounded-full flex justify-center items-center`}
                 >
-                  <span className="text-text-white text-base font-medium leading-5">
+                  <span className="text-text-white text-sm md:text-base font-medium leading-4 md:leading-5">
                     {t.initials}
                   </span>
                 </div>
                 <div className="flex-1 flex flex-col gap-1">
-                  <span className="text-text-primary text-lg font-semibold leading-5 line-clamp-1">
+                  <span className="text-text-primary text-sm md:text-lg font-semibold leading-4 md:leading-5 line-clamp-1">
                     {t.name}
                   </span>
-                  <span className="text-magenta-violet-600 text-sm font-medium leading-4 line-clamp-1">
+                  <span className="text-magenta-violet-600 text-xs md:text-sm font-medium leading-4 line-clamp-1">
                     {t.career}
                   </span>
                 </div>
@@ -124,7 +124,7 @@ export default function TestimonialsSection() {
 
             {/* Quote + footer */}
             <div className="flex-1 flex flex-col justify-between">
-              <p className="text-text-secondary text-base font-normal leading-4">
+              <p className="text-text-secondary text-xs md:text-base font-normal leading-4">
                 &ldquo;{t.quote}&rdquo;
               </p>
               <div className="flex justify-between items-center">

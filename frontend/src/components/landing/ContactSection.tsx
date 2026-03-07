@@ -16,44 +16,60 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contacto" className="scroll-mt-20 px-6 md:px-16 lg:px-28 py-20 flex flex-col lg:flex-row gap-6">
+    <section id="contacto" className="scroll-mt-20 px-4 py-10 md:px-16 lg:px-28 md:py-20 flex flex-col lg:flex-row gap-6">
       {/* Left column - Contact info */}
-      <div className="flex-1 flex flex-col gap-8">
-        <div className="flex flex-col gap-4">
-          <h3 className="text-magenta-violet-600 text-2xl font-bold leading-7">
+      <div className="flex-1 flex flex-col lg:items-start gap-6 md:gap-8">
+        <div className="flex flex-col items-center lg:items-start gap-1 md:gap-4">
+          <h3 className="text-magenta-violet-600 text-lg md:text-2xl font-semibold md:font-bold leading-5 md:leading-7 text-center lg:text-left">
             CONTÁCTANOS
           </h3>
-          <h2 className="text-text-primary text-3xl md:text-5xl font-bold leading-tight md:leading-[56px]">
+          <h2 className="text-text-primary text-3xl md:text-5xl font-bold leading-8 md:leading-[56px] text-center lg:text-left">
             ¿Listo para potenciar tu rendimiento?
           </h2>
         </div>
 
         {/* Contact methods */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col items-start gap-2 md:gap-3">
           {/* Email */}
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-bg-info-primary-light rounded-full flex items-center">
-              <Icon
-                name="mail"
-                size={36}
-                variant="outlined"
-                className="text-icon-info-primary"
-              />
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="p-2 md:p-3 bg-bg-info-primary-light rounded-full flex items-center">
+              <div className="md:hidden">
+                <Icon name="mail" size={16} variant="outlined" className="text-icon-info-primary" />
+              </div>
+              <div className="hidden md:block">
+                <Icon name="mail" size={36} variant="outlined" className="text-icon-info-primary" />
+              </div>
             </div>
-            <span className="text-text-secondary text-xl md:text-2xl font-normal leading-7">
+            <span className="text-text-secondary text-base md:text-2xl font-normal leading-5 md:leading-7">
               info@pasaloacademia.pe
             </span>
           </div>
 
           {/* WhatsApp */}
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-bg-success-light rounded-full flex items-center">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="p-2 md:p-3 bg-bg-success-light rounded-full flex items-center">
+              {/* Mobile WhatsApp icon */}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 36 36"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="md:hidden"
+              >
+                <path
+                  d="M18 3C9.716 3 3 9.716 3 18c0 2.654.69 5.216 2.003 7.488L3 33l7.763-2.035A14.943 14.943 0 0018 33c8.284 0 15-6.716 15-15S26.284 3 18 3zm0 27.5a12.44 12.44 0 01-6.347-1.736l-.455-.27-4.717 1.237 1.258-4.595-.297-.472A12.44 12.44 0 015.5 18c0-6.904 5.596-12.5 12.5-12.5S30.5 11.096 30.5 18 24.904 30.5 18 30.5zm6.862-9.346c-.376-.188-2.226-1.098-2.571-1.224-.346-.125-.597-.188-.849.188-.25.376-.973 1.224-1.192 1.474-.22.25-.44.282-.815.094-.376-.188-1.587-.585-3.023-1.865-1.118-.996-1.872-2.226-2.092-2.602-.22-.376-.024-.579.165-.766.17-.17.376-.44.564-.66.188-.22.25-.376.376-.627.125-.25.063-.47-.032-.66-.094-.188-.849-2.046-1.163-2.802-.306-.735-.617-.636-.849-.648l-.722-.012c-.25 0-.66.094-1.004.47-.346.376-1.318 1.287-1.318 3.14 0 1.852 1.35 3.642 1.538 3.892.188.25 2.656 4.054 6.436 5.685.9.388 1.601.62 2.148.794.903.287 1.724.246 2.374.15.724-.108 2.226-.91 2.54-1.789.314-.878.314-1.63.22-1.789-.094-.156-.346-.25-.722-.44z"
+                  className="fill-bg-success-solid"
+                />
+              </svg>
+              {/* Desktop WhatsApp icon */}
               <svg
                 width="36"
                 height="36"
                 viewBox="0 0 36 36"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                className="hidden md:block"
               >
                 <path
                   d="M18 3C9.716 3 3 9.716 3 18c0 2.654.69 5.216 2.003 7.488L3 33l7.763-2.035A14.943 14.943 0 0018 33c8.284 0 15-6.716 15-15S26.284 3 18 3zm0 27.5a12.44 12.44 0 01-6.347-1.736l-.455-.27-4.717 1.237 1.258-4.595-.297-.472A12.44 12.44 0 015.5 18c0-6.904 5.596-12.5 12.5-12.5S30.5 11.096 30.5 18 24.904 30.5 18 30.5zm6.862-9.346c-.376-.188-2.226-1.098-2.571-1.224-.346-.125-.597-.188-.849.188-.25.376-.973 1.224-1.192 1.474-.22.25-.44.282-.815.094-.376-.188-1.587-.585-3.023-1.865-1.118-.996-1.872-2.226-2.092-2.602-.22-.376-.024-.579.165-.766.17-.17.376-.44.564-.66.188-.22.25-.376.376-.627.125-.25.063-.47-.032-.66-.094-.188-.849-2.046-1.163-2.802-.306-.735-.617-.636-.849-.648l-.722-.012c-.25 0-.66.094-1.004.47-.346.376-1.318 1.287-1.318 3.14 0 1.852 1.35 3.642 1.538 3.892.188.25 2.656 4.054 6.436 5.685.9.388 1.601.62 2.148.794.903.287 1.724.246 2.374.15.724-.108 2.226-.91 2.54-1.789.314-.878.314-1.63.22-1.789-.094-.156-.346-.25-.722-.44z"
@@ -61,14 +77,14 @@ export default function ContactSection() {
                 />
               </svg>
             </div>
-            <span className="text-text-secondary text-xl md:text-2xl font-normal leading-7">
+            <span className="text-text-secondary text-base md:text-2xl font-normal leading-5 md:leading-7">
               +51 903 006 775
             </span>
           </div>
         </div>
 
         {/* Social media */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col items-center lg:items-start gap-2 md:gap-3">
           <span className="text-text-secondary text-xl font-medium leading-6">
             SÍGUENOS EN NUESTRAS REDES
           </span>
@@ -78,11 +94,10 @@ export default function ContactSection() {
               href="#"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-3 rounded-full outline outline-2 outline-offset-[-2px] outline-stroke-primary flex items-center hover:bg-bg-secondary transition-colors"
+              className="p-2 md:p-3 rounded-full outline outline-2 outline-offset-[-2px] outline-stroke-primary flex items-center hover:bg-bg-secondary transition-colors"
             >
               <svg
-                width="32"
-                height="32"
+                className="w-6 h-6 md:w-8 md:h-8"
                 viewBox="0 0 32 32"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -99,11 +114,10 @@ export default function ContactSection() {
               href="#"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-3 rounded-full outline outline-2 outline-offset-[-2px] outline-stroke-primary flex items-center hover:bg-bg-secondary transition-colors"
+              className="p-2 md:p-3 rounded-full outline outline-2 outline-offset-[-2px] outline-stroke-primary flex items-center hover:bg-bg-secondary transition-colors"
             >
               <svg
-                width="32"
-                height="32"
+                className="w-6 h-6 md:w-8 md:h-8"
                 viewBox="0 0 32 32"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -122,11 +136,10 @@ export default function ContactSection() {
               href="#"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-3 rounded-full outline outline-2 outline-offset-[-2px] outline-stroke-primary flex items-center hover:bg-bg-secondary transition-colors"
+              className="p-2 md:p-3 rounded-full outline outline-2 outline-offset-[-2px] outline-stroke-primary flex items-center hover:bg-bg-secondary transition-colors"
             >
               <svg
-                width="32"
-                height="32"
+                className="w-6 h-6 md:w-8 md:h-8"
                 viewBox="0 0 32 32"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -142,14 +155,14 @@ export default function ContactSection() {
       </div>
 
       {/* Right column - Contact form */}
-      <div className="flex-1 p-8 bg-bg-primary rounded-3xl shadow-[4px_8px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-6">
-        <h3 className="text-text-primary text-3xl font-bold leading-8">
+      <div className="flex-1 p-6 md:p-8 bg-bg-primary rounded-3xl shadow-[4px_8px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-5 md:gap-6">
+        <h3 className="text-text-primary text-xl md:text-3xl font-semibold md:font-bold leading-6 md:leading-8">
           Déjanos tus datos
         </h3>
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-3 md:gap-4"
         >
           <input
             type="text"
@@ -197,7 +210,7 @@ export default function ContactSection() {
           </div>
         </form>
 
-        <p className="text-text-tertiary text-sm font-normal leading-4">
+        <p className="text-text-tertiary text-xs md:text-sm font-normal leading-4">
           Al enviar este formulario, usted acepta recibir comunicaciones de
           nuestra parte y comprende que su información de contacto se
           almacenará con nosotros.
@@ -206,7 +219,7 @@ export default function ContactSection() {
         <button
           type="submit"
           onClick={handleSubmit}
-          className="self-end px-6 py-3.5 bg-bg-accent-primary-solid rounded-lg flex items-center gap-2 hover:bg-deep-blue-700 transition-colors cursor-pointer"
+          className="w-full md:self-end md:w-auto px-6 py-3.5 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-2 hover:bg-deep-blue-700 transition-colors cursor-pointer"
         >
           <Icon name="send" size={20} className="text-icon-white" />
           <span className="text-text-white text-base font-medium leading-4">
