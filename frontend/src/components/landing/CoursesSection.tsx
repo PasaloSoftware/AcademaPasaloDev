@@ -149,8 +149,8 @@ function TeacherAvatars({ teachers }: { teachers: Teacher[] }) {
   if (teachers.length === 1) {
     const t = teachers[0];
     return (
-      <div className={`w-8 h-8 p-1 ${t.avatarColor} rounded-full flex justify-center items-center`}>
-        <span className="text-center text-text-white text-[10px] font-medium leading-3">
+      <div className={`w-7 h-7 md:w-8 md:h-8 p-1 ${t.avatarColor} rounded-full flex justify-center items-center`}>
+        <span className="text-center text-text-white text-[8px] md:text-[10px] font-medium leading-[10px] md:leading-3">
           {t.initials}
         </span>
       </div>
@@ -158,9 +158,9 @@ function TeacherAvatars({ teachers }: { teachers: Teacher[] }) {
   }
 
   return (
-    <div className="w-14 h-8 relative">
-      <div className={`w-8 h-8 absolute left-0 top-0 ${teachers[0].avatarColor} rounded-full outline outline-2 outline-stroke-white flex justify-center items-center p-1`}>
-        <span className="text-center text-text-white text-[10px] font-medium leading-3">
+    <div className="w-12 h-7 md:w-14 md:h-8 relative">
+      <div className={`w-7 h-7 md:w-8 md:h-8 absolute left-0 top-0 ${teachers[0].avatarColor} rounded-full outline outline-[1.5px] md:outline-2 outline-stroke-white flex justify-center items-center p-1`}>
+        <span className="text-center text-text-white text-[8px] md:text-[10px] font-medium leading-[10px] md:leading-3">
           {teachers[0].initials}
         </span>
       </div>
@@ -168,11 +168,11 @@ function TeacherAvatars({ teachers }: { teachers: Teacher[] }) {
         <img
           src={teachers[1].photo}
           alt={teachers[1].name}
-          className="w-8 h-8 absolute left-7 top-0 rounded-full outline outline-1 outline-black object-cover"
+          className="w-7 h-7 md:w-8 md:h-8 absolute left-6 md:left-7 top-0 rounded-full outline outline-1 outline-black object-cover"
         />
       ) : (
-        <div className={`w-8 h-8 absolute left-7 top-0 ${teachers[1].avatarColor} rounded-full outline outline-2 outline-stroke-white flex justify-center items-center p-1`}>
-          <span className="text-center text-text-white text-[10px] font-medium leading-3">
+        <div className={`w-7 h-7 md:w-8 md:h-8 absolute left-6 md:left-7 top-0 ${teachers[1].avatarColor} rounded-full outline outline-[1.5px] md:outline-2 outline-stroke-white flex justify-center items-center p-1`}>
+          <span className="text-center text-text-white text-[8px] md:text-[10px] font-medium leading-[10px] md:leading-3">
             {teachers[1].initials}
           </span>
         </div>
@@ -202,21 +202,21 @@ export default function CoursesSection() {
   };
 
   return (
-    <section id="cursos" className="scroll-mt-20 px-6 md:px-16 lg:px-28 py-20 relative bg-gradient-to-b from-deep-blue-50 via-white to-muted-indigo-50 flex flex-col items-center gap-10">
+    <section id="cursos" className="scroll-mt-20 px-4 py-10 md:px-16 lg:px-28 md:py-20 relative bg-gradient-to-b from-deep-blue-50 via-white to-muted-indigo-50 flex flex-col items-center gap-6 md:gap-10">
       {/* Header */}
-      <div className="w-full flex flex-col items-center gap-5 px-5">
-        <h2 className="w-full text-center text-3xl md:text-5xl font-bold leading-tight md:leading-[56px]">
+      <div className="w-full flex flex-col items-center gap-4 md:gap-5 px-5">
+        <h2 className="w-full text-center text-3xl md:text-5xl font-bold leading-8 md:leading-[56px]">
           <span className="text-text-primary">Nuestros </span>
           <span className="text-text-accent-primary">Cursos</span>
         </h2>
 
         {/* Filter tags */}
-        <div className="flex flex-wrap justify-center gap-2.5">
+        <div className="flex flex-wrap justify-center gap-2 md:gap-2.5">
           {filters.map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`px-4 py-2 rounded-full text-sm font-medium leading-4 transition-colors ${
+              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium leading-4 transition-colors ${
                 activeFilter === filter
                   ? "bg-bg-accent-primary-solid text-text-white"
                   : "bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light"
@@ -234,7 +234,7 @@ export default function CoursesSection() {
         <button
           onClick={() => scroll("left")}
           aria-label="Anterior"
-          className="absolute left-[90px] hidden lg:flex flex-shrink-0 p-3 bg-bg-primary rounded-full card-shadow outline outline-1 outline-offset-[-1px] outline-stroke-primary justify-center items-center hover:bg-bg-secondary transition-colors"
+          className="absolute left-[90px] hidden lg:flex flex-shrink-0 p-3 bg-bg-primary rounded-full card-shadow outline outline-1 outline-offset-[-1px] outline-stroke-primary justify-center items-center hover:bg-bg-secondary transition-colors cursor-pointer"
         >
           <Icon name="chevron_left" size={20} className="text-icon-primary" />
         </button>
@@ -246,42 +246,42 @@ export default function CoursesSection() {
             className="flex gap-6 overflow-x-auto scroll-smooth courses-carousel"
           >
             {filteredCourses.map((course) => (
-              <div key={course.code} className="w-72 flex-shrink-0">
+              <div key={course.code} className="w-64 md:w-72 flex-shrink-0">
                 <div className="bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col">
                   {/* Color header */}
                   <div
-                    className="h-16 rounded-t-2xl"
+                    className="h-12 md:h-16 rounded-t-2xl"
                     style={{ backgroundColor: course.headerColor }}
                   />
 
                   {/* Card content */}
-                  <div className="h-56 p-4 flex flex-col justify-between">
+                  <div className="h-48 md:h-56 p-4 flex flex-col justify-between">
                     <div className="flex flex-col gap-2.5">
                       {/* Tags */}
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1.5 bg-bg-success-light rounded-full text-text-success-primary text-xs font-medium leading-3">
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span className="px-2 py-1 md:px-2.5 md:py-1.5 bg-bg-success-light rounded-full text-text-success-primary text-[10px] md:text-xs font-medium leading-3">
                           {course.category}
                         </span>
-                        <span className="px-2.5 py-1.5 bg-bg-quartiary rounded-full text-text-secondary text-xs font-medium leading-3">
+                        <span className="px-2 py-1 md:px-2.5 md:py-1.5 bg-bg-quartiary rounded-full text-text-secondary text-[10px] md:text-xs font-medium leading-3">
                           {course.cycle}
                         </span>
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-text-primary text-xl font-semibold leading-6 line-clamp-2">
+                      <h3 className="text-text-primary text-base md:text-xl font-semibold leading-5 md:leading-6 line-clamp-2">
                         {course.name}
                       </h3>
                     </div>
 
                     <div className="flex flex-col gap-5">
                       {/* Teacher */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 md:gap-2">
                         <TeacherAvatars teachers={course.teachers} />
                         <div className="flex-1 flex flex-col gap-0.5">
-                          <span className="text-text-tertiary text-[10px] font-medium leading-3">
+                          <span className="text-text-tertiary text-[8px] md:text-[10px] font-medium leading-[10px] md:leading-3">
                             ASESOR
                           </span>
-                          <span className="text-text-secondary text-base font-normal leading-4 line-clamp-1">
+                          <span className="text-text-secondary text-xs md:text-base font-normal leading-4 line-clamp-1">
                             {course.teachers.length > 1
                               ? course.teachers.map((t) => t.name).join(" & ")
                               : course.teachers[0].name}
@@ -317,7 +317,7 @@ export default function CoursesSection() {
         <button
           onClick={() => scroll("right")}
           aria-label="Siguiente"
-          className="absolute right-[90px] hidden lg:flex flex-shrink-0 p-3 bg-bg-primary rounded-full card-shadow outline outline-1 outline-offset-[-1px] outline-stroke-primary justify-center items-center hover:bg-bg-secondary transition-colors"
+          className="absolute right-[90px] hidden lg:flex flex-shrink-0 p-3 bg-bg-primary rounded-full card-shadow outline outline-1 outline-offset-[-1px] outline-stroke-primary justify-center items-center hover:bg-bg-secondary transition-colors cursor-pointer"
         >
           <Icon name="chevron_right" size={20} className="text-icon-primary" />
         </button>
