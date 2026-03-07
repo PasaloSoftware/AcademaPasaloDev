@@ -60,7 +60,7 @@ export default function ModalitiesSection() {
             }`}
           >
             {mod.popular && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-bg-accent-primary-solid rounded-full">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-bg-accent-primary-solid rounded-full">
                 <span className="text-text-white text-xs font-medium leading-4 whitespace-nowrap">
                   MÁS POPULAR
                 </span>
