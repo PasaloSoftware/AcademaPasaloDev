@@ -72,6 +72,14 @@ function normalizeDriveFileName(name: string): string {
     .trim();
 }
 
+function normalizeToken(raw: string): string {
+  const normalized = String(raw || '').trim();
+  if (!normalized) {
+    throw new Error('Token vacio para nombre de carpeta');
+  }
+  return normalized.replace(/[^A-Za-z0-9_-]/g, '-').replace(/-+/g, '-');
+}
+
 async function getDriveClient(configService: ConfigService): Promise<{
   client: GoogleRequestClient;
   rootFolderId: string;
@@ -416,13 +424,23 @@ async function main(): Promise<void> {
 
     for (const cycle of cycles) {
       const courseCycleId = normalizeId(cycle.courseCycleId);
-      const scopeFolderId = await findFolderInParentByName(
+      const cycleFolderId = await findFolderInParentByName(
         driveClient,
         courseCyclesParentFolderId,
-        `cc_${courseCycleId}`,
+        normalizeToken(String(cycle.cycleCode || '')),
+      );
+      if (!cycleFolderId) {
+        throw new Error(
+          `No existe carpeta de ciclo ${String(cycle.cycleCode || '').trim()}`,
+        );
+      }
+      const scopeFolderId = await findFolderInParentByName(
+        driveClient,
+        cycleFolderId,
+        `cc_${courseCycleId}_${normalizeToken(String(cycle.courseCode || ''))}`,
       );
       if (!scopeFolderId) {
-        throw new Error(`No existe carpeta cc_${courseCycleId}`);
+        throw new Error(`No existe carpeta cc_${courseCycleId} para curso/ciclo`);
       }
       const bankFolderId = await findFolderInParentByName(
         driveClient,

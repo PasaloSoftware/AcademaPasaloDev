@@ -210,6 +210,28 @@ export class WorkspaceGroupsService {
     return Array.from(deduplicatedMembers.values());
   }
 
+  async deleteGroupIfExists(groupEmail: string): Promise<void> {
+    const normalizedGroupEmail = groupEmail.trim().toLowerCase();
+    const client = await this.getWorkspaceJwtClient();
+    try {
+      await client.request({
+        url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}`,
+        method: 'DELETE',
+      });
+    } catch (error) {
+      const status = this.getStatusFromError(error);
+      if (status === 404) {
+        return;
+      }
+      throw error;
+    }
+
+    this.logger.log({
+      message: 'Grupo Workspace eliminado',
+      groupEmail: normalizedGroupEmail,
+    });
+  }
+
   private async findGroupByEmail(
     client: JWT,
     groupEmail: string,

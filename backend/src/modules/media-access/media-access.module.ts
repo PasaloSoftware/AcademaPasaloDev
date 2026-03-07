@@ -15,6 +15,7 @@ import { MediaAccessReconciliationService } from '@modules/media-access/applicat
 import { MediaAccessMembershipProcessor } from '@modules/media-access/infrastructure/processors/media-access-membership.processor';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { MediaAccessAdminController } from '@modules/media-access/presentation/media-access-admin.controller';
+import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MediaAccessAdminController } from '@modules/media-access/presentation/m
     WorkspaceGroupsService,
     DriveScopeProvisioningService,
     EvaluationDriveAccessProvisioningService,
+    CourseCycleDriveProvisioningService,
     MediaAccessMembershipDispatchService,
     MediaAccessReconciliationService,
     MediaAccessMembershipProcessor,
@@ -40,6 +42,7 @@ import { MediaAccessAdminController } from '@modules/media-access/presentation/m
     WorkspaceGroupsService,
     DriveScopeProvisioningService,
     EvaluationDriveAccessProvisioningService,
+    CourseCycleDriveProvisioningService,
     MediaAccessMembershipDispatchService,
     MediaAccessReconciliationService,
   ],

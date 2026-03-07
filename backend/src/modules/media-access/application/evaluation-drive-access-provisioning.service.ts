@@ -27,14 +27,30 @@ export class EvaluationDriveAccessProvisioningService {
     const normalizedEvaluationId = String(evaluationId || '').trim();
     const evaluation = await this.evaluationOrmRepository.findOne({
       where: { id: normalizedEvaluationId },
+      relations: {
+        evaluationType: true,
+        courseCycle: {
+          course: true,
+          academicCycle: true,
+        },
+      },
     });
     if (!evaluation) {
       throw new NotFoundException(
-        'Evaluación no encontrada para provisión Drive',
+        'Evaluacion no encontrada para provision Drive',
       );
     }
 
-    const names = this.namingService.buildForEvaluation(normalizedEvaluationId);
+    const names = this.namingService.buildForEvaluation({
+      evaluationId: normalizedEvaluationId,
+      courseCycleId: String(evaluation.courseCycleId || '').trim(),
+      courseCode: String(evaluation.courseCycle?.course?.code || '').trim(),
+      cycleCode: String(
+        evaluation.courseCycle?.academicCycle?.code || '',
+      ).trim(),
+      evaluationTypeCode: String(evaluation.evaluationType?.code || '').trim(),
+      evaluationNumber: Number(evaluation.number),
+    });
     await this.evaluationDriveAccessRepository.upsertByEvaluationId({
       evaluationId: names.evaluationId,
       scopeKey: names.scopeKey,
@@ -49,8 +65,8 @@ export class EvaluationDriveAccessProvisioningService {
 
     const group = await this.workspaceGroupsService.findOrCreateGroup({
       email: names.viewerGroupEmail,
-      name: `Evaluación ${names.evaluationId} viewers`,
-      description: `Acceso viewer para contenido de evaluación ${names.evaluationId}`,
+      name: `Evaluacion ${names.evaluationId} viewers`,
+      description: `Acceso viewer para contenido de evaluacion ${names.evaluationId}`,
     });
 
     const folders = await this.driveScopeProvisioningService.provisionFolders({

@@ -17,6 +17,7 @@ import { CyclesService } from '@modules/cycles/application/cycles.service';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { STUDENT_EVALUATION_LABELS } from '@modules/courses/domain/student-course.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 
 describe('CoursesService student views', () => {
   let service: CoursesService;
@@ -89,6 +90,15 @@ describe('CoursesService student views', () => {
         },
         { provide: CyclesService, useValue: {} },
         {
+          provide: MediaAccessMembershipDispatchService,
+          useValue: {
+            enqueueGrantForUserCourseCycles: jest.fn(),
+            enqueueRevokeForUserCourseCycles: jest.fn(),
+            enqueueGrantForUserEvaluations: jest.fn(),
+            enqueueRevokeForUserEvaluations: jest.fn(),
+          },
+        },
+        {
           provide: RedisCacheService,
           useValue: {
             get: jest.fn(),
@@ -126,6 +136,23 @@ describe('CoursesService student views', () => {
     (dataSource.query as jest.Mock).mockResolvedValue([{ typeCode: 'FULL' }]);
     (evaluationRepository.findAllWithUserAccess as jest.Mock).mockResolvedValue(
       [
+        {
+          id: 'bank-0',
+          number: 0,
+          startDate: new Date('2026-01-01'),
+          endDate: new Date('2026-06-30'),
+          evaluationType: {
+            code: 'BANCO_ENUNCIADOS',
+            name: 'BANCO ENUNCIADOS',
+          },
+          enrollmentEvaluations: [
+            {
+              isActive: true,
+              accessStartDate: new Date('2026-01-01'),
+              accessEndDate: new Date('2026-06-30'),
+            },
+          ],
+        },
         {
           id: 'e1',
           number: 1,
@@ -175,6 +202,8 @@ describe('CoursesService student views', () => {
 
     const result = await service.getStudentCurrentCycleContent('100', '501');
 
+    expect(result.evaluations).toHaveLength(4);
+    expect(result.evaluations.some((item) => item.id === 'bank-0')).toBe(false);
     expect(result.canViewPreviousCycles).toBe(true);
     expect(result.evaluations[0].label).toBe(STUDENT_EVALUATION_LABELS.LOCKED);
     expect(result.evaluations[1].label).toBe(

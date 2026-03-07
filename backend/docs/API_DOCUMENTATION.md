@@ -630,6 +630,53 @@ Update adicional (2026-03-06):
 - `PATCH /courses/cycle/:id/intro-video`
 - `GET /courses/cycle/:id/intro-video-link`
 
+### Alta integral de curso/ciclo (orquestada)
+- Endpoint: `POST /courses/setup`
+- Roles: `ADMIN`, `SUPER_ADMIN`
+- Crea en una sola operacion:
+1. Curso base.
+2. CourseCycle.
+3. Estructura de tipos permitidos.
+4. Evaluaciones reales (payload explicito por `evaluationTypeId + number`).
+5. Plantilla de carpetas de materiales por evaluacion.
+6. Provision Drive de evaluaciones y course_cycle (intro + banco).
+
+- Payload base:
+```json
+{
+  "course": {
+    "code": "MATE101",
+    "name": "Calculo I",
+    "courseTypeId": "1",
+    "cycleLevelId": "1",
+    "primaryColor": "#0E7490",
+    "secondaryColor": "#F59E0B"
+  },
+  "academicCycleId": "8",
+  "allowedEvaluationTypeIds": ["1", "2", "3"],
+  "evaluationsToCreate": [
+    {
+      "evaluationTypeId": "1",
+      "number": 1,
+      "startDate": "2026-03-10",
+      "endDate": "2026-07-20"
+    }
+  ],
+  "professorUserIds": ["2"],
+  "materialsTemplate": {
+    "applyToEachEvaluation": true,
+    "roots": [
+      { "name": "Sesiones", "subfolderNames": [] },
+      { "name": "Material Adicional", "subfolderNames": ["Resumenes", "Enunciados"] }
+    ]
+  }
+}
+```
+
+- Regla importante:
+  - no se envia `count` para banco ni para evaluaciones.
+  - las cards/carpetas de banco se derivan de evaluaciones reales creadas.
+
 Contrato detallado en `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
 `UPDATE FRONTEND CONTRACT - INTRO VIDEO POR CURSO/CICLO (2026-03-06)`.
 

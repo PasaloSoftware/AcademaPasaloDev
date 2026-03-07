@@ -54,6 +54,14 @@ function normalizeId(raw: string | number): string {
   return normalized;
 }
 
+function normalizeToken(raw: string): string {
+  const normalized = String(raw || '').trim();
+  if (!normalized) {
+    throw new Error('Token vacio para nombre de carpeta');
+  }
+  return normalized.replace(/[^A-Za-z0-9_-]/g, '-').replace(/-+/g, '-');
+}
+
 async function getDriveClient(configService: ConfigService): Promise<{
   client: GoogleRequestClient;
   rootFolderId: string;
@@ -214,10 +222,15 @@ async function main(): Promise<void> {
 
     for (const cycle of cycles) {
       const courseCycleId = normalizeId(cycle.courseCycleId);
-      const scopeFolderId = await findOrCreateFolderUnderParent(
+      const cycleFolderId = await findOrCreateFolderUnderParent(
         driveClient,
         courseCyclesParentFolderId,
-        `cc_${courseCycleId}`,
+        normalizeToken(String(cycle.cycleCode || '')),
+      );
+      const scopeFolderId = await findOrCreateFolderUnderParent(
+        driveClient,
+        cycleFolderId,
+        `cc_${courseCycleId}_${normalizeToken(String(cycle.courseCode || ''))}`,
       );
       const bankFolderId = await findOrCreateFolderUnderParent(
         driveClient,

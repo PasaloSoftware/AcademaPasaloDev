@@ -49,6 +49,7 @@ type ClassEventRow = {
 type CourseCycleRow = {
   courseCycleId: string | number;
   courseCode: string;
+  cycleCode: string;
 };
 
 function normalizeToFileId(raw: string): string {
@@ -69,26 +70,12 @@ function normalizeDriveFileName(name: string): string {
     .trim();
 }
 
-function fileNameWithEvaluationSuffix(baseName: string, evaluationId: string): string {
-  const normalizedBase = normalizeDriveFileName(baseName) || 'file';
-  const lastDotIndex = normalizedBase.lastIndexOf('.');
-  if (lastDotIndex <= 0 || lastDotIndex === normalizedBase.length - 1) {
-    return `${normalizedBase}__ev_${evaluationId}`;
+function normalizeToken(raw: string): string {
+  const normalized = String(raw || '').trim();
+  if (!normalized) {
+    throw new Error('Token vacio para nombre de carpeta');
   }
-  const stem = normalizedBase.slice(0, lastDotIndex);
-  const extension = normalizedBase.slice(lastDotIndex);
-  return `${stem}__ev_${evaluationId}${extension}`;
-}
-
-function fileNameWithCourseCycleSuffix(baseName: string, courseCycleId: string): string {
-  const normalizedBase = normalizeDriveFileName(baseName) || 'file';
-  const lastDotIndex = normalizedBase.lastIndexOf('.');
-  if (lastDotIndex <= 0 || lastDotIndex === normalizedBase.length - 1) {
-    return `${normalizedBase}__cc_${courseCycleId}`;
-  }
-  const stem = normalizedBase.slice(0, lastDotIndex);
-  const extension = normalizedBase.slice(lastDotIndex);
-  return `${stem}__cc_${courseCycleId}${extension}`;
+  return normalized.replace(/[^A-Za-z0-9_-]/g, '-').replace(/-+/g, '-');
 }
 
 async function getDriveClient(configService: ConfigService): Promise<GoogleRequestClient> {
@@ -251,24 +238,33 @@ async function enforceViewerRestrictionOnFile(
     throw new Error('fileId invalido para aplicar restriccion de viewers');
   }
 
-  await client.request({
-    url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true`,
-    method: 'PATCH',
-    data: {
-      copyRequiresWriterPermission: true,
-    },
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+  try {
+    await client.request({
+      url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true`,
+      method: 'PATCH',
+      data: {
+        copyRequiresWriterPermission: true,
+      },
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[seed-drive-media-for-active-evaluations] no se pudo aplicar restriccion de copia en fileId=${normalizedFileId}: ${message}`,
+    );
+  }
 }
 
 async function resolveCourseCycleIntroFolderId(input: {
   client: GoogleRequestClient;
   rootFolderId: string;
   courseCycleId: string;
+  courseCode: string;
+  cycleCode: string;
 }): Promise<string> {
-  const { client, rootFolderId, courseCycleId } = input;
+  const { client, rootFolderId, courseCycleId, courseCode, cycleCode } = input;
 
   const courseCyclesParent = await findFolderInParentByName(
     client,
@@ -281,10 +277,19 @@ async function resolveCourseCycleIntroFolderId(input: {
     );
   }
 
-  const scopeFolder = await findFolderInParentByName(
+  const cycleFolder = await findFolderInParentByName(
     client,
     String(courseCyclesParent.id),
-    `cc_${courseCycleId}`,
+    normalizeToken(cycleCode),
+  );
+  if (!cycleFolder?.id) {
+    throw new Error(`No existe carpeta de ciclo ${cycleCode} en Drive`);
+  }
+
+  const scopeFolder = await findFolderInParentByName(
+    client,
+    String(cycleFolder.id),
+    `cc_${courseCycleId}_${normalizeToken(courseCode)}`,
   );
   if (!scopeFolder?.id) {
     throw new Error(`No existe carpeta cc_${courseCycleId} en Drive`);
@@ -560,8 +565,8 @@ async function main(): Promise<void> {
         );
       }
 
-      const docTargetName = fileNameWithEvaluationSuffix(docMeta.name, evaluationId);
-      const videoTargetName = fileNameWithEvaluationSuffix(videoMeta.name, evaluationId);
+      const docTargetName = normalizeDriveFileName(docMeta.name);
+      const videoTargetName = normalizeDriveFileName(videoMeta.name);
 
       const copiedDoc = await copyFileToFolder(
         driveClient,
@@ -672,9 +677,11 @@ async function main(): Promise<void> {
       `
         SELECT
           cc.id AS courseCycleId,
-          c.code AS courseCode
+          c.code AS courseCode,
+          ac.code AS cycleCode
         FROM course_cycle cc
         INNER JOIN course c ON c.id = cc.course_id
+        INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
         WHERE c.code IN ('MATE101', 'MATE102', 'FIS101', 'QUI101')
           AND cc.academic_cycle_id = COALESCE(
             (
@@ -700,11 +707,10 @@ async function main(): Promise<void> {
         client: driveClient,
         rootFolderId,
         courseCycleId,
+        courseCode: String(row.courseCode || '').trim(),
+        cycleCode: String(row.cycleCode || '').trim(),
       });
-      const introVideoTargetName = fileNameWithCourseCycleSuffix(
-        videoMeta.name,
-        courseCycleId,
-      );
+      const introVideoTargetName = normalizeDriveFileName(videoMeta.name);
       const copiedIntroVideo = await copyFileToFolder(
         driveClient,
         videoSourceFileId,

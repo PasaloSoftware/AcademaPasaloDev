@@ -23,6 +23,7 @@ describe('UsersService', () => {
   let usersService: UsersService;
 
   const dataSourceMock = {
+    query: jest.fn().mockResolvedValue([]),
     transaction: jest.fn(
       async (cb: (manager: EntityManager) => unknown) =>
         await cb({} as EntityManager),
@@ -49,6 +50,7 @@ describe('UsersService', () => {
 
   const mediaAccessQueueMock = {
     add: jest.fn(),
+    addBulk: jest.fn(),
   };
 
   beforeEach(async () => {

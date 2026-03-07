@@ -377,7 +377,7 @@ describe('MaterialsService', () => {
       );
 
       expect(storageService.saveFile).toHaveBeenCalledWith(
-        expect.any(String),
+        file.originalname,
         file.buffer,
         file.mimetype,
         { targetDriveFolderId: 'docs-folder-100' },

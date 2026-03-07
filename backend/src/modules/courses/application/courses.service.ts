@@ -67,6 +67,8 @@ import {
 } from '@modules/media-access/domain/media-access-url.util';
 import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
 import { AuthorizedCourseIntroVideoLinkDto } from '@modules/courses/dto/authorized-course-intro-video-link.dto';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
 
 type EvaluationWithAccess = Evaluation & {
   enrollmentEvaluations?: EnrollmentEvaluation[];
@@ -102,6 +104,7 @@ export class CoursesService {
     private readonly evaluationRepository: EvaluationRepository,
     private readonly cyclesService: CyclesService,
     private readonly cacheService: RedisCacheService,
+    private readonly mediaAccessMembershipDispatchService: MediaAccessMembershipDispatchService,
   ) {}
 
   async findAllCourses(): Promise<Course[]> {
@@ -327,6 +330,19 @@ export class CoursesService {
     await this.cacheService.invalidateGroup(
       COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
     );
+
+    const evaluationIds =
+      await this.listEvaluationIdsByCourseCycle(courseCycleId);
+    await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
+      professorUserId,
+      [courseCycleId],
+      MEDIA_ACCESS_SYNC_SOURCES.PROFESSOR_ASSIGNED_COURSE_CYCLE,
+    );
+    await this.mediaAccessMembershipDispatchService.enqueueGrantForUserEvaluations(
+      professorUserId,
+      evaluationIds,
+      MEDIA_ACCESS_SYNC_SOURCES.PROFESSOR_ASSIGNED_COURSE_CYCLE,
+    );
   }
 
   async revokeProfessorFromCourseCycle(
@@ -352,6 +368,35 @@ export class CoursesService {
     await this.cacheService.invalidateGroup(
       COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
     );
+
+    const evaluationIds =
+      await this.listEvaluationIdsByCourseCycle(courseCycleId);
+    await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
+      professorUserId,
+      [courseCycleId],
+      MEDIA_ACCESS_SYNC_SOURCES.PROFESSOR_REVOKED_COURSE_CYCLE,
+    );
+    await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserEvaluations(
+      professorUserId,
+      evaluationIds,
+      MEDIA_ACCESS_SYNC_SOURCES.PROFESSOR_REVOKED_COURSE_CYCLE,
+    );
+  }
+
+  private async listEvaluationIdsByCourseCycle(
+    courseCycleId: string,
+  ): Promise<string[]> {
+    const rows = await this.dataSource.query<Array<{ id: string }>>(
+      `
+        SELECT id
+        FROM evaluation
+        WHERE course_cycle_id = ?
+      `,
+      [courseCycleId],
+    );
+    return rows
+      .map((row) => String(row.id || '').trim())
+      .filter((id) => id.length > 0);
   }
 
   async getProfessorsByCourseCycle(courseCycleId: string): Promise<User[]> {
@@ -544,46 +589,48 @@ export class CoursesService {
       courseCode: rawData.cycle.course.code,
       cycleCode: rawData.cycle.academicCycle.code,
       isCurrentCycle: isCurrent,
-      evaluations: rawData.evaluations.map((ev) => {
-        const evStartDate = new Date(ev.startDate);
-        const evEndDate = new Date(ev.endDate);
+      evaluations: this.filterOutBankEvaluations(rawData.evaluations).map(
+        (ev) => {
+          const evStartDate = new Date(ev.startDate);
+          const evEndDate = new Date(ev.endDate);
 
-        const access =
-          ev.enrollmentEvaluations && ev.enrollmentEvaluations.length > 0
-            ? ev.enrollmentEvaluations[0]
-            : null;
+          const access =
+            ev.enrollmentEvaluations && ev.enrollmentEvaluations.length > 0
+              ? ev.enrollmentEvaluations[0]
+              : null;
 
-        const statusDto = new EvaluationStatusDto();
+          const statusDto = new EvaluationStatusDto();
 
-        if (!access || !access.isActive) {
-          statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
-          statusDto.hasAccess = false;
-          statusDto.accessStart = null;
-          statusDto.accessEnd = null;
-        } else {
-          statusDto.hasAccess = true;
-          statusDto.accessStart = new Date(access.accessStartDate);
-          statusDto.accessEnd = new Date(access.accessEndDate);
-
-          if (now > statusDto.accessEnd) {
-            statusDto.status = EVALUATION_ACCESS_STATUS_CODES.COMPLETED;
-          } else if (now < statusDto.accessStart) {
-            statusDto.status = EVALUATION_ACCESS_STATUS_CODES.UPCOMING;
+          if (!access || !access.isActive) {
+            statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
+            statusDto.hasAccess = false;
+            statusDto.accessStart = null;
+            statusDto.accessEnd = null;
           } else {
-            statusDto.status = EVALUATION_ACCESS_STATUS_CODES.IN_PROGRESS;
-          }
-        }
+            statusDto.hasAccess = true;
+            statusDto.accessStart = new Date(access.accessStartDate);
+            statusDto.accessEnd = new Date(access.accessEndDate);
 
-        return {
-          id: ev.id,
-          name: ev.name ?? '',
-          description: null as string | null,
-          evaluationType: ev.evaluationType.name,
-          startDate: evStartDate,
-          endDate: evEndDate,
-          userStatus: statusDto,
-        };
-      }),
+            if (now > statusDto.accessEnd) {
+              statusDto.status = EVALUATION_ACCESS_STATUS_CODES.COMPLETED;
+            } else if (now < statusDto.accessStart) {
+              statusDto.status = EVALUATION_ACCESS_STATUS_CODES.UPCOMING;
+            } else {
+              statusDto.status = EVALUATION_ACCESS_STATUS_CODES.IN_PROGRESS;
+            }
+          }
+
+          return {
+            id: ev.id,
+            name: ev.name ?? '',
+            description: null as string | null,
+            evaluationType: ev.evaluationType.name,
+            startDate: evStartDate,
+            endDate: evEndDate,
+            userStatus: statusDto,
+          };
+        },
+      ),
     };
   }
 
@@ -728,16 +775,18 @@ export class CoursesService {
       userId,
     );
 
+    const visibleEvaluations = this.filterOutBankEvaluations(
+      evaluations as EvaluationWithAccess[],
+    );
+
     return {
       courseCycleId: accessContext.cycle.id,
       cycleCode: accessContext.cycle.academicCycle.code,
       canViewPreviousCycles: accessContext.canViewPreviousCycles,
-      evaluations: evaluations.map((evaluation) => {
+      evaluations: visibleEvaluations.map((evaluation) => {
         const startDate = new Date(evaluation.startDate);
         const endDate = new Date(evaluation.endDate);
-        const hasAccess = this.hasActiveAccess(
-          evaluation as EvaluationWithAccess,
-        );
+        const hasAccess = this.hasActiveAccess(evaluation);
 
         let label: StudentEvaluationLabel;
         if (now > endDate) {
@@ -826,12 +875,14 @@ export class CoursesService {
       userId,
     );
 
+    const visibleEvaluations = this.filterOutBankEvaluations(
+      evaluations as EvaluationWithAccess[],
+    );
+
     return {
       cycleCode: previousCycleCode,
-      evaluations: evaluations.map((evaluation) => {
-        const hasAccess = this.hasActiveAccess(
-          evaluation as EvaluationWithAccess,
-        );
+      evaluations: visibleEvaluations.map((evaluation) => {
+        const hasAccess = this.hasActiveAccess(evaluation);
         return {
           id: evaluation.id,
           evaluationTypeCode: evaluation.evaluationType.code,
@@ -986,6 +1037,17 @@ export class CoursesService {
         ? evaluation.enrollmentEvaluations[0]
         : null;
     return !!access && access.isActive;
+  }
+
+  private filterOutBankEvaluations(
+    evaluations: EvaluationWithAccess[],
+  ): EvaluationWithAccess[] {
+    return (evaluations || []).filter(
+      (evaluation) =>
+        String(evaluation.evaluationType?.code || '')
+          .trim()
+          .toUpperCase() !== EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+    );
   }
 
   private buildEvaluationShortName(evaluation: Evaluation): string {

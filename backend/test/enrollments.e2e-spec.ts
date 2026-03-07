@@ -293,7 +293,13 @@ describe('Enrollments E2E', () => {
             enqueueGrantForUserEvaluations: jest
               .fn()
               .mockResolvedValue(undefined),
+            enqueueGrantForUserCourseCycles: jest
+              .fn()
+              .mockResolvedValue(undefined),
             enqueueRevokeForUserEvaluations: jest
+              .fn()
+              .mockResolvedValue(undefined),
+            enqueueRevokeForUserCourseCycles: jest
               .fn()
               .mockResolvedValue(undefined),
           },

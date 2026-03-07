@@ -13,10 +13,23 @@ type MembershipTarget = {
   evaluationId: string;
 };
 
+type CourseCycleMembershipTarget = {
+  userId: string;
+  courseCycleId: string;
+};
+
 export type MediaAccessMembershipSyncJobPayload = {
   action: MediaAccessMembershipAction;
   userId: string;
   evaluationId: string;
+  source: string;
+  requestedAt: string;
+};
+
+export type MediaAccessCourseCycleMembershipSyncJobPayload = {
+  action: MediaAccessMembershipAction;
+  userId: string;
+  courseCycleId: string;
   source: string;
   requestedAt: string;
 };
@@ -73,6 +86,30 @@ export class MediaAccessMembershipDispatchService {
     await this.enqueueMembershipSyncJobs(
       MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT,
       userIds.map((userId) => ({ userId, evaluationId })),
+      source,
+    );
+  }
+
+  async enqueueGrantForUserCourseCycles(
+    userId: string,
+    courseCycleIds: string[],
+    source: string,
+  ): Promise<void> {
+    await this.enqueueCourseCycleMembershipSyncJobs(
+      MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT,
+      courseCycleIds.map((courseCycleId) => ({ userId, courseCycleId })),
+      source,
+    );
+  }
+
+  async enqueueRevokeForUserCourseCycles(
+    userId: string,
+    courseCycleIds: string[],
+    source: string,
+  ): Promise<void> {
+    await this.enqueueCourseCycleMembershipSyncJobs(
+      MEDIA_ACCESS_MEMBERSHIP_ACTIONS.REVOKE,
+      courseCycleIds.map((courseCycleId) => ({ userId, courseCycleId })),
       source,
     );
   }
@@ -167,6 +204,51 @@ export class MediaAccessMembershipDispatchService {
     }
   }
 
+  private async enqueueCourseCycleMembershipSyncJobs(
+    action: MediaAccessMembershipAction,
+    targets: CourseCycleMembershipTarget[],
+    source: string,
+  ): Promise<void> {
+    const normalizedSource = String(source || '').trim() || 'UNSPECIFIED';
+    const deduplicatedTargets = this.deduplicateCourseCycleTargets(targets);
+    if (deduplicatedTargets.length === 0) {
+      return;
+    }
+
+    const requestedAt = new Date().toISOString();
+    const jobs = deduplicatedTargets.map((target) => {
+      const payload: MediaAccessCourseCycleMembershipSyncJobPayload = {
+        action,
+        userId: target.userId,
+        courseCycleId: target.courseCycleId,
+        source: normalizedSource,
+        requestedAt,
+      };
+      return {
+        name: MEDIA_ACCESS_JOB_NAMES.SYNC_COURSE_CYCLE_MEMBERSHIP,
+        data: payload,
+        opts: {
+          jobId: this.buildCourseCycleMembershipSyncJobId(payload),
+          removeOnComplete: true,
+        },
+      };
+    });
+
+    try {
+      await this.mediaAccessQueue.addBulk(jobs);
+    } catch (error) {
+      this.logger.warn({
+        context: MediaAccessMembershipDispatchService.name,
+        message:
+          'No se pudo encolar sync de membresia course_cycle en Media Access',
+        action,
+        source: normalizedSource,
+        totalJobs: jobs.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   private deduplicateTargets(targets: MembershipTarget[]): MembershipTarget[] {
     const uniqueKeys = new Set<string>();
     const deduplicated: MembershipTarget[] = [];
@@ -191,6 +273,32 @@ export class MediaAccessMembershipDispatchService {
     return deduplicated;
   }
 
+  private deduplicateCourseCycleTargets(
+    targets: CourseCycleMembershipTarget[],
+  ): CourseCycleMembershipTarget[] {
+    const uniqueKeys = new Set<string>();
+    const deduplicated: CourseCycleMembershipTarget[] = [];
+
+    for (const target of targets) {
+      const normalizedUserId = String(target.userId || '').trim();
+      const normalizedCourseCycleId = String(target.courseCycleId || '').trim();
+      if (!normalizedUserId || !normalizedCourseCycleId) {
+        continue;
+      }
+      const key = `${normalizedUserId}:${normalizedCourseCycleId}`;
+      if (uniqueKeys.has(key)) {
+        continue;
+      }
+      uniqueKeys.add(key);
+      deduplicated.push({
+        userId: normalizedUserId,
+        courseCycleId: normalizedCourseCycleId,
+      });
+    }
+
+    return deduplicated;
+  }
+
   private buildMembershipSyncJobId(
     payload: MediaAccessMembershipSyncJobPayload,
   ): string {
@@ -200,6 +308,18 @@ export class MediaAccessMembershipDispatchService {
       payload.action,
       payload.userId,
       payload.evaluationId,
+    ].join('__');
+  }
+
+  private buildCourseCycleMembershipSyncJobId(
+    payload: MediaAccessCourseCycleMembershipSyncJobPayload,
+  ): string {
+    return [
+      'media-access',
+      'course-cycle-membership',
+      payload.action,
+      payload.userId,
+      payload.courseCycleId,
     ].join('__');
   }
 

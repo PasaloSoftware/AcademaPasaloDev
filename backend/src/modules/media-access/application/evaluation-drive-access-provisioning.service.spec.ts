@@ -61,12 +61,21 @@ describe('EvaluationDriveAccessProvisioningService', () => {
   });
 
   it('should provision group, folders and persist mapping', async () => {
-    evaluationRepo.findOne.mockResolvedValue({ id: '552' } as Evaluation);
+    evaluationRepo.findOne.mockResolvedValue({
+      id: '552',
+      courseCycleId: '17',
+      number: 1,
+      evaluationType: { code: 'PC' },
+      courseCycle: {
+        course: { code: 'MATE101' },
+        academicCycle: { code: '2026-0' },
+      },
+    } as unknown as Evaluation);
     namingService.buildForEvaluation.mockReturnValue({
       evaluationId: '552',
       scopeKey: 'ev_552',
-      parentFolderNames: ['evaluations'],
-      baseFolderName: 'ev_552',
+      parentFolderNames: ['evaluations', '2026-0', 'cc_17_MATE101'],
+      baseFolderName: 'ev_552_PC1',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',
       archivedFolderName: 'archivado',
@@ -94,10 +103,18 @@ describe('EvaluationDriveAccessProvisioningService', () => {
 
     const result = await service.provisionByEvaluationId('552');
 
+    expect(namingService.buildForEvaluation).toHaveBeenCalledWith({
+      evaluationId: '552',
+      courseCycleId: '17',
+      courseCode: 'MATE101',
+      cycleCode: '2026-0',
+      evaluationTypeCode: 'PC',
+      evaluationNumber: 1,
+    });
     expect(workspaceGroupsService.findOrCreateGroup).toHaveBeenCalledWith({
       email: 'ev-552-viewers@academiapasalo.com',
-      name: 'Evaluación 552 viewers',
-      description: 'Acceso viewer para contenido de evaluación 552',
+      name: 'Evaluacion 552 viewers',
+      description: 'Acceso viewer para contenido de evaluacion 552',
     });
     expect(
       driveScopeProvisioningService.ensureGroupReaderPermission,
@@ -133,12 +150,21 @@ describe('EvaluationDriveAccessProvisioningService', () => {
   it('should also share scope with global staff viewers group when configured', async () => {
     (technicalSettings as any).mediaAccess.staffViewersGroupEmail =
       'staff-viewers@academiapasalo.com';
-    evaluationRepo.findOne.mockResolvedValue({ id: '552' } as Evaluation);
+    evaluationRepo.findOne.mockResolvedValue({
+      id: '552',
+      courseCycleId: '17',
+      number: 1,
+      evaluationType: { code: 'PC' },
+      courseCycle: {
+        course: { code: 'MATE101' },
+        academicCycle: { code: '2026-0' },
+      },
+    } as unknown as Evaluation);
     namingService.buildForEvaluation.mockReturnValue({
       evaluationId: '552',
       scopeKey: 'ev_552',
-      parentFolderNames: ['evaluations'],
-      baseFolderName: 'ev_552',
+      parentFolderNames: ['evaluations', '2026-0', 'cc_17_MATE101'],
+      baseFolderName: 'ev_552_PC1',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',
       archivedFolderName: 'archivado',

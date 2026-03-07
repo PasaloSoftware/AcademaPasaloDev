@@ -187,28 +187,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S',
+  'gdrive-seed-1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S',
-  'https://docs.google.com/document/d/1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3',
+  'https://docs.google.com/document/d/1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -259,7 +259,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mkaEqyfKkkuE1j5pHfTTCnl3a9qZPF3S'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -302,28 +302,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mkaEqyfKkkuE1j5pHfTT
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d',
+  'gdrive-seed-1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d',
-  'https://drive.google.com/file/d/1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d/view?usp=drivesdk',
+  '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG',
+  'https://drive.google.com/file/d/1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -374,7 +374,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1YNpVd_xa9ARBrhy0s71yiy6Hl2Q4dX9d'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -417,28 +417,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1YNpVd_xa9ARBrhy0s71y
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg',
+  'gdrive-seed-1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg',
-  'https://drive.google.com/file/d/1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg/view?usp=drivesdk',
+  '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B',
+  'https://drive.google.com/file/d/1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -489,7 +489,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H_wPh90jpmYKo4VHaG6otIdRQ4NoiYYg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -599,28 +599,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-',
+  'gdrive-seed-1wFaagGIO4wu2n-87Q9CVx-aARUffZReH',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-',
-  'https://docs.google.com/document/d/1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH',
+  'https://docs.google.com/document/d/1wFaagGIO4wu2n-87Q9CVx-aARUffZReH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1wFaagGIO4wu2n-87Q9CVx-aARUffZReH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -671,7 +671,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EaoWiE_J4REM_wlBdD1-HL3O6D30Ef4-'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -714,28 +714,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EaoWiE_J4REM_wlBdD1-
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-',
+  'gdrive-seed-1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-',
-  'https://drive.google.com/file/d/1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-/view?usp=drivesdk',
+  '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0',
+  'https://drive.google.com/file/d/1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -786,7 +786,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DiRXCmxcHXCo_8M2VAhDPbmodqGLTRT-'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -829,28 +829,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DiRXCmxcHXCo_8M2VAhD
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-138t-ItuJeCmWQHTXK3BEfon06yljv1cT',
+  'gdrive-seed-16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '138t-ItuJeCmWQHTXK3BEfon06yljv1cT',
-  'https://drive.google.com/file/d/138t-ItuJeCmWQHTXK3BEfon06yljv1cT/view?usp=drivesdk',
+  '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu',
+  'https://drive.google.com/file/d/16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '138t-ItuJeCmWQHTXK3BEfon06yljv1cT'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/138t-ItuJeCmWQHTXK3BEfon06yljv1cT/view?usp=drivesdk',
+  'https://drive.google.com/file/d/16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '138t-ItuJeCmWQHTXK3BEfon06yljv1cT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -901,7 +901,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '138t-ItuJeCmWQHTXK3BEfon06yljv1cT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1011,28 +1011,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-16klM1hlZprtY92e5AEvH70yyLUlI6gUK',
+  'gdrive-seed-1xc1a7-95X9GwT4gaC3mJvgSp0shachy_',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '16klM1hlZprtY92e5AEvH70yyLUlI6gUK',
-  'https://docs.google.com/document/d/16klM1hlZprtY92e5AEvH70yyLUlI6gUK/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_',
+  'https://docs.google.com/document/d/1xc1a7-95X9GwT4gaC3mJvgSp0shachy_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16klM1hlZprtY92e5AEvH70yyLUlI6gUK'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/16klM1hlZprtY92e5AEvH70yyLUlI6gUK/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1xc1a7-95X9GwT4gaC3mJvgSp0shachy_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16klM1hlZprtY92e5AEvH70yyLUlI6gUK'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1083,7 +1083,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16klM1hlZprtY92e5AEvH70yyLUlI6gUK'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1126,28 +1126,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16klM1hlZprtY92e5AEvH
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1JYg2271h1t2VboHC3cUv20Pz11f9aqKc',
+  'gdrive-seed-1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1JYg2271h1t2VboHC3cUv20Pz11f9aqKc',
-  'https://drive.google.com/file/d/1JYg2271h1t2VboHC3cUv20Pz11f9aqKc/view?usp=drivesdk',
+  '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu',
+  'https://drive.google.com/file/d/1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JYg2271h1t2VboHC3cUv20Pz11f9aqKc'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1JYg2271h1t2VboHC3cUv20Pz11f9aqKc/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JYg2271h1t2VboHC3cUv20Pz11f9aqKc'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1198,7 +1198,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JYg2271h1t2VboHC3cUv20Pz11f9aqKc'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1241,28 +1241,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JYg2271h1t2VboHC3cUv
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-14teUePIHue2vB5xx4RbL-1m6q8iT_gUg',
+  'gdrive-seed-17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '14teUePIHue2vB5xx4RbL-1m6q8iT_gUg',
-  'https://drive.google.com/file/d/14teUePIHue2vB5xx4RbL-1m6q8iT_gUg/view?usp=drivesdk',
+  '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0',
+  'https://drive.google.com/file/d/17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '14teUePIHue2vB5xx4RbL-1m6q8iT_gUg'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/14teUePIHue2vB5xx4RbL-1m6q8iT_gUg/view?usp=drivesdk',
+  'https://drive.google.com/file/d/17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '14teUePIHue2vB5xx4RbL-1m6q8iT_gUg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1313,7 +1313,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '14teUePIHue2vB5xx4RbL-1m6q8iT_gUg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1423,28 +1423,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh',
+  'gdrive-seed-1L38617cj3rDWdteNFYzrvR-rDDj44f1F',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh',
-  'https://docs.google.com/document/d/1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1L38617cj3rDWdteNFYzrvR-rDDj44f1F',
+  'https://docs.google.com/document/d/1L38617cj3rDWdteNFYzrvR-rDDj44f1F/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L38617cj3rDWdteNFYzrvR-rDDj44f1F'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1L38617cj3rDWdteNFYzrvR-rDDj44f1F/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L38617cj3rDWdteNFYzrvR-rDDj44f1F'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1495,7 +1495,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Mv4oRH02eNLafY0GevKlydbvwDNx3zJh'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L38617cj3rDWdteNFYzrvR-rDDj44f1F'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1538,28 +1538,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Mv4oRH02eNLafY0GevKl
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv',
+  'gdrive-seed-1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv',
-  'https://drive.google.com/file/d/1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv/view?usp=drivesdk',
+  '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB',
+  'https://drive.google.com/file/d/1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1610,7 +1610,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZawJfMPICmeVBkwRA5prlPCTI_-1A5zv'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1653,28 +1653,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZawJfMPICmeVBkwRA5pr
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs',
+  'gdrive-seed-1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs',
-  'https://drive.google.com/file/d/14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs/view?usp=drivesdk',
+  '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A',
+  'https://drive.google.com/file/d/1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1725,7 +1725,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '14NU8ttBHYVIKKIDcRnONFNpRYJdVyhhs'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1835,28 +1835,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh',
+  'gdrive-seed-1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh',
-  'https://docs.google.com/document/d/1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx',
+  'https://docs.google.com/document/d/1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -1907,7 +1907,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ebxUH2suOajwgxe9DrhUO-p2S97bkUuh'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -1950,28 +1950,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ebxUH2suOajwgxe9DrhU
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ',
+  'gdrive-seed-1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ',
-  'https://drive.google.com/file/d/1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ/view?usp=drivesdk',
+  '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz',
+  'https://drive.google.com/file/d/1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2022,7 +2022,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1X2RuobWvYFMBd189HVHjT4QmHrXahGGJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2065,28 +2065,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1X2RuobWvYFMBd189HVHj
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo',
+  'gdrive-seed-1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo',
-  'https://drive.google.com/file/d/18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo/view?usp=drivesdk',
+  '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x',
+  'https://drive.google.com/file/d/1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2137,7 +2137,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18MIV9jL-7ONrMQb9YYDsNJnH8Nu5Wpgo'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2247,28 +2247,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER',
+  'gdrive-seed-1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER',
-  'https://docs.google.com/document/d/1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t',
+  'https://docs.google.com/document/d/1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2319,7 +2319,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hNc-Se7cTBRw58WKqOwmlH__3pzgEhER'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2362,28 +2362,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hNc-Se7cTBRw58WKqOwm
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi',
+  'gdrive-seed-1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi',
-  'https://drive.google.com/file/d/1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi/view?usp=drivesdk',
+  '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A',
+  'https://drive.google.com/file/d/1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2434,7 +2434,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CzBasBxxrgV2sFIftdWoVFymE7Yq_Upi'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2477,28 +2477,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CzBasBxxrgV2sFIftdWo
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk',
+  'gdrive-seed-1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk',
-  'https://drive.google.com/file/d/1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk/view?usp=drivesdk',
+  '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh',
+  'https://drive.google.com/file/d/1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2549,7 +2549,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m_SeDqgUAqoIVRAcevnyQhws9cEMigJk'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2659,28 +2659,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV',
+  'gdrive-seed-1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV',
-  'https://docs.google.com/document/d/1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o',
+  'https://docs.google.com/document/d/1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2731,7 +2731,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mNts2JpQeEtT1w1qesoxzvSopVwGn8dV'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2774,28 +2774,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mNts2JpQeEtT1w1qesox
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj',
+  'gdrive-seed-1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj',
-  'https://drive.google.com/file/d/1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj/view?usp=drivesdk',
+  '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo',
+  'https://drive.google.com/file/d/1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2846,7 +2846,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JlT_hNXPZGVrkP-ejnFlrmfQP2O1dnFj'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -2889,28 +2889,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JlT_hNXPZGVrkP-ejnFl
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71',
+  'gdrive-seed-1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71',
-  'https://drive.google.com/file/d/1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71/view?usp=drivesdk',
+  '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo',
+  'https://drive.google.com/file/d/1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -2961,7 +2961,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1txQOfVgoRUdcgAHiDYD288ZAZ82fBU71'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3071,28 +3071,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4',
+  'gdrive-seed-11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4',
-  'https://docs.google.com/document/d/19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi',
+  'https://docs.google.com/document/d/11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3143,7 +3143,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19P-xetkTpPQ5I2PZBGOhaQE1RBBHBeD4'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3186,28 +3186,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19P-xetkTpPQ5I2PZBGOh
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_',
+  'gdrive-seed-1yHnVleteQdPCJh2D5XG2NnRNzazmix2o',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_',
-  'https://drive.google.com/file/d/1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_/view?usp=drivesdk',
+  '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o',
+  'https://drive.google.com/file/d/1yHnVleteQdPCJh2D5XG2NnRNzazmix2o/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1yHnVleteQdPCJh2D5XG2NnRNzazmix2o/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3258,7 +3258,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BWWr4D6_AXXSbVrjVkgDxyohi2e1c6d_'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3301,28 +3301,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BWWr4D6_AXXSbVrjVkgD
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1jK9i94B_966CWlQu4o8K9EXx9cSddCOT',
+  'gdrive-seed-198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1jK9i94B_966CWlQu4o8K9EXx9cSddCOT',
-  'https://drive.google.com/file/d/1jK9i94B_966CWlQu4o8K9EXx9cSddCOT/view?usp=drivesdk',
+  '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S',
+  'https://drive.google.com/file/d/198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jK9i94B_966CWlQu4o8K9EXx9cSddCOT'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1jK9i94B_966CWlQu4o8K9EXx9cSddCOT/view?usp=drivesdk',
+  'https://drive.google.com/file/d/198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jK9i94B_966CWlQu4o8K9EXx9cSddCOT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3373,7 +3373,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jK9i94B_966CWlQu4o8K9EXx9cSddCOT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3483,28 +3483,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1M13R_VangQyBprULzn64Mr3oLhBqYGxN',
+  'gdrive-seed-13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1M13R_VangQyBprULzn64Mr3oLhBqYGxN',
-  'https://docs.google.com/document/d/1M13R_VangQyBprULzn64Mr3oLhBqYGxN/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y',
+  'https://docs.google.com/document/d/13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1M13R_VangQyBprULzn64Mr3oLhBqYGxN'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1M13R_VangQyBprULzn64Mr3oLhBqYGxN/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1M13R_VangQyBprULzn64Mr3oLhBqYGxN'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3555,7 +3555,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1M13R_VangQyBprULzn64Mr3oLhBqYGxN'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3598,28 +3598,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1M13R_VangQyBprULzn64
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2',
+  'gdrive-seed-1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2',
-  'https://drive.google.com/file/d/1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2/view?usp=drivesdk',
+  '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum',
+  'https://drive.google.com/file/d/1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3670,7 +3670,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CPqaaZkvq1WOaSGcBfCCj_irqzUl1RJ2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3713,28 +3713,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CPqaaZkvq1WOaSGcBfCC
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME',
+  'gdrive-seed-1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME',
-  'https://drive.google.com/file/d/1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME/view?usp=drivesdk',
+  '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-',
+  'https://drive.google.com/file/d/1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3785,7 +3785,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y3Uzh_BAxr1QKEzyJP15ACt37vGnB3ME'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -3895,28 +3895,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n',
+  'gdrive-seed-1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n',
-  'https://docs.google.com/document/d/1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg',
+  'https://docs.google.com/document/d/1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -3967,7 +3967,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wF356xf_bgkkAGPZ0mjZJ2lliVcVZI3n'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4010,28 +4010,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wF356xf_bgkkAGPZ0mjZ
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf',
+  'gdrive-seed-1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf',
-  'https://drive.google.com/file/d/1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf/view?usp=drivesdk',
+  '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG',
+  'https://drive.google.com/file/d/1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -4082,7 +4082,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aRW9gU_sxN8HGGPQ_c2IxhkMcpDCvBmf'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4125,28 +4125,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aRW9gU_sxN8HGGPQ_c2I
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT',
+  'gdrive-seed-1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT',
-  'https://drive.google.com/file/d/1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT/view?usp=drivesdk',
+  '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o',
+  'https://drive.google.com/file/d/1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -4197,7 +4197,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Vy3pJYUhrrcR0lJcnmFn-FjIDaXeLHQT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4307,28 +4307,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2',
+  'gdrive-seed-1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2',
-  'https://docs.google.com/document/d/1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV',
+  'https://docs.google.com/document/d/1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -4379,7 +4379,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NDFYi1_eSyBRQO8PDCI-gHVYsZraNPd2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4422,28 +4422,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NDFYi1_eSyBRQO8PDCI-
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD',
+  'gdrive-seed-1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD',
-  'https://drive.google.com/file/d/19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD/view?usp=drivesdk',
+  '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9',
+  'https://drive.google.com/file/d/1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -4494,7 +4494,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19NL4oRwNhkdXWjxF3CW1Lls4UZyrq3sD'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4537,28 +4537,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19NL4oRwNhkdXWjxF3CW1
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY',
+  'gdrive-seed-145OW-JWJad45jMewP7izlRgpzXQF8CIC',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY',
-  'https://drive.google.com/file/d/1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY/view?usp=drivesdk',
+  '145OW-JWJad45jMewP7izlRgpzXQF8CIC',
+  'https://drive.google.com/file/d/145OW-JWJad45jMewP7izlRgpzXQF8CIC/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '145OW-JWJad45jMewP7izlRgpzXQF8CIC'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY/view?usp=drivesdk',
+  'https://drive.google.com/file/d/145OW-JWJad45jMewP7izlRgpzXQF8CIC/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '145OW-JWJad45jMewP7izlRgpzXQF8CIC'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -4609,7 +4609,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1AgAMzXONp1BfU8EXvQoU69DHaB5BGvEY'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '145OW-JWJad45jMewP7izlRgpzXQF8CIC'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4832,28 +4832,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH',
+  'gdrive-seed-1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH',
-  'https://docs.google.com/document/d/1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C',
+  'https://docs.google.com/document/d/1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -4904,7 +4904,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MEApKj0oMLM0PVrcqlwKDKvIm7guUpVH'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -4947,28 +4947,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MEApKj0oMLM0PVrcqlwK
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo',
+  'gdrive-seed-1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo',
-  'https://drive.google.com/file/d/1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo/view?usp=drivesdk',
+  '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C',
+  'https://drive.google.com/file/d/1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5019,7 +5019,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ncv3rG_cgY3lVOvVwTyGnhjgnG3CUiXo'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5062,28 +5062,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ncv3rG_cgY3lVOvVwTyG
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F',
+  'gdrive-seed-1gOof550fe2yIjfNXMoPACmSe0arBR1th',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F',
-  'https://drive.google.com/file/d/1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F/view?usp=drivesdk',
+  '1gOof550fe2yIjfNXMoPACmSe0arBR1th',
+  'https://drive.google.com/file/d/1gOof550fe2yIjfNXMoPACmSe0arBR1th/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gOof550fe2yIjfNXMoPACmSe0arBR1th'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1gOof550fe2yIjfNXMoPACmSe0arBR1th/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gOof550fe2yIjfNXMoPACmSe0arBR1th'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5134,7 +5134,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1zEJXNiW1qA8A91eOvGRE0Bwd75RubO2F'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gOof550fe2yIjfNXMoPACmSe0arBR1th'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5244,28 +5244,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE',
+  'gdrive-seed-1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE',
-  'https://docs.google.com/document/d/1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr',
+  'https://docs.google.com/document/d/1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5316,7 +5316,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f7Lqjt22tIRIgbmi-g6IRzp0lLrr5QtE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5359,28 +5359,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f7Lqjt22tIRIgbmi-g6I
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b',
+  'gdrive-seed-12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b',
-  'https://drive.google.com/file/d/1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b/view?usp=drivesdk',
+  '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-',
+  'https://drive.google.com/file/d/12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b/view?usp=drivesdk',
+  'https://drive.google.com/file/d/12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5431,7 +5431,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EfSmm8A_89kMs1OzHaIapZwRRHGpXl-b'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5474,28 +5474,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EfSmm8A_89kMs1OzHaIa
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s',
+  'gdrive-seed-1MplmcOV0so45u1rcrFm2y_votsJhd36L',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s',
-  'https://drive.google.com/file/d/1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s/view?usp=drivesdk',
+  '1MplmcOV0so45u1rcrFm2y_votsJhd36L',
+  'https://drive.google.com/file/d/1MplmcOV0so45u1rcrFm2y_votsJhd36L/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MplmcOV0so45u1rcrFm2y_votsJhd36L'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1MplmcOV0so45u1rcrFm2y_votsJhd36L/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MplmcOV0so45u1rcrFm2y_votsJhd36L'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5546,7 +5546,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m5p70o_X6D7JGSYUQ_Euw46GiCBbZs-s'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MplmcOV0so45u1rcrFm2y_votsJhd36L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5656,28 +5656,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-12GqKa7QWv3k9ntXjzdpWijAFijBHcThn',
+  'gdrive-seed-1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '12GqKa7QWv3k9ntXjzdpWijAFijBHcThn',
-  'https://docs.google.com/document/d/12GqKa7QWv3k9ntXjzdpWijAFijBHcThn/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ',
+  'https://docs.google.com/document/d/1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12GqKa7QWv3k9ntXjzdpWijAFijBHcThn'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/12GqKa7QWv3k9ntXjzdpWijAFijBHcThn/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12GqKa7QWv3k9ntXjzdpWijAFijBHcThn'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5728,7 +5728,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12GqKa7QWv3k9ntXjzdpWijAFijBHcThn'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5771,28 +5771,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12GqKa7QWv3k9ntXjzdpW
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-17pup6AoHXzinvW22nRfuXDLqpoB6QJ72',
+  'gdrive-seed-1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '17pup6AoHXzinvW22nRfuXDLqpoB6QJ72',
-  'https://drive.google.com/file/d/17pup6AoHXzinvW22nRfuXDLqpoB6QJ72/view?usp=drivesdk',
+  '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe',
+  'https://drive.google.com/file/d/1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17pup6AoHXzinvW22nRfuXDLqpoB6QJ72'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/17pup6AoHXzinvW22nRfuXDLqpoB6QJ72/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17pup6AoHXzinvW22nRfuXDLqpoB6QJ72'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5843,7 +5843,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17pup6AoHXzinvW22nRfuXDLqpoB6QJ72'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -5886,28 +5886,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17pup6AoHXzinvW22nRfu
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg',
+  'gdrive-seed-1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg',
-  'https://drive.google.com/file/d/1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg/view?usp=drivesdk',
+  '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4',
+  'https://drive.google.com/file/d/1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -5958,7 +5958,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Os6OlYFyqxEUiTD9T0VlWY5tPTvICuVg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6068,28 +6068,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1ZMRfunk9BgIX4gco0EofaiXe4HG230ad',
+  'gdrive-seed-1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1ZMRfunk9BgIX4gco0EofaiXe4HG230ad',
-  'https://docs.google.com/document/d/1ZMRfunk9BgIX4gco0EofaiXe4HG230ad/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L',
+  'https://docs.google.com/document/d/1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZMRfunk9BgIX4gco0EofaiXe4HG230ad'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1ZMRfunk9BgIX4gco0EofaiXe4HG230ad/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZMRfunk9BgIX4gco0EofaiXe4HG230ad'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6140,7 +6140,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZMRfunk9BgIX4gco0EofaiXe4HG230ad'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6183,28 +6183,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZMRfunk9BgIX4gco0Eof
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb',
+  'gdrive-seed-1yWleot-K24G8NCOey71uxhuK6kP2JfnP',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb',
-  'https://drive.google.com/file/d/1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb/view?usp=drivesdk',
+  '1yWleot-K24G8NCOey71uxhuK6kP2JfnP',
+  'https://drive.google.com/file/d/1yWleot-K24G8NCOey71uxhuK6kP2JfnP/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yWleot-K24G8NCOey71uxhuK6kP2JfnP'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1yWleot-K24G8NCOey71uxhuK6kP2JfnP/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yWleot-K24G8NCOey71uxhuK6kP2JfnP'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6255,7 +6255,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KK48ma0kEM-QkjspfjX4P37lAMYTYIvb'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yWleot-K24G8NCOey71uxhuK6kP2JfnP'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6298,28 +6298,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KK48ma0kEM-QkjspfjX4
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW',
+  'gdrive-seed-12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW',
-  'https://drive.google.com/file/d/1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW/view?usp=drivesdk',
+  '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed',
+  'https://drive.google.com/file/d/12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW/view?usp=drivesdk',
+  'https://drive.google.com/file/d/12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6370,7 +6370,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Pqo-eVaRmw99AH11Vx3or6xHlqW3cQbW'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6480,28 +6480,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv',
+  'gdrive-seed-19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv',
-  'https://docs.google.com/document/d/1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx',
+  'https://docs.google.com/document/d/19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6552,7 +6552,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdfEzAvWwU9JlK9xrgMBiDjRzS3befZv'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6595,28 +6595,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdfEzAvWwU9JlK9xrgMB
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl',
+  'gdrive-seed-1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl',
-  'https://drive.google.com/file/d/17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl/view?usp=drivesdk',
+  '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM',
+  'https://drive.google.com/file/d/1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6667,7 +6667,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17JbRtbI9XYoO-wYhFi6tR2hSwvHix9cl'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6710,28 +6710,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17JbRtbI9XYoO-wYhFi6t
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF',
+  'gdrive-seed-1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF',
-  'https://drive.google.com/file/d/1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF/view?usp=drivesdk',
+  '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD',
+  'https://drive.google.com/file/d/1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6782,7 +6782,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nwVIGWyVfCk0FBWLIIr2qPT6wdnC2sWF'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -6892,28 +6892,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7',
+  'gdrive-seed-1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7',
-  'https://docs.google.com/document/d/1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI',
+  'https://docs.google.com/document/d/1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -6964,7 +6964,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UX-_XfYg8MXiCBRSDQW_mHSp_oCujSK7'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7007,28 +7007,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UX-_XfYg8MXiCBRSDQW_
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG',
+  'gdrive-seed-1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG',
-  'https://drive.google.com/file/d/1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG/view?usp=drivesdk',
+  '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T',
+  'https://drive.google.com/file/d/1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7079,7 +7079,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fkKrebukuGZd2n4wYYOSAkLFZMK1nTbG'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7122,28 +7122,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fkKrebukuGZd2n4wYYOS
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa',
+  'gdrive-seed-15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa',
-  'https://drive.google.com/file/d/1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa/view?usp=drivesdk',
+  '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx',
+  'https://drive.google.com/file/d/15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa/view?usp=drivesdk',
+  'https://drive.google.com/file/d/15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7194,7 +7194,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GWLUpi0qyLeKawbqofKfYH2_crKvZRXa'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7304,28 +7304,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0',
+  'gdrive-seed-1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0',
-  'https://docs.google.com/document/d/15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_',
+  'https://docs.google.com/document/d/1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7376,7 +7376,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15yFQvBrSUyZ9_nEJ6NFrZvUoJ9b6Txs0'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7419,28 +7419,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15yFQvBrSUyZ9_nEJ6NFr
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr',
+  'gdrive-seed-1B4fh5GeapK5UWqadvREJCRamb-Quo0ow',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr',
-  'https://drive.google.com/file/d/1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr/view?usp=drivesdk',
+  '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow',
+  'https://drive.google.com/file/d/1B4fh5GeapK5UWqadvREJCRamb-Quo0ow/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1B4fh5GeapK5UWqadvREJCRamb-Quo0ow/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7491,7 +7491,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1c1B6swzZgub-F8M5wyWOnAKnkv_tGVfr'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7534,28 +7534,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1c1B6swzZgub-F8M5wyWO
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_',
+  'gdrive-seed-1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_',
-  'https://drive.google.com/file/d/1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_/view?usp=drivesdk',
+  '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk',
+  'https://drive.google.com/file/d/1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7606,7 +7606,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xdfmTMwBrjTKwPv9mg3srBOrHF6HjU9_'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7716,28 +7716,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ',
+  'gdrive-seed-11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ',
-  'https://docs.google.com/document/d/1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L',
+  'https://docs.google.com/document/d/11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7788,7 +7788,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1AY6St-NV8KnMYAgfQ_dBsUwV7fQDFZ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7831,28 +7831,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1AY6St-NV8KnMYAgfQ_
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q',
+  'gdrive-seed-1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q',
-  'https://drive.google.com/file/d/13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q/view?usp=drivesdk',
+  '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4',
+  'https://drive.google.com/file/d/1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -7903,7 +7903,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13kkw3gqk7qFaGYPnuc0-aB6hrgYccP3q'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -7946,28 +7946,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13kkw3gqk7qFaGYPnuc0-
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1m95um7AohcjDFLFog06JiLCByca3t9r9',
+  'gdrive-seed-18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1m95um7AohcjDFLFog06JiLCByca3t9r9',
-  'https://drive.google.com/file/d/1m95um7AohcjDFLFog06JiLCByca3t9r9/view?usp=drivesdk',
+  '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T',
+  'https://drive.google.com/file/d/18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m95um7AohcjDFLFog06JiLCByca3t9r9'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1m95um7AohcjDFLFog06JiLCByca3t9r9/view?usp=drivesdk',
+  'https://drive.google.com/file/d/18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m95um7AohcjDFLFog06JiLCByca3t9r9'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8018,7 +8018,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1m95um7AohcjDFLFog06JiLCByca3t9r9'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8128,28 +8128,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0',
+  'gdrive-seed-11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0',
-  'https://docs.google.com/document/d/1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN',
+  'https://docs.google.com/document/d/11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8200,7 +8200,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fGEgRk2MdELWbhtI9s7ISpvwG2P6RGB0'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8243,28 +8243,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fGEgRk2MdELWbhtI9s7I
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz',
+  'gdrive-seed-1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz',
-  'https://drive.google.com/file/d/1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz/view?usp=drivesdk',
+  '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL',
+  'https://drive.google.com/file/d/1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8315,7 +8315,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1o0Y3tMEsmaTOq9a6cLc1BJoWmyyAnNrz'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8358,28 +8358,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1o0Y3tMEsmaTOq9a6cLc1
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru',
+  'gdrive-seed-1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru',
-  'https://drive.google.com/file/d/1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru/view?usp=drivesdk',
+  '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz',
+  'https://drive.google.com/file/d/1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8430,7 +8430,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QI0vZmPRZoz1WxBypy1aBbX9aZv9Qsru'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8540,28 +8540,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi',
+  'gdrive-seed-1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi',
-  'https://docs.google.com/document/d/1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n',
+  'https://docs.google.com/document/d/1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8612,7 +8612,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QuHN4gv6W8US2EOeV_YLdYDd8P0wgaAi'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8655,28 +8655,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QuHN4gv6W8US2EOeV_YL
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ',
+  'gdrive-seed-1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ',
-  'https://drive.google.com/file/d/1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ/view?usp=drivesdk',
+  '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng',
+  'https://drive.google.com/file/d/1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8727,7 +8727,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rORWK-emlOU1tSL2oU7CZ4W8cvTFrGOQ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8770,28 +8770,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rORWK-emlOU1tSL2oU7C
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId',
+  'gdrive-seed-1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId',
-  'https://drive.google.com/file/d/1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId/view?usp=drivesdk',
+  '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU',
+  'https://drive.google.com/file/d/1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -8842,7 +8842,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1btFhCE_M19lsJ8MKAB9YnWUSz94ExIId'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -8952,28 +8952,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1tqA_mEeo7yGJewcotEznEn5LKB393HeH',
+  'gdrive-seed-1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1tqA_mEeo7yGJewcotEznEn5LKB393HeH',
-  'https://docs.google.com/document/d/1tqA_mEeo7yGJewcotEznEn5LKB393HeH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz',
+  'https://docs.google.com/document/d/1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tqA_mEeo7yGJewcotEznEn5LKB393HeH'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1tqA_mEeo7yGJewcotEznEn5LKB393HeH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tqA_mEeo7yGJewcotEznEn5LKB393HeH'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9024,7 +9024,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tqA_mEeo7yGJewcotEznEn5LKB393HeH'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -9067,28 +9067,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tqA_mEeo7yGJewcotEzn
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ',
+  'gdrive-seed-1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ',
-  'https://drive.google.com/file/d/1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ/view?usp=drivesdk',
+  '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy',
+  'https://drive.google.com/file/d/1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9139,7 +9139,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1Auleua9IpfKUlJIGdkMCtjqcuXAoWJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -9182,28 +9182,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L1Auleua9IpfKUlJIGdk
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr',
+  'gdrive-seed-1t0IicD9lOrp0BgITZmX59khJVROZkRLw',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr',
-  'https://drive.google.com/file/d/1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr/view?usp=drivesdk',
+  '1t0IicD9lOrp0BgITZmX59khJVROZkRLw',
+  'https://drive.google.com/file/d/1t0IicD9lOrp0BgITZmX59khJVROZkRLw/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t0IicD9lOrp0BgITZmX59khJVROZkRLw'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1t0IicD9lOrp0BgITZmX59khJVROZkRLw/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t0IicD9lOrp0BgITZmX59khJVROZkRLw'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9254,7 +9254,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1z0fgnVMKDkq04C_dE6bkAoZKzVJET-Xr'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t0IicD9lOrp0BgITZmX59khJVROZkRLw'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -9477,28 +9477,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW',
+  'gdrive-seed-1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW',
-  'https://docs.google.com/document/d/1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG',
+  'https://docs.google.com/document/d/1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9549,7 +9549,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Gpf5jCjdNStSbZVcQT9ruVoSYKvHfrKW'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -9592,28 +9592,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Gpf5jCjdNStSbZVcQT9r
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz',
+  'gdrive-seed-1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz',
-  'https://drive.google.com/file/d/1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz/view?usp=drivesdk',
+  '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6',
+  'https://drive.google.com/file/d/1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9664,7 +9664,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DXMbArSAxnDdAOv7P70Dc9GgD-BgI1Uz'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -9707,28 +9707,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DXMbArSAxnDdAOv7P70D
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht',
+  'gdrive-seed-1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht',
-  'https://drive.google.com/file/d/1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht/view?usp=drivesdk',
+  '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ',
+  'https://drive.google.com/file/d/1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9779,7 +9779,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MQKdbfXH5TUlDHTM1R0fzTPeLEOY7jht'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -9889,28 +9889,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp',
+  'gdrive-seed-1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp',
-  'https://docs.google.com/document/d/1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj',
+  'https://docs.google.com/document/d/1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -9961,7 +9961,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qvaAebLP0W59rhE0LRXvUsD1HGWeaoCp'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10004,28 +10004,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qvaAebLP0W59rhE0LRXv
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF',
+  'gdrive-seed-1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF',
-  'https://drive.google.com/file/d/1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF/view?usp=drivesdk',
+  '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD',
+  'https://drive.google.com/file/d/1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10076,7 +10076,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hnOW2d2N6TSRRpPlVfhnDPCoYmr_pbQF'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10119,28 +10119,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hnOW2d2N6TSRRpPlVfhn
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2',
+  'gdrive-seed-12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2',
-  'https://drive.google.com/file/d/1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2/view?usp=drivesdk',
+  '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr',
+  'https://drive.google.com/file/d/12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2/view?usp=drivesdk',
+  'https://drive.google.com/file/d/12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10191,7 +10191,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1duzcNYAOWjCAysWAt94c6a_RYf7vE6s2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10301,28 +10301,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP',
+  'gdrive-seed-13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP',
-  'https://docs.google.com/document/d/16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt',
+  'https://docs.google.com/document/d/13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10373,7 +10373,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Ue0MFG71wKqwLsYNZHfH-f_3d4F5VhP'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10416,28 +10416,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Ue0MFG71wKqwLsYNZHf
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ',
+  'gdrive-seed-1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ',
-  'https://drive.google.com/file/d/17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ/view?usp=drivesdk',
+  '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5',
+  'https://drive.google.com/file/d/1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10488,7 +10488,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17et97AtRNnCCqxhNUGhC-c8rQ5MToIYJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10531,28 +10531,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17et97AtRNnCCqxhNUGhC
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu',
+  'gdrive-seed-1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu',
-  'https://drive.google.com/file/d/1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu/view?usp=drivesdk',
+  '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD',
+  'https://drive.google.com/file/d/1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10603,7 +10603,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iWHWOEC60AqnpaqXQ_IT41vPGa35Q9eu'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10713,28 +10713,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT',
+  'gdrive-seed-1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT',
-  'https://docs.google.com/document/d/1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5',
+  'https://docs.google.com/document/d/1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10785,7 +10785,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F1yZ-HjDZlal-O_Bd4_m6SxinV3DJkRT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10828,28 +10828,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F1yZ-HjDZlal-O_Bd4_m
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG',
+  'gdrive-seed-1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG',
-  'https://drive.google.com/file/d/1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG/view?usp=drivesdk',
+  '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN',
+  'https://drive.google.com/file/d/1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -10900,7 +10900,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ULa3Ki1r3gSEVfsViFDEq2IPPI2f--mG'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -10943,28 +10943,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ULa3Ki1r3gSEVfsViFDE
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6',
+  'gdrive-seed-1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6',
-  'https://drive.google.com/file/d/1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6/view?usp=drivesdk',
+  '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_',
+  'https://drive.google.com/file/d/1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11015,7 +11015,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1x0PoJE1Hb7EGaZlBTnXIO3wFaAAbeoy6'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11125,28 +11125,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE',
+  'gdrive-seed-1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE',
-  'https://docs.google.com/document/d/1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh',
+  'https://docs.google.com/document/d/1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11197,7 +11197,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZRTKu9xhC2ogILdk4qlBCKjmj61NHRvE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11240,28 +11240,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZRTKu9xhC2ogILdk4qlB
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1j18akWgim6sCPjJE4k_bSRE7qBZdu97K',
+  'gdrive-seed-1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1j18akWgim6sCPjJE4k_bSRE7qBZdu97K',
-  'https://drive.google.com/file/d/1j18akWgim6sCPjJE4k_bSRE7qBZdu97K/view?usp=drivesdk',
+  '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj',
+  'https://drive.google.com/file/d/1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1j18akWgim6sCPjJE4k_bSRE7qBZdu97K'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1j18akWgim6sCPjJE4k_bSRE7qBZdu97K/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1j18akWgim6sCPjJE4k_bSRE7qBZdu97K'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11312,7 +11312,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1j18akWgim6sCPjJE4k_bSRE7qBZdu97K'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11355,28 +11355,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1j18akWgim6sCPjJE4k_b
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm',
+  'gdrive-seed-1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm',
-  'https://drive.google.com/file/d/1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm/view?usp=drivesdk',
+  '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru',
+  'https://drive.google.com/file/d/1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11427,7 +11427,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1VlKDRZnDblvxLp2ui4F6H5eaGL9vUCsm'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11537,28 +11537,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR',
+  'gdrive-seed-1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR',
-  'https://docs.google.com/document/d/1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo',
+  'https://docs.google.com/document/d/1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11609,7 +11609,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XpxBWvu8h4OAoHPvBwHRBNSiY-9klyWR'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11652,28 +11652,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XpxBWvu8h4OAoHPvBwHR
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC',
+  'gdrive-seed-1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC',
-  'https://drive.google.com/file/d/1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC/view?usp=drivesdk',
+  '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp',
+  'https://drive.google.com/file/d/1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11724,7 +11724,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DcwFFwDZ-4p6EAG8jLOpxULNogYtlcgC'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11767,28 +11767,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DcwFFwDZ-4p6EAG8jLOp
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix',
+  'gdrive-seed-1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix',
-  'https://drive.google.com/file/d/1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix/view?usp=drivesdk',
+  '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f',
+  'https://drive.google.com/file/d/1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -11839,7 +11839,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1oFzeXheXEoMaMXBlXamPZtgrXab1q1ix'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -11949,28 +11949,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel',
+  'gdrive-seed-1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel',
-  'https://docs.google.com/document/d/1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N',
+  'https://docs.google.com/document/d/1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12021,7 +12021,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DGsk3ApXuBttTgOJIzC3rc1EIPAyZHel'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12064,28 +12064,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1DGsk3ApXuBttTgOJIzC3
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX',
+  'gdrive-seed-1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX',
-  'https://drive.google.com/file/d/10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX/view?usp=drivesdk',
+  '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_',
+  'https://drive.google.com/file/d/1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12136,7 +12136,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10kPHyUwrEa2sImpNVIOZ0ArWK7aCqrwX'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12179,28 +12179,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10kPHyUwrEa2sImpNVIOZ
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB',
+  'gdrive-seed-16j1LH5IRymGI_DXAue16dtI_O-FGTg_L',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB',
-  'https://drive.google.com/file/d/1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB/view?usp=drivesdk',
+  '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L',
+  'https://drive.google.com/file/d/16j1LH5IRymGI_DXAue16dtI_O-FGTg_L/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB/view?usp=drivesdk',
+  'https://drive.google.com/file/d/16j1LH5IRymGI_DXAue16dtI_O-FGTg_L/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12251,7 +12251,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i42MlplNrpnmyuAuNLTU_nRQkhiAcxTB'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12361,28 +12361,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H',
+  'gdrive-seed-1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H',
-  'https://docs.google.com/document/d/1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx',
+  'https://docs.google.com/document/d/1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12433,7 +12433,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uWjemyHRF2F_fNV0Uc4wwt_U7iq5-A6H'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12476,28 +12476,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uWjemyHRF2F_fNV0Uc4w
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS',
+  'gdrive-seed-1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS',
-  'https://drive.google.com/file/d/1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS/view?usp=drivesdk',
+  '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA',
+  'https://drive.google.com/file/d/1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12548,7 +12548,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bM1vs1exBbiiRYPN2BSTnz2bXFDPfjCS'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12591,28 +12591,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bM1vs1exBbiiRYPN2BST
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ',
+  'gdrive-seed-1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ',
-  'https://drive.google.com/file/d/17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ/view?usp=drivesdk',
+  '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do',
+  'https://drive.google.com/file/d/1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12663,7 +12663,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17U1KBT0MfqVwgyJ7k0UywAdc878cE3JJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12773,28 +12773,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV',
+  'gdrive-seed-1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV',
-  'https://docs.google.com/document/d/1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs',
+  'https://docs.google.com/document/d/1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12845,7 +12845,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xq7tYWBrC8bkV8TzAjtpeESCf_GNNOHV'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -12888,28 +12888,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xq7tYWBrC8bkV8TzAjtp
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa',
+  'gdrive-seed-1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa',
-  'https://drive.google.com/file/d/1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa/view?usp=drivesdk',
+  '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08',
+  'https://drive.google.com/file/d/1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -12960,7 +12960,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nk3hZ1XMlTjD-3K6PEAKQL3nNRn0hRJa'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13003,28 +13003,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nk3hZ1XMlTjD-3K6PEAK
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS',
+  'gdrive-seed-1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS',
-  'https://drive.google.com/file/d/1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS/view?usp=drivesdk',
+  '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal',
+  'https://drive.google.com/file/d/1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13075,7 +13075,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jytkLPJnA41v5dUltqxZr8FPPF4ixxeS'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13185,28 +13185,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh',
+  'gdrive-seed-1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh',
-  'https://docs.google.com/document/d/1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM',
+  'https://docs.google.com/document/d/1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13257,7 +13257,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yAIT3UqXCtrJK1YyP825TGyHjSD0dEDh'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13300,28 +13300,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yAIT3UqXCtrJK1YyP825
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y',
+  'gdrive-seed-15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y',
-  'https://drive.google.com/file/d/1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y/view?usp=drivesdk',
+  '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e',
+  'https://drive.google.com/file/d/15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y/view?usp=drivesdk',
+  'https://drive.google.com/file/d/15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13372,7 +13372,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F57Z8SZbuzEMNXK4FzhNf31MFXbAkH0y'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13415,28 +13415,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1F57Z8SZbuzEMNXK4FzhN
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2',
+  'gdrive-seed-1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2',
-  'https://drive.google.com/file/d/1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2/view?usp=drivesdk',
+  '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL',
+  'https://drive.google.com/file/d/1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13487,7 +13487,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kfaZP-ZgVQSJ9gVCxlUe0W1iO1dFxVw2'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13597,28 +13597,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW',
+  'gdrive-seed-1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW',
-  'https://docs.google.com/document/d/1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL',
+  'https://docs.google.com/document/d/1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13669,7 +13669,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JqiPfAC7OL7DnrHXWTnPs4T15pHjKpGW'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13712,28 +13712,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1JqiPfAC7OL7DnrHXWTnP
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1iDAby8aIchRIojH34sXB6XTq-Wrxz68H',
+  'gdrive-seed-1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1iDAby8aIchRIojH34sXB6XTq-Wrxz68H',
-  'https://drive.google.com/file/d/1iDAby8aIchRIojH34sXB6XTq-Wrxz68H/view?usp=drivesdk',
+  '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8',
+  'https://drive.google.com/file/d/1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iDAby8aIchRIojH34sXB6XTq-Wrxz68H'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1iDAby8aIchRIojH34sXB6XTq-Wrxz68H/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iDAby8aIchRIojH34sXB6XTq-Wrxz68H'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13784,7 +13784,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iDAby8aIchRIojH34sXB6XTq-Wrxz68H'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -13827,28 +13827,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1iDAby8aIchRIojH34sXB
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf',
+  'gdrive-seed-1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf',
-  'https://drive.google.com/file/d/1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf/view?usp=drivesdk',
+  '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K',
+  'https://drive.google.com/file/d/1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -13899,7 +13899,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PMK0I2muGybQRfBY6ylPKgk5DXcDAoXf'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14122,28 +14122,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM',
+  'gdrive-seed-1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM',
-  'https://docs.google.com/document/d/1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c',
+  'https://docs.google.com/document/d/1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -14194,7 +14194,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bjpZTi1AxICsmJJtRzF4OoF2v4CnS5FM'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14237,28 +14237,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bjpZTi1AxICsmJJtRzF4
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO',
+  'gdrive-seed-1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO',
-  'https://drive.google.com/file/d/1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO/view?usp=drivesdk',
+  '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm',
+  'https://drive.google.com/file/d/1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -14309,7 +14309,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1cZ97lWKt11WjCUMFpsB_ECfTVHA4mlPO'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14352,28 +14352,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1cZ97lWKt11WjCUMFpsB_
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR',
+  'gdrive-seed-1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR',
-  'https://drive.google.com/file/d/1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR/view?usp=drivesdk',
+  '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv',
+  'https://drive.google.com/file/d/1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -14424,7 +14424,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1VpQZO54xUSU3gtYZXgWuN0cwljCiuEjR'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14534,28 +14534,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT',
+  'gdrive-seed-152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT',
-  'https://docs.google.com/document/d/1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh',
+  'https://docs.google.com/document/d/152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -14606,7 +14606,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y-D3t2Dm2MF1sdk_qad4vApMTfrXf8KT'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14649,28 +14649,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1y-D3t2Dm2MF1sdk_qad4
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx',
+  'gdrive-seed-1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx',
-  'https://drive.google.com/file/d/16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx/view?usp=drivesdk',
+  '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY',
+  'https://drive.google.com/file/d/1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -14721,7 +14721,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Q6K6RlcsFuSdcUIJFwz2-NchINHDqCx'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14764,28 +14764,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16Q6K6RlcsFuSdcUIJFwz
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb',
+  'gdrive-seed-1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb',
-  'https://drive.google.com/file/d/1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb/view?usp=drivesdk',
+  '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF',
+  'https://drive.google.com/file/d/1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -14836,7 +14836,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nklLZVfYcbhnrwx8HPgagPB1bNIzhRgb'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -14946,28 +14946,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB',
+  'gdrive-seed-1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB',
-  'https://docs.google.com/document/d/1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz',
+  'https://docs.google.com/document/d/1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15018,7 +15018,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t8MpPlJXn3hqJzjLyncCkpBV2CPKqkgB'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15061,28 +15061,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t8MpPlJXn3hqJzjLyncC
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0',
+  'gdrive-seed-1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0',
-  'https://drive.google.com/file/d/15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0/view?usp=drivesdk',
+  '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg',
+  'https://drive.google.com/file/d/1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15133,7 +15133,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15L8b_7w1xSVt-wwSaocAvkRAuX1aZgg0'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15176,28 +15176,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15L8b_7w1xSVt-wwSaocA
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-',
+  'gdrive-seed-1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-',
-  'https://drive.google.com/file/d/1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-/view?usp=drivesdk',
+  '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6',
+  'https://drive.google.com/file/d/1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15248,7 +15248,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1fvEvcH8JOZZvtzGgSwtdzyDwGN9n6YG-'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15358,28 +15358,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-179gWuY6hwg94JITQtcCzNkEzqBw2sgcd',
+  'gdrive-seed-1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '179gWuY6hwg94JITQtcCzNkEzqBw2sgcd',
-  'https://docs.google.com/document/d/179gWuY6hwg94JITQtcCzNkEzqBw2sgcd/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh',
+  'https://docs.google.com/document/d/1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '179gWuY6hwg94JITQtcCzNkEzqBw2sgcd'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/179gWuY6hwg94JITQtcCzNkEzqBw2sgcd/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '179gWuY6hwg94JITQtcCzNkEzqBw2sgcd'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15430,7 +15430,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '179gWuY6hwg94JITQtcCzNkEzqBw2sgcd'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15473,28 +15473,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '179gWuY6hwg94JITQtcCz
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE',
+  'gdrive-seed-1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE',
-  'https://drive.google.com/file/d/1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE/view?usp=drivesdk',
+  '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI',
+  'https://drive.google.com/file/d/1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15545,7 +15545,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HoM7RYrVQfIoltDV2jotHIwlzHTvaGHE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15588,28 +15588,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HoM7RYrVQfIoltDV2jot
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws',
+  'gdrive-seed-121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws',
-  'https://drive.google.com/file/d/1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws/view?usp=drivesdk',
+  '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj',
+  'https://drive.google.com/file/d/121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws/view?usp=drivesdk',
+  'https://drive.google.com/file/d/121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15660,7 +15660,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HZ45wveZypLVm-xnuGVSJ0sfHYWwnhws'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15770,28 +15770,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf',
+  'gdrive-seed-1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf',
-  'https://docs.google.com/document/d/1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp',
+  'https://docs.google.com/document/d/1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15842,7 +15842,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aShoqPIyH_G3f76hyh-K8cQ-d684qYLf'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -15885,28 +15885,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aShoqPIyH_G3f76hyh-K
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK',
+  'gdrive-seed-1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK',
-  'https://drive.google.com/file/d/11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK/view?usp=drivesdk',
+  '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT',
+  'https://drive.google.com/file/d/1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -15957,7 +15957,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11SRd8w0q0XoeG412lqk0nXfmBEwF0RRK'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16000,28 +16000,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11SRd8w0q0XoeG412lqk0
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH',
+  'gdrive-seed-1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH',
-  'https://drive.google.com/file/d/10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH/view?usp=drivesdk',
+  '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc',
+  'https://drive.google.com/file/d/1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16072,7 +16072,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10_yzueeLlJ0mSYzsdPP8SkAj7vH04ZcH'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16182,28 +16182,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD',
+  'gdrive-seed-1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD',
-  'https://docs.google.com/document/d/13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_',
+  'https://docs.google.com/document/d/1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16254,7 +16254,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13CVGov8QYUOGwS2hrahJlQLwX6R5TbiD'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16297,28 +16297,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13CVGov8QYUOGwS2hrahJ
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO',
+  'gdrive-seed-1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO',
-  'https://drive.google.com/file/d/1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO/view?usp=drivesdk',
+  '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS',
+  'https://drive.google.com/file/d/1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16369,7 +16369,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1FRKpLGqle19m1BpHuokEfgjTGnAkDjFO'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16412,28 +16412,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1FRKpLGqle19m1BpHuokE
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p',
+  'gdrive-seed-1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p',
-  'https://drive.google.com/file/d/1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p/view?usp=drivesdk',
+  '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV',
+  'https://drive.google.com/file/d/1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16484,7 +16484,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CKJ5Go3gzIaT_7E901zjY8G1-m45i63p'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16594,28 +16594,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg',
+  'gdrive-seed-1okp7-ok-yu0tUREln-4nROL6OOqREzmI',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg',
-  'https://docs.google.com/document/d/16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1okp7-ok-yu0tUREln-4nROL6OOqREzmI',
+  'https://docs.google.com/document/d/1okp7-ok-yu0tUREln-4nROL6OOqREzmI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1okp7-ok-yu0tUREln-4nROL6OOqREzmI'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1okp7-ok-yu0tUREln-4nROL6OOqREzmI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1okp7-ok-yu0tUREln-4nROL6OOqREzmI'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16666,7 +16666,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16WX6Qxm4Ay0FIWkwYFRHCPCBYpojsTZg'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1okp7-ok-yu0tUREln-4nROL6OOqREzmI'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16709,28 +16709,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16WX6Qxm4Ay0FIWkwYFRH
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4',
+  'gdrive-seed-18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4',
-  'https://drive.google.com/file/d/15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4/view?usp=drivesdk',
+  '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6',
+  'https://drive.google.com/file/d/18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4/view?usp=drivesdk',
+  'https://drive.google.com/file/d/18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16781,7 +16781,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Geh75gGYpcjcO5fKh0ndprfAMaRfxq4'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -16824,28 +16824,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Geh75gGYpcjcO5fKh0n
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL',
+  'gdrive-seed-1bDZPqveV2kb277a98uUSVyO_E43yJIts',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL',
-  'https://drive.google.com/file/d/1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL/view?usp=drivesdk',
+  '1bDZPqveV2kb277a98uUSVyO_E43yJIts',
+  'https://drive.google.com/file/d/1bDZPqveV2kb277a98uUSVyO_E43yJIts/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bDZPqveV2kb277a98uUSVyO_E43yJIts'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1bDZPqveV2kb277a98uUSVyO_E43yJIts/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bDZPqveV2kb277a98uUSVyO_E43yJIts'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -16896,7 +16896,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Wgv2ZHvlBIeyG34lfSj2xsWv9ojsATyL'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bDZPqveV2kb277a98uUSVyO_E43yJIts'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17006,28 +17006,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1gHRRql04fVufY5xwhz_tqJEINlxdufBb',
+  'gdrive-seed-1Irzn5QEb7F_MS494KiViCpOkQglv9D_y',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1gHRRql04fVufY5xwhz_tqJEINlxdufBb',
-  'https://docs.google.com/document/d/1gHRRql04fVufY5xwhz_tqJEINlxdufBb/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y',
+  'https://docs.google.com/document/d/1Irzn5QEb7F_MS494KiViCpOkQglv9D_y/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHRRql04fVufY5xwhz_tqJEINlxdufBb'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1gHRRql04fVufY5xwhz_tqJEINlxdufBb/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1Irzn5QEb7F_MS494KiViCpOkQglv9D_y/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHRRql04fVufY5xwhz_tqJEINlxdufBb'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17078,7 +17078,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHRRql04fVufY5xwhz_tqJEINlxdufBb'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17121,28 +17121,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHRRql04fVufY5xwhz_t
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_',
+  'gdrive-seed-16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_',
-  'https://drive.google.com/file/d/1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_/view?usp=drivesdk',
+  '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa',
+  'https://drive.google.com/file/d/16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_/view?usp=drivesdk',
+  'https://drive.google.com/file/d/16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17193,7 +17193,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1u5HKdrEV19oJVMFgZo-1BbmqUpo-T3C_'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17236,28 +17236,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1u5HKdrEV19oJVMFgZo-1
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw',
+  'gdrive-seed-1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw',
-  'https://drive.google.com/file/d/1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw/view?usp=drivesdk',
+  '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd',
+  'https://drive.google.com/file/d/1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17308,7 +17308,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1C1Kp-NED5MMmsk5G5hzk1lavJjsvh-Yw'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17418,28 +17418,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd',
+  'gdrive-seed-1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd',
-  'https://docs.google.com/document/d/10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn',
+  'https://docs.google.com/document/d/1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17490,7 +17490,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10t_gaFSOZhgsgEoa3r_dWUHu5AZritSd'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17533,28 +17533,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '10t_gaFSOZhgsgEoa3r_d
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct',
+  'gdrive-seed-1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct',
-  'https://drive.google.com/file/d/1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct/view?usp=drivesdk',
+  '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN',
+  'https://drive.google.com/file/d/1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17605,7 +17605,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1WoJIUpojbHkhWodJ75kLAvhUf9RKV2ct'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17648,28 +17648,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1WoJIUpojbHkhWodJ75kL
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1jtncX29WCdzPHulEsLWsC-lRNTSzDatK',
+  'gdrive-seed-19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1jtncX29WCdzPHulEsLWsC-lRNTSzDatK',
-  'https://drive.google.com/file/d/1jtncX29WCdzPHulEsLWsC-lRNTSzDatK/view?usp=drivesdk',
+  '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8',
+  'https://drive.google.com/file/d/19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jtncX29WCdzPHulEsLWsC-lRNTSzDatK'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1jtncX29WCdzPHulEsLWsC-lRNTSzDatK/view?usp=drivesdk',
+  'https://drive.google.com/file/d/19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jtncX29WCdzPHulEsLWsC-lRNTSzDatK'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17720,7 +17720,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jtncX29WCdzPHulEsLWsC-lRNTSzDatK'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17830,28 +17830,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1',
+  'gdrive-seed-1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1',
-  'https://docs.google.com/document/d/1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS',
+  'https://docs.google.com/document/d/1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -17902,7 +17902,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XuUr8ltulz51QR4QuSvIHMrK1tIPSjg1'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -17945,28 +17945,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1XuUr8ltulz51QR4QuSvI
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1II_7CE021BG5zuF70A1Boz4jRoJB-BQG',
+  'gdrive-seed-1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1II_7CE021BG5zuF70A1Boz4jRoJB-BQG',
-  'https://drive.google.com/file/d/1II_7CE021BG5zuF70A1Boz4jRoJB-BQG/view?usp=drivesdk',
+  '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U',
+  'https://drive.google.com/file/d/1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1II_7CE021BG5zuF70A1Boz4jRoJB-BQG'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1II_7CE021BG5zuF70A1Boz4jRoJB-BQG/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1II_7CE021BG5zuF70A1Boz4jRoJB-BQG'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -18017,7 +18017,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1II_7CE021BG5zuF70A1Boz4jRoJB-BQG'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -18060,28 +18060,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1II_7CE021BG5zuF70A1B
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4',
+  'gdrive-seed-111YtfBhiyMVzoQszX96YWayKJlSpGwzy',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4',
-  'https://drive.google.com/file/d/1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4/view?usp=drivesdk',
+  '111YtfBhiyMVzoQszX96YWayKJlSpGwzy',
+  'https://drive.google.com/file/d/111YtfBhiyMVzoQszX96YWayKJlSpGwzy/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '111YtfBhiyMVzoQszX96YWayKJlSpGwzy'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4/view?usp=drivesdk',
+  'https://drive.google.com/file/d/111YtfBhiyMVzoQszX96YWayKJlSpGwzy/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '111YtfBhiyMVzoQszX96YWayKJlSpGwzy'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -18132,7 +18132,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BnYVzKoiEJ7XRDf-8UwLEvKsW9ZvzgG4'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '111YtfBhiyMVzoQszX96YWayKJlSpGwzy'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -18242,28 +18242,28 @@ WHERE NOT EXISTS (
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI',
+  'gdrive-seed-11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq',
   '1INF26-Plantilla_E2.docx',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   253021,
   'GDRIVE',
-  '1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI',
-  'https://docs.google.com/document/d/1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq',
+  'https://docs.google.com/document/d/11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://docs.google.com/document/d/1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
+  'https://docs.google.com/document/d/11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -18314,7 +18314,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MOEfLVZ20_BP-dPA0EKirt2ev52JlqkI'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -18357,28 +18357,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MOEfLVZ20_BP-dPA0EKi
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ',
+  'gdrive-seed-1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW',
   '1INF61-2026-1-SILABO.PDF',
   'application/pdf',
   27856,
   'GDRIVE',
-  '1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ',
-  'https://drive.google.com/file/d/1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ/view?usp=drivesdk',
+  '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW',
+  'https://drive.google.com/file/d/1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -18429,7 +18429,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f4-KiB_zVt8BLsG5MO93PUMGNnaC1vXJ'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (
@@ -18472,28 +18472,28 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1f4-KiB_zVt8BLsG5MO93
 
 INSERT INTO file_resource (checksum_hash, original_name, mime_type, size_bytes, storage_provider, storage_key, storage_url, created_at)
 SELECT
-  'gdrive-seed-17e3acpR05foAftN8BxPbs2VLJuj6P-AE',
+  'gdrive-seed-1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf',
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   'application/pdf',
   95413,
   'GDRIVE',
-  '17e3acpR05foAftN8BxPbs2VLJuj6P-AE',
-  'https://drive.google.com/file/d/17e3acpR05foAftN8BxPbs2VLJuj6P-AE/view?usp=drivesdk',
+  '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf',
+  'https://drive.google.com/file/d/1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf/view?usp=drivesdk',
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM file_resource fr
-  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17e3acpR05foAftN8BxPbs2VLJuj6P-AE'
+  WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf'
 );
 
 INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
 SELECT
   fr.id,
   1,
-  'https://drive.google.com/file/d/17e3acpR05foAftN8BxPbs2VLJuj6P-AE/view?usp=drivesdk',
+  'https://drive.google.com/file/d/1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf/view?usp=drivesdk',
   NOW(),
   @actor_user_id
 FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17e3acpR05foAftN8BxPbs2VLJuj6P-AE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf'
   AND NOT EXISTS (
     SELECT 1 FROM file_version fv
     WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
@@ -18544,7 +18544,7 @@ SELECT
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
 INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17e3acpR05foAftN8BxPbs2VLJuj6P-AE'
+WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf'
   AND NOT EXISTS (
     SELECT 1 FROM material m
     WHERE m.material_folder_id = (

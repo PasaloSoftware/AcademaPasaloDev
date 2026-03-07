@@ -40,11 +40,6 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
 - **Endpoint:** `GET /class-events/my-schedule`
 - **Query Params (Obligatorios):** `start` (ISO), `end` (ISO).
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Flujo frontend recomendado (tab `Material adicional`):**
-    * Paso 1: al abrir el tab, llamar `GET /materials/folders/evaluation/:evaluationId`.
-    * Paso 2: tomar el `id` de la carpeta raiz `Material adicional` y llamar `GET /materials/folders/:folderId`.
-    * Resultado esperado: cards `Resumenes` y `Enunciados` con su contador en `subfolderMaterialCount`.
-    * Lazy loading: solo cuando el usuario haga click en una card, volver a llamar `GET /materials/folders/:folderId` de esa subcarpeta para listar archivos.
 - **Data (Response):** 
     ```json
     [
@@ -56,12 +51,11 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
         "startDatetime": "ISO-8601",
         "endDatetime": "ISO-8601",
         "liveMeetingUrl": string | null, // URL de Zoom/Meet (sin enmascarado en este DTO)
-        "recordingUrl": string | null,   // URL de grabacion (sin enmascarado en este DTO)
+        "recordingUrl": string | null,   // URL de grabacion en formato preview/embed
         "recordingStatus": "NOT_AVAILABLE" | "PROCESSING" | "READY" | "FAILED",
         "isCancelled": boolean,
-        "status": "PROGRAMADA" | "EN_CURSO" | "FINALIZADA" | "CANCELADA",
         "canJoinLive": boolean,
-        "canWatchRecording": boolean,
+        "canWatchRecording": boolean, // true solo cuando recordingStatus = READY
         "canCopyLiveLink": boolean,
         "canCopyRecordingLink": boolean,
         "courseName": string,
@@ -134,42 +128,6 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
     ]
     ```
 
-### 4. Gestion Administrativa Avanzada (Moderacion)
-- **GET /admin/materials/requests/pending:** listar solicitudes pendientes de eliminacion con metadata del material para decision administrativa.
-    * **Roles:** `ADMIN`, `SUPER_ADMIN`
-    * **Response (`data`):** array con objetos:
-      - `id`: string (requestId)
-      - `entityType`: string
-      - `entityId`: string
-      - `reason`: string | null
-      - `createdAt`: string ISO
-      - `requestedBy`: object
-      - `requestedBy.id`: string
-      - `requestedBy.email`: string | null
-      - `requestedBy.firstName`: string | null
-      - `requestedBy.lastName1`: string | null
-      - `requestedBy.lastName2`: string | null
-      - `material`: object | null
-      - `material.id`: string
-      - `material.displayName`: string | null
-      - `material.originalName`: string | null
-      - `material.mimeType`: string | null
-      - `material.storageProvider`: `LOCAL` | `GDRIVE` | `S3` | null
-      - `material.previewUrl`: string | null (Drive `/preview` cuando aplica)
-      - `material.viewUrl`: string | null (Drive `/view` cuando aplica)
-      - `material.downloadUrl`: string | null (Drive directo o proxy `/materials/:id/download`)
-      - `material.authorizedViewPath`: string | null (`/materials/:id/authorized-link?mode=view`)
-    * **Notas de integracion frontend:**
-      - usar `material.displayName` como etiqueta principal en tabla/listado.
-      - usar `material.originalName` como apoyo tecnico para distinguir archivos similares.
-      - en UI de revision, priorizar `authorizedViewPath` para abrir contenido validado por backend.
-      - `previewUrl/viewUrl/downloadUrl` son utilidades para inspeccion/operacion administrativa.
-- **POST /admin/materials/requests/:id/review:** Aprobar o rechazar solicitud.
-    * **Roles:** `ADMIN`, `SUPER_ADMIN`
-    * `body: { action: 'APPROVE' | 'REJECT', adminComment?: string }`
-- **DELETE /admin/materials/:id/hard-delete:** Eliminacion fisica permanente (irreversible).
-    * **Roles:** `SUPER_ADMIN`
----
 
 ## ÉPICA: GESTIÓN ACADÉMICA CORE (`/cycles`, `/courses`)
 
@@ -193,11 +151,6 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
 Obtiene el listado de cursos donde el alumno tiene una matrícula activa.
 - **Endpoint:** `GET /enrollments/my-courses`
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
-- **Flujo frontend recomendado (tab Material adicional):
-    * Paso 1: al abrir el tab, llamar GET /materials/folders/evaluation/:evaluationId.
-    * Paso 2: tomar el id de la carpeta raiz Material adicional y llamar GET /materials/folders/:folderId.
-    * Resultado esperado: cards Resumenes y Enunciados con su contador en subfolderMaterialCount.
-    * Lazy loading: solo cuando el usuario haga click en una card, volver a llamar GET /materials/folders/:folderId de esa subcarpeta para listar archivos.
 - **Caché:** 1 hora.
 - **Data (Response):** (Ver estructura actual en Dashboard Alumno)
 
@@ -302,6 +255,47 @@ El endpoint legado GET /courses/cycle/:courseCycleId/content queda para roles de
     * Incluye courseCycleId, datos de curso, datos de ciclo, bandera isCurrent y métricas agregadas: evaluations, activeEnrollments, activeProfessors.
 - **POST /courses/assign-cycle**: Aperturar materia en un ciclo (Crea CourseCycle).
     * `body: { "courseId": "ID", "academicCycleId": "ID" }`
+- **POST /courses/setup**: Alta integral de curso/ciclo (orquestado en un solo endpoint).
+    * **Roles:** `ADMIN`, `SUPER_ADMIN`
+    * **Objetivo:** crear curso + course_cycle + estructura de evaluaciones + evaluaciones reales + plantilla de carpetas de materiales + provision Drive (evaluaciones y course_cycle).
+    * **Body (resumen):**
+      ```json
+      {
+        "course": {
+          "code": "MATE101",
+          "name": "Calculo I",
+          "courseTypeId": "1",
+          "cycleLevelId": "1",
+          "primaryColor": "#0E7490",
+          "secondaryColor": "#F59E0B"
+        },
+        "academicCycleId": "8",
+        "allowedEvaluationTypeIds": ["1", "2", "3"],
+        "evaluationsToCreate": [
+          {
+            "evaluationTypeId": "1",
+            "number": 1,
+            "startDate": "2026-03-10",
+            "endDate": "2026-07-20"
+          }
+        ],
+        "professorUserIds": ["2"],
+        "materialsTemplate": {
+          "applyToEachEvaluation": true,
+          "roots": [
+            { "name": "Sesiones", "subfolderNames": [] },
+            { "name": "Material Adicional", "subfolderNames": ["Resumenes", "Enunciados"] }
+          ]
+        }
+      }
+      ```
+    * **Notas clave:**
+      - `evaluationsToCreate` define las evaluaciones reales (type + number). No se envia count.
+      - El banco enunciados (number=0) se crea por `assign-cycle`.
+      - Las cards/carpetas de banco se derivan de las evaluaciones reales creadas.
+      - Provisiona inmediatamente:
+        - scope Drive por evaluacion (`evaluations/.../ev_*`)
+        - scope Drive por course_cycle (`course_cycles/.../cc_*`) con `intro_video` y `bank_documents`.
 - **POST /courses/cycle/:id/professors**: Asignar profesor a la plana del curso.
     * `body: { "professorUserId": "ID" }`
 - **DELETE /courses/cycle/:id/professors/:professorUserId**: Remover profesor del curso.
@@ -507,16 +501,6 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
 - **POST /feedback/admin/:testimonyId/feature:** Destacar testimonio en la web.
     * `body: { isActive: boolean, displayOrder: number }`
     * **Efecto:** Invalida automáticamente el caché público.
-
-
-
-
-
-
-
-
-
-
 
 
 

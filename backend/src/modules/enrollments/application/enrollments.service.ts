@@ -315,6 +315,11 @@ export class EnrollmentsService {
       transactionResult.grantedEvaluationIds,
       MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CREATED,
     );
+    await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
+      dto.userId,
+      [dto.courseCycleId],
+      MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CREATED_COURSE_CYCLE,
+    );
 
     return transactionResult.enrollment;
   }
@@ -347,6 +352,11 @@ export class EnrollmentsService {
       enrollment.userId,
       evaluationIdsToRevoke,
       MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CANCELLED,
+    );
+    await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
+      enrollment.userId,
+      [enrollment.courseCycleId],
+      MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CANCELLED_COURSE_CYCLE,
     );
 
     this.logger.log({

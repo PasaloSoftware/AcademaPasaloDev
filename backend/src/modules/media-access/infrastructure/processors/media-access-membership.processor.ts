@@ -17,8 +17,10 @@ import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastru
 import {
   MediaAccessMembershipSyncJobPayload,
   MediaAccessRecoverScopeJobPayload,
+  MediaAccessCourseCycleMembershipSyncJobPayload,
 } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MediaAccessReconciliationService } from '@modules/media-access/application/media-access-reconciliation.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 @Processor(QUEUES.MEDIA_ACCESS)
@@ -34,6 +36,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     private readonly provisioningService: EvaluationDriveAccessProvisioningService,
     private readonly evaluationDriveAccessRepository: EvaluationDriveAccessRepository,
     private readonly reconciliationService: MediaAccessReconciliationService,
+    private readonly configService: ConfigService,
   ) {
     super();
   }
@@ -50,6 +53,12 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP) {
       await this.handleSyncMembership(
         job as Job<MediaAccessMembershipSyncJobPayload>,
+      );
+      return;
+    }
+    if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_COURSE_CYCLE_MEMBERSHIP) {
+      await this.handleSyncCourseCycleMembership(
+        job as Job<MediaAccessCourseCycleMembershipSyncJobPayload>,
       );
       return;
     }
@@ -291,6 +300,113 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     });
   }
 
+  private async handleSyncCourseCycleMembership(
+    job: Job<MediaAccessCourseCycleMembershipSyncJobPayload>,
+  ): Promise<void> {
+    const { action, userId, courseCycleId, source } = job.data || {};
+    const normalizedAction = String(action || '')
+      .trim()
+      .toUpperCase();
+    const normalizedUserId = String(userId || '').trim();
+    const normalizedCourseCycleId = String(courseCycleId || '').trim();
+    const normalizedSource = String(source || '').trim() || 'UNSPECIFIED';
+
+    if (
+      normalizedAction !== MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT &&
+      normalizedAction !== MEDIA_ACCESS_MEMBERSHIP_ACTIONS.REVOKE
+    ) {
+      throw new UnrecoverableError(
+        `Accion de sync de membresia course_cycle invalida: ${String(action)}`,
+      );
+    }
+    if (!normalizedUserId || !normalizedCourseCycleId) {
+      throw new UnrecoverableError(
+        'Payload incompleto para sync de membresia course_cycle',
+      );
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: normalizedUserId },
+    });
+    if (!user?.email) {
+      throw new UnrecoverableError(
+        `Usuario ${normalizedUserId} no encontrado para sync de membresia course_cycle`,
+      );
+    }
+    const normalizedUserEmail = user.email.trim().toLowerCase();
+    const viewerGroupEmail = this.buildCourseCycleViewerGroupEmail(
+      normalizedCourseCycleId,
+    );
+
+    if (normalizedAction === MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT) {
+      const hasEffectiveAccess = await this.userHasEffectiveCourseCycleAccess(
+        normalizedUserId,
+        normalizedCourseCycleId,
+      );
+      if (!hasEffectiveAccess) {
+        this.logger.log({
+          context: MediaAccessMembershipProcessor.name,
+          message:
+            'Grant course_cycle omitido: el usuario no tiene acceso efectivo vigente',
+          courseCycleId: normalizedCourseCycleId,
+          userId: normalizedUserId,
+          source: normalizedSource,
+        });
+        return;
+      }
+
+      await this.workspaceGroupsService.findOrCreateGroup({
+        email: viewerGroupEmail,
+        name: `CC ${normalizedCourseCycleId} Viewers`,
+        description: `Acceso viewer para contenido de course_cycle ${normalizedCourseCycleId}`,
+      });
+      await this.workspaceGroupsService.ensureMemberInGroup({
+        groupEmail: viewerGroupEmail,
+        memberEmail: normalizedUserEmail,
+      });
+      this.logger.log({
+        context: MediaAccessMembershipProcessor.name,
+        message: 'Membresia Drive de course_cycle otorgada',
+        courseCycleId: normalizedCourseCycleId,
+        userId: normalizedUserId,
+        userEmail: normalizedUserEmail,
+        groupEmail: viewerGroupEmail,
+        source: normalizedSource,
+      });
+      return;
+    }
+
+    const hasEffectiveAccess = await this.userHasEffectiveCourseCycleAccess(
+      normalizedUserId,
+      normalizedCourseCycleId,
+    );
+    if (hasEffectiveAccess) {
+      this.logger.log({
+        context: MediaAccessMembershipProcessor.name,
+        message:
+          'Revocacion course_cycle omitida: el usuario mantiene acceso efectivo',
+        courseCycleId: normalizedCourseCycleId,
+        userId: normalizedUserId,
+        source: normalizedSource,
+      });
+      return;
+    }
+
+    await this.workspaceGroupsService.removeMemberFromGroup({
+      groupEmail: viewerGroupEmail,
+      memberEmail: normalizedUserEmail,
+    });
+    this.logger.log({
+      context: MediaAccessMembershipProcessor.name,
+      message: 'Membresia Drive de course_cycle revocada',
+      courseCycleId: normalizedCourseCycleId,
+      userId: normalizedUserId,
+      userEmail: normalizedUserEmail,
+      groupEmail: viewerGroupEmail,
+      source: normalizedSource,
+    });
+  }
+
   private async ensureActiveDriveAccess(
     evaluationId: string,
   ): Promise<EvaluationDriveAccess> {
@@ -324,18 +440,82 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
          SELECT 1
          FROM enrollment_evaluation ee
          INNER JOIN enrollment e ON e.id = ee.enrollment_id
+         INNER JOIN user u ON u.id = e.user_id
          WHERE ee.evaluation_id = ?
            AND ee.is_active = 1
            AND ee.access_start_date <= ?
            AND ee.access_end_date >= ?
            AND e.user_id = ?
            AND e.cancelled_at IS NULL
+           AND u.is_active = 1
          LIMIT 1
        ) AS hasAccess`,
       [evaluationId, now, now, userId],
     );
+    const hasEnrollmentAccess = Number(result[0]?.hasAccess) === 1;
+    if (hasEnrollmentAccess) {
+      return true;
+    }
 
-    return Number(result[0]?.hasAccess) === 1;
+    const professorResult = await this.dataSource.query<
+      Array<{ hasAccess: number | string }>
+    >(
+      `SELECT EXISTS(
+         SELECT 1
+         FROM evaluation ev
+         INNER JOIN course_cycle_professor ccp
+           ON ccp.course_cycle_id = ev.course_cycle_id
+          AND ccp.revoked_at IS NULL
+         INNER JOIN user u ON u.id = ccp.professor_user_id
+         WHERE ev.id = ?
+           AND ccp.professor_user_id = ?
+           AND u.is_active = 1
+         LIMIT 1
+       ) AS hasAccess`,
+      [evaluationId, userId],
+    );
+    return Number(professorResult[0]?.hasAccess) === 1;
+  }
+
+  private async userHasEffectiveCourseCycleAccess(
+    userId: string,
+    courseCycleId: string,
+  ): Promise<boolean> {
+    const enrollmentResult = await this.dataSource.query<
+      Array<{ hasAccess: number | string }>
+    >(
+      `SELECT EXISTS(
+         SELECT 1
+         FROM enrollment e
+         INNER JOIN user u ON u.id = e.user_id
+         WHERE e.course_cycle_id = ?
+           AND e.user_id = ?
+           AND e.cancelled_at IS NULL
+           AND u.is_active = 1
+         LIMIT 1
+       ) AS hasAccess`,
+      [courseCycleId, userId],
+    );
+    if (Number(enrollmentResult[0]?.hasAccess) === 1) {
+      return true;
+    }
+
+    const professorResult = await this.dataSource.query<
+      Array<{ hasAccess: number | string }>
+    >(
+      `SELECT EXISTS(
+         SELECT 1
+         FROM course_cycle_professor ccp
+         INNER JOIN user u ON u.id = ccp.professor_user_id
+         WHERE ccp.course_cycle_id = ?
+           AND ccp.professor_user_id = ?
+           AND ccp.revoked_at IS NULL
+           AND u.is_active = 1
+         LIMIT 1
+       ) AS hasAccess`,
+      [courseCycleId, userId],
+    );
+    return Number(professorResult[0]?.hasAccess) === 1;
   }
 
   private async listExpectedMemberEmails(
@@ -391,5 +571,19 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
 
   private isRemovableMemberRole(role: string): boolean {
     return role === 'MEMBER' || role === '';
+  }
+
+  private buildCourseCycleViewerGroupEmail(courseCycleId: string): string {
+    const domain = String(
+      this.configService.get<string>('GOOGLE_WORKSPACE_GROUP_DOMAIN', '') || '',
+    )
+      .trim()
+      .toLowerCase();
+    if (!domain) {
+      throw new UnrecoverableError(
+        'Falta GOOGLE_WORKSPACE_GROUP_DOMAIN para sync course_cycle',
+      );
+    }
+    return `cc-${courseCycleId}-viewers@${domain}`;
   }
 }

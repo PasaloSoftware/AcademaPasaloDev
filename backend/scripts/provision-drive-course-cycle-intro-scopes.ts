@@ -55,6 +55,14 @@ function normalizeId(raw: string | number): string {
   return normalized;
 }
 
+function normalizeToken(raw: string): string {
+  const normalized = String(raw || '').trim();
+  if (!normalized) {
+    throw new Error('Token vacio para nombre de carpeta');
+  }
+  return normalized.replace(/[^A-Za-z0-9_-]/g, '-').replace(/-+/g, '-');
+}
+
 function isValidEmail(email: string): boolean {
   return SIMPLE_EMAIL_REGEX.test(String(email || '').trim());
 }
@@ -357,10 +365,15 @@ async function main(): Promise<void> {
           description: `Lectura de materiales intro de cc_${courseCycleId}`,
         });
 
-        const scopeFolderId = await findOrCreateFolderUnderParent(
+        const cycleFolderId = await findOrCreateFolderUnderParent(
           driveClient,
           courseCyclesParentFolderId,
-          `cc_${courseCycleId}`,
+          normalizeToken(String(cycle.cycleCode || '')),
+        );
+        const scopeFolderId = await findOrCreateFolderUnderParent(
+          driveClient,
+          cycleFolderId,
+          `cc_${courseCycleId}_${normalizeToken(String(cycle.courseCode || ''))}`,
         );
         const introFolderId = await findOrCreateFolderUnderParent(
           driveClient,

@@ -7,6 +7,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { randomUUID } from 'crypto';
+import * as path from 'path';
 import { StorageService } from '@infrastructure/storage/storage.service';
 import { AccessEngineService } from '@modules/enrollments/application/access-engine.service';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
@@ -275,11 +277,7 @@ export class MaterialsService {
         let finalVersion: FileVersion;
 
         if (!existingResource) {
-          const sanitizedOriginalName = file.originalname.replace(
-            /[^a-zA-Z0-9.-]/g,
-            '_',
-          );
-          const uniqueName = `${Date.now()}-${sanitizedOriginalName}`;
+          const uniqueName = this.buildStorageObjectName(file.originalname);
           savedResource = await this.storageService.saveFile(
             uniqueName,
             file.buffer,
@@ -476,11 +474,7 @@ export class MaterialsService {
         let finalResource: FileResource;
 
         if (!existingResource) {
-          const sanitizedOriginalName = file.originalname.replace(
-            /[^a-zA-Z0-9.-]/g,
-            '_',
-          );
-          const uniqueName = `${Date.now()}-${sanitizedOriginalName}`;
+          const uniqueName = this.buildStorageObjectName(file.originalname);
           savedResource = await this.storageService.saveFile(
             uniqueName,
             file.buffer,
@@ -1243,5 +1237,23 @@ export class MaterialsService {
 
   private async invalidateClassEventMaterialsCache(classEventId: string) {
     await this.cacheService.del(MATERIAL_CACHE_KEYS.CLASS_EVENT(classEventId));
+  }
+
+  private buildStorageObjectName(originalName: string): string {
+    const normalizedOriginalName = String(originalName || '')
+      .replace(/[\r\n\t]/g, ' ')
+      .trim();
+    if (!normalizedOriginalName) {
+      return randomUUID();
+    }
+
+    if (this.storageService.isGoogleDriveStorageEnabled()) {
+      // For Drive, keep original file name so operators and teachers see expected names.
+      return normalizedOriginalName;
+    }
+
+    // For local storage, keep technical uniqueness to prevent overwrite collisions.
+    const extension = path.extname(normalizedOriginalName).trim();
+    return extension ? `${randomUUID()}${extension}` : randomUUID();
   }
 }

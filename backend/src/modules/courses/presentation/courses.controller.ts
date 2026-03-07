@@ -32,6 +32,7 @@ import { AssignCourseToCycleDto } from '@modules/courses/dto/assign-course-to-cy
 import { AssignCourseCycleProfessorDto } from '@modules/courses/dto/assign-course-cycle-professor.dto';
 import { UpdateCourseCycleEvaluationStructureDto } from '@modules/courses/dto/update-course-cycle-evaluation-structure.dto';
 import { UpdateCourseCycleIntroVideoDto } from '@modules/courses/dto/update-course-cycle-intro-video.dto';
+import { CreateCourseSetupDto } from '@modules/courses/dto/create-course-setup.dto';
 import {
   AdminCourseCycleListQueryDto,
   AdminCourseCycleListResponseDto,
@@ -44,11 +45,26 @@ import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { plainToInstance } from 'class-transformer';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
+import { CourseSetupService } from '@modules/courses/application/course-setup.service';
 
 @Controller('courses')
 @Auth()
 export class CoursesController {
-  constructor(private readonly coursesService: CoursesService) {}
+  constructor(
+    private readonly coursesService: CoursesService,
+    private readonly courseSetupService: CourseSetupService,
+  ) {}
+
+  @Post('setup')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Configuracion integral de curso creada exitosamente')
+  async createCourseSetup(
+    @CurrentUser() user: UserWithSession,
+    @Body() dto: CreateCourseSetupDto,
+  ) {
+    return await this.courseSetupService.createFullCourseSetup(user, dto);
+  }
 
   @Get('cycle/:id/content')
   @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)

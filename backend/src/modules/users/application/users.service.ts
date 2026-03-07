@@ -19,6 +19,7 @@ import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import {
   MEDIA_ACCESS_JOB_NAMES,
+  MEDIA_ACCESS_MEMBERSHIP_ACTIONS,
   MEDIA_ACCESS_SYNC_SOURCES,
 } from '@modules/media-access/domain/media-access.constants';
 import {
@@ -85,60 +86,82 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    return await this.dataSource.transaction(async (manager) => {
-      const user = await this.userRepository.findById(id, manager);
-      if (!user) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
+    const transactionResult = await this.dataSource.transaction(
+      async (manager) => {
+        const user = await this.userRepository.findById(id, manager);
+        if (!user) {
+          throw new NotFoundException('Usuario no encontrado');
+        }
+        const previousIsActive = Boolean(user.isActive);
 
-      const shouldInvalidateIdentity = this.shouldInvalidateIdentityOnUpdate(
-        user,
-        updateUserDto,
-      );
-      const shouldRevokeSessions =
-        updateUserDto.isActive === false && user.isActive !== false;
-
-      if (updateUserDto.email && updateUserDto.email !== user.email) {
-        const existingUser = await this.userRepository.findByEmail(
-          updateUserDto.email,
-          manager,
+        const shouldInvalidateIdentity = this.shouldInvalidateIdentityOnUpdate(
+          user,
+          updateUserDto,
         );
+        const shouldRevokeSessions =
+          updateUserDto.isActive === false && user.isActive !== false;
 
-        if (existingUser) {
-          throw new ConflictException(
-            'El correo electrónico ya está registrado',
+        if (updateUserDto.email && updateUserDto.email !== user.email) {
+          const existingUser = await this.userRepository.findByEmail(
+            updateUserDto.email,
+            manager,
           );
+
+          if (existingUser) {
+            throw new ConflictException(
+              'El correo electrónico ya está registrado',
+            );
+          }
         }
-      }
 
-      Object.assign(user, updateUserDto);
-      user.updatedAt = new Date();
+        Object.assign(user, updateUserDto);
+        user.updatedAt = new Date();
 
-      let updatedUser: User;
-      try {
-        updatedUser = await this.userRepository.save(user, manager);
-      } catch (error) {
-        const errno = getErrnoFromDbError(error as DatabaseError);
-        if (errno === MySqlErrorCode.DUPLICATE_ENTRY) {
-          throw new ConflictException(
-            'El correo electrónico ya está registrado',
-          );
+        let updatedUser: User;
+        try {
+          updatedUser = await this.userRepository.save(user, manager);
+        } catch (error) {
+          const errno = getErrnoFromDbError(error as DatabaseError);
+          if (errno === MySqlErrorCode.DUPLICATE_ENTRY) {
+            throw new ConflictException(
+              'El correo electrónico ya está registrado',
+            );
+          }
+          throw error;
         }
-        throw error;
-      }
 
-      if (shouldInvalidateIdentity) {
-        await this.identitySecurityService.invalidateUserIdentity(id, {
-          revokeSessions: shouldRevokeSessions,
-          reason: shouldRevokeSessions
-            ? IDENTITY_INVALIDATION_REASONS.USER_BANNED
-            : IDENTITY_INVALIDATION_REASONS.SENSITIVE_UPDATE,
-          manager,
-        });
-      }
+        if (shouldInvalidateIdentity) {
+          await this.identitySecurityService.invalidateUserIdentity(id, {
+            revokeSessions: shouldRevokeSessions,
+            reason: shouldRevokeSessions
+              ? IDENTITY_INVALIDATION_REASONS.USER_BANNED
+              : IDENTITY_INVALIDATION_REASONS.SENSITIVE_UPDATE,
+            manager,
+          });
+        }
 
-      return updatedUser;
-    });
+        return {
+          updatedUser,
+          previousIsActive,
+          nextIsActive: Boolean(updatedUser.isActive),
+        };
+      },
+    );
+
+    if (transactionResult.previousIsActive !== transactionResult.nextIsActive) {
+      await this.enqueueUserStatusMediaAccessSync({
+        userId: id,
+        isActive: transactionResult.nextIsActive,
+      });
+      await this.enqueueImmediateStaffReconciliationIfNeeded({
+        userId: id,
+        roleCode: 'STATUS_CHANGE',
+        event: 'ASSIGN_ROLE',
+        shouldEnqueue: true,
+      });
+    }
+
+    return transactionResult.updatedUser;
   }
 
   async remove(id: string): Promise<void> {
@@ -324,6 +347,135 @@ export class UsersService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  private async enqueueUserStatusMediaAccessSync(input: {
+    userId: string;
+    isActive: boolean;
+  }): Promise<void> {
+    const userId = String(input.userId || '').trim();
+    if (!userId) {
+      return;
+    }
+    const action = input.isActive
+      ? MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT
+      : MEDIA_ACCESS_MEMBERSHIP_ACTIONS.REVOKE;
+    const source = MEDIA_ACCESS_SYNC_SOURCES.USER_STATUS_CHANGE;
+    const requestedAt = new Date().toISOString();
+
+    const [evaluationIds, courseCycleIds] = await Promise.all([
+      this.listMediaAccessEvaluationIdsForUser(userId),
+      this.listMediaAccessCourseCycleIdsForUser(userId),
+    ]);
+
+    const jobs = [
+      ...evaluationIds.map((evaluationId) => ({
+        name: MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP,
+        data: { action, userId, evaluationId, source, requestedAt },
+        opts: {
+          jobId: [
+            'media-access',
+            'membership',
+            action,
+            userId,
+            evaluationId,
+          ].join('__'),
+          removeOnComplete: true,
+        },
+      })),
+      ...courseCycleIds.map((courseCycleId) => ({
+        name: MEDIA_ACCESS_JOB_NAMES.SYNC_COURSE_CYCLE_MEMBERSHIP,
+        data: { action, userId, courseCycleId, source, requestedAt },
+        opts: {
+          jobId: [
+            'media-access',
+            'course-cycle-membership',
+            action,
+            userId,
+            courseCycleId,
+          ].join('__'),
+          removeOnComplete: true,
+        },
+      })),
+    ];
+
+    if (!jobs.length) {
+      return;
+    }
+
+    try {
+      await this.mediaAccessQueue.addBulk(jobs);
+    } catch (error) {
+      this.logger.error({
+        context: UsersService.name,
+        message:
+          'No se pudo encolar sync de media access por cambio de estado de usuario',
+        userId,
+        isActive: input.isActive,
+        jobs: jobs.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async listMediaAccessEvaluationIdsForUser(
+    userId: string,
+  ): Promise<string[]> {
+    const rows = await this.dataSource.query<Array<{ id: string }>>(
+      `
+        SELECT DISTINCT source.id
+        FROM (
+          SELECT ee.evaluation_id AS id
+          FROM enrollment_evaluation ee
+          INNER JOIN enrollment e ON e.id = ee.enrollment_id
+          WHERE e.user_id = ?
+            AND ee.is_active = 1
+            AND ee.access_start_date <= NOW()
+            AND ee.access_end_date >= NOW()
+            AND e.cancelled_at IS NULL
+
+          UNION ALL
+
+          SELECT ev.id AS id
+          FROM evaluation ev
+          INNER JOIN course_cycle_professor ccp
+            ON ccp.course_cycle_id = ev.course_cycle_id
+          WHERE ccp.professor_user_id = ?
+            AND ccp.revoked_at IS NULL
+        ) source
+      `,
+      [userId, userId],
+    );
+    return rows
+      .map((row) => String(row.id || '').trim())
+      .filter((id) => id.length > 0);
+  }
+
+  private async listMediaAccessCourseCycleIdsForUser(
+    userId: string,
+  ): Promise<string[]> {
+    const rows = await this.dataSource.query<Array<{ id: string }>>(
+      `
+        SELECT DISTINCT source.id
+        FROM (
+          SELECT e.course_cycle_id AS id
+          FROM enrollment e
+          WHERE e.user_id = ?
+            AND e.cancelled_at IS NULL
+
+          UNION ALL
+
+          SELECT ccp.course_cycle_id AS id
+          FROM course_cycle_professor ccp
+          WHERE ccp.professor_user_id = ?
+            AND ccp.revoked_at IS NULL
+        ) source
+      `,
+      [userId, userId],
+    );
+    return rows
+      .map((row) => String(row.id || '').trim())
+      .filter((id) => id.length > 0);
   }
 
   private shouldTriggerStaffReconciliationForRoleCode(
