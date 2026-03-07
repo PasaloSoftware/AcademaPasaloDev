@@ -1,12 +1,14 @@
 import LandingLayout from "@/components/layouts/LandingLayout";
+import HeroSection from "@/components/landing/HeroSection";
+import PromiseSection from "@/components/landing/PromiseSection";
+import ModalitiesSection from "@/components/landing/ModalitiesSection";
 
 export default function Home() {
   return (
     <LandingLayout>
-      <div className="container mx-auto px-4 py-20">
-        {/* Hero Section */}
-        
-      </div>
+      <HeroSection />
+      <PromiseSection />
+      <ModalitiesSection />
     </LandingLayout>
   );
 }
