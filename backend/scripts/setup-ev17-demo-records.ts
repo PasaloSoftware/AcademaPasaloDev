@@ -165,9 +165,9 @@ async function main(): Promise<void> {
       await ds.query(
         `
         INSERT INTO class_event
-          (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_url, recording_status_id, is_cancelled, created_by, created_at, updated_at)
+          (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_url, recording_file_id, recording_status_id, is_cancelled, created_by, created_at, updated_at)
         VALUES
-          (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_SUB(NOW(), INTERVAL 1 HOUR), ?, ?, ?, 0, ?, NOW(), NOW())
+          (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_SUB(NOW(), INTERVAL 1 HOUR), ?, ?, ?, ?, 0, ?, NOW(), NOW())
         `,
         [
           evaluationId,
@@ -176,6 +176,7 @@ async function main(): Promise<void> {
           'Demo grabacion drive',
           'https://meet.google.com/demo-ev17',
           video.url,
+          video.fileId,
           recordingReady[0].id,
           actorUserId,
         ],

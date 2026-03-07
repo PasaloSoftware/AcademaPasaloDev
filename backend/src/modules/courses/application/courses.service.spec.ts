@@ -16,10 +16,12 @@ import { EvaluationRepository } from '@modules/evaluations/infrastructure/evalua
 import { CyclesService } from '@modules/cycles/application/cycles.service';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { STUDENT_EVALUATION_LABELS } from '@modules/courses/domain/student-course.constants';
+import { ROLE_CODES } from '@common/constants/role-codes.constants';
 
 describe('CoursesService student views', () => {
   let service: CoursesService;
   let dataSource: jest.Mocked<DataSource>;
+  let cacheService: jest.Mocked<RedisCacheService>;
   let courseCycleRepository: jest.Mocked<CourseCycleRepository>;
   let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
   let courseCycleAllowedEvaluationTypeRepository: jest.Mocked<CourseCycleAllowedEvaluationTypeRepository>;
@@ -67,6 +69,7 @@ describe('CoursesService student views', () => {
           useValue: {
             upsertAssign: jest.fn(),
             revoke: jest.fn(),
+            isProfessorAssigned: jest.fn(),
           },
         },
         {
@@ -99,12 +102,15 @@ describe('CoursesService student views', () => {
 
     service = module.get(CoursesService);
     dataSource = module.get(DataSource);
+    cacheService = module.get(RedisCacheService);
     courseCycleRepository = module.get(CourseCycleRepository);
     courseCycleProfessorRepository = module.get(CourseCycleProfessorRepository);
     courseCycleAllowedEvaluationTypeRepository = module.get(
       CourseCycleAllowedEvaluationTypeRepository,
     );
     evaluationRepository = module.get(EvaluationRepository);
+
+    (cacheService.get as jest.Mock).mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -574,12 +580,12 @@ describe('CoursesService student views', () => {
       {
         evaluationTypeId: '2',
         evaluationTypeCode: 'EX',
-        evaluationTypeName: 'Examen',
+        evaluationTypeName: 'Examenes',
       },
       {
         evaluationTypeId: '1',
         evaluationTypeCode: 'PC',
-        evaluationTypeName: 'Practica Calificada',
+        evaluationTypeName: 'Practicas Calificadas',
       },
     ]);
   });
@@ -593,5 +599,45 @@ describe('CoursesService student views', () => {
     await expect(service.getStudentBankStructure('100', '501')).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('should store intro video url and extracted drive file id', async () => {
+    (courseCycleRepository.findById as jest.Mock).mockResolvedValue({
+      id: '100',
+    });
+
+    await service.updateCourseCycleIntroVideo(
+      '100',
+      'https://drive.google.com/file/d/abcDEF_123/view',
+    );
+
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE course_cycle'),
+      ['https://drive.google.com/file/d/abcDEF_123/view', 'abcDEF_123', '100'],
+    );
+  });
+
+  it('should return authorized intro video link for student with active enrollment', async () => {
+    (courseCycleRepository.findById as jest.Mock).mockResolvedValue({
+      id: '100',
+    });
+    (dataSource.query as jest.Mock)
+      .mockResolvedValueOnce([{ typeCode: 'FULL' }])
+      .mockResolvedValueOnce([
+        {
+          introVideoUrl: 'https://drive.google.com/file/d/abcDEF_123/view',
+          introVideoFileId: null,
+        },
+      ]);
+
+    const result = await service.getAuthorizedCourseIntroVideoLink(
+      { id: '501' } as any,
+      '100',
+      ROLE_CODES.STUDENT,
+    );
+
+    expect(result.courseCycleId).toBe('100');
+    expect(result.driveFileId).toBe('abcDEF_123');
+    expect(result.url).toContain('/preview');
   });
 });

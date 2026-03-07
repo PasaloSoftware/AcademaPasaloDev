@@ -65,6 +65,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     namingService.buildForEvaluation.mockReturnValue({
       evaluationId: '552',
       scopeKey: 'ev_552',
+      parentFolderNames: ['evaluations'],
       baseFolderName: 'ev_552',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',
@@ -136,6 +137,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     namingService.buildForEvaluation.mockReturnValue({
       evaluationId: '552',
       scopeKey: 'ev_552',
+      parentFolderNames: ['evaluations'],
       baseFolderName: 'ev_552',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',

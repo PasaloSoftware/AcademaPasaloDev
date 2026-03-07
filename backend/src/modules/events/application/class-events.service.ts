@@ -36,10 +36,8 @@ import {
   MEDIA_CONTENT_KINDS,
   MEDIA_VIDEO_LINK_MODES,
 } from '@modules/media-access/domain/media-access.constants';
-import type { MediaVideoLinkMode } from '@modules/media-access/domain/media-access.constants';
 import {
   buildDrivePreviewUrl,
-  buildDriveViewUrl,
   extractDriveFileIdFromUrl,
 } from '@modules/media-access/domain/media-access-url.util';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
@@ -240,16 +238,17 @@ export class ClassEventsService {
   async getAuthorizedRecordingLink(
     user: User,
     eventId: string,
-    mode: MediaVideoLinkMode = MEDIA_VIDEO_LINK_MODES.EMBED,
   ): Promise<AuthorizedMediaLinkDto> {
     const event = await this.getEventDetail(eventId, user.id);
-    if (!event.recordingUrl) {
+    if (!event.recordingUrl && !event.recordingFileId) {
       throw new NotFoundException(
         'Grabacion no disponible para este evento de clase',
       );
     }
 
-    const driveFileId = extractDriveFileIdFromUrl(event.recordingUrl);
+    const driveFileId =
+      String(event.recordingFileId || '').trim() ||
+      extractDriveFileIdFromUrl(event.recordingUrl || '');
     if (!driveFileId) {
       throw new BadRequestException(
         'Grabacion sin ID de archivo Drive. Configure URL de Drive para control de acceso',
@@ -276,10 +275,7 @@ export class ClassEventsService {
       );
     }
 
-    const url =
-      mode === MEDIA_VIDEO_LINK_MODES.DIRECT
-        ? buildDriveViewUrl(driveFileId)
-        : buildDrivePreviewUrl(driveFileId);
+    const url = buildDrivePreviewUrl(driveFileId);
 
     return {
       contentKind: MEDIA_CONTENT_KINDS.VIDEO,
@@ -288,7 +284,7 @@ export class ClassEventsService {
       driveFileId,
       url,
       expiresAt: null,
-      requestedMode: mode,
+      requestedMode: MEDIA_VIDEO_LINK_MODES.EMBED,
       fileName: null,
       mimeType: null,
       storageProvider: driveFileId ? STORAGE_PROVIDER_CODES.GDRIVE : null,
@@ -330,6 +326,10 @@ export class ClassEventsService {
     if (liveMeetingUrl !== undefined)
       updateData.liveMeetingUrl = liveMeetingUrl;
     if (recordingUrl !== undefined) updateData.recordingUrl = recordingUrl;
+    if (recordingUrl !== undefined) {
+      const extractedFileId = extractDriveFileIdFromUrl(recordingUrl);
+      updateData.recordingFileId = extractedFileId;
+    }
 
     if (recordingUrl !== undefined) {
       const readyStatusId = await this.getRecordingStatusIdByCode(
@@ -531,10 +531,14 @@ export class ClassEventsService {
     return Promise.resolve(false);
   }
 
-  getEventAccess(): ClassEventAccess {
+  getEventAccess(event: ClassEvent): ClassEventAccess {
+    const recordingCode = String(event.recordingStatus?.code || '').trim();
+    const canWatchRecording =
+      recordingCode === CLASS_EVENT_RECORDING_STATUS_CODES.READY;
+
     return {
       canJoinLive: false,
-      canWatchRecording: false,
+      canWatchRecording,
       canCopyLiveLink: false,
       canCopyRecordingLink: false,
     };

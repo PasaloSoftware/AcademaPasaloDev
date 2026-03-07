@@ -49,6 +49,7 @@ describe('ClassEventsService', () => {
     endDatetime: new Date('2026-02-01T10:00:00Z'),
     liveMeetingUrl: 'http://link.com',
     recordingUrl: null,
+    recordingFileId: null,
     isCancelled: false,
     createdBy: 'prof-1',
   } as ClassEvent;
@@ -297,6 +298,24 @@ describe('ClassEventsService', () => {
   });
 
   describe('getAuthorizedRecordingLink', () => {
+    it('debe usar recordingFileId cuando recordingUrl no esta presente', async () => {
+      classEventRepository.findById.mockResolvedValue({
+        ...mockEvent,
+        recordingUrl: null,
+        recordingFileId: 'drive-abc-1',
+      } as ClassEvent);
+
+      const result = await service.getAuthorizedRecordingLink(
+        mockProfessor,
+        'event-1',
+      );
+
+      expect(result.accessMode).toBe(MEDIA_ACCESS_MODES.DIRECT_URL);
+      expect(result.driveFileId).toBe('drive-abc-1');
+      expect(result.url).toContain('/preview');
+      expect(result.requestedMode).toBe(MEDIA_VIDEO_LINK_MODES.EMBED);
+    });
+
     it('debe devolver URL embed de Drive cuando la grabacion es de Drive', async () => {
       classEventRepository.findById.mockResolvedValue({
         ...mockEvent,
@@ -306,7 +325,6 @@ describe('ClassEventsService', () => {
       const result = await service.getAuthorizedRecordingLink(
         mockProfessor,
         'event-1',
-        MEDIA_VIDEO_LINK_MODES.EMBED,
       );
 
       expect(result.accessMode).toBe(MEDIA_ACCESS_MODES.DIRECT_URL);

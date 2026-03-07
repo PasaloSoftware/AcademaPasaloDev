@@ -25,6 +25,7 @@ describe('DriveAccessScopeService', () => {
     namingService.buildForEvaluation.mockReturnValue({
       evaluationId: '552',
       scopeKey: 'ev_552',
+      parentFolderNames: ['evaluations'],
       baseFolderName: 'ev_552',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',
@@ -59,6 +60,7 @@ describe('DriveAccessScopeService', () => {
     namingService.buildForEvaluation.mockReturnValue({
       evaluationId: '81',
       scopeKey: 'ev_81',
+      parentFolderNames: ['evaluations'],
       baseFolderName: 'ev_81',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',

@@ -35,6 +35,15 @@ export const MEDIA_ACCESS_STAFF_GROUP_METADATA = {
   DESCRIPTION: 'Acceso viewer global para admins y superadmins',
 } as const;
 
+export const MEDIA_ACCESS_DRIVE_FOLDERS = {
+  EVALUATIONS_PARENT: 'evaluations',
+  COURSE_CYCLES_PARENT: 'course_cycles',
+  EVALUATION_VIDEOS: 'videos',
+  EVALUATION_DOCUMENTS: 'documentos',
+  EVALUATION_ARCHIVED: 'archivado',
+  COURSE_CYCLE_INTRO_VIDEO: 'intro_video',
+} as const;
+
 export const MEDIA_ACCESS_SYNC_SOURCES = {
   ENROLLMENT_CREATED: 'ENROLLMENT_CREATED',
   ENROLLMENT_CANCELLED: 'ENROLLMENT_CANCELLED',

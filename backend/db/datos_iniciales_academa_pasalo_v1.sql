@@ -29,6 +29,7 @@ INSERT INTO enrollment_status (code, name) VALUES
 
 INSERT INTO evaluation_type (code, name) VALUES
 ('PC', 'Práctica Calificada'),
+('PD', 'Práctica Dirigida'),
 ('EX', 'Examen'),
 ('LAB', 'Laboratorio'),
 ('TUTORING', 'Tutoría Especializada'),

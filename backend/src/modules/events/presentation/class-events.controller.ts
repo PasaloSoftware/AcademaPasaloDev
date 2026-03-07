@@ -17,7 +17,6 @@ import { UpdateClassEventDto } from '@modules/events/dto/update-class-event.dto'
 import { AssignProfessorDto } from '@modules/events/dto/assign-professor.dto';
 import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.dto';
 import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
-import { GetAuthorizedRecordingLinkQueryDto } from '@modules/events/dto/get-authorized-recording-link-query.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -38,17 +37,17 @@ export class ClassEventsController {
     events: Awaited<ReturnType<ClassEventsService['getEventsByEvaluation']>>,
   ): ClassEventResponseDto[] {
     const now = new Date();
-    const access = this.classEventsService.getEventAccess();
 
     return events.map((event) => {
       const status = this.classEventsService.calculateEventStatus(event, now);
+      const access = this.classEventsService.getEventAccess(event);
       return ClassEventResponseDto.fromEntity(event, status, access);
     });
   }
 
   private mapEventToResponse(event: ClassEvent): ClassEventResponseDto {
     const status = this.classEventsService.calculateEventStatus(event);
-    const access = this.classEventsService.getEventAccess();
+    const access = this.classEventsService.getEventAccess(event);
     return ClassEventResponseDto.fromEntity(event, status, access);
   }
 
@@ -169,13 +168,8 @@ export class ClassEventsController {
   async getAuthorizedRecordingLink(
     @Param('id') id: string,
     @CurrentUser() user: User,
-    @Query() query: GetAuthorizedRecordingLinkQueryDto,
   ) {
-    return await this.classEventsService.getAuthorizedRecordingLink(
-      user,
-      id,
-      query.mode,
-    );
+    return await this.classEventsService.getAuthorizedRecordingLink(user, id);
   }
 
   @Patch(':id')

@@ -40,6 +40,11 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
 - **Endpoint:** `GET /class-events/my-schedule`
 - **Query Params (Obligatorios):** `start` (ISO), `end` (ISO).
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Flujo frontend recomendado (tab `Material adicional`):**
+    * Paso 1: al abrir el tab, llamar `GET /materials/folders/evaluation/:evaluationId`.
+    * Paso 2: tomar el `id` de la carpeta raiz `Material adicional` y llamar `GET /materials/folders/:folderId`.
+    * Resultado esperado: cards `Resumenes` y `Enunciados` con su contador en `subfolderMaterialCount`.
+    * Lazy loading: solo cuando el usuario haga click en una card, volver a llamar `GET /materials/folders/:folderId` de esa subcarpeta para listar archivos.
 - **Data (Response):** 
     ```json
     [
@@ -51,7 +56,7 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
         "startDatetime": "ISO-8601",
         "endDatetime": "ISO-8601",
         "liveMeetingUrl": string | null, // URL de Zoom/Meet (sin enmascarado en este DTO)
-        "recordingUrl": string | null,   // URL de grabación (sin enmascarado en este DTO)
+        "recordingUrl": string | null,   // URL de grabacion (sin enmascarado en este DTO)
         "recordingStatus": "NOT_AVAILABLE" | "PROCESSING" | "READY" | "FAILED",
         "isCancelled": boolean,
         "status": "PROGRAMADA" | "EN_CURSO" | "FINALIZADA" | "CANCELADA",
@@ -188,6 +193,11 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
 Obtiene el listado de cursos donde el alumno tiene una matrícula activa.
 - **Endpoint:** `GET /enrollments/my-courses`
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Flujo frontend recomendado (tab Material adicional):
+    * Paso 1: al abrir el tab, llamar GET /materials/folders/evaluation/:evaluationId.
+    * Paso 2: tomar el id de la carpeta raiz Material adicional y llamar GET /materials/folders/:folderId.
+    * Resultado esperado: cards Resumenes y Enunciados con su contador en subfolderMaterialCount.
+    * Lazy loading: solo cuando el usuario haga click en una card, volver a llamar GET /materials/folders/:folderId de esa subcarpeta para listar archivos.
 - **Caché:** 1 hora.
 - **Data (Response):** (Ver estructura actual en Dashboard Alumno)
 
@@ -340,6 +350,11 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
     * `GET /materials/folders/:folderId` (Contenido de una carpeta)
 - **GET /materials/class-event/:classEventId**: Obtiene materiales vinculados a una sesión específica.
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Flujo frontend recomendado (tab Material adicional):
+    * Paso 1: al abrir el tab, llamar GET /materials/folders/evaluation/:evaluationId.
+    * Paso 2: tomar el id de la carpeta raiz Material adicional y llamar GET /materials/folders/:folderId.
+    * Resultado esperado: cards Resumenes y Enunciados con su contador en subfolderMaterialCount.
+    * Lazy loading: solo cuando el usuario haga click en una card, volver a llamar GET /materials/folders/:folderId de esa subcarpeta para listar archivos.
 - **Data (Response de Contenido):**
     ```json
     {
@@ -616,6 +631,54 @@ Objetivo:
 1. Permitir que `bank-structure` devuelva data real desde seed.
 2. Permitir que `POST /evaluations` valide contra estructura activa desde seed.
 3. Mantener entorno reproducible al recrear schema+data.
+
+## UPDATE FRONTEND CONTRACT - INTRO VIDEO POR CURSO/CICLO (2026-03-06)
+
+Se agrega soporte para video introductorio a nivel `course_cycle` (no por evaluacion).
+
+### 1) Admin - Configurar video introductorio
+
+- Endpoint: `PATCH /courses/cycle/:id/intro-video`
+- Roles: `ADMIN`, `SUPER_ADMIN`
+- Body:
+```json
+{
+  "introVideoUrl": "https://drive.google.com/file/d/<FILE_ID>/view"
+}
+```
+- Reglas:
+1. La URL debe ser de Google Drive.
+2. Backend extrae y guarda internamente `intro_video_file_id`.
+3. Si `introVideoUrl` viene vacio/null, se limpia el video introductorio del curso-ciclo.
+
+### 2) Alumno/Profesor/Admin - Obtener link autorizado
+
+- Endpoint: `GET /courses/cycle/:id/intro-video-link`
+- Roles: `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- Control de acceso:
+1. `STUDENT`: requiere matricula activa en ese `course_cycle`.
+2. `PROFESSOR`: requiere estar asignado a ese `course_cycle`.
+3. `ADMIN`/`SUPER_ADMIN`: acceso permitido.
+- Comportamiento de enlace:
+1. Siempre retorna URL de Drive en formato `preview` (embed).
+2. No expone opcion `mode` para video.
+- Response 200:
+```json
+{
+  "contentKind": "VIDEO",
+  "accessMode": "DIRECT_URL",
+  "courseCycleId": "4",
+  "driveFileId": "<FILE_ID>",
+  "url": "https://drive.google.com/file/d/<FILE_ID>/preview",
+  "expiresAt": null,
+  "requestedMode": "embed",
+  "fileName": null,
+  "mimeType": null,
+  "storageProvider": "GDRIVE"
+}
+```
+
+
 
 
 

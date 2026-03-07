@@ -41,8 +41,8 @@ describe('MediaAccessReconciliationService', () => {
     );
   });
 
-  it('no registra scheduler al iniciar (cron deshabilitado)', async () => {
-    await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
+  it('no registra scheduler al iniciar (cron deshabilitado)', () => {
+    expect(service.onApplicationBootstrap()).toBeUndefined();
   });
 
   it('aplica delta add/remove y no remueve owners', async () => {

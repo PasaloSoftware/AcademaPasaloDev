@@ -56,6 +56,17 @@ import {
 } from '@modules/courses/domain/student-course.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ACCESS_MESSAGES } from '@common/constants/access-messages.constants';
+import {
+  MEDIA_ACCESS_MODES,
+  MEDIA_CONTENT_KINDS,
+  MEDIA_VIDEO_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
+import {
+  buildDrivePreviewUrl,
+  extractDriveFileIdFromUrl,
+} from '@modules/media-access/domain/media-access-url.util';
+import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
+import { AuthorizedCourseIntroVideoLinkDto } from '@modules/courses/dto/authorized-course-intro-video-link.dto';
 
 type EvaluationWithAccess = Evaluation & {
   enrollmentEvaluations?: EnrollmentEvaluation[];
@@ -576,6 +587,109 @@ export class CoursesService {
     };
   }
 
+  async updateCourseCycleIntroVideo(
+    courseCycleId: string,
+    introVideoUrl?: string | null,
+  ): Promise<void> {
+    const cycle = await this.courseCycleRepository.findById(courseCycleId);
+    if (!cycle) {
+      throw new NotFoundException('Ciclo del curso no encontrado');
+    }
+
+    const normalizedUrl = String(introVideoUrl || '').trim();
+    if (!normalizedUrl) {
+      await this.dataSource.query(
+        `
+          UPDATE course_cycle
+          SET intro_video_url = NULL,
+              intro_video_file_id = NULL
+          WHERE id = ?
+        `,
+        [courseCycleId],
+      );
+      await this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
+      );
+      return;
+    }
+
+    const introVideoFileId = extractDriveFileIdFromUrl(normalizedUrl);
+    if (!introVideoFileId) {
+      throw new BadRequestException(
+        'La URL del video introductorio debe ser un enlace de Google Drive valido',
+      );
+    }
+
+    await this.dataSource.query(
+      `
+        UPDATE course_cycle
+        SET intro_video_url = ?,
+            intro_video_file_id = ?
+        WHERE id = ?
+      `,
+      [normalizedUrl, introVideoFileId, courseCycleId],
+    );
+
+    await this.cacheService.invalidateGroup(
+      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
+    );
+  }
+
+  async getAuthorizedCourseIntroVideoLink(
+    user: User,
+    courseCycleId: string,
+    requesterActiveRole: string | undefined,
+  ): Promise<AuthorizedCourseIntroVideoLinkDto> {
+    await this.assertCourseCycleExists(courseCycleId);
+    await this.assertCanAccessCourseCycleIntroVideo(
+      user.id,
+      courseCycleId,
+      requesterActiveRole,
+    );
+
+    const rows = await this.dataSource.query<
+      Array<{ introVideoUrl: string | null; introVideoFileId: string | null }>
+    >(
+      `
+        SELECT
+          intro_video_url AS introVideoUrl,
+          intro_video_file_id AS introVideoFileId
+        FROM course_cycle
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [courseCycleId],
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundException('Ciclo del curso no encontrado');
+    }
+
+    const driveFileId =
+      String(row.introVideoFileId || '').trim() ||
+      extractDriveFileIdFromUrl(String(row.introVideoUrl || ''));
+    if (!driveFileId) {
+      throw new NotFoundException(
+        'Video introductorio no disponible para este curso',
+      );
+    }
+
+    const url = buildDrivePreviewUrl(driveFileId);
+
+    return {
+      contentKind: MEDIA_CONTENT_KINDS.VIDEO,
+      accessMode: MEDIA_ACCESS_MODES.DIRECT_URL,
+      courseCycleId,
+      driveFileId,
+      url,
+      expiresAt: null,
+      requestedMode: MEDIA_VIDEO_LINK_MODES.EMBED,
+      fileName: null,
+      mimeType: null,
+      storageProvider: STORAGE_PROVIDER_CODES.GDRIVE,
+    };
+  }
+
   private async assertCourseCycleExists(courseCycleId: string): Promise<void> {
     const existsKey = COURSE_CACHE_KEYS.COURSE_CYCLE_EXISTS(courseCycleId);
     const cachedExists = await this.cacheService.get<boolean>(existsKey);
@@ -759,7 +873,10 @@ export class CoursesService {
       items = structure.map((item) => ({
         evaluationTypeId: String(item.evaluationTypeId),
         evaluationTypeCode: item.evaluationType.code,
-        evaluationTypeName: item.evaluationType.name,
+        evaluationTypeName: this.getBankEvaluationTypePluralName(
+          item.evaluationType.code,
+          item.evaluationType.name,
+        ),
       }));
 
       await this.cacheService.set(
@@ -830,6 +947,39 @@ export class CoursesService {
     return rows[0]?.typeCode ?? null;
   }
 
+  private async assertCanAccessCourseCycleIntroVideo(
+    userId: string,
+    courseCycleId: string,
+    requesterActiveRole: string | undefined,
+  ): Promise<void> {
+    if (
+      requesterActiveRole === ROLE_CODES.ADMIN ||
+      requesterActiveRole === ROLE_CODES.SUPER_ADMIN
+    ) {
+      return;
+    }
+
+    if (requesterActiveRole === ROLE_CODES.PROFESSOR) {
+      const isAssigned =
+        await this.courseCycleProfessorRepository.isProfessorAssigned(
+          courseCycleId,
+          userId,
+        );
+      if (!isAssigned) {
+        throw new ForbiddenException(ACCESS_MESSAGES.COURSE_CONTENT_FORBIDDEN);
+      }
+      return;
+    }
+
+    const enrollmentTypeCode = await this.getActiveEnrollmentTypeCode(
+      userId,
+      courseCycleId,
+    );
+    if (!enrollmentTypeCode) {
+      throw new ForbiddenException('No tienes matricula activa en este curso.');
+    }
+  }
+
   private hasActiveAccess(evaluation: EvaluationWithAccess): boolean {
     const access =
       evaluation.enrollmentEvaluations && evaluation.enrollmentEvaluations[0]
@@ -854,6 +1004,37 @@ export class CoursesService {
       .filter((word) => word.length > 0)
       .map((word) => word.charAt(0).toLocaleUpperCase('es-PE') + word.slice(1))
       .join(' ');
+  }
+
+  private getBankEvaluationTypePluralName(
+    evaluationTypeCode: string,
+    evaluationTypeName: string,
+  ): string {
+    const code = String(evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+    switch (code) {
+      case 'PC':
+        return 'Practicas Calificadas';
+      case 'EX':
+        return 'Examenes';
+      case 'PD':
+        return 'Practicas Dirigidas';
+      case 'LAB':
+        return 'Laboratorios';
+      case 'TUTORING':
+        return 'Tutorias Especializadas';
+      default: {
+        const normalizedName = String(evaluationTypeName || '').trim();
+        if (!normalizedName) {
+          return normalizedName;
+        }
+        if (/[sS]$/.test(normalizedName)) {
+          return normalizedName;
+        }
+        return `${normalizedName}s`;
+      }
+    }
   }
 
   private async assertUserIsActiveProfessor(userId: string): Promise<void> {

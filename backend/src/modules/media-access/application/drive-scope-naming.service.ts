@@ -1,9 +1,11 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MEDIA_ACCESS_DRIVE_FOLDERS } from '@modules/media-access/domain/media-access.constants';
 
 export type DriveEvaluationScopeNames = {
   evaluationId: string;
   scopeKey: string;
+  parentFolderNames: string[];
   baseFolderName: string;
   videosFolderName: string;
   documentsFolderName: string;
@@ -22,10 +24,11 @@ export class DriveScopeNamingService {
     return {
       evaluationId: normalizedEvaluationId,
       scopeKey: `ev_${normalizedEvaluationId}`,
+      parentFolderNames: [MEDIA_ACCESS_DRIVE_FOLDERS.EVALUATIONS_PARENT],
       baseFolderName: `ev_${normalizedEvaluationId}`,
-      videosFolderName: 'videos',
-      documentsFolderName: 'documentos',
-      archivedFolderName: 'archivado',
+      videosFolderName: MEDIA_ACCESS_DRIVE_FOLDERS.EVALUATION_VIDEOS,
+      documentsFolderName: MEDIA_ACCESS_DRIVE_FOLDERS.EVALUATION_DOCUMENTS,
+      archivedFolderName: MEDIA_ACCESS_DRIVE_FOLDERS.EVALUATION_ARCHIVED,
       viewerGroupEmail: `ev-${normalizedEvaluationId}-viewers@${workspaceDomain}`,
     };
   }

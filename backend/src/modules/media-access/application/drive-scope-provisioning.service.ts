@@ -53,6 +53,7 @@ export class DriveScopeProvisioningService {
   constructor(private readonly configService: ConfigService) {}
 
   async provisionFolders(input: {
+    parentFolderNames?: string[];
     baseFolderName: string;
     videosFolderName: string;
     documentsFolderName: string;
@@ -68,9 +69,21 @@ export class DriveScopeProvisioningService {
 
     await this.validateFolderId(client, rootFolderId);
 
+    const parentChain = this.normalizeFolderNames(
+      input.parentFolderNames || [],
+    );
+    let baseParentFolderId = rootFolderId;
+    for (const parentName of parentChain) {
+      baseParentFolderId = await this.findOrCreateDriveFolderUnderParent(
+        client,
+        baseParentFolderId,
+        parentName,
+      );
+    }
+
     const scopeFolderId = await this.findOrCreateDriveFolderUnderParent(
       client,
-      rootFolderId,
+      baseParentFolderId,
       input.baseFolderName,
     );
     const videosFolderId = await this.findOrCreateDriveFolderUnderParent(
@@ -246,6 +259,12 @@ export class DriveScopeProvisioningService {
     }
 
     return payload.id;
+  }
+
+  private normalizeFolderNames(folderNames: string[]): string[] {
+    return folderNames
+      .map((name) => String(name || '').trim())
+      .filter((name) => name.length > 0);
   }
 
   private async listPermissions(

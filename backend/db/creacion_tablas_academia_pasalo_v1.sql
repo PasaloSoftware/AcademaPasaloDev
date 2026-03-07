@@ -180,6 +180,8 @@ CREATE TABLE course_cycle (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   course_id BIGINT NOT NULL,
   academic_cycle_id BIGINT NOT NULL,
+  intro_video_url VARCHAR(500) NULL,
+  intro_video_file_id VARCHAR(128) NULL,
   FOREIGN KEY (course_id) REFERENCES course(id),
   FOREIGN KEY (academic_cycle_id) REFERENCES academic_cycle(id)
 );
@@ -265,6 +267,7 @@ CREATE TABLE class_event (
   end_datetime DATETIME NOT NULL,
   live_meeting_url VARCHAR(500) NOT NULL,
   recording_url VARCHAR(500) NULL,
+  recording_file_id VARCHAR(128) NULL,
   recording_status_id BIGINT NOT NULL,
   is_cancelled BOOLEAN NOT NULL DEFAULT FALSE,
   created_by BIGINT NOT NULL,

@@ -6,8 +6,9 @@ import { GoogleAuth } from 'google-auth-library';
 import { ConfigService } from '@nestjs/config';
 import { extractDriveFileIdFromUrl } from '@modules/media-access/domain/media-access-url.util';
 import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
+import { MEDIA_ACCESS_DRIVE_FOLDERS } from '@modules/media-access/domain/media-access.constants';
 
-type GoogleRequestMethod = 'GET' | 'POST';
+type GoogleRequestMethod = 'GET' | 'POST' | 'PATCH';
 
 type GoogleRequest = {
   url: string;
@@ -45,6 +46,11 @@ type ClassEventRow = {
   sessionNumber: number;
 };
 
+type CourseCycleRow = {
+  courseCycleId: string | number;
+  courseCode: string;
+};
+
 function normalizeToFileId(raw: string): string {
   const trimmed = String(raw || '').trim();
   if (!trimmed) {
@@ -74,6 +80,17 @@ function fileNameWithEvaluationSuffix(baseName: string, evaluationId: string): s
   return `${stem}__ev_${evaluationId}${extension}`;
 }
 
+function fileNameWithCourseCycleSuffix(baseName: string, courseCycleId: string): string {
+  const normalizedBase = normalizeDriveFileName(baseName) || 'file';
+  const lastDotIndex = normalizedBase.lastIndexOf('.');
+  if (lastDotIndex <= 0 || lastDotIndex === normalizedBase.length - 1) {
+    return `${normalizedBase}__cc_${courseCycleId}`;
+  }
+  const stem = normalizedBase.slice(0, lastDotIndex);
+  const extension = normalizedBase.slice(lastDotIndex);
+  return `${stem}__cc_${courseCycleId}${extension}`;
+}
+
 async function getDriveClient(configService: ConfigService): Promise<GoogleRequestClient> {
   const keyFile = String(
     configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS', '') || '',
@@ -92,6 +109,16 @@ async function getDriveClient(configService: ConfigService): Promise<GoogleReque
     throw new Error('Cliente de Google Drive invalido');
   }
   return requestClient;
+}
+
+function getDriveRootFolderId(configService: ConfigService): string {
+  const rootFolderId = String(
+    configService.get<string>('GOOGLE_DRIVE_ROOT_FOLDER_ID', '') || '',
+  ).trim();
+  if (!rootFolderId) {
+    throw new Error('Falta GOOGLE_DRIVE_ROOT_FOLDER_ID');
+  }
+  return rootFolderId;
 }
 
 async function getDriveFileMetadata(
@@ -144,6 +171,30 @@ async function findFileInFolderByName(
   return files[0];
 }
 
+async function findFolderInParentByName(
+  client: GoogleRequestClient,
+  parentFolderId: string,
+  folderName: string,
+): Promise<DriveFile | null> {
+  const escapedName = folderName.replace(/'/g, "\\'");
+  const query = `'${parentFolderId}' in parents and name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const response = await client.request<DriveSearchResponse>({
+    url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)&pageSize=2&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    method: 'GET',
+  });
+
+  const files = response.data.files || [];
+  if (files.length === 0) {
+    return null;
+  }
+  if (files.length > 1) {
+    throw new Error(
+      `Ambiguedad: mas de una carpeta con nombre ${folderName} bajo ${parentFolderId}`,
+    );
+  }
+  return files[0];
+}
+
 async function copyFileToFolder(
   client: GoogleRequestClient,
   sourceFileId: string,
@@ -189,6 +240,68 @@ async function copyFileToFolder(
     size: response.data.size,
     webViewLink: response.data.webViewLink,
   };
+}
+
+async function enforceViewerRestrictionOnFile(
+  client: GoogleRequestClient,
+  fileId: string,
+): Promise<void> {
+  const normalizedFileId = String(fileId || '').trim();
+  if (!normalizedFileId) {
+    throw new Error('fileId invalido para aplicar restriccion de viewers');
+  }
+
+  await client.request({
+    url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true`,
+    method: 'PATCH',
+    data: {
+      copyRequiresWriterPermission: true,
+    },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+async function resolveCourseCycleIntroFolderId(input: {
+  client: GoogleRequestClient;
+  rootFolderId: string;
+  courseCycleId: string;
+}): Promise<string> {
+  const { client, rootFolderId, courseCycleId } = input;
+
+  const courseCyclesParent = await findFolderInParentByName(
+    client,
+    rootFolderId,
+    MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+  );
+  if (!courseCyclesParent?.id) {
+    throw new Error(
+      `No existe carpeta padre ${MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT} en Drive`,
+    );
+  }
+
+  const scopeFolder = await findFolderInParentByName(
+    client,
+    String(courseCyclesParent.id),
+    `cc_${courseCycleId}`,
+  );
+  if (!scopeFolder?.id) {
+    throw new Error(`No existe carpeta cc_${courseCycleId} en Drive`);
+  }
+
+  const introFolder = await findFolderInParentByName(
+    client,
+    String(scopeFolder.id),
+    MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLE_INTRO_VIDEO,
+  );
+  if (!introFolder?.id) {
+    throw new Error(
+      `No existe subcarpeta ${MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLE_INTRO_VIDEO} para cc_${courseCycleId}`,
+    );
+  }
+
+  return String(introFolder.id);
 }
 
 async function ensureFolderForSessions(
@@ -364,6 +477,7 @@ async function main(): Promise<void> {
     const dataSource = app.get(DataSource);
     const configService = app.get(ConfigService);
     const driveClient = await getDriveClient(configService);
+    const rootFolderId = getDriveRootFolderId(configService);
 
     const actorUserId = '1';
     const folderStatusRows = (await dataSource.query(
@@ -421,6 +535,7 @@ async function main(): Promise<void> {
     let copiedVideos = 0;
     let classEventsUpdated = 0;
     let materialsInserted = 0;
+    let courseCycleIntroVideosCopied = 0;
     const perEvaluation: Array<{
       evaluationId: string;
       classEvents: number;
@@ -428,6 +543,11 @@ async function main(): Promise<void> {
       videoFileId: string;
       materialsInserted: number;
       classEventsUpdated: number;
+    }> = [];
+    const perCourseCycle: Array<{
+      courseCycleId: string;
+      courseCode: string;
+      introVideoFileId: string;
     }> = [];
 
     for (const scope of scopes) {
@@ -455,6 +575,7 @@ async function main(): Promise<void> {
         videosFolderId,
         videoTargetName,
       );
+      await enforceViewerRestrictionOnFile(driveClient, String(copiedVideo.id));
 
       copiedDocuments += 1;
       copiedVideos += 1;
@@ -527,11 +648,12 @@ async function main(): Promise<void> {
         `
           UPDATE class_event
           SET recording_url = ?,
+              recording_file_id = ?,
               recording_status_id = ?,
               updated_at = NOW()
           WHERE evaluation_id = ?
         `,
-        [recordingUrl, recordingStatusId, evaluationId],
+        [recordingUrl, String(copiedVideo.id), recordingStatusId, evaluationId],
       );
 
       materialsInserted += insertedForEval;
@@ -546,17 +668,88 @@ async function main(): Promise<void> {
       });
     }
 
+    const courseCycles = (await dataSource.query(
+      `
+        SELECT
+          cc.id AS courseCycleId,
+          c.code AS courseCode
+        FROM course_cycle cc
+        INNER JOIN course c ON c.id = cc.course_id
+        WHERE c.code IN ('MATE101', 'MATE102', 'FIS101', 'QUI101')
+          AND cc.academic_cycle_id = COALESCE(
+            (
+              SELECT CAST(ss.setting_value AS UNSIGNED)
+              FROM system_setting ss
+              WHERE ss.setting_key = 'ACTIVE_CYCLE_ID'
+              LIMIT 1
+            ),
+            (
+              SELECT ac.id
+              FROM academic_cycle ac
+              ORDER BY ac.id DESC
+              LIMIT 1
+            )
+          )
+        ORDER BY cc.id ASC
+      `,
+    )) as CourseCycleRow[];
+
+    for (const row of courseCycles) {
+      const courseCycleId = String(row.courseCycleId);
+      const introFolderId = await resolveCourseCycleIntroFolderId({
+        client: driveClient,
+        rootFolderId,
+        courseCycleId,
+      });
+      const introVideoTargetName = fileNameWithCourseCycleSuffix(
+        videoMeta.name,
+        courseCycleId,
+      );
+      const copiedIntroVideo = await copyFileToFolder(
+        driveClient,
+        videoSourceFileId,
+        introFolderId,
+        introVideoTargetName,
+      );
+      await enforceViewerRestrictionOnFile(
+        driveClient,
+        String(copiedIntroVideo.id),
+      );
+      const introVideoUrl =
+        String(copiedIntroVideo.webViewLink || '').trim() ||
+        `https://drive.google.com/file/d/${encodeURIComponent(String(copiedIntroVideo.id))}/view`;
+
+      await dataSource.query(
+        `
+          UPDATE course_cycle
+          SET intro_video_url = ?,
+              intro_video_file_id = ?
+          WHERE id = ?
+        `,
+        [introVideoUrl, String(copiedIntroVideo.id), courseCycleId],
+      );
+
+      courseCycleIntroVideosCopied += 1;
+      perCourseCycle.push({
+        courseCycleId,
+        courseCode: String(row.courseCode || ''),
+        introVideoFileId: String(copiedIntroVideo.id),
+      });
+    }
+
     console.log(
       JSON.stringify(
         {
           evaluationsProcessed: scopes.length,
           copiedDocuments,
           copiedVideos,
+          courseCycleIntroVideosCopied,
           materialsInserted,
           classEventsUpdated,
           sourceDocFileId: docSourceFileId,
           sourceVideoFileId: videoSourceFileId,
           details: perEvaluation,
+          courseCycleDetails: perCourseCycle,
         },
         null,
         2,

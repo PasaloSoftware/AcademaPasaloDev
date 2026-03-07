@@ -54,6 +54,7 @@ export class EvaluationDriveAccessProvisioningService {
     });
 
     const folders = await this.driveScopeProvisioningService.provisionFolders({
+      parentFolderNames: names.parentFolderNames,
       baseFolderName: names.baseFolderName,
       videosFolderName: names.videosFolderName,
       documentsFolderName: names.documentsFolderName,

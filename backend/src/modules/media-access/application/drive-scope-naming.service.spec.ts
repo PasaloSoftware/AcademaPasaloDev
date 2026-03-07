@@ -20,6 +20,7 @@ describe('DriveScopeNamingService', () => {
     expect(result).toEqual({
       evaluationId: '552',
       scopeKey: 'ev_552',
+      parentFolderNames: ['evaluations'],
       baseFolderName: 'ev_552',
       videosFolderName: 'videos',
       documentsFolderName: 'documentos',
@@ -37,6 +38,7 @@ describe('DriveScopeNamingService', () => {
     const result = service.buildForEvaluation(' 77 ');
 
     expect(result.evaluationId).toBe('77');
+    expect(result.parentFolderNames).toEqual(['evaluations']);
     expect(result.viewerGroupEmail).toBe('ev-77-viewers@academiapasalo.com');
   });
 

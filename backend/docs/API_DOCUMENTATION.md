@@ -626,4 +626,11 @@ Para contratos actuales de frontend sobre:
 Revisar en detalle: `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
 `UPDATE FRONTEND CONTRACT - FASES 2, 3 Y 4 (2026-03-02)`.
 
+Update adicional (2026-03-06):
+- `PATCH /courses/cycle/:id/intro-video`
+- `GET /courses/cycle/:id/intro-video-link`
+
+Contrato detallado en `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
+`UPDATE FRONTEND CONTRACT - INTRO VIDEO POR CURSO/CICLO (2026-03-06)`.
+
 
