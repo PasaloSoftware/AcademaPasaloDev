@@ -3,6 +3,8 @@
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { BreadcrumbProvider, useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { SidebarProvider } from '@/contexts/SidebarContext';
+import { VideoPlayerProvider } from '@/contexts/VideoPlayerContext';
+import FloatingVideoPlayer from '@/components/video/FloatingVideoPlayer';
 
 function DashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
   const { breadcrumbItems } = useBreadcrumb();
@@ -28,7 +30,10 @@ export default function PlatformLayout({
   return (
     <SidebarProvider>
       <BreadcrumbProvider>
-        <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>
+        <VideoPlayerProvider>
+          <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>
+          <FloatingVideoPlayer />
+        </VideoPlayerProvider>
       </BreadcrumbProvider>
     </SidebarProvider>
   );

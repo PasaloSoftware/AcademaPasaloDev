@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { classEventService } from "@/services/classEvent.service";
 import { materialsService } from "@/services/materials.service";
@@ -252,19 +253,24 @@ function ClassSessionCard({
   materials,
   loadingMaterials,
   onOpenMaterials,
+  cursoId,
+  evalId,
 }: {
   event: ClassEvent;
   materials: ClassEventMaterial[];
   loadingMaterials: boolean;
   onOpenMaterials: (eventId: string) => void;
+  cursoId: string;
+  evalId: string;
 }) {
+  const router = useRouter();
   const canWatch =
     event.canWatchRecording && event.recordingStatus === "READY";
   const duration = formatDurationHMS(event.startDatetime, event.endDatetime);
 
   const handleWatchRecording = () => {
-    if (canWatch && event.recordingUrl) {
-      window.open(event.recordingUrl, "_blank", "noopener,noreferrer");
+    if (canWatch) {
+      router.push(`/plataforma/curso/${cursoId}/evaluacion/${evalId}/clase/${event.id}`);
     }
   };
 
@@ -273,7 +279,10 @@ function ClassSessionCard({
   return (
     <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
       {/* Video Thumbnail */}
-      <div className="h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end">
+      <div
+        onClick={handleWatchRecording}
+        className={`h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end ${canWatch ? "cursor-pointer hover:opacity-90 transition-opacity" : ""}`}
+      >
         {/* Play button centered */}
         <div className="p-3 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-bg-accent-primary-solid rounded-full inline-flex justify-center items-center">
           <Icon name="play_arrow" size={24} className="text-icon-white" />
@@ -658,6 +667,8 @@ export default function EvaluationContent({
                     materials={materialsByEvent[event.id] || []}
                     loadingMaterials={loadingMaterialsMap[event.id] || false}
                     onOpenMaterials={handleOpenMaterials}
+                    cursoId={cursoId}
+                    evalId={evalId}
                   />
                 ))}
               </div>
