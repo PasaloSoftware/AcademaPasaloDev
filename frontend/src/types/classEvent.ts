@@ -29,7 +29,7 @@ export interface ClassEvent {
   recordingUrl: string | null;
   recordingStatus: 'NOT_AVAILABLE' | 'PROCESSING' | 'READY' | 'FAILED';
   isCancelled: boolean;
-  status: ClassEventStatus;
+  sessionStatus: ClassEventStatus;
   canJoinLive: boolean;
   canWatchRecording: boolean;
   canCopyLiveLink: boolean;

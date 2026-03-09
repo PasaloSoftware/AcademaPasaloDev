@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import { classEventService } from "@/services/classEvent.service";
 import { ClassEvent } from "@/types/classEvent";
@@ -225,7 +226,13 @@ export default function DaySchedule() {
             </button>
           </div>
         ) : todayEvents.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
+            <Icon
+              name="event_busy"
+              size={32}
+              className="text-gray-600 mx-auto mb-2"
+              variant="outlined"
+            />
             <p className="text-sm text-gray-600">
               No tienes clases programadas
             </p>
@@ -233,7 +240,7 @@ export default function DaySchedule() {
         ) : (
           todayEvents.map((event) => {
             const colors = getCourseColor(event.courseCode);
-            const isNow = event.status === "EN_CURSO";
+            const isNow = event.sessionStatus === "EN_CURSO";
 
             const canJoinNow =
               !!event.liveMeetingUrl && !event.isCancelled;
@@ -288,6 +295,18 @@ export default function DaySchedule() {
             );
           })
         )}
+      </div>
+
+      {/* Footer - Ver Calendario Completo */}
+      <div className="w-full p-3 border-t border-stroke-secondary inline-flex flex-col justify-start items-center">
+        <Link
+          href="/plataforma/calendario"
+          className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
+        >
+          <span className="text-text-accent-primary text-sm font-medium leading-4">
+            Ver Calendario Completo
+          </span>
+        </Link>
       </div>
     </div>
   );

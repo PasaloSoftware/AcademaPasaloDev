@@ -137,7 +137,7 @@ export class MaterialsController {
   async download(
     @CurrentUser() user: UserWithSession,
     @Param('id') materialId: string,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
     const { stream, fileName, mimeType } = await this.materialsService.download(
       user,
@@ -149,7 +149,7 @@ export class MaterialsController {
       'Content-Disposition': `attachment; filename="${fileName}"`,
     });
 
-    return stream;
+    stream.pipe(res);
   }
 
   @Get(':id/authorized-link')

@@ -2,6 +2,27 @@
 // MATERIAL TYPES - Materiales de Sesiones de Clase
 // ============================================
 
+export interface MaterialFolder {
+  id: string;
+  name: string;
+  visibleFrom: string | null;
+}
+
+export interface FolderMaterial {
+  id: string;
+  displayName: string;
+  fileVersionId: string;
+  createdAt: string;
+  classEventId: string | null;
+}
+
+export interface FolderContentsResponse {
+  folders: MaterialFolder[];
+  materials: FolderMaterial[];
+  totalMaterials: number;
+  subfolderMaterialCount: Record<string, number>;
+}
+
 export interface FileResource {
   id: string;
   originalName: string;
