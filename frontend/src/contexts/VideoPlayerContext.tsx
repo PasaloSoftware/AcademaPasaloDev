@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback } from 'react';
 
-export interface VideoInfo {
+interface VideoInfo {
   eventId: string;
   videoUrl: string;
   title: string;
@@ -24,12 +24,6 @@ interface VideoPlayerContextType {
   expand: () => void;
   /** Close the video entirely */
   closeVideo: () => void;
-  /** The DOM element where the iframe should be positioned in full-page mode */
-  containerElement: HTMLDivElement | null;
-  /** Register a container element (called by video page on mount) */
-  registerContainer: (el: HTMLDivElement) => void;
-  /** Unregister the container (called by video page on unmount) */
-  unregisterContainer: () => void;
 }
 
 const VideoPlayerContext = createContext<VideoPlayerContextType | null>(null);
@@ -37,7 +31,6 @@ const VideoPlayerContext = createContext<VideoPlayerContextType | null>(null);
 export function VideoPlayerProvider({ children }: { children: React.ReactNode }) {
   const [video, setVideo] = useState<VideoInfo | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
 
   const playVideo = useCallback((info: VideoInfo) => {
     setVideo(info);
@@ -57,20 +50,9 @@ export function VideoPlayerProvider({ children }: { children: React.ReactNode })
     setIsMinimized(false);
   }, []);
 
-  const registerContainer = useCallback((el: HTMLDivElement) => {
-    setContainerElement(el);
-  }, []);
-
-  const unregisterContainer = useCallback(() => {
-    setContainerElement(null);
-  }, []);
-
   return (
     <VideoPlayerContext.Provider
-      value={{
-        video, isMinimized, playVideo, minimize, expand, closeVideo,
-        containerElement, registerContainer, unregisterContainer,
-      }}
+      value={{ video, isMinimized, playVideo, minimize, expand, closeVideo }}
     >
       {children}
     </VideoPlayerContext.Provider>

@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
-import { useVideoPlayer } from '@/contexts/VideoPlayerContext';
 import { classEventService } from '@/services/classEvent.service';
 import { enrollmentService } from '@/services/enrollment.service';
 import { coursesService } from '@/services/courses.service';
@@ -12,6 +11,7 @@ import type { ClassEvent } from '@/types/classEvent';
 import type { ClassEventMaterial } from '@/types/material';
 import type { Enrollment } from '@/types/enrollment';
 import Icon from '@/components/ui/Icon';
+import MaterialPreviewModal from '@/components/materials/MaterialPreviewModal';
 
 // ============================================
 // Helpers
@@ -106,31 +106,18 @@ interface VideoPageContentProps {
 export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPageContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
-  const { video, isMinimized, playVideo, closeVideo, registerContainer, unregisterContainer } = useVideoPlayer();
-
   const [event, setEvent] = useState<ClassEvent | null>(null);
   const [nextEvent, setNextEvent] = useState<ClassEvent | null>(null);
   const [materials, setMaterials] = useState<ClassEventMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewMaterial, setPreviewMaterial] = useState<ClassEventMaterial | null>(null);
 
   // Course + eval names for breadcrumb
   const [courseName, setCourseName] = useState('');
   const [evalShortName, setEvalShortName] = useState('');
 
   const evaluationPath = `/plataforma/curso/${cursoId}/evaluacion/${evalId}`;
-
-  // Register/unregister the video placeholder container with context
-  const containerCallbackRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (el) {
-        registerContainer(el);
-      } else {
-        unregisterContainer();
-      }
-    },
-    [registerContainer, unregisterContainer],
-  );
 
   // Load event data + next event
   useEffect(() => {
@@ -213,27 +200,10 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     ]);
   }, [setBreadcrumbItems, event, courseName, evalShortName, cursoId, evaluationPath]);
 
-  // Register video in context
-  useEffect(() => {
-    if (!event || !event.recordingUrl) return;
-
-    if (!video || video.eventId !== eventId) {
-      playVideo({
-        eventId: event.id,
-        videoUrl: event.recordingUrl,
-        title: `Clase ${event.sessionNumber}: ${event.topic}`,
-        subtitle: `${event.courseName} - ${event.evaluationName}`,
-        returnPath: evaluationPath,
-        fullPagePath: `${evaluationPath}/clase/${event.id}`,
-      });
-    }
-  }, [event, eventId, video, playVideo, evaluationPath]);
-
-  // Close → stop video and go to evaluation page
-  const handleClose = useCallback(() => {
-    closeVideo();
+  // Back → go to evaluation page
+  const handleBack = useCallback(() => {
     router.push(evaluationPath);
-  }, [closeVideo, router, evaluationPath]);
+  }, [router, evaluationPath]);
 
   // Navigate to next class
   const handleNextClass = useCallback(() => {
@@ -290,7 +260,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     <div className="w-full flex flex-col gap-8">
       {/* Back link */}
       <button
-        onClick={handleClose}
+        onClick={handleBack}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex items-center gap-2 self-start"
       >
         <Icon name="arrow_back" size={20} className="text-icon-accent-primary" />
@@ -303,24 +273,16 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       <div className="flex gap-6">
         {/* Left Column */}
         <div className="w-[721px] flex-shrink-0 flex flex-col gap-8">
-          {/* Video Player area */}
-          {isMinimized ? (
-            <div className="self-stretch h-96 p-3 bg-gray-900 rounded-xl inline-flex flex-col justify-center items-center">
-              <div className="self-stretch flex flex-col justify-center items-center gap-4">
-                <div className="self-stretch text-center text-white text-sm font-semibold leading-4">
-                  Reproduciendo en modo de pantalla en pantalla
-                </div>
-                <div className="self-stretch text-center text-white text-[10px] font-normal leading-3">
-                  Si cierras esta ventana, se cerrará el reproductor
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div
-              ref={containerCallbackRef}
-              className="relative w-full aspect-video bg-bg-black-solid rounded-xl overflow-hidden"
+          {/* Video Player */}
+          <div className="w-full aspect-video bg-bg-black-solid rounded-xl overflow-hidden">
+            <iframe
+              src={event.recordingUrl!}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media; fullscreen"
+              allowFullScreen
+              title={`Clase ${event.sessionNumber}: ${event.topic}`}
             />
-          )}
+          </div>
 
           {/* Event Info */}
           <div className="flex flex-col gap-2">
@@ -393,9 +355,11 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
                   const lastModified = formatMaterialDate(mat.fileResource.createdAt);
 
                   return (
-                    <div
+                    <button
                       key={mat.id}
-                      className="p-3 bg-bg-secondary rounded-lg flex items-center gap-3"
+                      type="button"
+                      onClick={() => setPreviewMaterial(mat)}
+                      className="p-3 bg-bg-secondary rounded-lg flex items-center gap-3 hover:bg-bg-tertiary transition-colors text-left w-full"
                     >
                       <div className="flex-1 flex items-center gap-1 min-w-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -418,20 +382,39 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => materialsService.downloadMaterial(mat.id, fileName)}
-                        className="p-1 rounded-full flex items-center justify-center hover:bg-bg-tertiary transition-colors flex-shrink-0"
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          materialsService.downloadMaterial(mat.id, fileName);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.stopPropagation();
+                            materialsService.downloadMaterial(mat.id, fileName);
+                          }
+                        }}
+                        className="p-1 rounded-full flex items-center justify-center hover:bg-bg-quaternary transition-colors flex-shrink-0"
                         title="Descargar"
                       >
                         <Icon name="download" size={20} className="text-icon-tertiary" />
-                      </button>
-                    </div>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
             )}
         </div>
       </div>
+
+      {/* Material Preview Modal */}
+      {previewMaterial && (
+        <MaterialPreviewModal
+          material={previewMaterial}
+          onClose={() => setPreviewMaterial(null)}
+        />
+      )}
     </div>
   );
 }
