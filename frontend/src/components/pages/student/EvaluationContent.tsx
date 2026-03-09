@@ -6,6 +6,7 @@ import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { classEventService } from "@/services/classEvent.service";
 import { materialsService } from "@/services/materials.service";
 import { enrollmentService } from "@/services/enrollment.service";
+import { coursesService } from "@/services/courses.service";
 import type { ClassEvent } from "@/types/classEvent";
 import type { ClassEventMaterial } from "@/types/material";
 import type { Enrollment } from "@/types/enrollment";
@@ -34,37 +35,31 @@ function formatDate(iso: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+function formatSingleTime(date: Date, includeAmPm: boolean): string {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const hourNum = h % 12 || 12;
+  const ampm = h >= 12 ? "pm" : "am";
+
+  const timeStr = m === 0 ? `${hourNum}` : `${hourNum}:${m.toString().padStart(2, "0")}`;
+  return includeAmPm ? `${timeStr}${ampm}` : timeStr;
+}
+
 function formatTimeRange(start: string, end: string): string {
   const startDate = new Date(start);
   const endDate = new Date(end);
-  const opts: Intl.DateTimeFormatOptions = {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "America/Lima",
-  };
-  // Solo mostrar am/pm en la hora final (ej. "8:00 - 10:00 am")
-  const startStr = startDate
-    .toLocaleTimeString("es-PE", opts)
-    .replace(/ a\.\s?m\.| p\.\s?m\./i, "")
-    .trim();
-  const endStr = endDate
-    .toLocaleTimeString("es-PE", opts)
-    .replace(/a\.\s?m\./i, "am")
-    .replace(/p\.\s?m\./i, "pm")
-    .trim();
+  const startStr = formatSingleTime(startDate, false);
+  const endStr = formatSingleTime(endDate, true);
   return `${startStr} - ${endStr}`;
 }
 
-function calcDuration(start: string, end: string): string {
+function formatDurationHMS(start: string, end: string): string {
   const ms = new Date(end).getTime() - new Date(start).getTime();
-  const totalMinutes = Math.round(ms / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function formatFileSize(sizeBytes: string): string {
@@ -110,7 +105,55 @@ function getFileExtLabel(mimeType: string): string {
 }
 
 // ============================================
-// Material File Card (matches Figma)
+// Badge de estado de grabación
+// ============================================
+
+function RecordingBadge({ event }: { event: ClassEvent }) {
+  if (event.isCancelled) {
+    return (
+      <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center">
+        <span className="text-text-error-primary text-[10px] font-semibold leading-3">
+          CANCELADA
+        </span>
+      </div>
+    );
+  }
+
+  if (event.canWatchRecording && event.recordingStatus === "READY") {
+    return (
+      <div className="px-2 py-1 bg-bg-info-primary-light rounded-full flex justify-center items-center">
+        <span className="text-text-info-primary text-[10px] font-semibold leading-3">
+          GRABADA
+        </span>
+      </div>
+    );
+  }
+
+  if (event.status === "EN_CURSO") {
+    return (
+      <div className="px-2 py-1 bg-bg-success-light rounded-full flex justify-center items-center">
+        <span className="text-text-success-primary text-[10px] font-semibold leading-3">
+          EN VIVO
+        </span>
+      </div>
+    );
+  }
+
+  if (event.status === "PROGRAMADA") {
+    return (
+      <div className="px-2 py-1 bg-bg-quartiary rounded-full flex justify-center items-center">
+        <span className="text-text-secondary text-[10px] font-semibold leading-3">
+          PROGRAMADA
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ============================================
+// Material File Card
 // ============================================
 
 function MaterialCard({ material }: { material: ClassEventMaterial }) {
@@ -190,7 +233,7 @@ function MaterialCard({ material }: { material: ClassEventMaterial }) {
 }
 
 // ============================================
-// Class Session Card (matches Figma)
+// Class Session Card (Figma redesign)
 // ============================================
 
 function ClassSessionCard({
@@ -202,9 +245,10 @@ function ClassSessionCard({
   materials: ClassEventMaterial[];
   loadingMaterials: boolean;
 }) {
-  const duration = calcDuration(event.startDatetime, event.endDatetime);
+  const [showMaterials, setShowMaterials] = useState(false);
   const canWatch =
     event.canWatchRecording && event.recordingStatus === "READY";
+  const duration = formatDurationHMS(event.startDatetime, event.endDatetime);
 
   const handleWatchRecording = () => {
     if (canWatch && event.recordingUrl) {
@@ -212,105 +256,128 @@ function ClassSessionCard({
     }
   };
 
+  const hasMaterials = materials.length > 0 || loadingMaterials;
+
   return (
-    <div className="self-stretch p-6 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col justify-start items-start gap-4">
-      {/* Content section */}
-      <div className="self-stretch flex flex-col justify-start items-start gap-2">
-        {/* Header + Topic */}
-        <div className="self-stretch flex flex-col justify-start items-start gap-1">
-          <div className="self-stretch inline-flex justify-between items-center">
-            <div className="flex justify-start items-start gap-1">
-              <span className="text-text-accent-primary text-sm font-semibold leading-4">
-                CLASE
+    <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+      {/* Video Thumbnail */}
+      <div className="h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end">
+        {/* Play button centered */}
+        <div className="p-3 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-bg-accent-primary-solid rounded-full inline-flex justify-center items-center">
+          <Icon name="play_arrow" size={24} className="text-icon-white" />
+        </div>
+        {/* Duration badge bottom-right */}
+        {canWatch && (
+          <div className="px-2 py-1 bg-black/80 rounded-full inline-flex justify-start items-center">
+            <span className="text-text-white text-[10px] font-normal leading-3">
+              {duration}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
+        {/* Title + Badge + Date/Time */}
+        <div className="self-stretch flex flex-col justify-start items-start gap-2">
+          {/* Title row + Badge */}
+          <div className="self-stretch inline-flex justify-start items-start gap-4">
+            <div className="flex-1 flex justify-start items-start gap-1">
+              <span className="text-text-primary text-lg font-semibold leading-5">
+                Clase {event.sessionNumber}:
               </span>
-              <span className="text-text-accent-primary text-sm font-semibold leading-4">
-                {event.sessionNumber}
+              <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
+                {event.topic}
               </span>
             </div>
-            <div className="flex justify-start items-start">
-              <div className="px-2 py-1 bg-bg-info-primary-light rounded-full flex justify-center items-center gap-1">
-                <span className="text-text-info-primary text-[10px] font-semibold leading-3">
-                  {duration}
+            <RecordingBadge event={event} />
+          </div>
+
+          {/* Date + Time */}
+          <div className="self-stretch flex flex-col justify-start items-start gap-1">
+            <div className="self-stretch inline-flex justify-start items-center gap-1">
+              <Icon
+                name="calendar_today"
+                size={14}
+                className="text-icon-secondary"
+              />
+              <span className="text-text-tertiary text-xs font-normal leading-4">
+                {formatDate(event.startDatetime)}
+              </span>
+            </div>
+            <div className="self-stretch inline-flex justify-start items-center gap-1">
+              <Icon
+                name="schedule"
+                size={14}
+                className="text-icon-secondary"
+              />
+              <span className="text-text-secondary text-xs font-normal leading-3">
+                {formatTimeRange(event.startDatetime, event.endDatetime)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="self-stretch inline-flex justify-end items-start gap-2.5">
+          {hasMaterials && (
+            <button
+              onClick={() => setShowMaterials(!showMaterials)}
+              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+            >
+              <Icon
+                name="folder"
+                size={16}
+                className="text-icon-accent-primary"
+                variant="rounded"
+              />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Materiales de Clase
+              </span>
+            </button>
+          )}
+          <button
+            onClick={handleWatchRecording}
+            disabled={!canWatch}
+            className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 transition-colors ${
+              canWatch
+                ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
+                : "bg-bg-disabled cursor-not-allowed"
+            }`}
+          >
+            <Icon
+              name="play_arrow"
+              size={16}
+              className={canWatch ? "text-icon-white" : "text-icon-disabled"}
+            />
+            <span
+              className={`text-sm font-medium leading-4 ${canWatch ? "text-text-white" : "text-text-disabled"}`}
+            >
+              Ver Grabación
+            </span>
+          </button>
+        </div>
+
+        {/* Materials (expandable) */}
+        {showMaterials && hasMaterials && (
+          <div className="self-stretch flex flex-col justify-start items-start gap-3">
+            {loadingMaterials ? (
+              <div className="flex items-center gap-2 py-2">
+                <div className="w-4 h-4 border-2 border-accent-solid border-t-transparent rounded-full animate-spin" />
+                <span className="text-text-tertiary text-xs">
+                  Cargando materiales...
                 </span>
               </div>
-            </div>
+            ) : (
+              <div className="self-stretch flex flex-col justify-start items-start gap-2">
+                {materials.map((material) => (
+                  <MaterialCard key={material.id} material={material} />
+                ))}
+              </div>
+            )}
           </div>
-          <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-            {event.topic}
-          </div>
-        </div>
-
-        {/* Date & Time */}
-        <div className="self-stretch flex flex-col justify-start items-start gap-1">
-          <div className="self-stretch inline-flex justify-start items-center gap-1">
-            <Icon
-              name="calendar_today"
-              size={14}
-              className="text-icon-secondary"
-            />
-            <span className="text-text-tertiary text-xs font-normal leading-4">
-              {formatDate(event.startDatetime)}
-            </span>
-          </div>
-          <div className="self-stretch inline-flex justify-start items-center gap-1">
-            <Icon
-              name="schedule"
-              size={14}
-              className="text-icon-secondary"
-            />
-            <span className="text-text-secondary text-xs font-normal leading-3">
-              {formatTimeRange(event.startDatetime, event.endDatetime)}
-            </span>
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* Ver Grabación button (full width) */}
-      <div className="self-stretch flex flex-col justify-start items-end gap-2.5">
-        <button
-          onClick={handleWatchRecording}
-          disabled={!canWatch}
-          className={`self-stretch px-4 py-3 rounded-lg inline-flex justify-center items-center gap-1.5 transition-colors ${
-            canWatch
-              ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
-              : "bg-bg-disabled cursor-not-allowed"
-          }`}
-        >
-          <Icon
-            name="play_arrow"
-            size={16}
-            className={canWatch ? "text-icon-white" : "text-icon-disabled"}
-          />
-          <span
-            className={`text-sm font-medium leading-4 ${canWatch ? "text-text-white" : "text-text-disabled"}`}
-          >
-            Ver Grabación
-          </span>
-        </button>
-      </div>
-
-      {/* Materials section */}
-      {(materials.length > 0 || loadingMaterials) && (
-        <div className="self-stretch pl-3 border-l-2 border-stroke-primary flex flex-col justify-start items-start gap-3">
-          <span className="self-stretch text-text-quartiary text-sm font-semibold leading-4">
-            Materiales de clase
-          </span>
-          {loadingMaterials ? (
-            <div className="flex items-center gap-2 py-2">
-              <div className="w-4 h-4 border-2 border-accent-solid border-t-transparent rounded-full animate-spin" />
-              <span className="text-text-tertiary text-xs">
-                Cargando materiales...
-              </span>
-            </div>
-          ) : (
-            <div className="self-stretch flex flex-col justify-start items-start gap-2">
-              {materials.map((material) => (
-                <MaterialCard key={material.id} material={material} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -333,8 +400,9 @@ export default function EvaluationContent({
   // Nombre del curso (desde enrollment)
   const [courseName, setCourseName] = useState<string>("");
 
-  // Nombre de la evaluación (desde la respuesta del API de class events)
-  const [evaluationName, setEvaluationName] = useState<string>("");
+  // Nombre de la evaluación (corto y completo)
+  const [evalShortName, setEvalShortName] = useState<string>("");
+  const [evalFullName, setEvalFullName] = useState<string>("");
 
   // Materiales por classEventId
   const [materialsByEvent, setMaterialsByEvent] = useState<
@@ -344,9 +412,9 @@ export default function EvaluationContent({
     Record<string, boolean>
   >({});
 
-  // Cargar nombre del curso desde enrollment
+  // Cargar nombre del curso desde enrollment + evaluación desde ciclo vigente
   useEffect(() => {
-    async function loadCourseName() {
+    async function loadCourseData() {
       try {
         const response = await enrollmentService.getMyCourses();
         const enrollments: Enrollment[] = Array.isArray(response)
@@ -363,19 +431,33 @@ export default function EvaluationContent({
       }
     }
 
-    loadCourseName();
-  }, [cursoId]);
+    async function loadEvalNames() {
+      try {
+        const data = await coursesService.getCurrentCycleContent(cursoId);
+        const eval_ = data.evaluations.find((e) => e.id === evalId);
+        if (eval_) {
+          setEvalShortName(eval_.shortName);
+          setEvalFullName(eval_.fullName);
+        }
+      } catch (err) {
+        console.error("Error al cargar datos de evaluación:", err);
+      }
+    }
 
-  // Breadcrumb: Cursos > Nombre del curso > Ciclo Vigente > PC1
+    loadCourseData();
+    loadEvalNames();
+  }, [cursoId, evalId]);
+
+  // Breadcrumb
   useEffect(() => {
     if (!courseName) return;
     setBreadcrumbItems([
       { label: "Cursos" },
       { label: courseName, href: `/plataforma/curso/${cursoId}` },
       { label: "Ciclo Vigente" },
-      { label: evaluationName },
+      { label: evalShortName },
     ]);
-  }, [setBreadcrumbItems, courseName, evaluationName, cursoId]);
+  }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
 
   // Cargar sesiones de clase
   useEffect(() => {
@@ -386,8 +468,9 @@ export default function EvaluationContent({
         const data =
           await classEventService.getEvaluationEvents(evalId);
         setEvents(data);
-        if (data.length > 0 && data[0].evaluationName) {
-          setEvaluationName(data[0].evaluationName);
+        // Fallback: si no se pudo obtener nombres desde ciclo vigente
+        if (data.length > 0 && data[0].evaluationName && !evalShortName) {
+          setEvalShortName(data[0].evaluationName);
         }
       } catch (err) {
         console.error("Error al cargar sesiones:", err);
@@ -398,7 +481,7 @@ export default function EvaluationContent({
     }
 
     loadEvents();
-  }, [evalId]);
+  }, [evalId, evalShortName]);
 
   // Cargar materiales para cada sesión
   useEffect(() => {
@@ -437,66 +520,71 @@ export default function EvaluationContent({
       {/* ========================================
           BACK LINK
           ======================================== */}
-      <div className="self-stretch px-12 mb-6">
-        <Link
-          href={`/plataforma/curso/${cursoId}`}
-          className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2"
-        >
-          <Icon
-            name="arrow_back"
-            size={20}
-            className="text-icon-accent-primary"
-          />
-          <span className="text-text-accent-primary text-base font-medium leading-4">
-            Volver al Ciclo Vigente
-          </span>
-        </Link>
-      </div>
+      <Link
+        href={`/plataforma/curso/${cursoId}`}
+        className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
+      >
+        <Icon
+          name="arrow_back"
+          size={20}
+          className="text-icon-accent-primary"
+        />
+        <span className="text-text-accent-primary text-base font-medium leading-4">
+          Volver al Ciclo Vigente
+        </span>
+      </Link>
 
       {/* ========================================
           BANNER
           ======================================== */}
       <div
-        className="self-stretch mx-12 mb-8 p-10 rounded-2xl inline-flex flex-col justify-center items-start gap-2 overflow-hidden"
+        className="self-stretch px-10 py-8 relative rounded-xl inline-flex flex-col justify-center items-start gap-2 overflow-hidden mb-8"
         style={{
           background:
             "linear-gradient(to right, var(--muted-indigo-800), var(--muted-indigo-700), var(--muted-indigo-200))",
         }}
       >
-        <div className="self-stretch flex flex-col justify-center items-start gap-1">
-          <span className="self-stretch text-white text-3xl font-semibold leading-10">
-            {evaluationName}
+        {/* Decorative icon */}
+        <div className="w-40 h-40 absolute right-[-36px] top-[-12px] overflow-hidden">
+          <Icon name="school" size={160} className="text-muted-indigo-700" />
+        </div>
+        <div className="self-stretch flex flex-col justify-center items-start gap-0.5">
+          <span className="self-stretch text-text-white text-3xl font-semibold leading-10">
+            {evalShortName}
           </span>
+          {evalFullName && (
+            <span className="self-stretch text-text-white text-sm font-normal leading-4">
+              {evalFullName.toUpperCase()}
+            </span>
+          )}
         </div>
       </div>
 
       {/* ========================================
           SUB-TABS + CONTENT
           ======================================== */}
-      <div className="self-stretch px-12 inline-flex flex-col justify-start items-start gap-8">
+      <div className="self-stretch inline-flex flex-col justify-start items-start gap-8">
         {/* Sub-tabs */}
-        <div className="w-[491px] p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-start gap-2">
+        <div className="p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-center items-center">
           {evalTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 px-2 py-2.5 rounded-lg flex justify-start items-center gap-2 transition-colors ${
+              className={`px-6 py-3 rounded-lg flex justify-center items-center gap-2 transition-colors ${
                 activeTab === tab.key
                   ? "bg-bg-accent-primary-solid"
                   : "bg-bg-primary hover:bg-bg-secondary"
               }`}
             >
-              <div className="flex-1 flex justify-start items-center gap-2">
-                <span
-                  className={`flex-1 text-center text-base leading-4 whitespace-nowrap ${
-                    activeTab === tab.key
-                      ? "text-text-white font-medium"
-                      : "text-text-secondary font-normal"
-                  }`}
-                >
-                  {tab.label}
-                </span>
-              </div>
+              <span
+                className={`text-center text-base leading-4 whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? "text-text-white font-medium"
+                    : "text-text-secondary font-normal"
+                }`}
+              >
+                {tab.label}
+              </span>
             </button>
           ))}
         </div>
@@ -522,7 +610,7 @@ export default function EvaluationContent({
 
             {/* Error */}
             {errorEvents && (
-              <div className="bg-white self-stretch p-12 rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
+              <div className="bg-bg-primary self-stretch p-12 rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col items-center justify-center gap-4">
                 <Icon
                   name="error"
                   size={64}
@@ -541,7 +629,7 @@ export default function EvaluationContent({
 
             {/* Empty state */}
             {!loadingEvents && !errorEvents && events.length === 0 && (
-              <div className="self-stretch p-12 bg-bg-secondary rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
+              <div className="self-stretch p-12 bg-bg-secondary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col items-center justify-center gap-4">
                 <Icon
                   name="event_available"
                   size={64}
@@ -558,9 +646,9 @@ export default function EvaluationContent({
               </div>
             )}
 
-            {/* Session Cards */}
+            {/* Session Cards (stacked) */}
             {!loadingEvents && !errorEvents && events.length > 0 && (
-              <div className="self-stretch flex flex-col justify-start items-start gap-6">
+              <div className="self-stretch inline-flex flex-col justify-start items-start gap-6">
                 {events.map((event) => (
                   <ClassSessionCard
                     key={event.id}
@@ -585,7 +673,7 @@ export default function EvaluationContent({
               </span>
             </div>
 
-            <div className="self-stretch p-12 bg-white rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
+            <div className="self-stretch p-12 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col items-center justify-center gap-4">
               <Icon
                 name="folder"
                 size={64}

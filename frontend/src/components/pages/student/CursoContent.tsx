@@ -99,6 +99,17 @@ function isEvalDisabled(label: EvaluationLabel): boolean {
   return label === "Próximamente" || label === "Bloqueado";
 }
 
+const evalLabelOrder: Record<EvaluationLabel, number> = {
+  "Completado": 0,
+  "En curso": 1,
+  "Próximamente": 2,
+  "Bloqueado": 3,
+};
+
+function sortEvaluations<T extends { label: EvaluationLabel }>(evaluations: T[]): T[] {
+  return [...evaluations].sort((a, b) => evalLabelOrder[a.label] - evalLabelOrder[b.label]);
+}
+
 // ============================================
 // Componente de card de evaluación (Ciclo Vigente)
 // ============================================
@@ -589,7 +600,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   if (loadingEnrollment || loadingCurrent) {
     return (
       <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
-        <div className="self-stretch px-12 animate-pulse">
+        <div className="self-stretch animate-pulse">
           <div className="flex gap-8">
             <div className="flex-1 space-y-5">
               <div className="flex gap-2">
@@ -655,7 +666,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       {/* ========================================
           HEADER SECTION
           ======================================== */}
-      <div className="self-stretch px-12 inline-flex justify-start items-start gap-8 overflow-hidden mb-8">
+      <div className="self-stretch inline-flex justify-start items-start gap-8 overflow-hidden mb-8">
         {/* Left: Course Info */}
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-5">
           {/* Tags */}
@@ -731,7 +742,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       {/* ========================================
           TABS + CONTENT SECTION
           ======================================== */}
-      <div className="self-stretch px-12 inline-flex flex-col justify-start items-start gap-8">
+      <div className="self-stretch inline-flex flex-col justify-start items-start gap-8">
         {/* Horizontal Pill Tabs */}
         <div className="w-[567px] p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-start gap-2">
           {tabs.map((tab) => (
@@ -779,7 +790,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
             {/* Evaluation Cards (4-column grid with gap) */}
             {currentCycle && currentCycle.evaluations.length > 0 ? (
               <div className="self-stretch grid grid-cols-3 gap-8">
-                {currentCycle.evaluations.map((evaluation) => (
+                {sortEvaluations(currentCycle.evaluations).map((evaluation) => (
                   <EvaluationCard
                     key={evaluation.id}
                     evaluation={evaluation}
