@@ -209,7 +209,7 @@ export default function Sidebar({
                     item.active && !hasActiveSubItem
                       ? 'bg-accent-solid text-white'
                       : 'text-secondary hover:bg-secondary-hover'
-                    } rounded-xl font-medium transition-colors`}
+                    } ${!isCollapsed && expandedItems.includes(item.label) ? 'outline outline-1 outline-stroke-accent-secondary' : ''} rounded-xl font-medium transition-colors`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon
@@ -277,60 +277,61 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* User Profile */}
-      <div className="p-5 relative" ref={userMenuRef}>
+      {/* User Profile + Logout */}
+      <div className="p-3 flex flex-col gap-3">
+        {/* User info */}
+        <div className="p-2 bg-bg-primary rounded-lg flex justify-center items-start gap-2" ref={userMenuRef}>
+          <button
+            onClick={toggleUserMenu}
+            className={`flex-1 flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'}`}
+          >
+            {authUser?.profilePhotoUrl ? (
+              <img
+                src={authUser.profilePhotoUrl}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-bg-info-primary-solid rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-text-white text-xs font-medium leading-3">
+                  {user.initials}
+                </span>
+              </div>
+            )}
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-text-primary text-sm font-normal leading-4 line-clamp-1">{user.name}</p>
+              </div>
+            )}
+          </button>
+
+          {/* Menú desplegable (solo Mi Perfil) */}
+          {isUserMenuOpen && !isCollapsed && (
+            <div className="absolute bottom-20 left-3 right-3 bg-white border border-stroke-primary rounded-xl overflow-hidden z-10">
+              <button
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  router.push('/plataforma/perfil');
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-secondary hover:bg-secondary-hover transition-colors"
+              >
+                <Icon name="person" size={20} />
+                <span className="text-sm font-medium">Mi Perfil</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Logout button */}
         <button
-          onClick={toggleUserMenu}
-          className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'} rounded-xl transition-colors hover:bg-secondary-hover p-2`}
+          onClick={handleLogout}
+          className={`${isCollapsed ? 'p-2.5' : 'px-6 py-3'} bg-error-light rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-error-light/80 transition-colors`}
         >
-          {authUser?.profilePhotoUrl ? (
-            <img
-              src={authUser.profilePhotoUrl}
-              alt={user.name}
-              className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-9 h-9 bg-info-primary-solid rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {user.initials}
-            </div>
-          )}
+          <Icon name="logout" size={isCollapsed ? 20 : 16} className="text-text-error-primary" />
           {!isCollapsed && (
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm text-primary truncate">{user.name}</p>
-            </div>
-          )}
-          {!isCollapsed && (
-            <Icon
-              name="unfold_more"
-              size={20}
-              className={`text-tertiary transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`}
-            />
+            <span className="text-text-error-primary text-sm font-medium leading-4">Cerrar Sesión</span>
           )}
         </button>
-
-        {/* Menú desplegable */}
-        {isUserMenuOpen && !isCollapsed && (
-          <div className="absolute bottom-full left-5 right-5 bg-white border border-stroke-primary rounded-xl overflow-hidden">
-            <button
-              onClick={() => {
-                setIsUserMenuOpen(false);
-                router.push('/plataforma/perfil');
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-secondary hover:bg-secondary-hover transition-colors"
-            >
-              <Icon name="person" size={20} />
-              <span className="text-sm font-medium">Mi Perfil</span>
-            </button>
-            <div className="border-t border-stroke-primary" />
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-error-solid hover:bg-error-hover transition-colors"
-            >
-              <Icon name="logout" size={20} />
-              <span className="text-sm font-medium">Cerrar Sesión</span>
-            </button>
-          </div>
-        )}
       </div>
     </aside>
   );

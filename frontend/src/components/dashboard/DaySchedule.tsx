@@ -226,7 +226,13 @@ export default function DaySchedule() {
             </button>
           </div>
         ) : todayEvents.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
+            <Icon
+              name="event_busy"
+              size={32}
+              className="text-gray-600 mx-auto mb-2"
+              variant="outlined"
+            />
             <p className="text-sm text-gray-600">
               No tienes clases programadas
             </p>
