@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { coursesService } from "@/services/courses.service";
 import { enrollmentService } from "@/services/enrollment.service";
@@ -10,8 +10,6 @@ import {
   CycleEvaluation,
   EvaluationLabel,
   PreviousCyclesResponse,
-  PreviousCycleContentResponse,
-  PreviousCycleEvaluation,
 } from "@/types/curso";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
@@ -265,9 +263,9 @@ function PreviousCycleCard({
       <div className="self-stretch inline-flex justify-start items-start">
         <div className="p-3 bg-bg-quartiary rounded-xl flex justify-start items-center">
           <Icon
-            name="calendar_today"
+            name="inventory_2"
             size={24}
-            className="text-icon-tertiary"
+            className="text-gray-700"
           />
         </div>
       </div>
@@ -294,81 +292,6 @@ function PreviousCycleCard({
           name="arrow_forward"
           size={16}
           className="text-icon-accent-primary"
-        />
-      </button>
-    </div>
-  );
-}
-
-// ============================================
-// Card de evaluación dentro de un ciclo anterior
-// ============================================
-
-function PreviousCycleEvaluationCard({
-  evaluation,
-}: {
-  evaluation: PreviousCycleEvaluation;
-}) {
-  const isBlocked = evaluation.label === "Bloqueado";
-
-  return (
-    <div
-      className={`self-stretch p-6 ${isBlocked ? "bg-bg-tertiary" : "bg-bg-primary"} rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-start items-end gap-4`}
-    >
-      {/* Icon + Badge */}
-      <div className="self-stretch inline-flex justify-between items-start">
-        <div
-          className={`p-2 ${isBlocked ? "bg-bg-disabled" : "bg-bg-quartiary"} rounded-full flex justify-start items-center`}
-        >
-          <Icon
-            name={isBlocked ? "lock" : "inventory_2"}
-            size={24}
-            className={isBlocked ? "text-icon-disabled" : "text-icon-tertiary"}
-          />
-        </div>
-        <div className="flex justify-start items-start">
-          <div
-            className={`px-2.5 py-1.5 ${isBlocked ? "bg-bg-disabled" : "bg-bg-quartiary"} rounded-full flex justify-center items-center gap-1`}
-          >
-            <span
-              className={`text-xs font-medium leading-3 ${isBlocked ? "text-text-disabled" : "text-text-secondary"}`}
-            >
-              {evaluation.label}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Title + Description */}
-      <div className="self-stretch flex flex-col justify-start items-start gap-1">
-        <div
-          className={`self-stretch text-lg font-semibold leading-5 ${isBlocked ? "text-text-secondary" : "text-text-primary"}`}
-        >
-          {evaluation.shortName}
-        </div>
-        <div
-          className={`self-stretch text-xs font-normal leading-4 ${isBlocked ? "text-text-tertiary" : "text-text-secondary"}`}
-        >
-          {evaluation.fullName}
-        </div>
-      </div>
-
-      {/* Ver Clases Link */}
-      <button
-        disabled={isBlocked}
-        className={`p-1 rounded-lg inline-flex justify-center items-center gap-1.5 ${isBlocked ? "cursor-not-allowed" : "hover:bg-bg-accent-light transition-colors"}`}
-      >
-        <span
-          className={`text-sm font-medium leading-4 ${isBlocked ? "text-text-disabled" : "text-text-accent-primary"}`}
-        >
-          Ver Clases
-        </span>
-        <Icon
-          name="arrow_forward"
-          size={16}
-          className={
-            isBlocked ? "text-icon-disabled" : "text-icon-accent-primary"
-          }
         />
       </button>
     </div>
@@ -473,12 +396,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [previousCycles, setPreviousCycles] =
     useState<PreviousCyclesResponse | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
-  // Vista de detalle de ciclo anterior
-  const [viewingCycleCode, setViewingCycleCode] = useState<string | null>(null);
-  const [previousCycleContent, setPreviousCycleContent] =
-    useState<PreviousCycleContentResponse | null>(null);
-  const [loadingPreviousContent, setLoadingPreviousContent] = useState(false);
-
   // Loading general (enrollment)
   const [loadingEnrollment, setLoadingEnrollment] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -552,27 +469,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
 
     loadPreviousCycles();
   }, [cursoId, currentCycle?.canViewPreviousCycles]);
-
-  // Cargar contenido de un ciclo anterior específico
-  const handleViewCycle = useCallback(
-    async (cycleCode: string) => {
-      setViewingCycleCode(cycleCode);
-      setLoadingPreviousContent(true);
-      setPreviousCycleContent(null);
-      try {
-        const data = await coursesService.getPreviousCycleContent(
-          cursoId,
-          cycleCode,
-        );
-        setPreviousCycleContent(data);
-      } catch (err) {
-        console.error(`Error al cargar contenido del ciclo ${cycleCode}:`, err);
-      } finally {
-        setLoadingPreviousContent(false);
-      }
-    },
-    [cursoId],
-  );
 
   // Helpers
   const getInitials = (firstName: string, lastName1: string) => {
@@ -827,106 +723,48 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
             ======================================== */}
         {activeTab === "anteriores" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
-            {/* Detalle de un ciclo específico */}
-            {viewingCycleCode ? (
-              <>
-                {/* Back + Title */}
-                <div className="self-stretch inline-flex justify-start items-center gap-4">
-                  <button
-                    onClick={() => {
-                      setViewingCycleCode(null);
-                      setPreviousCycleContent(null);
-                    }}
-                    className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex items-center gap-1"
-                  >
-                    <Icon
-                      name="arrow_back"
-                      size={20}
-                      className="text-icon-accent-primary"
-                    />
-                    <span className="text-text-accent-primary text-sm font-medium leading-4">
-                      Volver
-                    </span>
-                  </button>
-                  <span className="text-text-primary text-2xl font-semibold leading-7">
-                    Ciclo {viewingCycleCode}
-                  </span>
-                </div>
+            {/* Section Title */}
+            <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
+              <span className="text-text-primary text-2xl font-semibold leading-7">
+                Ciclos Pasados
+              </span>
+            </div>
 
-                {loadingPreviousContent ? (
-                  <div className="self-stretch flex justify-center py-12">
-                    <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : previousCycleContent &&
-                  previousCycleContent.evaluations.length > 0 ? (
-                  <div className="self-stretch inline-flex flex-col justify-start items-start">
-                    {previousCycleContent.evaluations.map((evaluation) => (
-                      <PreviousCycleEvaluationCard
-                        key={evaluation.id}
-                        evaluation={evaluation}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="self-stretch p-12 bg-bg-secondary rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
-                    <Icon
-                      name="history"
-                      size={64}
-                      className="text-icon-tertiary"
-                    />
-                    <div className="text-center">
-                      <p className="text-text-primary font-semibold mb-2">
-                        Sin evaluaciones en este ciclo
-                      </p>
-                      <p className="text-text-secondary text-sm">
-                        No hay evaluaciones disponibles para este ciclo
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </>
+            {loadingPrevious ? (
+              <div className="self-stretch flex justify-center py-12">
+                <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : previousCycles && previousCycles.cycles.length > 0 ? (
+              <div className="self-stretch grid grid-cols-3 gap-8">
+                {previousCycles.cycles.map((cycle) => (
+                  <PreviousCycleCard
+                    key={cycle.cycleCode}
+                    cycleCode={cycle.cycleCode}
+                    onViewCycle={(code) =>
+                      router.push(
+                        `/plataforma/curso/${cursoId}/ciclo-anterior/${code}`,
+                      )
+                    }
+                  />
+                ))}
+              </div>
             ) : (
-              <>
-                {/* Section Title */}
-                <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
-                  <span className="text-text-primary text-2xl font-semibold leading-7">
-                    Ciclos Pasados
-                  </span>
+              <div className="self-stretch p-12 bg-white rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
+                <Icon
+                  name="history"
+                  size={64}
+                  className="text-icon-tertiary"
+                />
+                <div className="text-center">
+                  <p className="text-text-primary font-semibold mb-2">
+                    No hay ciclos pasados disponibles
+                  </p>
+                  <p className="text-text-secondary text-sm">
+                    Los ciclos pasados aparecerán aquí cuando estén
+                    disponibles
+                  </p>
                 </div>
-
-                {loadingPrevious ? (
-                  <div className="self-stretch flex justify-center py-12">
-                    <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : previousCycles && previousCycles.cycles.length > 0 ? (
-                  <div className="self-stretch grid grid-cols-3 gap-8">
-                    {previousCycles.cycles.map((cycle) => (
-                      <PreviousCycleCard
-                        key={cycle.cycleCode}
-                        cycleCode={cycle.cycleCode}
-                        onViewCycle={handleViewCycle}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="self-stretch p-12 bg-white rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
-                    <Icon
-                      name="history"
-                      size={64}
-                      className="text-icon-tertiary"
-                    />
-                    <div className="text-center">
-                      <p className="text-text-primary font-semibold mb-2">
-                        No hay ciclos pasados disponibles
-                      </p>
-                      <p className="text-text-secondary text-sm">
-                        Los ciclos pasados aparecerán aquí cuando estén
-                        disponibles
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </div>
         )}

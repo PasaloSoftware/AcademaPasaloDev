@@ -665,7 +665,7 @@ export default function EvaluationContent({
     setBreadcrumbItems([
       { label: "Cursos" },
       { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: "Ciclo Vigente" },
+      { label: 'Ciclo Vigente', href: `/plataforma/curso/${cursoId}` },
       { label: evalShortName },
     ]);
   }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
