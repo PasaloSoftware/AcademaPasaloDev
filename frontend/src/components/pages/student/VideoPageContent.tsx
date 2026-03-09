@@ -106,7 +106,7 @@ interface VideoPageContentProps {
 export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPageContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
-  const { video, isMinimized, playVideo, minimize, closeVideo } = useVideoPlayer();
+  const { video, isMinimized, playVideo, closeVideo, registerContainer, unregisterContainer } = useVideoPlayer();
 
   const [event, setEvent] = useState<ClassEvent | null>(null);
   const [nextEvent, setNextEvent] = useState<ClassEvent | null>(null);
@@ -119,6 +119,18 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
   const [evalShortName, setEvalShortName] = useState('');
 
   const evaluationPath = `/plataforma/curso/${cursoId}/evaluacion/${evalId}`;
+
+  // Register/unregister the video placeholder container with context
+  const containerCallbackRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el) {
+        registerContainer(el);
+      } else {
+        unregisterContainer();
+      }
+    },
+    [registerContainer, unregisterContainer],
+  );
 
   // Load event data + next event
   useEffect(() => {
@@ -217,12 +229,6 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     }
   }, [event, eventId, video, playVideo, evaluationPath]);
 
-  // Minimize → navigate to evaluation page
-  const handleMinimize = useCallback(() => {
-    minimize();
-    router.push(evaluationPath);
-  }, [minimize, router, evaluationPath]);
-
   // Close → stop video and go to evaluation page
   const handleClose = useCallback(() => {
     closeVideo();
@@ -234,11 +240,6 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     if (!nextEvent) return;
     router.push(`${evaluationPath}/clase/${nextEvent.id}`);
   }, [nextEvent, router, evaluationPath]);
-
-  // Don't render full page if minimized
-  if (isMinimized && video?.eventId === eventId) {
-    return null;
-  }
 
   if (loading) {
     return (
@@ -286,7 +287,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
   }
 
   return (
-    <div className="w-full flex flex-col gap-6">
+    <div className="w-full flex flex-col gap-8">
       {/* Back link */}
       <button
         onClick={handleClose}
@@ -301,30 +302,25 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       {/* Two-column layout */}
       <div className="flex gap-6">
         {/* Left Column */}
-        <div className="flex-1 min-w-0 flex flex-col gap-8">
-          {/* Video Player */}
-          <div
-            className="relative w-full aspect-video bg-bg-black-solid rounded-xl overflow-hidden group"
-          >
-            <iframe
-              src={event.recordingUrl!}
-              className="w-full h-full"
-              allow="autoplay; encrypted-media; fullscreen"
-              allowFullScreen
-              title={`Clase ${event.sessionNumber}: ${event.topic}`}
-            />
-
-            {/* Minimize overlay (top-right, visible on hover) */}
-            <div className="absolute top-12 right-1 p-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <button
-                onClick={handleMinimize}
-                className="w-10 h-10 flex items-center justify-center bg-black/60 rounded-none hover:bg-black/80 transition-colors"
-                title="Minimizar"
-              >
-                <Icon name="picture_in_picture_alt" size={20} className="text-icon-white" />
-              </button>
+        <div className="w-[721px] flex-shrink-0 flex flex-col gap-8">
+          {/* Video Player area */}
+          {isMinimized ? (
+            <div className="self-stretch h-96 p-3 bg-gray-900 rounded-xl inline-flex flex-col justify-center items-center">
+              <div className="self-stretch flex flex-col justify-center items-center gap-4">
+                <div className="self-stretch text-center text-white text-sm font-semibold leading-4">
+                  Reproduciendo en modo de pantalla en pantalla
+                </div>
+                <div className="self-stretch text-center text-white text-[10px] font-normal leading-3">
+                  Si cierras esta ventana, se cerrará el reproductor
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              ref={containerCallbackRef}
+              className="relative w-full aspect-video bg-bg-black-solid rounded-xl overflow-hidden"
+            />
+          )}
 
           {/* Event Info */}
           <div className="flex flex-col gap-2">
@@ -380,7 +376,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
         </div>
 
         {/* Right Column - Materials */}
-        <div className="w-[348px] flex-shrink-0 self-start p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col gap-4">
+        <div className="flex-1 min-w-0 self-start p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col gap-4">
             <h2 className="text-gray-600 text-base font-semibold leading-5">
               Materiales de esta clase
             </h2>
