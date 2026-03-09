@@ -1,34 +1,94 @@
 import Icon from "../ui/Icon";
 
+export interface TeacherInfo {
+  initials: string;
+  name: string;
+  avatarColor?: string;
+  photoUrl?: string;
+}
+
 export interface CourseCardProps {
-  /** Color de la banda superior/lateral del curso */
   headerColor: string;
-  /** Categoría del curso (ej: "CIENCIAS", "HUMANIDADES") */
   category: string;
-  /** Ciclo del curso (ej: "1° CICLO", "2° CICLO") */
   cycle: string;
-  /** Título del curso */
   title: string;
-  /** Lista de docentes del curso */
-  teachers: Array<{
-    /** Iniciales del docente */
-    initials: string;
-    /** Nombre completo del docente */
-    name: string;
-    /** Color de fondo del avatar */
-    avatarColor?: string;
-  }>;
-  /** Función callback al hacer clic en "Ver Curso" */
+  teachers: TeacherInfo[];
   onViewCourse?: () => void;
-  /** Variante de visualización: 'grid' (tarjetas) o 'list' (lista horizontal) */
   variant?: 'grid' | 'list';
 }
 
-/**
- * Componente de tarjeta de curso reutilizable
- * Muestra información del curso con diseño modular y responsive
- * Soporta dos vistas: grid (tarjetas verticales) y list (tarjetas horizontales)
- */
+// ============================================
+// Avatares de profesores (compartido por ambas vistas)
+// ============================================
+
+function TeacherAvatars({ teachers }: { teachers: TeacherInfo[] }) {
+  if (teachers.length === 0) return null;
+
+  if (teachers.length === 1) {
+    const t = teachers[0];
+    return t.photoUrl ? (
+      <img
+        className="w-8 h-8 rounded-full object-cover"
+        src={t.photoUrl}
+        alt={t.name}
+      />
+    ) : (
+      <div
+        className="w-8 h-8 p-1 rounded-full inline-flex justify-center items-center"
+        style={{ backgroundColor: t.avatarColor || '#198754' }}
+      >
+        <span className="text-center text-text-white text-[10px] font-medium leading-3">
+          {t.initials}
+        </span>
+      </div>
+    );
+  }
+
+  // 2+ profesores: avatares superpuestos
+  return (
+    <div className="w-14 h-8 relative">
+      {/* Segundo avatar (derecha, atrás) */}
+      {teachers[1].photoUrl ? (
+        <img
+          className="w-8 h-8 absolute left-7 top-0 rounded-full object-cover"
+          src={teachers[1].photoUrl}
+          alt={teachers[1].name}
+        />
+      ) : (
+        <div
+          className="w-8 h-8 p-1 absolute left-7 top-0 rounded-full inline-flex justify-center items-center"
+          style={{ backgroundColor: teachers[1].avatarColor || '#3b82f6' }}
+        >
+          <span className="text-center text-text-white text-[10px] font-medium leading-3">
+            {teachers[1].initials}
+          </span>
+        </div>
+      )}
+      {/* Primer avatar (izquierda, adelante con borde blanco) */}
+      {teachers[0].photoUrl ? (
+        <img
+          className="w-8 h-8 absolute left-0 top-0 rounded-full object-cover outline outline-2 outline-stroke-white"
+          src={teachers[0].photoUrl}
+          alt={teachers[0].name}
+        />
+      ) : (
+        <div
+          className="w-8 h-8 p-1 absolute left-0 top-0 rounded-full outline outline-2 outline-stroke-white inline-flex justify-center items-center"
+          style={{ backgroundColor: teachers[0].avatarColor || '#198754' }}
+        >
+          <span className="text-center text-text-white text-[10px] font-medium leading-3">
+            {teachers[0].initials}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Componente principal
+// ============================================
+
 export default function CourseCard({
   headerColor,
   category,
@@ -38,73 +98,48 @@ export default function CourseCard({
   onViewCourse,
   variant = 'grid',
 }: CourseCardProps) {
-  // Vista de Lista (horizontal)
+  const teacherNames = teachers.length > 0
+    ? `Docente: ${teachers.map((t) => t.name).join(' & ')}`
+    : 'Sin asignar';
+
+  // ========== Vista Lista ==========
   if (variant === 'list') {
     return (
-      <div className="bg-white rounded-2xl border border-stroke-primary overflow-hidden flex items-center">
-        {/* Banda de color lateral */}
-        <div className="w-10 self-stretch rounded-tl-2xl rounded-bl-2xl" style={{ backgroundColor: headerColor }}></div>
+      <div className="self-stretch bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center">
+        {/* Banda lateral */}
+        <div
+          className="w-10 self-stretch rounded-tl-xl rounded-bl-xl"
+          style={{ backgroundColor: headerColor }}
+        />
 
-        {/* Contenido del card */}
-        <div className="flex-1 p-4 flex items-center gap-4">
-          {/* Información del curso y docentes */}
-          <div className="flex-1 flex flex-col gap-2">
-            {/* Tags y título */}
-            <div className="flex flex-col gap-2">
-              {/* Tags: Categoría y Ciclo */}
-              <div className="flex items-center gap-1.5">
-                <span className="px-2 py-1 bg-success-light rounded-full text-[10px] font-medium text-success-primary leading-3">
+        {/* Contenido */}
+        <div className="flex-1 p-4 flex justify-start items-center gap-5">
+          {/* Info + Docente */}
+          <div className="flex-1 inline-flex flex-col justify-start items-end gap-2">
+            {/* Tags + Título */}
+            <div className="self-stretch flex flex-col justify-start items-start gap-2">
+              <div className="self-stretch inline-flex justify-start items-center gap-1.5">
+                <span className="px-2 py-1 bg-bg-success-light rounded-full text-text-success-primary text-[10px] font-medium leading-3">
                   {category}
                 </span>
-                <span className="px-2 py-1 bg-bg-tertiary rounded-full text-[10px] font-medium text-secondary leading-3">
+                <span className="px-2 py-1 bg-bg-quartiary rounded-full text-text-secondary text-[10px] font-medium leading-3 uppercase">
                   {cycle}
                 </span>
               </div>
-
-              {/* Título del curso */}
-              <h3 className="text-lg font-semibold text-primary leading-5 line-clamp-1">
+              <h3 className="self-stretch text-text-primary text-lg font-semibold leading-5 line-clamp-1">
                 {title}
               </h3>
             </div>
 
-            {/* Información del/los docente(s) */}
-            <div className="flex items-center gap-2">
-              {/* Avatar(es) */}
-              {teachers.length === 1 ? (
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: teachers[0].avatarColor || '#10b981' }}
-                >
-                  <span className="text-[10px] font-medium text-white leading-3">
-                    {teachers[0].initials}
-                  </span>
-                </div>
-              ) : (
-                <div className="w-10 h-6 relative">
-                  <div
-                    className="w-6 h-6 absolute left-0 top-0 rounded-full border-2 border-white flex items-center justify-center z-10"
-                    style={{ backgroundColor: teachers[0].avatarColor || '#10b981' }}
-                  >
-                    <span className="text-[10px] font-medium text-white leading-3">
-                      {teachers[0].initials}
-                    </span>
-                  </div>
-                  <div
-                    className="w-6 h-6 absolute left-[18px] top-0 rounded-full border border-black flex items-center justify-center"
-                    style={{ backgroundColor: teachers[1]?.avatarColor || '#3b82f6' }}
-                  >
-                    <span className="text-[10px] font-medium text-white leading-3">
-                      {teachers[1]?.initials}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Nombre(s) del/los docente(s) */}
-              <div className="flex-1 flex items-start gap-1">
-                <span className="text-base font-medium text-secondary leading-4">Docente:</span>
-                <span className="flex-1 text-base text-secondary leading-4 line-clamp-1">
-                  {teachers.map((t) => t.name).join(' & ')}
+            {/* Docente */}
+            <div className="self-stretch inline-flex justify-start items-center gap-2">
+              <TeacherAvatars teachers={teachers} />
+              <div className="flex-1 self-stretch inline-flex flex-col justify-center items-start gap-0.5">
+                <span className="text-text-quartiary text-[10px] font-medium leading-3">
+                  ASESOR
+                </span>
+                <span className="self-stretch text-text-secondary text-base font-normal leading-4 line-clamp-2">
+                  {teacherNames}
                 </span>
               </div>
             </div>
@@ -113,78 +148,53 @@ export default function CourseCard({
           {/* Botón Ver Curso */}
           <button
             onClick={onViewCourse}
-            className="px-4 py-3 bg-accent-solid rounded-lg text-sm font-medium text-white hover:bg-accent-solid-hover transition-colors flex items-center justify-center gap-1"
+            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
           >
-            <span>Ver Curso</span>
-            <Icon name="arrow_forward" size={14} className="text-white" />
+            <span className="text-text-white text-sm font-medium leading-4">Ver Curso</span>
+            <Icon name="arrow_forward" size={16} className="text-icon-white" />
           </button>
         </div>
       </div>
     );
   }
 
-  // Vista de Galería (vertical/tarjetas)
+  // ========== Vista Galería ==========
   return (
-    <div className="bg-white rounded-2xl border border-stroke-primary overflow-hidden flex flex-col h-full">
-      {/* Banda de color superior */}
-      <div className="h-16 flex-shrink-0" style={{ backgroundColor: headerColor }}></div>
+    <div className="self-stretch bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col justify-center items-start">
+      {/* Banda superior */}
+      <div
+        className="self-stretch h-16 rounded-tl-xl rounded-tr-xl"
+        style={{ backgroundColor: headerColor }}
+      />
 
-      {/* Contenido del card - usando flex con justify-between para empujar el footer abajo */}
-      <div className="p-4 flex-1 flex flex-col justify-between gap-4">
-        {/* Información del curso - pegado arriba */}
-        <div className="space-y-2.5">
-          {/* Tags: Categoría y Ciclo */}
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1.5 bg-success-light rounded-full text-xs font-medium text-success-primary">
+      {/* Contenido */}
+      <div className="self-stretch h-56 p-4 flex flex-col justify-between items-end">
+        {/* Tags + Título */}
+        <div className="self-stretch flex flex-col justify-start items-start gap-2.5">
+          <div className="self-stretch inline-flex justify-start items-center gap-2">
+            <span className="px-2.5 py-1.5 bg-bg-success-light rounded-full text-text-success-primary text-xs font-medium leading-3">
               {category}
             </span>
-            <span className="px-2.5 py-1.5 bg-bg-tertiary rounded-full text-xs font-medium text-secondary">
+            <span className="px-2.5 py-1.5 bg-bg-quartiary rounded-full text-text-secondary text-xs font-medium leading-3 uppercase">
               {cycle}
             </span>
           </div>
-
-          {/* Título del curso */}
-          <h3 className="text-xl font-semibold text-primary line-clamp-2">
+          <h3 className="self-stretch text-text-primary text-xl font-semibold leading-6 line-clamp-2">
             {title}
           </h3>
         </div>
 
-        {/* Footer: Docente(s) y botón - pegado abajo */}
-        <div className="space-y-5">
-          {/* Información del/los docente(s) */}
-          <div className="flex items-center gap-2">
-            {/* Avatar(es) */}
-            {teachers.length === 1 ? (
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: teachers[0].avatarColor || '#10b981' }}
-              >
-                <span className="text-[10px] font-medium text-white">
-                  {teachers[0].initials}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center -space-x-2 flex-shrink-0">
-                {teachers.map((teacher, index) => (
-                  <div
-                    key={index}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 border-white ${index === 0 ? 'z-10' : ''
-                      }`}
-                    style={{ backgroundColor: teacher.avatarColor || '#10b981' }}
-                  >
-                    <span className="text-[10px] font-medium text-white">
-                      {teacher.initials}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Nombre(s) del/los docente(s) */}
-            <div className="flex-1 flex items-start gap-1 min-w-0">
-              <span className="text-base font-medium text-secondary flex-shrink-0">Docente:</span>
-              <span className="flex-1 text-base text-secondary truncate">
-                {teachers.map((t) => t.name).join(' & ')}
+        {/* Docente + Botón */}
+        <div className="self-stretch flex flex-col justify-end items-end gap-5">
+          {/* Docente */}
+          <div className="self-stretch inline-flex justify-start items-center gap-2">
+            <TeacherAvatars teachers={teachers} />
+            <div className="flex-1 self-stretch inline-flex flex-col justify-center items-start gap-0.5">
+              <span className="text-text-quartiary text-[10px] font-medium leading-3">
+                ASESOR
+              </span>
+              <span className="self-stretch text-text-secondary text-base font-normal leading-4 line-clamp-2">
+                {teacherNames}
               </span>
             </div>
           </div>
@@ -192,10 +202,10 @@ export default function CourseCard({
           {/* Botón Ver Curso */}
           <button
             onClick={onViewCourse}
-            className="w-full px-4 py-3 bg-accent-solid rounded-lg text-sm font-medium text-white hover:bg-accent-solid-hover transition-colors flex items-center justify-center gap-1"
+            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
           >
-            <span>Ver Curso</span>
-            <Icon name="arrow_forward" size={14} className="text-white" />
+            <span className="text-text-white text-sm font-medium leading-4">Ver Curso</span>
+            <Icon name="arrow_forward" size={16} className="text-icon-white" />
           </button>
         </div>
       </div>

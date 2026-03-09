@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { clearAuth } from '@/lib/storage';
+import Modal from '@/components/ui/Modal';
 
 /**
  * Modal que se muestra cuando la sesión ha sido cerrada remotamente
@@ -31,24 +32,24 @@ export default function SessionClosedModal() {
     };
   }, []);
 
-  if (!showModal) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
-          Tu sesión ha sido cerrada
-        </h3>
-        <p className="text-gray-600 mb-6">
-          Esto puede ocurrir porque iniciaste sesión en otro dispositivo, tu sesión expiró por inactividad, o se detectó actividad sospechosa.
-        </p>
-        <button
-          onClick={handleRedirect}
-          className="w-full px-4 py-2 bg-deep-blue-700 text-white rounded-lg hover:bg-deep-blue-800 transition-colors"
-        >
+    <Modal
+      isOpen={showModal}
+      onClose={handleRedirect}
+      title="Tu sesión ha sido cerrada"
+      closeOnOverlay={false}
+      showCloseButton={false}
+      zIndex={9999}
+      footer={
+        <Modal.Button variant="primary" onClick={handleRedirect} className="w-full">
           Iniciar sesión nuevamente
-        </button>
-      </div>
-    </div>
+        </Modal.Button>
+      }
+    >
+      <p className="text-text-tertiary text-base font-normal leading-4">
+        Esto puede ocurrir porque iniciaste sesión en otro dispositivo, tu sesión expiró
+        por inactividad, o se detectó actividad sospechosa.
+      </p>
+    </Modal>
   );
 }
