@@ -8,6 +8,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from "@/contexts/AuthContext";
 import TopBar from '@/components/TopBar';
 import Icon from "@/components/ui/Icon";
+import Modal from "@/components/ui/Modal";
 
 export default function PlataformaPage() {
   const router = useRouter();
@@ -225,93 +226,86 @@ export default function PlataformaPage() {
             )}
 
             {/* Concurrent Session Modal */}
-            {showConcurrentModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    Sesión activa detectada
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Ya tienes una sesión activa en otro dispositivo. ¿Qué deseas hacer?
-                  </p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={async () => {
-                        try {
-                          setIsResolvingSession(true);
-                          setError(null);
-                          // KEEP_NEW = Cerrar la otra sesión y mantener esta
-                          await resolveConcurrentSession('KEEP_NEW');
-                          // El AuthContext manejará el redirect automáticamente
-                        } catch (err) {
-                          console.error('Error al resolver sesión:', err);
-                          setIsResolvingSession(false);
-                          setError('Error al cerrar la otra sesión. Intenta nuevamente.');
-                        }
-                      }}
-                      disabled={isResolvingSession}
-                      className="flex-1 px-4 py-2 bg-deep-blue-700 text-white rounded-lg hover:bg-deep-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isResolvingSession ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2"></div>
-                          Cerrando...
-                        </>
-                      ) : (
-                        'Cerrar otra sesión'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        cancelPendingSession();
-                        setIsResolvingSession(false);
-                        setIsLoggingIn(false);
+            <Modal
+              isOpen={showConcurrentModal}
+              onClose={() => {
+                cancelPendingSession();
+                setIsResolvingSession(false);
+                setIsLoggingIn(false);
+                setError(null);
+              }}
+              title="Sesión activa en otro dispositivo"
+              closeOnOverlay={!isResolvingSession}
+              footer={
+                <>
+                  <Modal.Button
+                    variant="secondary"
+                    onClick={() => {
+                      cancelPendingSession();
+                      setIsResolvingSession(false);
+                      setIsLoggingIn(false);
+                      setError(null);
+                    }}
+                    disabled={isResolvingSession}
+                  >
+                    Cancelar
+                  </Modal.Button>
+                  <Modal.Button
+                    variant="primary"
+                    loading={isResolvingSession}
+                    loadingText="Cerrando..."
+                    onClick={async () => {
+                      try {
+                        setIsResolvingSession(true);
                         setError(null);
-                      }}
-                      disabled={isResolvingSession}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+                        await resolveConcurrentSession('KEEP_NEW');
+                      } catch (err) {
+                        console.error('Error al resolver sesión:', err);
+                        setIsResolvingSession(false);
+                        setError('Error al cerrar la otra sesión. Intenta nuevamente.');
+                      }
+                    }}
+                  >
+                    Cerrar otra sesión
+                  </Modal.Button>
+                </>
+              }
+            >
+              <p className="text-text-tertiary text-base font-normal leading-4">
+                Parece que tienes una sesión abierta en otro dispositivo. ¿Te gustaría cerrar esa sesión para continuar en este?
+              </p>
+            </Modal>
 
             {/* Reauth Modal - Verificación de seguridad */}
-            {showReauthModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
-                  {/* Icono */}
-                  <div className="flex justify-center mb-4">
-                    <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Icon name="shield" size={28} className="text-amber-500" />
-                    </div>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-gray-900 mb-3 text-center">
-                    Verificación de identidad
-                  </h3>
-
-                  <p className="text-gray-600 mb-2 text-center text-sm">
-                    Hemos detectado un inicio de sesión desde una ubicación diferente a la habitual.
-                    Por tu seguridad, necesitamos verificar tu identidad.
-                  </p>
-
-                  <p className="text-gray-500 mb-6 text-center text-xs">
-                    Si no reconoces este intento de acceso, te recomendamos cambiar tu contraseña
-                    de Google después de verificarte.
-                  </p>
-
-                  <button
-                    onClick={() => handleGoogleLogin()}
-                    className="w-full px-4 py-3 bg-deep-blue-700 text-white rounded-lg hover:bg-deep-blue-800 transition-colors font-medium"
-                  >
-                    Verificar con Google
-                  </button>
-                </div>
+            <Modal
+              isOpen={showReauthModal}
+              onClose={() => {
+                cancelPendingSession();
+                setIsLoggingIn(false);
+                setError(null);
+              }}
+              title="Verificación de identidad"
+              footer={
+                <Modal.Button
+                  variant="primary"
+                  onClick={() => handleGoogleLogin()}
+                  className="w-full"
+                >
+                  Verificar con Google
+                </Modal.Button>
+              }
+            >
+              <div className="flex flex-col gap-3">
+                <p className="text-text-tertiary text-base font-normal leading-4">
+                  Hemos detectado un inicio de sesión desde una ubicación diferente a la habitual.
+                  Por tu seguridad, necesitamos verificar tu identidad.
+                </p>
+                <p className="text-text-tertiary text-xs font-normal leading-4">
+                  Si no reconoces este intento de acceso, te recomendamos cambiar tu contraseña
+                  de Google después de verificarte.
+                </p>
               </div>
-            )}
+            </Modal>
 
             {/* Bottom Text with Link */}
             <div className="w-full flex items-center justify-center gap-0.5">

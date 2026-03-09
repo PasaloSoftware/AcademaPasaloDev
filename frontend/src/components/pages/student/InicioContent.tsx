@@ -197,7 +197,7 @@ export default function InicioContent() {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-12">
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_348px] gap-12">
       {/* Columna Izquierda: Cursos */}
       <div className="space-y-9">
         {/* Header: Mis Cursos con toggles */}
@@ -305,13 +305,8 @@ export default function InicioContent() {
         {/* CTA Tutoría */}
         <div className="relative bg-info-secondary-solid rounded-2xl p-6 flex flex-col gap-5 overflow-hidden">
           {/* Icono decorativo de fondo */}
-          <div className="absolute right-0 top-24 w-40 h-40 opacity-20">
-            <Icon name="star_half" size={160} className="text-white" />
-          </div>
-
-          {/* Contenido */}
-          <div className="relative z-10">
-            <Icon name="auto_awesome" size={48} className="text-white" />
+          <div className="absolute right-[-28] bottom-20 w-40 h-40">
+            <Icon name="help" size={160} className="text-magenta-violet-500" />
           </div>
 
           <div className="relative z-10 space-y-3">
@@ -324,7 +319,7 @@ export default function InicioContent() {
             <div className="relative z-10 flex justify-end">
             <button
               onClick={() => setIsModalOpen(true)}
-              className="w-full px-4 py-3 bg-magenta-violet-50 rounded-lg border border-magenta-violet-700 text-sm font-medium text-magenta-violet-700 transition-colors hover:bg-magenta-violet-100"
+              className="px-6 py-3 bg-magenta-violet-50 rounded-lg border border-magenta-violet-700 text-sm font-medium text-magenta-violet-700 transition-colors hover:bg-magenta-violet-100"
             >
               Agendar Tutoría
             </button>
