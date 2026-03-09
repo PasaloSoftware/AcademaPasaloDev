@@ -87,7 +87,7 @@ function ModalButton({
 // ============================================
 
 const sizeClasses: Record<ModalSize, string> = {
-  sm: 'w-96',       // 384px - Figma "Small"
+  sm: 'w-[448px]',       // 384px - Figma "Small"
   md: 'max-w-lg w-full',   // 512px
   lg: 'max-w-2xl w-full',  // 672px
 };
