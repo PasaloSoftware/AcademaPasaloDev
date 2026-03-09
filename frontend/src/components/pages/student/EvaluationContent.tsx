@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
@@ -121,10 +121,41 @@ function getFileIconPath(mimeType: string, fileName: string): string {
 }
 
 // ============================================
+// Tipo visual de la card de sesión
+// ============================================
+
+type SessionCardType = "GRABADA" | "EN_VIVO_PRONTO" | "PROGRAMADA";
+
+function getSessionCardType(event: ClassEvent): SessionCardType {
+  // EN_CURSO siempre es "en vivo"
+  if (event.sessionStatus === "EN_CURSO" && !event.isCancelled) {
+    return "EN_VIVO_PRONTO";
+  }
+
+  // PROGRAMADA pero falta ≤ 1 hora → EN VIVO PRONTO
+  if (event.sessionStatus === "PROGRAMADA" && !event.isCancelled) {
+    const msUntilStart = new Date(event.startDatetime).getTime() - Date.now();
+    if (msUntilStart > 0 && msUntilStart <= 60 * 60 * 1000) {
+      return "EN_VIVO_PRONTO";
+    }
+    return "PROGRAMADA";
+  }
+
+  // FINALIZADA o CANCELADA → card de grabación
+  return "GRABADA";
+}
+
+/** Calcula minutos restantes hasta startDatetime */
+function getMinutesUntilStart(startDatetime: string): number {
+  const ms = new Date(startDatetime).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (60 * 1000)));
+}
+
+// ============================================
 // Badge de estado de grabación
 // ============================================
 
-function RecordingBadge({ event }: { event: ClassEvent }) {
+function SessionBadge({ event, cardType }: { event: ClassEvent; cardType: SessionCardType }) {
   if (event.isCancelled) {
     return (
       <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center">
@@ -135,7 +166,18 @@ function RecordingBadge({ event }: { event: ClassEvent }) {
     );
   }
 
-  if (event.canWatchRecording && event.recordingStatus === "READY") {
+  if (cardType === "EN_VIVO_PRONTO") {
+    return (
+      <div className="px-2 py-1 bg-error-light rounded-full flex justify-center items-center gap-1">
+        <Icon name="circle" size={12} className="text-red-600" variant="rounded" />
+        <span className="text-red-600 text-[10px] font-semibold leading-3">
+          EN VIVO PRONTO
+        </span>
+      </div>
+    );
+  }
+
+  if (cardType === "GRABADA") {
     return (
       <div className="px-2 py-1 bg-bg-info-primary-light rounded-full flex justify-center items-center">
         <span className="text-text-info-primary text-[10px] font-semibold leading-3">
@@ -145,17 +187,7 @@ function RecordingBadge({ event }: { event: ClassEvent }) {
     );
   }
 
-  if (event.status === "EN_CURSO") {
-    return (
-      <div className="px-2 py-1 bg-bg-success-light rounded-full flex justify-center items-center">
-        <span className="text-text-success-primary text-[10px] font-semibold leading-3">
-          EN VIVO
-        </span>
-      </div>
-    );
-  }
-
-  if (event.status === "PROGRAMADA") {
+  if (cardType === "PROGRAMADA") {
     return (
       <div className="px-2 py-1 bg-bg-quartiary rounded-full flex justify-center items-center">
         <span className="text-text-secondary text-[10px] font-semibold leading-3">
@@ -264,9 +296,23 @@ function ClassSessionCard({
   evalId: string;
 }) {
   const router = useRouter();
+  const cardType = getSessionCardType(event);
   const canWatch =
     event.canWatchRecording && event.recordingStatus === "READY";
   const duration = formatDurationHMS(event.startDatetime, event.endDatetime);
+  // Siempre mostrar botón de materiales
+  const hasMaterials = true;
+
+  // Countdown for EN_VIVO_PRONTO
+  const [minutesLeft, setMinutesLeft] = useState(() => getMinutesUntilStart(event.startDatetime));
+
+  useEffect(() => {
+    if (cardType !== "EN_VIVO_PRONTO") return;
+    const interval = setInterval(() => {
+      setMinutesLeft(getMinutesUntilStart(event.startDatetime));
+    }, 30_000); // update every 30s
+    return () => clearInterval(interval);
+  }, [cardType, event.startDatetime]);
 
   const handleWatchRecording = () => {
     if (canWatch) {
@@ -274,8 +320,168 @@ function ClassSessionCard({
     }
   };
 
-  const hasMaterials = materials.length > 0 || loadingMaterials;
+  const handleJoinLive = () => {
+    if (event.liveMeetingUrl) {
+      window.open(event.liveMeetingUrl, "_blank", "noopener,noreferrer");
+    }
+  };
 
+  // Format "Hoy, 7pm" style for EN VIVO PRONTO
+  const formatLiveTime = useCallback(() => {
+    const start = new Date(event.startDatetime);
+    const now = new Date();
+    const isToday =
+      start.getDate() === now.getDate() &&
+      start.getMonth() === now.getMonth() &&
+      start.getFullYear() === now.getFullYear();
+    const timeStr = formatSingleTime(start, true);
+    return isToday ? `Hoy, ${timeStr}` : `${formatDate(event.startDatetime)}, ${timeStr}`;
+  }, [event.startDatetime]);
+
+  // ── EN VIVO PRONTO card ──
+  if (cardType === "EN_VIVO_PRONTO") {
+    return (
+      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary inline-flex justify-start items-start gap-6">
+        {/* Left icon area */}
+        <div className="h-32 aspect-video shrink-0 p-2 bg-bg-accent-light rounded-lg inline-flex flex-col justify-center items-center gap-2">
+          <Icon name="videocam" size={40} className="text-icon-accent-primary" variant="rounded" />
+          <span className="text-text-accent-primary text-sm font-semibold leading-4">
+            EN VIVO PRONTO
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
+          <div className="self-stretch flex flex-col justify-start items-start gap-2">
+            {/* Title + Badge */}
+            <div className="self-stretch inline-flex justify-start items-start gap-4">
+              <div className="flex-1 flex justify-start items-start gap-1">
+                <span className="text-text-primary text-lg font-semibold leading-5">
+                  Clase {event.sessionNumber}:
+                </span>
+                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
+                  {event.topic}
+                </span>
+              </div>
+              <SessionBadge event={event} cardType={cardType} />
+            </div>
+
+            {/* Countdown */}
+            <div className="self-stretch inline-flex justify-start items-center gap-1">
+              <Icon name="schedule" size={14} className="text-icon-accent-primary" variant="rounded" />
+              <span className="text-text-accent-primary text-xs font-medium leading-4">
+                Empieza en {minutesLeft} min ({formatLiveTime()})
+              </span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
+            {hasMaterials && (
+              <button
+                onClick={() => onOpenMaterials(event.id)}
+                className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+              >
+                <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
+                <span className="text-text-accent-primary text-sm font-medium leading-4">
+                  Materiales de Clase
+                </span>
+              </button>
+            )}
+            <button
+              onClick={handleJoinLive}
+              disabled={!event.liveMeetingUrl}
+              className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 transition-colors ${
+                event.liveMeetingUrl
+                  ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
+                  : "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
+              }`}
+            >
+              <Icon name="videocam" size={16} className="text-icon-white" variant="rounded" />
+              <span className="text-text-white text-sm font-medium leading-4">
+                Unirse a la Clase
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PROGRAMADA card ──
+  if (cardType === "PROGRAMADA") {
+    return (
+      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+        {/* Left icon area */}
+        <div className="h-32 aspect-video shrink-0 p-2 bg-bg-tertiary rounded-lg inline-flex flex-col justify-center items-center gap-2">
+          <Icon name="event" size={40} className="text-icon-tertiary" variant="rounded" />
+          <span className="text-gray-600 text-sm font-semibold leading-4">
+            CLASE PROGRAMADA
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
+          <div className="self-stretch flex flex-col justify-start items-start gap-2">
+            {/* Title + Badge */}
+            <div className="self-stretch inline-flex justify-start items-start gap-4">
+              <div className="flex-1 flex justify-start items-start gap-1">
+                <span className="text-text-primary text-lg font-semibold leading-5">
+                  Clase {event.sessionNumber}:
+                </span>
+                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
+                  {event.topic}
+                </span>
+              </div>
+              <SessionBadge event={event} cardType={cardType} />
+            </div>
+
+            {/* Date + Time */}
+            <div className="self-stretch flex flex-col justify-start items-start gap-1">
+              <div className="self-stretch inline-flex justify-start items-center gap-1">
+                <Icon name="calendar_today" size={14} className="text-icon-secondary" variant="rounded" />
+                <span className="text-text-tertiary text-xs font-normal leading-4">
+                  {formatDate(event.startDatetime)}
+                </span>
+              </div>
+              <div className="self-stretch inline-flex justify-start items-center gap-1">
+                <Icon name="schedule" size={14} className="text-icon-secondary" variant="rounded" />
+                <span className="text-text-secondary text-xs font-normal leading-3">
+                  {formatTimeRange(event.startDatetime, event.endDatetime)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
+            {hasMaterials && (
+              <button
+                onClick={() => onOpenMaterials(event.id)}
+                className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+              >
+                <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
+                <span className="text-text-accent-primary text-sm font-medium leading-4">
+                  Materiales de Clase
+                </span>
+              </button>
+            )}
+            <button
+              disabled
+              className="px-6 py-3 bg-bg-disabled rounded-lg flex justify-center items-center gap-1.5 cursor-not-allowed"
+            >
+              <Icon name="videocam" size={16} className="text-icon-disabled" variant="rounded" />
+              <span className="text-text-disabled text-sm font-medium leading-4">
+                Unirme a la Clase
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── GRABADA card (default: FINALIZADA / CANCELADA) ──
   return (
     <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
       {/* Video Thumbnail */}
@@ -311,7 +517,7 @@ function ClassSessionCard({
                 {event.topic}
               </span>
             </div>
-            <RecordingBadge event={event} />
+            <SessionBadge event={event} cardType={cardType} />
           </div>
 
           {/* Date + Time */}
@@ -467,8 +673,95 @@ export default function EvaluationContent({
     ]);
   }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
 
-  // Cargar sesiones de clase
+  // ⚠️ MOCK DATA — BORRAR ESTE BLOQUE COMPLETO (buscar "MOCK_START" y "MOCK_END")
+  // MOCK_START
   useEffect(() => {
+    const now = new Date();
+    const in30min = new Date(now.getTime() + 30 * 60 * 1000);
+    const in30minEnd = new Date(in30min.getTime() + 2 * 60 * 60 * 1000);
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextWeekEnd = new Date(nextWeek.getTime() + 2 * 60 * 60 * 1000);
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEnd = new Date(yesterday.getTime() + 2 * 60 * 60 * 1000);
+
+    const baseMock = {
+      liveMeetingUrl: "https://meet.google.com/pasalo-test",
+      recordingUrl: null,
+      isCancelled: false,
+      canJoinLive: false,
+      canCopyLiveLink: false,
+      canCopyRecordingLink: false,
+      courseName: "Álgebra Matricial",
+      courseCode: "MATE101",
+      courseCycleId: "20",
+      evaluationId: "120",
+      evaluationName: "PC4",
+      creator: { id: "2", firstName: "Docente", lastName1: "Pasalo", lastName2: "", profilePhotoUrl: null },
+      professors: [],
+      createdAt: now.toISOString(),
+      updatedAt: null,
+    };
+
+    const mockEvents: ClassEvent[] = [
+      {
+        ...baseMock,
+        id: "mock-1",
+        sessionNumber: 1,
+        title: "Sesión 1",
+        topic: "Introducción a matrices",
+        startDatetime: yesterday.toISOString(),
+        endDatetime: yesterdayEnd.toISOString(),
+        sessionStatus: "FINALIZADA",
+        recordingStatus: "READY",
+        canWatchRecording: true,
+        recordingUrl: "https://drive.google.com/file/d/1gQ616dto69rGFt9PFQhK85YvoUXyLssD/preview",
+      },
+      {
+        ...baseMock,
+        id: "mock-2",
+        sessionNumber: 2,
+        title: "Sesión 2",
+        topic: "Ángulo de inclinación y pendiente de una recta",
+        startDatetime: in30min.toISOString(),
+        endDatetime: in30minEnd.toISOString(),
+        sessionStatus: "PROGRAMADA",
+        recordingStatus: "NOT_AVAILABLE",
+        canWatchRecording: false,
+      },
+      {
+        ...baseMock,
+        id: "mock-3",
+        sessionNumber: 3,
+        title: "Sesión 3",
+        topic: "PCs pasadas",
+        startDatetime: nextWeek.toISOString(),
+        endDatetime: nextWeekEnd.toISOString(),
+        sessionStatus: "PROGRAMADA",
+        recordingStatus: "NOT_AVAILABLE",
+        canWatchRecording: false,
+        liveMeetingUrl: null,
+      },
+      {
+        ...baseMock,
+        id: "mock-4",
+        sessionNumber: 4,
+        title: "Sesión 4",
+        topic: "Repaso Final",
+        startDatetime: yesterday.toISOString(),
+        endDatetime: yesterdayEnd.toISOString(),
+        sessionStatus: "FINALIZADA",
+        recordingStatus: "PROCESSING",
+        canWatchRecording: false,
+      },
+    ];
+
+    setEvents(mockEvents);
+    setLoadingEvents(false);
+  }, []);
+  // MOCK_END
+
+  // Cargar sesiones de clase (COMENTADO POR MOCK — descomentar al borrar mock)
+  /* useEffect(() => {
     async function loadEvents() {
       setLoadingEvents(true);
       setErrorEvents(null);
@@ -489,7 +782,7 @@ export default function EvaluationContent({
     }
 
     loadEvents();
-  }, [evalId, evalShortName]);
+  }, [evalId, evalShortName]); */
 
   // Cargar materiales para cada sesión
   useEffect(() => {

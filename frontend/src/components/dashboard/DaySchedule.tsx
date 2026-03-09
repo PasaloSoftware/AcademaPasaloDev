@@ -240,7 +240,7 @@ export default function DaySchedule() {
         ) : (
           todayEvents.map((event) => {
             const colors = getCourseColor(event.courseCode);
-            const isNow = event.status === "EN_CURSO";
+            const isNow = event.sessionStatus === "EN_CURSO";
 
             const canJoinNow =
               !!event.liveMeetingUrl && !event.isCancelled;

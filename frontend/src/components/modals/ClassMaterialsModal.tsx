@@ -273,7 +273,7 @@ export default function ClassMaterialsModal({
           )}
 
           {/* Materials list (scrollable) */}
-          <div className="h-64 overflow-y-auto flex flex-col gap-2 pr-1 scrollbar-thin scrollbar-thumb-stroke-secondary scrollbar-track-transparent">
+          <div className="max-h-64 overflow-y-auto flex flex-col gap-2 pr-1 scrollbar-thin scrollbar-thumb-stroke-secondary scrollbar-track-transparent">
             {isLoadingMaterials ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-accent-solid border-t-transparent rounded-full animate-spin" />

@@ -82,7 +82,7 @@ export default function InicioContent() {
 
         // Filtrar solo eventos futuros o en curso, ordenados por fecha
         const futureEvents = events
-          .filter(event => !event.isCancelled && event.status !== 'FINALIZADA')
+          .filter(event => !event.isCancelled && event.sessionStatus !== 'FINALIZADA')
           .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
           .slice(0, 10); // Mostrar máximo 10 eventos próximos
         
