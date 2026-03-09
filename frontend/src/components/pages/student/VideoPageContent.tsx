@@ -234,27 +234,17 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     );
   }
 
-  const canWatch = event.canWatchRecording && event.recordingStatus === 'READY' && event.recordingUrl;
-
-  if (!canWatch) {
-    return (
-      <div className="w-full flex flex-col items-center justify-center py-24 gap-4">
-        <Icon name="videocam_off" size={64} className="text-icon-tertiary" />
-        <p className="text-text-primary font-semibold">Grabación no disponible</p>
-        <p className="text-text-secondary text-sm">
-          {event.recordingStatus === 'PROCESSING'
-            ? 'La grabación se está procesando'
-            : 'Esta clase aún no tiene grabación disponible'}
-        </p>
-        <button
-          onClick={() => router.push(evaluationPath)}
-          className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg text-text-white text-sm font-medium"
-        >
-          Volver
-        </button>
-      </div>
-    );
-  }
+  const isLiveSoon = (() => {
+    if (event.sessionStatus === 'EN_CURSO') return true;
+    if (event.sessionStatus === 'PROGRAMADA') {
+      const msUntil = new Date(event.startDatetime).getTime() - Date.now();
+      return msUntil > 0 && msUntil <= 60 * 60 * 1000;
+    }
+    return false;
+  })();
+  const isScheduled = !isLiveSoon && (event.sessionStatus === 'PROGRAMADA' || event.sessionStatus === 'EN_CURSO');
+  // Solo mostrar video si la clase ya finalizó Y tiene grabación lista
+  const canWatch = !isScheduled && !isLiveSoon && event.canWatchRecording && event.recordingStatus === 'READY' && event.recordingUrl;
 
   return (
     <div className="w-full flex flex-col gap-8">
@@ -273,16 +263,66 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       <div className="flex gap-6">
         {/* Left Column */}
         <div className="w-[721px] flex-shrink-0 flex flex-col gap-8">
-          {/* Video Player */}
-          <div className="w-full aspect-video bg-bg-black-solid rounded-xl overflow-hidden">
-            <iframe
-              src={event.recordingUrl!}
-              className="w-full h-full"
-              allow="autoplay; encrypted-media; fullscreen"
-              allowFullScreen
-              title={`Clase ${event.sessionNumber}: ${event.topic}`}
-            />
-          </div>
+          {/* Video Player or Scheduled Placeholder */}
+          {canWatch ? (
+            <div className="w-full aspect-video bg-bg-black-solid rounded-xl overflow-hidden">
+              <iframe
+                src={event.recordingUrl!}
+                className="w-full h-full"
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+                title={`Clase ${event.sessionNumber}: ${event.topic}`}
+              />
+            </div>
+          ) : isLiveSoon ? (
+            <div className="w-full aspect-video bg-bg-accent-light rounded-xl inline-flex flex-col justify-center items-center gap-4">
+              <Icon name="ondemand_video" size={56} className="text-icon-accent-primary" variant="rounded" />
+              <span className="text-text-accent-primary text-lg font-semibold leading-5">
+                EN VIVO PRONTO
+              </span>
+              <button
+                onClick={() => {
+                  if (event.liveMeetingUrl) {
+                    window.open(event.liveMeetingUrl, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                disabled={!event.liveMeetingUrl}
+                className={`px-6 py-3 rounded-lg inline-flex justify-center items-center gap-1.5 ${
+                  event.liveMeetingUrl
+                    ? 'bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover'
+                    : 'bg-bg-accent-primary-solid'
+                }`}
+              >
+                <Icon name="videocam" size={16} className="text-icon-white" variant="rounded" />
+                <span className="text-text-white text-sm font-medium leading-4">
+                  Unirse a la Clase
+                </span>
+              </button>
+            </div>
+          ) : isScheduled ? (
+            <div className="w-full aspect-video bg-bg-tertiary rounded-xl inline-flex flex-col justify-center items-center gap-4">
+              <Icon name="calendar_month" size={56} className="text-icon-tertiary" variant="rounded" />
+              <span className="text-text-quartiary text-lg font-semibold leading-5">
+                CLASE PROGRAMADA
+              </span>
+              <button
+                disabled
+                className="px-6 py-3 bg-bg-disabled rounded-lg inline-flex justify-center items-center gap-1.5"
+              >
+                <Icon name="videocam" size={16} className="text-icon-disabled" variant="rounded" />
+                <span className="text-text-disabled text-sm font-medium leading-4">
+                  Unirse a la Clase
+                </span>
+              </button>
+            </div>
+          ) : (
+            <div className="w-full aspect-video bg-bg-tertiary rounded-xl inline-flex flex-col justify-center items-center gap-4">
+              <Icon name="videocam_off" size={56} className="text-icon-tertiary" variant="rounded" />
+              <span className="text-text-quartiary text-lg font-semibold leading-5">
+                {event.recordingStatus === 'PROCESSING' ? 'GRABACIÓN EN PROCESO' : 'GRABACIÓN NO DISPONIBLE'}
+              </span>
+            </div>
+          )}
 
           {/* Event Info */}
           <div className="flex flex-col gap-2">

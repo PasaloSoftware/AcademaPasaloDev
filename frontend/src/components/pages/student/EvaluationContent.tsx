@@ -300,9 +300,6 @@ function ClassSessionCard({
   const canWatch =
     event.canWatchRecording && event.recordingStatus === "READY";
   const duration = formatDurationHMS(event.startDatetime, event.endDatetime);
-  // Siempre mostrar botón de materiales
-  const hasMaterials = true;
-
   // Countdown for EN_VIVO_PRONTO
   const [minutesLeft, setMinutesLeft] = useState(() => getMinutesUntilStart(event.startDatetime));
 
@@ -314,16 +311,22 @@ function ClassSessionCard({
     return () => clearInterval(interval);
   }, [cardType, event.startDatetime]);
 
-  const handleWatchRecording = () => {
-    if (canWatch) {
-      router.push(`/plataforma/curso/${cursoId}/evaluacion/${evalId}/clase/${event.id}`);
-    }
+  const classPageUrl = `/plataforma/curso/${cursoId}/evaluacion/${evalId}/clase/${event.id}`;
+
+  const handleGoToClass = () => {
+    router.push(classPageUrl);
   };
 
-  const handleJoinLive = () => {
+  const handleJoinLive = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (event.liveMeetingUrl) {
       window.open(event.liveMeetingUrl, "_blank", "noopener,noreferrer");
     }
+  };
+
+  const handleOpenMaterials = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenMaterials(event.id);
   };
 
   // Format "Hoy, 7pm" style for EN VIVO PRONTO
@@ -341,7 +344,7 @@ function ClassSessionCard({
   // ── EN VIVO PRONTO card ──
   if (cardType === "EN_VIVO_PRONTO") {
     return (
-      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary inline-flex justify-start items-start gap-6">
+      <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary inline-flex justify-start items-start gap-6 cursor-pointer">
         {/* Left icon area */}
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-accent-light rounded-lg inline-flex flex-col justify-center items-center gap-2">
           <Icon name="videocam" size={40} className="text-icon-accent-primary" variant="rounded" />
@@ -377,17 +380,15 @@ function ClassSessionCard({
 
           {/* Action Buttons */}
           <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-            {hasMaterials && (
-              <button
-                onClick={() => onOpenMaterials(event.id)}
-                className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-              >
-                <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
-                <span className="text-text-accent-primary text-sm font-medium leading-4">
-                  Materiales de Clase
-                </span>
-              </button>
-            )}
+            <button
+              onClick={handleOpenMaterials}
+              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+            >
+              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Materiales de Clase
+              </span>
+            </button>
             <button
               onClick={handleJoinLive}
               disabled={!event.liveMeetingUrl}
@@ -411,7 +412,7 @@ function ClassSessionCard({
   // ── PROGRAMADA card ──
   if (cardType === "PROGRAMADA") {
     return (
-      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+      <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6 cursor-pointer">
         {/* Left icon area */}
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-tertiary rounded-lg inline-flex flex-col justify-center items-center gap-2">
           <Icon name="event" size={40} className="text-icon-tertiary" variant="rounded" />
@@ -455,19 +456,18 @@ function ClassSessionCard({
 
           {/* Action Buttons */}
           <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-            {hasMaterials && (
-              <button
-                onClick={() => onOpenMaterials(event.id)}
-                className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-              >
-                <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
-                <span className="text-text-accent-primary text-sm font-medium leading-4">
-                  Materiales de Clase
-                </span>
-              </button>
-            )}
+            <button
+              onClick={handleOpenMaterials}
+              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+            >
+              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Materiales de Clase
+              </span>
+            </button>
             <button
               disabled
+              onClick={(e) => e.stopPropagation()}
               className="px-6 py-3 bg-bg-disabled rounded-lg flex justify-center items-center gap-1.5 cursor-not-allowed"
             >
               <Icon name="videocam" size={16} className="text-icon-disabled" variant="rounded" />
@@ -483,11 +483,10 @@ function ClassSessionCard({
 
   // ── GRABADA card (default: FINALIZADA / CANCELADA) ──
   return (
-    <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+    <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6 cursor-pointer">
       {/* Video Thumbnail */}
       <div
-        onClick={handleWatchRecording}
-        className={`h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end ${canWatch ? "cursor-pointer hover:opacity-90 transition-opacity" : ""}`}
+        className="h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end"
       >
         {/* Play button centered */}
         <div className="p-3 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-bg-accent-primary-solid rounded-full inline-flex justify-center items-center">
@@ -547,24 +546,22 @@ function ClassSessionCard({
 
         {/* Action Buttons */}
         <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-          {hasMaterials && (
-            <button
-              onClick={() => onOpenMaterials(event.id)}
-              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-            >
-              <Icon
-                name="folder"
-                size={16}
-                className="text-icon-accent-primary"
-                variant="rounded"
-              />
-              <span className="text-text-accent-primary text-sm font-medium leading-4">
-                Materiales de Clase
-              </span>
-            </button>
-          )}
           <button
-            onClick={handleWatchRecording}
+            onClick={handleOpenMaterials}
+            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+          >
+            <Icon
+              name="folder"
+              size={16}
+              className="text-icon-accent-primary"
+              variant="rounded"
+            />
+            <span className="text-text-accent-primary text-sm font-medium leading-4">
+              Materiales de Clase
+            </span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleGoToClass(); }}
             disabled={!canWatch}
             className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 transition-colors ${
               canWatch
@@ -673,95 +670,8 @@ export default function EvaluationContent({
     ]);
   }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
 
-  // ⚠️ MOCK DATA — BORRAR ESTE BLOQUE COMPLETO (buscar "MOCK_START" y "MOCK_END")
-  // MOCK_START
+  // Cargar sesiones de clase
   useEffect(() => {
-    const now = new Date();
-    const in30min = new Date(now.getTime() + 30 * 60 * 1000);
-    const in30minEnd = new Date(in30min.getTime() + 2 * 60 * 60 * 1000);
-    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const nextWeekEnd = new Date(nextWeek.getTime() + 2 * 60 * 60 * 1000);
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const yesterdayEnd = new Date(yesterday.getTime() + 2 * 60 * 60 * 1000);
-
-    const baseMock = {
-      liveMeetingUrl: "https://meet.google.com/pasalo-test",
-      recordingUrl: null,
-      isCancelled: false,
-      canJoinLive: false,
-      canCopyLiveLink: false,
-      canCopyRecordingLink: false,
-      courseName: "Álgebra Matricial",
-      courseCode: "MATE101",
-      courseCycleId: "20",
-      evaluationId: "120",
-      evaluationName: "PC4",
-      creator: { id: "2", firstName: "Docente", lastName1: "Pasalo", lastName2: "", profilePhotoUrl: null },
-      professors: [],
-      createdAt: now.toISOString(),
-      updatedAt: null,
-    };
-
-    const mockEvents: ClassEvent[] = [
-      {
-        ...baseMock,
-        id: "mock-1",
-        sessionNumber: 1,
-        title: "Sesión 1",
-        topic: "Introducción a matrices",
-        startDatetime: yesterday.toISOString(),
-        endDatetime: yesterdayEnd.toISOString(),
-        sessionStatus: "FINALIZADA",
-        recordingStatus: "READY",
-        canWatchRecording: true,
-        recordingUrl: "https://drive.google.com/file/d/1gQ616dto69rGFt9PFQhK85YvoUXyLssD/preview",
-      },
-      {
-        ...baseMock,
-        id: "mock-2",
-        sessionNumber: 2,
-        title: "Sesión 2",
-        topic: "Ángulo de inclinación y pendiente de una recta",
-        startDatetime: in30min.toISOString(),
-        endDatetime: in30minEnd.toISOString(),
-        sessionStatus: "PROGRAMADA",
-        recordingStatus: "NOT_AVAILABLE",
-        canWatchRecording: false,
-      },
-      {
-        ...baseMock,
-        id: "mock-3",
-        sessionNumber: 3,
-        title: "Sesión 3",
-        topic: "PCs pasadas",
-        startDatetime: nextWeek.toISOString(),
-        endDatetime: nextWeekEnd.toISOString(),
-        sessionStatus: "PROGRAMADA",
-        recordingStatus: "NOT_AVAILABLE",
-        canWatchRecording: false,
-        liveMeetingUrl: null,
-      },
-      {
-        ...baseMock,
-        id: "mock-4",
-        sessionNumber: 4,
-        title: "Sesión 4",
-        topic: "Repaso Final",
-        startDatetime: yesterday.toISOString(),
-        endDatetime: yesterdayEnd.toISOString(),
-        sessionStatus: "FINALIZADA",
-        recordingStatus: "PROCESSING",
-        canWatchRecording: false,
-      },
-    ];
-
-    setEvents(mockEvents);
-    setLoadingEvents(false);
-  }, []);
-  // MOCK_END
-
-  // Cargar sesiones de clase (COMENTADO POR MOCK — descomentar al borrar mock)
-  /* useEffect(() => {
     async function loadEvents() {
       setLoadingEvents(true);
       setErrorEvents(null);
@@ -782,7 +692,7 @@ export default function EvaluationContent({
     }
 
     loadEvents();
-  }, [evalId, evalShortName]); */
+  }, [evalId, evalShortName]);
 
   // Cargar materiales para cada sesión
   useEffect(() => {
