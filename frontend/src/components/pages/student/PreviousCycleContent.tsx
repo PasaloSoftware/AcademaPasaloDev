@@ -24,14 +24,16 @@ interface PreviousCycleContentProps {
 
 function PreviousCycleEvaluationCard({
   evaluation,
+  onSelect,
 }: {
   evaluation: PreviousCycleEvaluation;
+  onSelect?: (evaluation: PreviousCycleEvaluation) => void;
 }) {
   const isBlocked = evaluation.label === "Bloqueado";
 
   return (
     <div
-      className={`self-stretch p-6 ${isBlocked ? "bg-bg-tertiary" : "bg-bg-primary"} rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-end gap-4`}
+      className={`self-stretch h-full p-6 ${isBlocked ? "bg-bg-tertiary" : "bg-bg-primary"} rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-end gap-4`}
     >
       {/* Icon + Badge */}
       <div className="self-stretch inline-flex justify-between items-start">
@@ -74,6 +76,7 @@ function PreviousCycleEvaluationCard({
       {/* Ver Clases Link */}
       <button
         disabled={isBlocked}
+        onClick={() => !isBlocked && onSelect?.(evaluation)}
         className={`p-1 rounded-lg inline-flex justify-center items-center gap-1.5 ${isBlocked ? "cursor-not-allowed" : "hover:bg-bg-accent-light transition-colors"}`}
       >
         <span
@@ -252,6 +255,11 @@ export default function PreviousCycleContent({
               <PreviousCycleEvaluationCard
                 key={evaluation.id}
                 evaluation={evaluation}
+                onSelect={(eval_) =>
+                  router.push(
+                    `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}/evaluacion/${eval_.id}`,
+                  )
+                }
               />
             ))}
           </div>

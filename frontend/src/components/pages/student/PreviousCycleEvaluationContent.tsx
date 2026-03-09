@@ -9,22 +9,24 @@ import type { Enrollment } from "@/types/enrollment";
 import Icon from "@/components/ui/Icon";
 import { EvaluationPageContent } from "./EvaluationShared";
 
-interface EvaluationContentProps {
+interface PreviousCycleEvaluationContentProps {
   cursoId: string;
+  cycleCode: string;
   evalId: string;
 }
 
-export default function EvaluationContent({
+export default function PreviousCycleEvaluationContent({
   cursoId,
+  cycleCode,
   evalId,
-}: EvaluationContentProps) {
+}: PreviousCycleEvaluationContentProps) {
   const { setBreadcrumbItems } = useBreadcrumb();
 
   const [courseName, setCourseName] = useState<string>("");
   const [evalShortName, setEvalShortName] = useState<string>("");
   const [evalFullName, setEvalFullName] = useState<string>("");
 
-  // Cargar nombre del curso desde enrollment + evaluación desde ciclo vigente
+  // Cargar nombre del curso + evaluación desde ciclo anterior
   useEffect(() => {
     async function loadCourseData() {
       try {
@@ -45,7 +47,7 @@ export default function EvaluationContent({
 
     async function loadEvalNames() {
       try {
-        const data = await coursesService.getCurrentCycleContent(cursoId);
+        const data = await coursesService.getPreviousCycleContent(cursoId, cycleCode);
         const eval_ = data.evaluations.find((e) => e.id === evalId);
         if (eval_) {
           setEvalShortName(eval_.shortName);
@@ -58,38 +60,39 @@ export default function EvaluationContent({
 
     loadCourseData();
     loadEvalNames();
-  }, [cursoId, evalId]);
+  }, [cursoId, cycleCode, evalId]);
 
-  // Breadcrumb
+  // Breadcrumb: Cursos > {Curso} > Ciclos Anteriores > Ciclo {code} > {EvalShortName}
   useEffect(() => {
     if (!courseName) return;
     setBreadcrumbItems([
       { label: "Cursos" },
       { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: "Ciclo Vigente", href: `/plataforma/curso/${cursoId}` },
+      { label: "Ciclos Anteriores", href: `/plataforma/curso/${cursoId}` },
+      { label: `Ciclo ${cycleCode}`, href: `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}` },
       { label: evalShortName },
     ]);
-  }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
+  }, [setBreadcrumbItems, courseName, evalShortName, cursoId, cycleCode]);
 
-  // Fallback: detectar nombre desde eventos si no se cargó desde ciclo vigente
+  // Fallback: detectar nombre desde eventos
   const handleEvalNameDetected = useCallback((name: string) => {
     if (!evalShortName) {
       setEvalShortName(name);
     }
   }, [evalShortName]);
 
-  // Generar URL de clase
+  // Generar URL de clase (dentro de ciclo anterior)
   const getClassPageUrl = useCallback(
     (eventId: string) =>
-      `/plataforma/curso/${cursoId}/evaluacion/${evalId}/clase/${eventId}`,
-    [cursoId, evalId],
+      `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}/evaluacion/${evalId}/clase/${eventId}`,
+    [cursoId, cycleCode, evalId],
   );
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* Back Link */}
       <Link
-        href={`/plataforma/curso/${cursoId}`}
+        href={`/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}`}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
       >
         <Icon
@@ -98,20 +101,14 @@ export default function EvaluationContent({
           className="text-icon-accent-primary"
         />
         <span className="text-text-accent-primary text-base font-medium leading-4">
-          Volver al Ciclo Vigente
+          Volver al Ciclo {cycleCode}
         </span>
       </Link>
 
-      {/* Banner */}
-      <div
-        className="self-stretch px-10 py-8 relative rounded-xl inline-flex flex-col justify-center items-start gap-2 overflow-hidden mb-8"
-        style={{
-          background:
-            "linear-gradient(to right, var(--muted-indigo-800), var(--muted-indigo-700), var(--muted-indigo-200))",
-        }}
-      >
-        <div className="w-40 h-40 absolute right-[-36px] top-[-12px] overflow-hidden">
-          <Icon name="school" size={160} className="text-muted-indigo-700" />
+      {/* Banner - mismo estilo que el de ciclo anterior */}
+      <div className="self-stretch px-10 py-8 relative bg-gradient-to-r from-magenta-violet-800 via-magenta-violet-600 to-muted-indigo-200 rounded-xl inline-flex flex-col justify-center items-start gap-2 overflow-hidden mb-8">
+        <div className="w-40 h-40 absolute right-[-12] top-[-1.5] overflow-hidden">
+          <Icon name="inventory_2" size={200} className="text-icon-info-secondary" />
         </div>
         <div className="self-stretch flex flex-col justify-center items-start gap-0.5">
           <span className="self-stretch text-text-white text-3xl font-semibold leading-10">
