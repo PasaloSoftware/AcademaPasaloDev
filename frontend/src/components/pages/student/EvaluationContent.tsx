@@ -11,6 +11,7 @@ import type { ClassEvent } from "@/types/classEvent";
 import type { ClassEventMaterial } from "@/types/material";
 import type { Enrollment } from "@/types/enrollment";
 import Icon from "@/components/ui/Icon";
+import ClassMaterialsModal from "@/components/modals/ClassMaterialsModal";
 
 interface EvaluationContentProps {
   cursoId: string;
@@ -82,26 +83,40 @@ function getFileNameWithoutExtension(fileName: string): string {
   return fileName.substring(0, dotIndex);
 }
 
-function getFileIconColor(mimeType: string): string {
-  if (mimeType.includes("pdf")) return "bg-red-600";
-  if (mimeType.includes("word") || mimeType.includes("document"))
-    return "bg-sky-600";
-  if (mimeType.includes("sheet") || mimeType.includes("excel"))
-    return "bg-green-600";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
-    return "bg-orange-500";
-  if (mimeType.startsWith("image/")) return "bg-purple-500";
-  return "bg-gray-500";
-}
+function getFileIconPath(mimeType: string, fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
 
-function getFileExtLabel(mimeType: string): string {
-  if (mimeType.includes("pdf")) return "PDF";
-  if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
-  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
-    return "PPT";
-  if (mimeType.startsWith("image/")) return "IMG";
-  return "FILE";
+  if (ext === "pdf") return "/icons/files/pdf.svg";
+  if (ext === "doc" || ext === "docx") return "/icons/files/doc.svg";
+  if (ext === "xls" || ext === "xlsx") return "/icons/files/xls.svg";
+  if (ext === "ppt" || ext === "pptx") return "/icons/files/ppt.svg";
+  if (ext === "txt") return "/icons/files/txt.svg";
+  if (ext === "csv") return "/icons/files/excel.svg";
+  if (ext === "zip" || ext === "rar" || ext === "7z") return "/icons/files/zip.svg";
+  if (ext === "svg") return "/icons/files/svg.svg";
+  if (ext === "js" || ext === "jsx") return "/icons/files/javascript.svg";
+  if (ext === "css") return "/icons/files/css.svg";
+  if (ext === "php") return "/icons/files/php.svg";
+  if (ext === "sql") return "/icons/files/sql.svg";
+  if (ext === "mp3" || ext === "wav" || ext === "ogg") return "/icons/files/mp3.svg";
+  if (ext === "mp4" || ext === "avi" || ext === "mov" || ext === "mkv") return "/icons/files/video.svg";
+  if (ext === "ttf" || ext === "otf" || ext === "woff") return "/icons/files/ttf.svg";
+  if (ext === "apk") return "/icons/files/apk.svg";
+  if (ext === "iso") return "/icons/files/iso.svg";
+  if (ext === "psd") return "/icons/files/psd.svg";
+  if (ext === "ai") return "/icons/files/adobe illustrator.svg";
+
+  if (mimeType.includes("pdf")) return "/icons/files/pdf.svg";
+  if (mimeType.includes("word") || mimeType.includes("document")) return "/icons/files/doc.svg";
+  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "/icons/files/xls.svg";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "/icons/files/ppt.svg";
+  if (mimeType.startsWith("image/")) return "/icons/files/image.svg";
+  if (mimeType.startsWith("video/")) return "/icons/files/video.svg";
+  if (mimeType.startsWith("audio/")) return "/icons/files/mp3.svg";
+  if (mimeType.includes("text/")) return "/icons/files/txt.svg";
+  if (mimeType.includes("zip") || mimeType.includes("compressed")) return "/icons/files/zip.svg";
+
+  return "/icons/files/text.svg";
 }
 
 // ============================================
@@ -179,15 +194,11 @@ function MaterialCard({ material }: { material: ClassEventMaterial }) {
     <div className="self-stretch p-3 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3">
       {/* File type icon */}
       <div className="flex-1 flex justify-start items-center gap-1">
-        <div className="w-8 h-8 relative overflow-hidden flex items-center justify-center">
-          <div
-            className={`w-5 h-7 rounded-sm ${getFileIconColor(material.fileResource.mimeType)} flex items-center justify-center`}
-          >
-            <span className="text-white text-[6px] font-bold">
-              {getFileExtLabel(material.fileResource.mimeType)}
-            </span>
-          </div>
-        </div>
+        <img
+          src={getFileIconPath(material.fileResource.mimeType, fileName)}
+          alt=""
+          className="w-8 h-8 shrink-0"
+        />
 
         {/* File info */}
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
@@ -240,12 +251,13 @@ function ClassSessionCard({
   event,
   materials,
   loadingMaterials,
+  onOpenMaterials,
 }: {
   event: ClassEvent;
   materials: ClassEventMaterial[];
   loadingMaterials: boolean;
+  onOpenMaterials: (eventId: string) => void;
 }) {
-  const [showMaterials, setShowMaterials] = useState(false);
   const canWatch =
     event.canWatchRecording && event.recordingStatus === "READY";
   const duration = formatDurationHMS(event.startDatetime, event.endDatetime);
@@ -322,7 +334,7 @@ function ClassSessionCard({
         <div className="self-stretch inline-flex justify-end items-start gap-2.5">
           {hasMaterials && (
             <button
-              onClick={() => setShowMaterials(!showMaterials)}
+              onClick={() => onOpenMaterials(event.id)}
               className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
             >
               <Icon
@@ -358,25 +370,6 @@ function ClassSessionCard({
           </button>
         </div>
 
-        {/* Materials (expandable) */}
-        {showMaterials && hasMaterials && (
-          <div className="self-stretch flex flex-col justify-start items-start gap-3">
-            {loadingMaterials ? (
-              <div className="flex items-center gap-2 py-2">
-                <div className="w-4 h-4 border-2 border-accent-solid border-t-transparent rounded-full animate-spin" />
-                <span className="text-text-tertiary text-xs">
-                  Cargando materiales...
-                </span>
-              </div>
-            ) : (
-              <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                {materials.map((material) => (
-                  <MaterialCard key={material.id} material={material} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -508,6 +501,15 @@ export default function EvaluationContent({
       loadMaterialsForEvent(event.id);
     });
   }, [events]);
+
+  // Materials modal state
+  const [materialsModalOpen, setMaterialsModalOpen] = useState(false);
+  const [materialsModalEventId, setMaterialsModalEventId] = useState<string | undefined>();
+
+  const handleOpenMaterials = (eventId: string) => {
+    setMaterialsModalEventId(eventId);
+    setMaterialsModalOpen(true);
+  };
 
   // Sub-tabs config
   const evalTabs: { key: EvalTabOption; label: string }[] = [
@@ -655,6 +657,7 @@ export default function EvaluationContent({
                     event={event}
                     materials={materialsByEvent[event.id] || []}
                     loadingMaterials={loadingMaterialsMap[event.id] || false}
+                    onOpenMaterials={handleOpenMaterials}
                   />
                 ))}
               </div>
@@ -691,6 +694,16 @@ export default function EvaluationContent({
           </div>
         )}
       </div>
+
+      {/* Materials Modal */}
+      <ClassMaterialsModal
+        isOpen={materialsModalOpen}
+        onClose={() => setMaterialsModalOpen(false)}
+        events={events}
+        materialsByEvent={materialsByEvent}
+        loadingMaterialsMap={loadingMaterialsMap}
+        initialEventId={materialsModalEventId}
+      />
     </div>
   );
 }

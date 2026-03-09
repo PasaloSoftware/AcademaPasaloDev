@@ -42,11 +42,14 @@ export const materialsService = {
     );
 
     if (!response.ok) {
-      throw new Error("Error al descargar el material");
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Error al descargar el material: ${response.status} ${errorText}`);
     }
 
+    const contentType = response.headers.get("Content-Type") || "application/octet-stream";
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    const typedBlob = new Blob([blob], { type: contentType });
+    const url = window.URL.createObjectURL(typedBlob);
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
