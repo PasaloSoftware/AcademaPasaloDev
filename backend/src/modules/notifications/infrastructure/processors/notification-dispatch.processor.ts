@@ -13,6 +13,7 @@ import { Notification } from '@modules/notifications/domain/notification.entity'
 import { UserNotification } from '@modules/notifications/domain/user-notification.entity';
 import { DeletionRequest } from '@modules/materials/domain/deletion-request.entity';
 import { Material } from '@modules/materials/domain/material.entity';
+import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import {
   NOTIFICATION_JOB_NAMES,
   NOTIFICATION_MESSAGES,
@@ -185,6 +186,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
       },
     );
 
+    await this.invalidateUnreadCountSafely(context.recipientUserIds);
+
     this.logger.log({
       context: NotificationDispatchProcessor.name,
       message: 'NEW_MATERIAL: notificación creada y distribuida',
@@ -246,6 +249,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
       },
     );
 
+    await this.invalidateUnreadCountSafely(context.recipientUserIds);
+
     this.logger.log({
       context: NotificationDispatchProcessor.name,
       message: 'Notificación de clase creada y distribuida',
@@ -268,6 +273,29 @@ export class NotificationDispatchProcessor extends WorkerHost {
       classEventId,
       reminderMinutes,
     });
+
+    const classEvent = await this.dataSource.getRepository(ClassEvent).findOne({
+      where: { id: classEventId },
+      select: { id: true, isCancelled: true },
+    });
+    if (!classEvent) {
+      const msg = `No existe el class_event ${classEventId} para recordatorio`;
+      this.logger.error({
+        context: NotificationDispatchProcessor.name,
+        message: msg,
+        classEventId,
+      });
+      throw new UnrecoverableError(msg);
+    }
+
+    if (classEvent.isCancelled) {
+      this.logger.log({
+        context: NotificationDispatchProcessor.name,
+        message: 'CLASS_REMINDER omitido: la clase ya se encuentra cancelada',
+        classEventId,
+      });
+      return;
+    }
 
     const context =
       await this.recipientsService.resolveClassEventContext(classEventId);
@@ -317,6 +345,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
         return saved.id;
       },
     );
+
+    await this.invalidateUnreadCountSafely(context.recipientUserIds);
 
     this.logger.log({
       context: NotificationDispatchProcessor.name,
@@ -392,6 +422,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
         return saved.id;
       },
     );
+
+    await this.invalidateUnreadCountSafely([request.requestedById]);
 
     this.logger.log({
       context: NotificationDispatchProcessor.name,
@@ -491,5 +523,21 @@ export class NotificationDispatchProcessor extends WorkerHost {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  private async invalidateUnreadCountSafely(userIds: string[]): Promise<void> {
+    try {
+      await this.userNotificationRepository.invalidateUnreadCountForUsers(
+        userIds,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationDispatchProcessor.name,
+        message:
+          'No se pudo invalidar el cache de unread-count luego de crear notificaciones',
+        userIds,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

@@ -82,19 +82,24 @@ export class NotificationRecipientsService {
       this.classEventProfessorRepo
         .createQueryBuilder('cep')
         .select('cep.professor_user_id', 'userId')
+        .innerJoin('cep.professor', 'professor')
         .where('cep.class_event_id = :classEventId', { classEventId })
         .andWhere('cep.revoked_at IS NULL')
+        .andWhere('professor.is_active = :isActive', { isActive: true })
         .getRawMany<{ userId: string }>(),
 
       this.enrollmentRepo
         .createQueryBuilder('en')
         .select('en.user_id', 'userId')
+        .innerJoin('en.user', 'student')
         .where('en.course_cycle_id = :courseCycleId', {
           courseCycleId: row.courseCycleId,
         })
         .andWhere('en.enrollment_status_id = :statusId', {
           statusId: activeStatusId,
         })
+        .andWhere('en.cancelled_at IS NULL')
+        .andWhere('student.is_active = :isActive', { isActive: true })
         .getRawMany<{ userId: string }>(),
     ]);
 
@@ -150,21 +155,26 @@ export class NotificationRecipientsService {
       this.courseCycleProfessorRepo
         .createQueryBuilder('ccp')
         .select('ccp.professor_user_id', 'userId')
+        .innerJoin('ccp.professor', 'professor')
         .where('ccp.course_cycle_id = :courseCycleId', {
           courseCycleId: row.courseCycleId,
         })
         .andWhere('ccp.revoked_at IS NULL')
+        .andWhere('professor.is_active = :isActive', { isActive: true })
         .getRawMany<{ userId: string }>(),
 
       this.enrollmentRepo
         .createQueryBuilder('en')
         .select('en.user_id', 'userId')
+        .innerJoin('en.user', 'student')
         .where('en.course_cycle_id = :courseCycleId', {
           courseCycleId: row.courseCycleId,
         })
         .andWhere('en.enrollment_status_id = :statusId', {
           statusId: activeStatusId,
         })
+        .andWhere('en.cancelled_at IS NULL')
+        .andWhere('student.is_active = :isActive', { isActive: true })
         .getRawMany<{ userId: string }>(),
     ]);
 
@@ -193,7 +203,7 @@ export class NotificationRecipientsService {
       this.logger.error({
         context: NotificationRecipientsService.name,
         message:
-          'Crítico: No existe el estado de enrollment ACTIVE en la base de datos',
+          'Crítico: No existe el estado de matrícula ACTIVE en la base de datos',
         code: ENROLLMENT_STATUS_CODES.ACTIVE,
       });
       throw new InternalServerErrorException(
