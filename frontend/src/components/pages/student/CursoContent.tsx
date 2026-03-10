@@ -130,7 +130,7 @@ function EvaluationCard({
           {/* Icon + Badge */}
           <div className="self-stretch inline-flex justify-between items-start">
             <div
-              className={`p-2 ${getEvalIconBg(evaluation.label)} rounded-full flex justify-start items-center`}
+              className={`p-3 ${getEvalIconBg(evaluation.label)} rounded-full flex justify-start items-center`}
             >
               <Icon
                 name={getEvalIcon(evaluation.label)}
@@ -188,7 +188,7 @@ function EvaluationCard({
       {/* Icon + Badge */}
       <div className="self-stretch inline-flex justify-between items-start">
         <div
-          className={`p-2 ${getEvalIconBg(evaluation.label)} rounded-full flex justify-start items-center`}
+          className={`p-3 ${getEvalIconBg(evaluation.label)} rounded-full flex justify-start items-center`}
         >
           <Icon
             name={getEvalIcon(evaluation.label)}
@@ -607,9 +607,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         </div>
 
         {/* Right: Video Placeholder */}
-        <div className="flex-1 px-5 py-14 bg-bg-tertiary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-center items-center gap-6 overflow-hidden">
-          <div className="p-3 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
-            <Icon name="play_arrow" size={32} className="text-icon-white" />
+        <div className="flex-1 h-[217px] py-14 px-5 bg-bg-tertiary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-center items-center gap-3 overflow-hidden">
+          <div className="p-2 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
+            <Icon name="play_arrow" size={24} className="text-icon-white" />
           </div>
           <div className="self-stretch flex flex-col justify-center items-center gap-1">
             <div className="self-stretch inline-flex justify-center items-center gap-1">
