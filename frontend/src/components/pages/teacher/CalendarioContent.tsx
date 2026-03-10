@@ -136,6 +136,7 @@ export default function CalendarioContent() {
           currentDate={currentDate}
           isToday={isToday}
           onEventClick={handleEventClick}
+          selectedEventId={isDetailOpen ? selectedEvent?.id : null}
         />
       ) : (
         <CalendarMonthlyView
@@ -143,6 +144,7 @@ export default function CalendarioContent() {
           events={events}
           isToday={isToday}
           onEventClick={handleEventClick}
+          selectedEventId={isDetailOpen ? selectedEvent?.id : null}
         />
       )}
 
@@ -151,6 +153,7 @@ export default function CalendarioContent() {
         event={selectedEvent}
         isOpen={isDetailOpen}
         anchorPosition={anchorPosition}
+        calendarView={view === 'monthly' ? 'monthly' : 'weekly'}
         canEdit={ownerOfSelected}
         canCancel={ownerOfSelected}
         onEdit={handleEdit}
