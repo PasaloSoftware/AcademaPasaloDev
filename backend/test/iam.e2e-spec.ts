@@ -89,6 +89,21 @@ describe('IAM (e2e)', () => {
       return Promise.resolve(null);
     }),
     findAll: jest.fn().mockResolvedValue([adminUser, studentUser]),
+    update: jest.fn((id, dto) => {
+      if (id === '1') {
+        return Promise.resolve({
+          ...adminUser,
+          ...dto,
+        });
+      }
+      if (id === '2') {
+        return Promise.resolve({
+          ...studentUser,
+          ...dto,
+        });
+      }
+      return Promise.resolve(null);
+    }),
   };
 
   const userSessionRepositoryMock = {
@@ -320,6 +335,38 @@ describe('IAM (e2e)', () => {
         .get('/api/v1/users/2')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
+    });
+  });
+
+  describe('PATCH /api/v1/users/:id', () => {
+    it('con token sin rol ADMIN/SUPER_ADMIN -> 403', async () => {
+      const token = getStudentToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'Nuevo Nombre' })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 200', async () => {
+      const token = getAdminToken();
+
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/users/2')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'Nuevo Nombre' })
+        .expect(200);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(200);
+      expect(usersServiceMock.update).toHaveBeenCalledWith('2', {
+        firstName: 'Nuevo Nombre',
+      });
+      expect(body.data).toMatchObject({
+        id: '2',
+        firstName: 'Nuevo Nombre',
+      });
     });
   });
 });

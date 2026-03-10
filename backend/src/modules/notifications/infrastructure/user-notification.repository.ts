@@ -52,6 +52,7 @@ export class UserNotificationRepository {
 
     return await query
       .orderBy('n.createdAt', 'DESC')
+      .addOrderBy('un.notificationId', 'DESC')
       .limit(limit)
       .offset(offset)
       .getMany();
@@ -103,5 +104,17 @@ export class UserNotificationRepository {
     notificationId: string,
   ): Promise<UserNotification | null> {
     return await this.repository.findOne({ where: { userId, notificationId } });
+  }
+
+  async invalidateUnreadCountForUsers(userIds: string[]): Promise<void> {
+    const uniqueUserIds = [
+      ...new Set(userIds.map((userId) => String(userId).trim())),
+    ].filter((userId) => userId.length > 0);
+
+    await Promise.all(
+      uniqueUserIds.map((userId) =>
+        this.cacheService.del(NOTIFICATION_CACHE_KEYS.UNREAD_COUNT(userId)),
+      ),
+    );
   }
 }

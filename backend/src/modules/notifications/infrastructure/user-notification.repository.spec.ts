@@ -69,6 +69,7 @@ describe('UserNotificationRepository', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         offset: jest.fn().mockReturnThis(),
         getMany,
@@ -81,6 +82,7 @@ describe('UserNotificationRepository', () => {
       expect(leftJoinAndSelect).not.toHaveBeenCalled();
       expect(qb.andWhere).not.toHaveBeenCalled();
       expect(qb.orderBy).toHaveBeenCalledWith('n.createdAt', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('un.notificationId', 'DESC');
       expect(qb.limit).toHaveBeenCalledWith(20);
       expect(qb.offset).toHaveBeenCalledWith(0);
     });
@@ -95,6 +97,7 @@ describe('UserNotificationRepository', () => {
         where: jest.fn().mockReturnThis(),
         andWhere,
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         offset: jest.fn().mockReturnThis(),
         getMany,
@@ -215,6 +218,28 @@ describe('UserNotificationRepository', () => {
       const result = await repo.findOne('u1', 'n99');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('invalidateUnreadCountForUsers', () => {
+    it('invalida una sola vez por userId unico y omite valores vacios', async () => {
+      mockCache.del.mockResolvedValue(undefined);
+
+      await repo.invalidateUnreadCountForUsers([
+        'user-1',
+        'user-2',
+        'user-1',
+        '',
+        '   ',
+      ]);
+
+      expect(mockCache.del).toHaveBeenCalledTimes(2);
+      expect(mockCache.del).toHaveBeenCalledWith(
+        NOTIFICATION_CACHE_KEYS.UNREAD_COUNT('user-1'),
+      );
+      expect(mockCache.del).toHaveBeenCalledWith(
+        NOTIFICATION_CACHE_KEYS.UNREAD_COUNT('user-2'),
+      );
     });
   });
 });

@@ -73,32 +73,10 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Usuario actualizado exitosamente')
-  async update(
-    @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
-    @CurrentUser() currentUser: User,
-  ) {
-    const isAdmin = currentUser.roles.some((r) =>
-      ADMIN_ROLE_CODES.includes(r.code),
-    );
-
-    if (!isAdmin && currentUser.id !== id) {
-      throw new ForbiddenException(
-        'No tienes permiso para actualizar este perfil',
-      );
-    }
-
-    let finalUpdateDto = updateUserDto;
-
-    if (!isAdmin) {
-      finalUpdateDto = plainToInstance(UpdateUserDto, {
-        profilePhotoUrl: updateUserDto.profilePhotoUrl,
-        photoSource: updateUserDto.photoSource,
-      });
-    }
-
-    const user = await this.usersService.update(id, finalUpdateDto);
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    const user = await this.usersService.update(id, updateUserDto);
     return plainToInstance(UserResponseDto, user, {
       excludeExtraneousValues: true,
     });

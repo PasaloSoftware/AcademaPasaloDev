@@ -28,6 +28,7 @@ const mockNotificationTypeRepo = {
 
 const mockUserNotifRepo = {
   bulkCreate: jest.fn(),
+  invalidateUnreadCountForUsers: jest.fn(),
 };
 
 const mockRecipientsService = {
@@ -49,6 +50,11 @@ const mockManager = {
 
 const mockDataSource = {
   transaction: jest.fn(),
+  getRepository: jest.fn(),
+};
+
+const mockClassEventEntityRepo = {
+  findOne: jest.fn(),
 };
 
 function makeJob<T>(name: string, data: T, id = 'job-1'): Job<T> {
@@ -70,10 +76,15 @@ describe('NotificationDispatchProcessor', () => {
     mockManager.create.mockReturnValue({});
     mockManager.save.mockResolvedValue(savedNotif);
     mockManager.insert.mockResolvedValue(undefined);
+    mockClassEventEntityRepo.findOne.mockResolvedValue({
+      id: 'evt-2',
+      isCancelled: false,
+    });
     mockDataSource.transaction.mockImplementation(
       async (cb: (manager: typeof mockManager) => Promise<unknown>) =>
         cb(mockManager),
     );
+    mockDataSource.getRepository.mockReturnValue(mockClassEventEntityRepo);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -171,6 +182,9 @@ describe('NotificationDispatchProcessor', () => {
           }),
         ]),
       );
+      expect(
+        mockUserNotifRepo.invalidateUnreadCountForUsers,
+      ).toHaveBeenCalledWith(['u1', 'u2']);
     });
 
     it('no crea notificación cuando recipientUserIds está vacío', async () => {
@@ -236,6 +250,9 @@ describe('NotificationDispatchProcessor', () => {
           expect.objectContaining({ userId, notificationId: savedNotif.id }),
         ),
       );
+      expect(
+        mockUserNotifRepo.invalidateUnreadCountForUsers,
+      ).toHaveBeenCalledWith(classContext.recipientUserIds);
     });
 
     it('no crea notificación si recipientUserIds está vacío', async () => {
@@ -287,6 +304,10 @@ describe('NotificationDispatchProcessor', () => {
         expect.objectContaining({ message: expectedMsg }),
       );
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(mockClassEventEntityRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'evt-2' },
+        select: { id: true, isCancelled: true },
+      });
     });
 
     it('no crea notificación si no hay destinatarios', async () => {
@@ -326,6 +347,27 @@ describe('NotificationDispatchProcessor', () => {
           expect.objectContaining({ userId: 'u5' }),
         ]),
       );
+      expect(
+        mockUserNotifRepo.invalidateUnreadCountForUsers,
+      ).toHaveBeenCalledWith(classContext.recipientUserIds);
+    });
+
+    it('omite el reminder cuando la clase ya fue cancelada', async () => {
+      mockClassEventEntityRepo.findOne.mockResolvedValue({
+        id: 'evt-2',
+        isCancelled: true,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.CLASS_REMINDER, {
+        classEventId: 'evt-2',
+        reminderMinutes: 60,
+      });
+      await processor.process(job);
+
+      expect(
+        mockRecipientsService.resolveClassEventContext,
+      ).not.toHaveBeenCalled();
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
   });
 
