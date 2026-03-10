@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
@@ -39,10 +39,8 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { logout, user: authUser, switchProfile } = useAuth();
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Auto-expandir items cuando un subitem está activo (inicialización)
   const getInitialExpandedItems = () => {
@@ -77,23 +75,6 @@ export default function Sidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Cerrar menú de usuario cuando se hace clic fuera
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsUserMenuOpen(false);
-      }
-    }
-
-    if (isUserMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isUserMenuOpen]);
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) =>
@@ -112,7 +93,6 @@ export default function Sidebar({
 
   const handleLogout = async () => {
     try {
-      setIsUserMenuOpen(false); // Cerrar el menú primero
       await logout();
       // El AuthContext ya maneja la redirección a /plataforma
     } catch (error) {
@@ -120,10 +100,6 @@ export default function Sidebar({
       // Incluso si hay error, intentar redirigir al login
       router.push("/plataforma");
     }
-  };
-
-  const toggleUserMenu = () => {
-    setIsUserMenuOpen(!isUserMenuOpen);
   };
 
   const handleRoleChange = async (roleId: string) => {
@@ -304,13 +280,12 @@ export default function Sidebar({
 
       {/* User Profile + Logout */}
       <div className="p-3 flex flex-col gap-3">
-        {/* User info */}
-        <div
-          className="p-2 bg-bg-primary rounded-lg flex justify-center items-start gap-2"
-          ref={userMenuRef}
+        {/* User info - navigates directly to profile */}
+        <button
+          onClick={() => router.push("/plataforma/perfil")}
+          className="p-2 bg-bg-primary rounded-lg flex justify-center items-start gap-2 hover:bg-bg-secondary transition-colors"
         >
-          <button
-            onClick={toggleUserMenu}
+          <div
             className={`flex-1 flex items-center ${isCollapsed ? "justify-center" : "gap-2"}`}
           >
             {authUser?.profilePhotoUrl ? (
@@ -333,24 +308,8 @@ export default function Sidebar({
                 </p>
               </div>
             )}
-          </button>
-
-          {/* Menú desplegable (solo Mi Perfil) */}
-          {isUserMenuOpen && !isCollapsed && (
-            <div className="absolute bottom-20 left-3 right-3 bg-white border border-stroke-primary rounded-xl overflow-hidden z-10">
-              <button
-                onClick={() => {
-                  setIsUserMenuOpen(false);
-                  router.push("/plataforma/perfil");
-                }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-secondary hover:bg-secondary-hover transition-colors"
-              >
-                <Icon name="person" size={20} />
-                <span className="text-sm font-medium">Mi Perfil</span>
-              </button>
-            </div>
-          )}
-        </div>
+          </div>
+        </button>
 
         {/* Logout button */}
         <button
