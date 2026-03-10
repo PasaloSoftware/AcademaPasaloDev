@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { ClassEvent } from "@/types/classEvent";
@@ -40,6 +41,7 @@ export default function EventDetailModal({
 }: EventDetailModalProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
 
   useLayoutEffect(() => {
     if (!isOpen || !event || !anchorPosition || !tooltipRef.current) return;
@@ -321,7 +323,7 @@ export default function EventDetailModal({
                 href={event.liveMeetingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 text-text-primary text-base font-normal font-['Poppins'] leading-4 line-clamp-1 hover:text-text-accent-primary transition-colors"
+                className="flex-1 text-text-primary text-base font-normal font-['Poppins'] leading-5 line-clamp-1 hover:text-text-accent-primary transition-colors"
               >
                 {event.liveMeetingUrl}
               </a>
@@ -356,6 +358,51 @@ export default function EventDetailModal({
                 Cancelar
               </button>
             )}
+          </div>
+        )}
+
+        {/* Join / Recording action button */}
+        {!event.isCancelled && event.sessionStatus !== 'FINALIZADA' && (
+          <div className="flex justify-end w-full">
+            <button
+              onClick={() => {
+                if (event.canJoinLive && event.liveMeetingUrl) {
+                  window.open(event.liveMeetingUrl, '_blank', 'noopener,noreferrer');
+                }
+              }}
+              disabled={!event.canJoinLive}
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-medium font-['Poppins'] transition-colors ${
+                event.canJoinLive
+                  ? 'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-primary-solid/90 cursor-pointer'
+                  : 'bg-bg-disabled text-icon-disabled cursor-not-allowed '
+              }`}
+            >
+              <Icon name="videocam" size={20} className="text-icon-disabled" />
+              Unirse a la Clase
+            </button>
+          </div>
+        )}
+
+        {!event.isCancelled && event.sessionStatus === 'FINALIZADA' && (
+          <div className="flex justify-end w-full">
+            <button
+              onClick={() => {
+                if (event.canWatchRecording) {
+                  router.push(
+                    `/plataforma/curso/${event.courseCycleId}/evaluacion/${event.evaluationId}/clase/${event.id}`
+                  );
+                }
+              }}
+              disabled={!event.canWatchRecording}
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-medium font-['Poppins'] transition-colors ${
+                event.canWatchRecording
+                  ? 'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-primary-solid/90 cursor-pointer'
+                  : 'bg-bg-accent-primary-solid/40 text-text-white/60 cursor-not-allowed'
+              }`}
+            >
+              <Icon name="play_arrow" size={20} className="text-current" />
+              Ver Grabación
+            </button>
           </div>
         )}
       </div>
