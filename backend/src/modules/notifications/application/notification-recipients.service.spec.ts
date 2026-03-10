@@ -113,22 +113,22 @@ describe('NotificationRecipientsService', () => {
       expect(result.recipientUserIds).toEqual(
         expect.arrayContaining(['u1', 'u2', 'u3']),
       );
-      expect((profQb.innerJoin as jest.Mock)).toHaveBeenCalledWith(
+      expect(profQb.innerJoin as jest.Mock).toHaveBeenCalledWith(
         'cep.professor',
         'professor',
       );
-      expect((profQb.andWhere as jest.Mock)).toHaveBeenCalledWith(
+      expect(profQb.andWhere as jest.Mock).toHaveBeenCalledWith(
         'professor.is_active = :isActive',
         { isActive: true },
       );
-      expect((studQb.innerJoin as jest.Mock)).toHaveBeenCalledWith(
+      expect(studQb.innerJoin as jest.Mock).toHaveBeenCalledWith(
         'en.user',
         'student',
       );
-      expect((studQb.andWhere as jest.Mock)).toHaveBeenCalledWith(
+      expect(studQb.andWhere as jest.Mock).toHaveBeenCalledWith(
         'en.cancelled_at IS NULL',
       );
-      expect((studQb.andWhere as jest.Mock)).toHaveBeenCalledWith(
+      expect(studQb.andWhere as jest.Mock).toHaveBeenCalledWith(
         'student.is_active = :isActive',
         { isActive: true },
       );
@@ -205,15 +205,15 @@ describe('NotificationRecipientsService', () => {
       expect(result.recipientUserIds).toEqual(
         expect.arrayContaining(['p1', 's1']),
       );
-      expect((profQb.innerJoin as jest.Mock)).toHaveBeenCalledWith(
+      expect(profQb.innerJoin as jest.Mock).toHaveBeenCalledWith(
         'ccp.professor',
         'professor',
       );
-      expect((studQb.innerJoin as jest.Mock)).toHaveBeenCalledWith(
+      expect(studQb.innerJoin as jest.Mock).toHaveBeenCalledWith(
         'en.user',
         'student',
       );
-      expect((studQb.andWhere as jest.Mock)).toHaveBeenCalledWith(
+      expect(studQb.andWhere as jest.Mock).toHaveBeenCalledWith(
         'en.cancelled_at IS NULL',
       );
     });

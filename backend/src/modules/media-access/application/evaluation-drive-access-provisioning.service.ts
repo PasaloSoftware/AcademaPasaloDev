@@ -120,11 +120,7 @@ export class EvaluationDriveAccessProvisioningService {
   }
 
   private getConfiguredStaffGroupEmail(): string {
-    return String(
-      technicalSettings.mediaAccess.staffViewersGroupEmail ||
-        process.env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL ||
-        '',
-    )
+    return technicalSettings.mediaAccess.staffViewersGroupEmail
       .trim()
       .toLowerCase();
   }

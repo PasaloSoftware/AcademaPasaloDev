@@ -60,6 +60,7 @@ describe('MediaAccessReconciliationService', () => {
     (dataSource.query as jest.Mock).mockResolvedValueOnce([
       { email: 'student1@academiapasalo.com' },
       { email: 'student3@academiapasalo.com' },
+      { email: 'profesor@academiapasalo.com' },
     ]);
     workspaceGroupsService.listGroupMembers.mockResolvedValueOnce([
       { email: 'student1@academiapasalo.com', role: 'MEMBER' },
@@ -72,6 +73,10 @@ describe('MediaAccessReconciliationService', () => {
     expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-200-viewers@academiapasalo.com',
       memberEmail: 'student3@academiapasalo.com',
+    });
+    expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
+      groupEmail: 'ev-200-viewers@academiapasalo.com',
+      memberEmail: 'profesor@academiapasalo.com',
     });
     expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-200-viewers@academiapasalo.com',
@@ -86,7 +91,7 @@ describe('MediaAccessReconciliationService', () => {
     );
     expect(summary.scopesProcessed).toBe(1);
     expect(summary.scopesWithDrift).toBe(1);
-    expect(summary.addedMembersTotal).toBe(1);
+    expect(summary.addedMembersTotal).toBe(2);
     expect(summary.removedMembersTotal).toBe(1);
     expect(
       driveScopeProvisioningService.ensureGroupReaderPermission,

@@ -10,6 +10,7 @@ import {
   MEDIA_ACCESS_JOB_NAMES,
   MEDIA_ACCESS_MEMBERSHIP_ACTIONS,
   MEDIA_ACCESS_SYNC_SOURCES,
+  isGoogleGroupMemberRemovable,
 } from '@modules/media-access/domain/media-access.constants';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
@@ -522,19 +523,36 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     evaluationId: string,
   ): Promise<string[]> {
     const result = await this.dataSource.query<Array<{ email: string | null }>>(
-      `SELECT DISTINCT LOWER(TRIM(u.email)) AS email
-       FROM enrollment_evaluation ee
-       INNER JOIN enrollment e ON e.id = ee.enrollment_id
-       INNER JOIN user u ON u.id = e.user_id
-       WHERE ee.evaluation_id = ?
-         AND ee.is_active = 1
-         AND ee.access_start_date <= NOW()
-         AND ee.access_end_date >= NOW()
-         AND e.cancelled_at IS NULL
-         AND u.email IS NOT NULL
-         AND TRIM(u.email) <> ''
+      `SELECT DISTINCT email
+       FROM (
+         SELECT LOWER(TRIM(u.email)) AS email
+         FROM enrollment_evaluation ee
+         INNER JOIN enrollment e ON e.id = ee.enrollment_id
+         INNER JOIN user u ON u.id = e.user_id
+         WHERE ee.evaluation_id = ?
+           AND ee.is_active = 1
+           AND ee.access_start_date <= NOW()
+           AND ee.access_end_date >= NOW()
+           AND e.cancelled_at IS NULL
+           AND u.is_active = 1
+           AND u.email IS NOT NULL
+           AND TRIM(u.email) <> ''
+
+         UNION
+
+         SELECT LOWER(TRIM(u.email)) AS email
+         FROM evaluation ev
+         INNER JOIN course_cycle_professor ccp
+           ON ccp.course_cycle_id = ev.course_cycle_id
+          AND ccp.revoked_at IS NULL
+         INNER JOIN user u ON u.id = ccp.professor_user_id
+         WHERE ev.id = ?
+           AND u.is_active = 1
+           AND u.email IS NOT NULL
+           AND TRIM(u.email) <> ''
+       ) expected_members
        ORDER BY email ASC`,
-      [evaluationId],
+      [evaluationId, evaluationId],
     );
 
     return result
@@ -570,7 +588,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
   }
 
   private isRemovableMemberRole(role: string): boolean {
-    return role === 'MEMBER' || role === '';
+    return isGoogleGroupMemberRemovable(role);
   }
 
   private buildCourseCycleViewerGroupEmail(courseCycleId: string): string {

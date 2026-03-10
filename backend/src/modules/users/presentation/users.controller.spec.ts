@@ -49,12 +49,12 @@ describe('UsersController', () => {
   });
 
   it('update debe requerir roles ADMIN y SUPER_ADMIN', () => {
-    const requiredRoles = Reflect.getMetadata(ROLES_KEY, UsersController.prototype.update);
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.update,
+    );
 
-    expect(requiredRoles).toEqual([
-      ROLE_CODES.ADMIN,
-      ROLE_CODES.SUPER_ADMIN,
-    ]);
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
   });
 
   it('update delega al servicio con el dto completo', async () => {

@@ -53,7 +53,7 @@ INSERT INTO user_role (user_id, role_id) VALUES
 -- 3. CREACIÓN DE CURSOS
 -- -----------------------------------------------------------------------------
 INSERT INTO course (course_type_id, cycle_level_id, code, name, created_at) VALUES
-(@type_ciencias_id, @level_1_id, 'MATE101', 'Álgebra Matricial', NOW()),
+(@type_ciencias_id, @level_1_id, 'MATE101', 'Álgebra Matricial y Geometría Analítica', NOW()),
 (@type_ciencias_id, @level_1_id, 'MATE102', 'Cálculo I', NOW()),
 (@type_ciencias_id, @level_1_id, 'FIS101', 'Física I', NOW()),
 (@type_ciencias_id, @level_1_id, 'QUI101', 'Química General', NOW());

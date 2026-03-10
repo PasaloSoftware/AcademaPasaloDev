@@ -65,7 +65,7 @@ describe('MediaAccessMembershipDispatchService', () => {
     expect(jobs[0].data.source).toBe('ENROLLMENT_CANCELLED');
   });
 
-  it('no propaga error si queue falla', async () => {
+  it('propaga error si queue falla', async () => {
     (queue.addBulk as jest.Mock).mockRejectedValue(new Error('Redis down'));
 
     await expect(
@@ -74,7 +74,7 @@ describe('MediaAccessMembershipDispatchService', () => {
         ['100', '100'],
         'EVALUATION_CREATED',
       ),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('Redis down');
   });
 
   it('encola recover scope con payload normalizado', async () => {
