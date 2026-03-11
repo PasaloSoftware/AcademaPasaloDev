@@ -247,6 +247,209 @@ _Todos los endpoints requieren JWT y una sesión activa en BD._
   }
   ```
 
+#### Endpoints nuevos recomendados para creacion por rol
+
+Estos endpoints existen para que frontend no tenga que crear un usuario base y luego hacer una segunda llamada de asignacion de rol para los flujos mas comunes.
+
+##### A. Crear Alumno
+
+- **Endpoint:** `POST /students`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Objetivo:** Crear un usuario nuevo con rol inicial `STUDENT`.
+- **Request Body:**
+  ```json
+  {
+    "email": "string (email valido, max 255, obligatorio)",
+    "firstName": "string (min 2, max 50, obligatorio, solo letras)",
+    "lastName1": "string (opcional, max 50, solo letras)",
+    "lastName2": "string (opcional, max 50, solo letras)",
+    "phone": "string (opcional, max 20, numeros y caracteres validos)",
+    "career": "string (opcional, max 100)",
+    "profilePhotoUrl": "string (opcional, max 500)",
+    "photoSource": "google | uploaded | none (opcional)"
+  }
+  ```
+- **Campos obligatorios minimos para crear desde frontend:**
+  - `email`
+  - `firstName`
+- **Response (`data`):** `UserResponseDto` con rol `STUDENT` ya asignado.
+- **Ejemplo de response exitosa:**
+  ```json
+  {
+    "statusCode": 201,
+    "message": "Alumno creado exitosamente",
+    "data": {
+      "id": "145",
+      "email": "alumno1@academiapasalo.com",
+      "firstName": "Carlos",
+      "lastName1": "Soto",
+      "lastName2": "Perez",
+      "phone": "999888777",
+      "career": "Ingenieria",
+      "profilePhotoUrl": null,
+      "photoSource": "none",
+      "isActive": true,
+      "roles": [
+        {
+          "code": "STUDENT",
+          "name": "Alumno"
+        }
+      ]
+    },
+    "timestamp": "2026-03-10T12:00:00.000Z"
+  }
+  ```
+- **Comportamiento detallado:**
+  - crea el usuario en una sola transaccion
+  - asigna el rol `STUDENT` desde el inicio
+  - deja `lastActiveRoleId` alineado al rol creado
+  - no realiza matricula automaticamente
+- **Secuencia recomendada de frontend:**
+  1. llamar `POST /users/students`
+  2. guardar `data.id`
+  3. si el flujo requiere inscripcion inmediata, llamar `POST /enrollments` con ese `userId`
+- **Errores esperados:**
+  - `403` si el actor no es `ADMIN` ni `SUPER_ADMIN`
+  - `409` si el correo ya existe
+
+##### B. Crear Profesor
+
+- **Endpoint:** `POST /professors`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Objetivo:** Crear un usuario nuevo con rol inicial `PROFESSOR`.
+- **Request Body:**
+  ```json
+  {
+    "email": "string (email valido, max 255, obligatorio)",
+    "firstName": "string (min 2, max 50, obligatorio, solo letras)",
+    "lastName1": "string (opcional, max 50, solo letras)",
+    "lastName2": "string (opcional, max 50, solo letras)",
+    "phone": "string (opcional, max 20, numeros y caracteres validos)",
+    "career": "string (opcional, max 100)",
+    "profilePhotoUrl": "string (opcional, max 500)",
+    "photoSource": "google | uploaded | none (opcional)"
+  }
+  ```
+- **Campos obligatorios minimos para crear desde frontend:**
+  - `email`
+  - `firstName`
+- **Response (`data`):** `UserResponseDto` con rol `PROFESSOR` ya asignado.
+- **Ejemplo de response exitosa:**
+  ```json
+  {
+    "statusCode": 201,
+    "message": "Profesor creado exitosamente",
+    "data": {
+      "id": "201",
+      "email": "profesor1@academiapasalo.com",
+      "firstName": "Luis",
+      "lastName1": "Ramos",
+      "lastName2": "Quispe",
+      "phone": null,
+      "career": null,
+      "profilePhotoUrl": null,
+      "photoSource": "none",
+      "isActive": true,
+      "roles": [
+        {
+          "code": "PROFESSOR",
+          "name": "Profesor"
+        }
+      ]
+    },
+    "timestamp": "2026-03-10T12:00:00.000Z"
+  }
+  ```
+- **Comportamiento detallado:**
+  - crea el usuario en una sola transaccion
+  - asigna el rol `PROFESSOR` desde el inicio
+  - no asigna al profesor a ningun curso o ciclo
+- **Secuencia recomendada de frontend:**
+  1. llamar `POST /users/professors`
+  2. guardar `data.id`
+  3. si corresponde, llamar `POST /courses/cycle/:courseCycleId/professors` usando `professorUserId = data.id`
+- **Errores esperados:**
+  - `403` si el actor no es `ADMIN` ni `SUPER_ADMIN`
+  - `409` si el correo ya existe
+
+##### C. Crear Administrador
+
+- **Endpoint:** `POST /admins`
+- **Roles:** `SUPER_ADMIN`
+- **Objetivo:** Crear un usuario nuevo con rol inicial `ADMIN`.
+- **Request Body:**
+  ```json
+  {
+    "email": "string (email valido, max 255, obligatorio)",
+    "firstName": "string (min 2, max 50, obligatorio, solo letras)",
+    "lastName1": "string (opcional, max 50, solo letras)",
+    "lastName2": "string (opcional, max 50, solo letras)",
+    "phone": "string (opcional, max 20, numeros y caracteres validos)",
+    "career": "string (opcional, max 100)",
+    "profilePhotoUrl": "string (opcional, max 500)",
+    "photoSource": "google | uploaded | none (opcional)"
+  }
+  ```
+- **Campos obligatorios minimos para crear desde frontend:**
+  - `email`
+  - `firstName`
+- **Response (`data`):** `UserResponseDto` con rol `ADMIN` ya asignado.
+- **Ejemplo de response exitosa:**
+  ```json
+  {
+    "statusCode": 201,
+    "message": "Administrador creado exitosamente",
+    "data": {
+      "id": "310",
+      "email": "admin2@academiapasalo.com",
+      "firstName": "Marina",
+      "lastName1": "Lopez",
+      "lastName2": null,
+      "phone": null,
+      "career": null,
+      "profilePhotoUrl": null,
+      "photoSource": "none",
+      "isActive": true,
+      "roles": [
+        {
+          "code": "ADMIN",
+          "name": "Administrador"
+        }
+      ]
+    },
+    "timestamp": "2026-03-10T12:00:00.000Z"
+  }
+  ```
+- **Comportamiento detallado:**
+  - solo `SUPER_ADMIN` puede ejecutar esta accion
+  - crea el usuario en una sola transaccion
+  - asigna el rol `ADMIN` desde el inicio
+  - encola la reconciliacion de staff viewers porque el usuario entra al conjunto administrativo
+- **Regla importante de UX:**
+  - si el perfil activo es `ADMIN`, frontend debe ocultar o deshabilitar esta accion
+- **Errores esperados:**
+  - `403` si el actor no es `SUPER_ADMIN`
+  - `409` si el correo ya existe
+
+#### Nota de integracion para frontend
+
+- `POST /users` sigue existiendo y crea un usuario base.
+- Para flujos reales de negocio, frontend debe preferir:
+  - `POST /users/students`
+  - `POST /users/professors`
+  - `POST /users/admins`
+- Esto evita llamadas extra de asignacion de rol y deja el usuario listo para los siguientes pasos operativos.
+- En los tres endpoints nuevos el formato del payload es exactamente el mismo:
+  - `email: string`
+  - `firstName: string`
+  - `lastName1?: string`
+  - `lastName2?: string`
+  - `phone?: string`
+  - `career?: string`
+  - `profilePhotoUrl?: string`
+  - `photoSource?: "google" | "uploaded" | "none"`
+- El frontend no debe enviar `roles`, `lastActiveRoleId`, `isActive`, `createdAt` ni `updatedAt` en estos endpoints.
+
 ### 2. Listar Usuarios
 
 - **Endpoint:** `GET /`
@@ -336,6 +539,41 @@ Base URL: `/api/v1/enrollments`
     "historicalCourseCycleIds": ["string"]
   }
   ```
+
+#### Regla nueva obligatoria sobre `userId`
+
+El `userId` enviado debe pertenecer a un usuario activo con rol `STUDENT`.
+
+Esto implica lo siguiente para frontend:
+
+1. No usar este endpoint sobre usuarios creados con `POST /users` si aun no tienen rol.
+2. No usar este endpoint sobre usuarios con rol `PROFESSOR`, `ADMIN` o `SUPER_ADMIN`.
+3. El flujo recomendado para alta rapida de alumno es:
+   1. `POST /users/students`
+   2. `POST /enrollments`
+4. Si el backend responde `400` con un mensaje equivalente a `El usuario debe ser un alumno activo para matricularse.`, debe tratarse como error funcional del flujo, no como error tecnico.
+
+#### Ejemplo de secuencia recomendada para frontend
+
+**Paso 1: crear alumno**
+
+```http
+POST /api/v1/users/students
+```
+
+**Paso 2: matricular alumno**
+
+```http
+POST /api/v1/enrollments
+```
+
+```json
+{
+  "userId": "id retornado por /users/students",
+  "courseCycleId": "string",
+  "enrollmentTypeCode": "FULL"
+}
+```
 
 #### Modelo de dominio (clave para Frontend)
 
@@ -679,5 +917,3 @@ Update adicional (2026-03-06):
 
 Contrato detallado en `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
 `UPDATE FRONTEND CONTRACT - INTRO VIDEO POR CURSO/CICLO (2026-03-06)`.
-
-
