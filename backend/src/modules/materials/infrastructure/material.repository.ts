@@ -43,6 +43,17 @@ export type AdminMaterialFileListRow = {
   createdByLastName2: string | null;
 };
 
+export type NotificationMaterialTargetRow = {
+  materialId: string;
+  classEventId: string | null;
+  evaluationId: string;
+  courseCycleId: string;
+  sessionNumber: number | null;
+  evaluationTypeCode: string;
+  evaluationNumber: number;
+  folderId: string;
+};
+
 @Injectable()
 export class MaterialRepository {
   constructor(
@@ -63,6 +74,41 @@ export class MaterialRepository {
         fileVersion: true,
       },
     });
+  }
+
+  async findNotificationTargetsByIds(
+    materialIds: string[],
+  ): Promise<NotificationMaterialTargetRow[]> {
+    if (materialIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.ormRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.materialFolder', 'mf')
+      .innerJoin('mf.evaluation', 'ev')
+      .innerJoin('ev.evaluationType', 'et')
+      .innerJoin('ev.courseCycle', 'cc')
+      .leftJoin('m.classEvent', 'ce')
+      .where('m.id IN (:...materialIds)', { materialIds })
+      .select('m.id', 'materialId')
+      .addSelect('m.classEventId', 'classEventId')
+      .addSelect('mf.id', 'folderId')
+      .addSelect('ev.id', 'evaluationId')
+      .addSelect('cc.id', 'courseCycleId')
+      .addSelect('ce.session_number', 'sessionNumber')
+      .addSelect('et.code', 'evaluationTypeCode')
+      .addSelect('ev.number', 'evaluationNumber')
+      .getRawMany<NotificationMaterialTargetRow>();
+
+    return rows.map((row) => ({
+      ...row,
+      sessionNumber:
+        row.sessionNumber === null || row.sessionNumber === undefined
+          ? null
+          : Number(row.sessionNumber),
+      evaluationNumber: Number(row.evaluationNumber),
+    }));
   }
 
   async findByFolderId(

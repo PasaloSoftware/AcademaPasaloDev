@@ -394,10 +394,12 @@ export class MaterialsService {
         await this.invalidateClassEventMaterialsCache(dto.classEventId);
       }
 
-      void this.notificationsDispatchService.dispatchNewMaterial(
-        result.id,
-        dto.materialFolderId,
-      );
+      if (result.classEventId) {
+        void this.notificationsDispatchService.dispatchNewMaterial(
+          result.id,
+          dto.materialFolderId,
+        );
+      }
 
       return result;
     } catch (error) {
@@ -605,6 +607,14 @@ export class MaterialsService {
       if (result.classEventId) {
         await this.invalidateClassEventMaterialsCache(result.classEventId);
       }
+
+      if (result.classEventId) {
+        void this.notificationsDispatchService.dispatchMaterialUpdated(
+          result.id,
+          result.materialFolderId,
+        );
+      }
+
       return result;
     } catch (error) {
       if (isNewFile && savedResource) await this.rollbackFile(savedResource);

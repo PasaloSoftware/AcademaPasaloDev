@@ -9,6 +9,7 @@ import {
   NOTIFICATION_SYSTEM_SETTING_KEYS,
   NOTIFICATION_TYPE_CODES,
 } from '@modules/notifications/domain/notification.constants';
+import { DispatchPayload } from '@modules/notifications/interfaces';
 
 @Injectable()
 export class NotificationsDispatchService {
@@ -25,15 +26,39 @@ export class NotificationsDispatchService {
     folderId: string,
   ): Promise<void> {
     try {
-      await this.notificationsQueue.add(NOTIFICATION_JOB_NAMES.DISPATCH, {
-        type: NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
+          materialId,
+          folderId,
+        },
+        `new-material:${materialId}`,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationsDispatchService.name,
+        message: 'No se pudo encolar la notificacion NEW_MATERIAL',
+        materialId,
+        folderId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async dispatchMaterialUpdated(
+    materialId: string,
+    folderId: string,
+  ): Promise<void> {
+    try {
+      await this.enqueueDispatchJob({
+        type: NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED,
         materialId,
         folderId,
       });
     } catch (error) {
       this.logger.warn({
         context: NotificationsDispatchService.name,
-        message: 'No se pudo encolar la notificación NEW_MATERIAL',
+        message: 'No se pudo encolar la notificacion MATERIAL_UPDATED',
         materialId,
         folderId,
         error: error instanceof Error ? error.message : String(error),
@@ -43,14 +68,17 @@ export class NotificationsDispatchService {
 
   async dispatchClassScheduled(classEventId: string): Promise<void> {
     try {
-      await this.notificationsQueue.add(NOTIFICATION_JOB_NAMES.DISPATCH, {
-        type: NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED,
-        classEventId,
-      });
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED,
+          classEventId,
+        },
+        `class-scheduled:${classEventId}`,
+      );
     } catch (error) {
       this.logger.warn({
         context: NotificationsDispatchService.name,
-        message: 'No se pudo encolar la notificación CLASS_SCHEDULED',
+        message: 'No se pudo encolar la notificacion CLASS_SCHEDULED',
         classEventId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -59,14 +87,14 @@ export class NotificationsDispatchService {
 
   async dispatchClassUpdated(classEventId: string): Promise<void> {
     try {
-      await this.notificationsQueue.add(NOTIFICATION_JOB_NAMES.DISPATCH, {
+      await this.enqueueDispatchJob({
         type: NOTIFICATION_TYPE_CODES.CLASS_UPDATED,
         classEventId,
       });
     } catch (error) {
       this.logger.warn({
         context: NotificationsDispatchService.name,
-        message: 'No se pudo encolar la notificación CLASS_UPDATED',
+        message: 'No se pudo encolar la notificacion CLASS_UPDATED',
         classEventId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -75,14 +103,33 @@ export class NotificationsDispatchService {
 
   async dispatchClassCancelled(classEventId: string): Promise<void> {
     try {
-      await this.notificationsQueue.add(NOTIFICATION_JOB_NAMES.DISPATCH, {
-        type: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
+          classEventId,
+        },
+        `class-cancelled:${classEventId}`,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationsDispatchService.name,
+        message: 'No se pudo encolar la notificacion CLASS_CANCELLED',
+        classEventId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async dispatchClassRecordingAvailable(classEventId: string): Promise<void> {
+    try {
+      await this.enqueueDispatchJob({
+        type: NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
         classEventId,
       });
     } catch (error) {
       this.logger.warn({
         context: NotificationsDispatchService.name,
-        message: 'No se pudo encolar la notificación CLASS_CANCELLED',
+        message: 'No se pudo encolar la notificacion CLASS_RECORDING_AVAILABLE',
         classEventId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -91,14 +138,17 @@ export class NotificationsDispatchService {
 
   async dispatchDeletionRequestApproved(requestId: string): Promise<void> {
     try {
-      await this.notificationsQueue.add(NOTIFICATION_JOB_NAMES.DISPATCH, {
-        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
-        requestId,
-      });
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
+          requestId,
+        },
+        `deletion-approved:${requestId}`,
+      );
     } catch (error) {
       this.logger.warn({
         context: NotificationsDispatchService.name,
-        message: 'No se pudo encolar la notificación DELETION_REQUEST_APPROVED',
+        message: 'No se pudo encolar la notificacion DELETION_REQUEST_APPROVED',
         requestId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -110,15 +160,18 @@ export class NotificationsDispatchService {
     adminComment?: string,
   ): Promise<void> {
     try {
-      await this.notificationsQueue.add(NOTIFICATION_JOB_NAMES.DISPATCH, {
-        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED,
-        requestId,
-        adminComment,
-      });
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED,
+          requestId,
+          adminComment,
+        },
+        `deletion-rejected:${requestId}`,
+      );
     } catch (error) {
       this.logger.warn({
         context: NotificationsDispatchService.name,
-        message: 'No se pudo encolar la notificación DELETION_REQUEST_REJECTED',
+        message: 'No se pudo encolar la notificacion DELETION_REQUEST_REJECTED',
         requestId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -145,7 +198,7 @@ export class NotificationsDispatchService {
         this.logger.warn({
           context: NotificationsDispatchService.name,
           message:
-            'No se encontró NOTIFICATION_REMINDER_MINUTES en system_setting al encolar reminder, usando valor por defecto',
+            'No se encontro NOTIFICATION_REMINDER_MINUTES en system_setting al encolar reminder, usando valor por defecto',
           defaultValue: reminderMinutes,
         });
       }
@@ -157,7 +210,7 @@ export class NotificationsDispatchService {
         this.logger.error({
           context: NotificationsDispatchService.name,
           message:
-            'Recordatorio omitido: NOTIFICATION_REMINDER_MINUTES está fuera del rango permitido',
+            'Recordatorio omitido: NOTIFICATION_REMINDER_MINUTES esta fuera del rango permitido',
           reminderMinutes,
           minMinutes,
           maxMinutes,
@@ -173,7 +226,7 @@ export class NotificationsDispatchService {
         this.logger.log({
           context: NotificationsDispatchService.name,
           message:
-            'Recordatorio de clase omitido: el delay calculado está por debajo del umbral mínimo',
+            'Recordatorio de clase omitido: el delay calculado esta por debajo del umbral minimo',
           classEventId,
           delayMs,
           thresholdMs: technicalSettings.notifications.reminderMinEnqueueMs,
@@ -190,7 +243,7 @@ export class NotificationsDispatchService {
       await this.notificationsQueue.add(
         NOTIFICATION_JOB_NAMES.CLASS_REMINDER,
         { classEventId, reminderMinutes },
-        { jobId, delay: delayMs },
+        { jobId, delay: delayMs, removeOnComplete: true },
       );
     } catch (error) {
       this.logger.warn({
@@ -217,5 +270,19 @@ export class NotificationsDispatchService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  private async enqueueDispatchJob(
+    payload: DispatchPayload,
+    jobId?: string,
+  ): Promise<void> {
+    await this.notificationsQueue.add(
+      NOTIFICATION_JOB_NAMES.DISPATCH,
+      payload,
+      {
+        jobId,
+        removeOnComplete: true,
+      },
+    );
   }
 }

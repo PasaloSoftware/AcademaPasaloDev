@@ -1,9 +1,11 @@
 export const NOTIFICATION_TYPE_CODES = {
   NEW_MATERIAL: 'NEW_MATERIAL',
+  MATERIAL_UPDATED: 'MATERIAL_UPDATED',
   CLASS_SCHEDULED: 'CLASS_SCHEDULED',
   CLASS_UPDATED: 'CLASS_UPDATED',
   CLASS_CANCELLED: 'CLASS_CANCELLED',
   CLASS_REMINDER: 'CLASS_REMINDER',
+  CLASS_RECORDING_AVAILABLE: 'CLASS_RECORDING_AVAILABLE',
   DELETION_REQUEST_APPROVED: 'DELETION_REQUEST_APPROVED',
   DELETION_REQUEST_REJECTED: 'DELETION_REQUEST_REJECTED',
 } as const;
@@ -31,7 +33,7 @@ export const NOTIFICATION_SYSTEM_SETTING_KEYS = {
 } as const;
 
 export const NOTIFICATION_ENTITY_TYPES = {
-  MATERIAL_FOLDER: 'material_folder',
+  MATERIAL: 'material',
   CLASS_EVENT: 'class_event',
   DELETION_REQUEST: 'deletion_request',
 } as const;
@@ -41,6 +43,11 @@ export const NOTIFICATION_MESSAGES = {
     title: 'Nuevo material disponible',
     message: (displayName: string, courseName: string) =>
       `Se publicó '${displayName}' en el curso ${courseName}.`,
+  },
+  [NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED]: {
+    title: 'Material actualizado',
+    message: (displayName: string, courseName: string) =>
+      `Se actualizó '${displayName}' en el curso ${courseName}.`,
   },
   [NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED]: {
     title: 'Nueva clase programada',
@@ -61,6 +68,11 @@ export const NOTIFICATION_MESSAGES = {
     title: 'Recordatorio de clase',
     message: (classTitle: string, minutosRestantes: number) =>
       `Tienes una clase '${classTitle}' en ${minutosRestantes} minutos.`,
+  },
+  [NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE]: {
+    title: 'Grabación disponible',
+    message: (classTitle: string) =>
+      `La grabación de la clase '${classTitle}' ya está disponible.`,
   },
   [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED]: {
     title: 'Solicitud de eliminación aprobada',

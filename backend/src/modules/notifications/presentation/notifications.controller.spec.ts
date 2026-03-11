@@ -11,7 +11,7 @@ import { GetNotificationsQueryDto } from '@modules/notifications/dto/get-notific
 import { technicalSettings } from '@config/technical-settings';
 
 const mockNotificationsService = {
-  getMyNotifications: jest.fn(),
+  getMyNotificationResponses: jest.fn(),
   getUnreadCount: jest.fn(),
   markAsRead: jest.fn(),
   markAllAsRead: jest.fn(),
@@ -91,8 +91,10 @@ describe('NotificationsController', () => {
 
   describe('getMyNotifications', () => {
     it('delega al servicio y mapea los resultados a DTOs', async () => {
-      const items = [makeUserNotification('99'), makeUserNotification('100')];
-      mockNotificationsService.getMyNotifications.mockResolvedValue(items);
+      mockNotificationsService.getMyNotificationResponses.mockResolvedValue([
+        { notificationId: '99' },
+        { notificationId: '100' },
+      ]);
 
       const query: GetNotificationsQueryDto = {
         onlyUnread: false,
@@ -102,7 +104,9 @@ describe('NotificationsController', () => {
 
       const result = await controller.getMyNotifications(mockUser, query);
 
-      expect(mockNotificationsService.getMyNotifications).toHaveBeenCalledWith(
+      expect(
+        mockNotificationsService.getMyNotificationResponses,
+      ).toHaveBeenCalledWith(
         'u1',
         false,
         technicalSettings.notifications.defaultPageLimit,
@@ -114,7 +118,7 @@ describe('NotificationsController', () => {
     });
 
     it('usa onlyUnread=false cuando el query no lo provee (undefined)', async () => {
-      mockNotificationsService.getMyNotifications.mockResolvedValue([]);
+      mockNotificationsService.getMyNotificationResponses.mockResolvedValue([]);
 
       const query: GetNotificationsQueryDto = {
         onlyUnread: undefined,
@@ -124,12 +128,9 @@ describe('NotificationsController', () => {
 
       await controller.getMyNotifications(mockUser, query);
 
-      expect(mockNotificationsService.getMyNotifications).toHaveBeenCalledWith(
-        'u1',
-        false,
-        20,
-        0,
-      );
+      expect(
+        mockNotificationsService.getMyNotificationResponses,
+      ).toHaveBeenCalledWith('u1', false, 20, 0);
     });
   });
 

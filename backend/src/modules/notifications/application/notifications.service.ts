@@ -11,7 +11,16 @@ import { JobScheduler } from '@infrastructure/queue/queue.interfaces';
 import { technicalSettings } from '@config/technical-settings';
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
 import { UserNotification } from '@modules/notifications/domain/user-notification.entity';
-import { NOTIFICATION_JOB_NAMES } from '@modules/notifications/domain/notification.constants';
+import {
+  NOTIFICATION_ENTITY_TYPES,
+  NOTIFICATION_JOB_NAMES,
+} from '@modules/notifications/domain/notification.constants';
+import {
+  NotificationResponseDto,
+  NotificationTargetDto,
+} from '@modules/notifications/dto/notification-response.dto';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
 
 @Injectable()
 export class NotificationsService implements OnApplicationBootstrap {
@@ -19,6 +28,8 @@ export class NotificationsService implements OnApplicationBootstrap {
 
   constructor(
     private readonly userNotificationRepository: UserNotificationRepository,
+    private readonly materialRepository: MaterialRepository,
+    private readonly classEventRepository: ClassEventRepository,
     @InjectQueue(QUEUES.NOTIFICATIONS)
     private readonly notificationsQueue: Queue,
   ) {}
@@ -41,7 +52,7 @@ export class NotificationsService implements OnApplicationBootstrap {
       this.logger.error({
         context: NotificationsService.name,
         message:
-          'reminderDefaultMinutes está fuera del rango permitido [min, max]. Revise technical-settings.ts.',
+          'reminderDefaultMinutes esta fuera del rango permitido [min, max]. Revise technical-settings.ts.',
         reminderDefaultMinutes,
         reminderMinMinutes,
         reminderMaxMinutes,
@@ -64,7 +75,7 @@ export class NotificationsService implements OnApplicationBootstrap {
         this.logger.log({
           context: NotificationsService.name,
           message:
-            'Detectado cambio en el patrón de horario del cleanup. Actualizando Redis...',
+            'Detectado cambio en el patron de horario del cleanup. Actualizando Redis...',
           oldPattern: currentPattern,
           newPattern: cronPattern,
         });
@@ -79,7 +90,7 @@ export class NotificationsService implements OnApplicationBootstrap {
         this.logger.debug({
           context: NotificationsService.name,
           message:
-            'Scheduler de cleanup ya registrado con el patrón actual. Sin cambios.',
+            'Scheduler de cleanup ya registrado con el patron actual. Sin cambios.',
           pattern: cronPattern,
         });
       }
@@ -113,6 +124,28 @@ export class NotificationsService implements OnApplicationBootstrap {
     );
   }
 
+  async getMyNotificationResponses(
+    userId: string,
+    onlyUnread: boolean,
+    limit: number,
+    offset: number,
+  ): Promise<NotificationResponseDto[]> {
+    const userNotifications = await this.getMyNotifications(
+      userId,
+      onlyUnread,
+      limit,
+      offset,
+    );
+    const targetMap = await this.resolveTargets(userNotifications);
+
+    return userNotifications.map((un) =>
+      NotificationResponseDto.fromEntity(
+        un,
+        targetMap.get(un.notificationId) ?? null,
+      ),
+    );
+  }
+
   async getUnreadCount(userId: string): Promise<number> {
     return await this.userNotificationRepository.countUnread(userId);
   }
@@ -125,7 +158,7 @@ export class NotificationsService implements OnApplicationBootstrap {
 
     if (!userNotification) {
       throw new NotFoundException(
-        'La notificación no existe o no pertenece al usuario',
+        'La notificacion no existe o no pertenece al usuario',
       );
     }
 
@@ -138,5 +171,85 @@ export class NotificationsService implements OnApplicationBootstrap {
 
   async markAllAsRead(userId: string): Promise<void> {
     await this.userNotificationRepository.markAllAsRead(userId);
+  }
+
+  private async resolveTargets(
+    userNotifications: UserNotification[],
+  ): Promise<Map<string, NotificationTargetDto>> {
+    const materialIds = userNotifications
+      .filter(
+        (un) =>
+          un.notification?.entityType === NOTIFICATION_ENTITY_TYPES.MATERIAL,
+      )
+      .map((un) => String(un.notification.entityId || '').trim())
+      .filter((id) => id.length > 0);
+
+    const classEventIds = userNotifications
+      .filter(
+        (un) =>
+          un.notification?.entityType === NOTIFICATION_ENTITY_TYPES.CLASS_EVENT,
+      )
+      .map((un) => String(un.notification.entityId || '').trim())
+      .filter((id) => id.length > 0);
+
+    const [materialTargets, classEventTargets] = await Promise.all([
+      this.materialRepository.findNotificationTargetsByIds([
+        ...new Set(materialIds),
+      ]),
+      this.classEventRepository.findNotificationTargetsByIds([
+        ...new Set(classEventIds),
+      ]),
+    ]);
+
+    const materialTargetMap = new Map(
+      materialTargets.map((row) => [
+        row.materialId,
+        {
+          materialId: row.materialId,
+          classEventId: row.classEventId,
+          evaluationId: row.evaluationId,
+          courseCycleId: row.courseCycleId,
+          folderId: row.folderId,
+        } satisfies NotificationTargetDto,
+      ]),
+    );
+    const classEventTargetMap = new Map(
+      classEventTargets.map((row) => [
+        row.classEventId,
+        {
+          materialId: null,
+          classEventId: row.classEventId,
+          evaluationId: row.evaluationId,
+          courseCycleId: row.courseCycleId,
+          folderId: null,
+        } satisfies NotificationTargetDto,
+      ]),
+    );
+
+    const targetMap = new Map<string, NotificationTargetDto>();
+    for (const un of userNotifications) {
+      const entityType = un.notification?.entityType;
+      const entityId = String(un.notification?.entityId || '').trim();
+      if (!entityId) {
+        continue;
+      }
+
+      if (entityType === NOTIFICATION_ENTITY_TYPES.MATERIAL) {
+        const target = materialTargetMap.get(entityId);
+        if (target) {
+          targetMap.set(un.notificationId, target);
+        }
+        continue;
+      }
+
+      if (entityType === NOTIFICATION_ENTITY_TYPES.CLASS_EVENT) {
+        const target = classEventTargetMap.get(entityId);
+        if (target) {
+          targetMap.set(un.notificationId, target);
+        }
+      }
+    }
+
+    return targetMap;
   }
 }

@@ -18,6 +18,7 @@ const mockCache = {
   get: jest.fn(),
   set: jest.fn(),
   del: jest.fn(),
+  invalidateGroup: jest.fn(),
 };
 
 describe('UserNotificationRepository', () => {
@@ -38,7 +39,7 @@ describe('UserNotificationRepository', () => {
   });
 
   describe('bulkCreate', () => {
-    it('no llama a insert si el array está vacío', async () => {
+    it('no llama a insert si el array esta vacio', async () => {
       await repo.bulkCreate([]);
       expect(mockRepo.insert).not.toHaveBeenCalled();
     });
@@ -114,7 +115,7 @@ describe('UserNotificationRepository', () => {
   });
 
   describe('countUnread', () => {
-    it('devuelve el valor desde caché cuando existe (incluyendo 0)', async () => {
+    it('devuelve el valor desde cache cuando existe (incluyendo 0)', async () => {
       mockCache.get.mockResolvedValue(0);
 
       const result = await repo.countUnread('user-1');
@@ -123,7 +124,7 @@ describe('UserNotificationRepository', () => {
       expect(mockRepo.count).not.toHaveBeenCalled();
     });
 
-    it('devuelve el valor desde caché cuando es mayor que 0', async () => {
+    it('devuelve el valor desde cache cuando es mayor que 0', async () => {
       mockCache.get.mockResolvedValue(5);
 
       const result = await repo.countUnread('user-1');
@@ -132,7 +133,7 @@ describe('UserNotificationRepository', () => {
       expect(mockRepo.count).not.toHaveBeenCalled();
     });
 
-    it('consulta la BD y guarda en caché cuando no hay caché', async () => {
+    it('consulta la BD y guarda en cache cuando no hay cache', async () => {
       mockCache.get.mockResolvedValue(null);
       mockRepo.count.mockResolvedValue(3);
       mockCache.set.mockResolvedValue(undefined);
@@ -150,7 +151,7 @@ describe('UserNotificationRepository', () => {
       );
     });
 
-    it('no usa caché cuando el resultado de cacheService.get es undefined', async () => {
+    it('no usa cache cuando el resultado de cacheService.get es undefined', async () => {
       mockCache.get.mockResolvedValue(undefined);
       mockRepo.count.mockResolvedValue(1);
 
@@ -162,7 +163,7 @@ describe('UserNotificationRepository', () => {
   });
 
   describe('markAsRead', () => {
-    it('llama a update con los parámetros correctos e invalida el caché', async () => {
+    it('llama a update con los parametros correctos e invalida el cache', async () => {
       mockRepo.update.mockResolvedValue(undefined);
       mockCache.del.mockResolvedValue(undefined);
 
@@ -179,7 +180,7 @@ describe('UserNotificationRepository', () => {
   });
 
   describe('markAllAsRead', () => {
-    it('actualiza solo los no leídos e invalida el caché', async () => {
+    it('actualiza solo los no leidos e invalida el cache', async () => {
       mockRepo.update.mockResolvedValue(undefined);
       mockCache.del.mockResolvedValue(undefined);
 
@@ -239,6 +240,18 @@ describe('UserNotificationRepository', () => {
       );
       expect(mockCache.del).toHaveBeenCalledWith(
         NOTIFICATION_CACHE_KEYS.UNREAD_COUNT('user-2'),
+      );
+    });
+  });
+
+  describe('invalidateAllUnreadCounts', () => {
+    it('invalida todo el grupo de unread-count', async () => {
+      mockCache.invalidateGroup.mockResolvedValue(undefined);
+
+      await repo.invalidateAllUnreadCounts();
+
+      expect(mockCache.invalidateGroup).toHaveBeenCalledWith(
+        'cache:notifications:unread-count:*',
       );
     });
   });

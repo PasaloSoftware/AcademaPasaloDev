@@ -78,6 +78,7 @@ describe('MaterialsService', () => {
   let cacheService: jest.Mocked<RedisCacheService>;
   let classEventRepo: jest.Mocked<ClassEventRepository>;
   let driveAccessScopeService: jest.Mocked<DriveAccessScopeService>;
+  let notificationsDispatchService: jest.Mocked<NotificationsDispatchService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -174,6 +175,7 @@ describe('MaterialsService', () => {
           provide: NotificationsDispatchService,
           useValue: {
             dispatchNewMaterial: jest.fn().mockResolvedValue(undefined),
+            dispatchMaterialUpdated: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -199,6 +201,7 @@ describe('MaterialsService', () => {
     cacheService = module.get(RedisCacheService);
     classEventRepo = module.get(ClassEventRepository);
     driveAccessScopeService = module.get(DriveAccessScopeService);
+    notificationsDispatchService = module.get(NotificationsDispatchService);
     (
       courseCycleProfessorRepo.isProfessorAssignedToEvaluation as jest.Mock
     ).mockResolvedValue(true);
@@ -554,6 +557,7 @@ describe('MaterialsService', () => {
       const persistedMaterial = {
         id: 'mat-1',
         materialFolderId: 'folder-77',
+        classEventId: 'evt-5',
         fileVersionId: 'ver-1',
         materialFolder: { evaluationId: '100' },
       } as Material;
@@ -595,6 +599,12 @@ describe('MaterialsService', () => {
       expect(cacheService.del).toHaveBeenCalledWith(
         MATERIAL_CACHE_KEYS.CONTENTS('folder-77'),
       );
+      expect(
+        notificationsDispatchService.dispatchMaterialUpdated,
+      ).toHaveBeenCalledWith('mat-1', 'folder-77');
+      expect(
+        notificationsDispatchService.dispatchNewMaterial,
+      ).not.toHaveBeenCalled();
     });
 
     it('should deduplicate on addVersion when resource already exists', async () => {

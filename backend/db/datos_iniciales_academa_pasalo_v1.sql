@@ -154,10 +154,12 @@ VALUES
 
 INSERT INTO notification_type (code, name) VALUES
 ('NEW_MATERIAL', 'Nuevo Material Disponible'),
+('MATERIAL_UPDATED', 'Material Actualizado'),
 ('CLASS_SCHEDULED', 'Nueva Clase Programada'),
 ('CLASS_UPDATED', 'Clase Actualizada'),
 ('CLASS_CANCELLED', 'Clase Cancelada'),
 ('CLASS_REMINDER', 'Recordatorio de Clase'),
+('CLASS_RECORDING_AVAILABLE', 'Grabación Disponible'),
 ('DELETION_REQUEST_APPROVED', 'Solicitud de Eliminación Aprobada'),
 ('DELETION_REQUEST_REJECTED', 'Solicitud de Eliminación Rechazada');
 

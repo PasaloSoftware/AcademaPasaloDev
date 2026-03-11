@@ -10,6 +10,8 @@ import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
 import { EnrollmentStatus } from '@modules/enrollments/domain/enrollment-status.entity';
 import { Material } from '@modules/materials/domain/material.entity';
 import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
 import { NotificationTypeRepository } from '@modules/notifications/infrastructure/notification-type.repository';
 import { NotificationRepository } from '@modules/notifications/infrastructure/notification.repository';
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
@@ -44,6 +46,8 @@ import { QUEUES } from '@infrastructure/queue/queue.constants';
     NotificationTypeRepository,
     NotificationRepository,
     UserNotificationRepository,
+    MaterialRepository,
+    ClassEventRepository,
     NotificationsService,
     NotificationsDispatchService,
     NotificationRecipientsService,
