@@ -73,6 +73,7 @@ describe('Advanced Security Scenarios (Offensive Testing)', () => {
       user: mockUser,
     }),
     update: jest.fn(),
+    updateLastActivity: jest.fn().mockResolvedValue(undefined),
     deactivateSession: jest.fn(),
     existsByUserIdAndDeviceId: jest.fn().mockResolvedValue(true),
     findSessionsByUserAndStatus: jest.fn().mockResolvedValue([]),

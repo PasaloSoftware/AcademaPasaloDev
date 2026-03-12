@@ -228,8 +228,6 @@ describe('MaterialsAdminService', () => {
       expect(auditService.logAction).toHaveBeenCalledWith(
         'admin-1',
         'FILE_EDIT',
-        'deletion_request',
-        'req-2',
         expect.anything(),
       );
     });

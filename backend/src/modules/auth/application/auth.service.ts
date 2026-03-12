@@ -203,8 +203,6 @@ export class AuthService {
         };
       });
 
-    await this.cacheService.del(`cache:session:${sessionId}:user`);
-
     const ttlSeconds =
       technicalSettings.auth.tokens.refreshTokenBlacklistTtlSeconds;
     await this.cacheService.set(
@@ -274,8 +272,6 @@ export class AuthService {
         activeRoleId: roleId,
       });
 
-      await this.cacheService.del(`cache:session:${sessionId}:user`);
-
       const accessPayload: JwtPayload = {
         sub: user.id,
         email: user.email,
@@ -310,7 +306,6 @@ export class AuthService {
 
   async logout(sessionId: string, userId: string): Promise<void> {
     await this.sessionService.deactivateSession(sessionId);
-    await this.cacheService.del(`cache:session:${sessionId}:user`);
     await this.securityEventService.logEvent(
       userId,
       SECURITY_EVENT_CODES.LOGOUT_SUCCESS,
@@ -349,8 +344,6 @@ export class AuthService {
     if (!keptSessionId) {
       return { keptSessionId: null };
     }
-
-    await this.cacheService.del(`cache:session:${keptSessionId}:user`);
 
     const user = await this.usersService.findOne(payload.sub);
     await this.assertUserIsActive(
@@ -469,8 +462,6 @@ export class AuthService {
         }
 
         await this.sessionService.deactivateSession(lockedSession.id, manager);
-        await this.cacheService.del(`cache:session:${lockedSession.id}:user`);
-
         await this.securityEventService.logEvent(
           payload.sub,
           SECURITY_EVENT_CODES.ANOMALOUS_LOGIN_REAUTH_FAILED,
@@ -518,8 +509,6 @@ export class AuthService {
         lockedSession.id,
         manager,
       );
-
-      await this.cacheService.del(`cache:session:${lockedSession.id}:user`);
 
       await this.securityEventService.logEvent(
         payload.sub,

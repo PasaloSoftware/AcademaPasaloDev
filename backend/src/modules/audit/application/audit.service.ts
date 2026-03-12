@@ -115,8 +115,6 @@ export class AuditService implements OnApplicationBootstrap {
   async logAction(
     userId: string,
     actionCode: string,
-    entityType?: string,
-    entityId?: string,
     manager?: EntityManager,
   ): Promise<AuditLog> {
     let actionId = this.actionIdCache.get(actionCode);
@@ -149,8 +147,6 @@ export class AuditService implements OnApplicationBootstrap {
         userId,
         auditActionId: actionId,
         eventDatetime: new Date(),
-        entityType: entityType || null,
-        entityId: entityId || null,
       },
       manager,
     );
@@ -207,8 +203,6 @@ export class AuditService implements OnApplicationBootstrap {
         actionCode: l.auditAction?.code || AUDIT_LABELS.UNKNOWN_ACTION,
         actionName: l.auditAction?.name || AUDIT_LABELS.SOURCE_AUDIT,
         source: AUDIT_SOURCES.AUDIT,
-        entityType: l.entityType || undefined,
-        entityId: l.entityId || undefined,
       })),
     ];
 

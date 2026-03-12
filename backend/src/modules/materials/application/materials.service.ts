@@ -1078,8 +1078,6 @@ export class MaterialsService {
       await this.auditService.logAction(
         user.id,
         AUDIT_ACTION_CODES.FILE_DELETE_REQUEST,
-        AUDIT_ENTITY_TYPES.MATERIAL,
-        dto.entityId,
         manager,
       );
     });

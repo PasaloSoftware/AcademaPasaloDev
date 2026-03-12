@@ -70,8 +70,6 @@ describe('AuditService', () => {
       const result = await service.logAction(
         'user-1',
         AUDIT_ACTION_CODES.FILE_UPLOAD,
-        AUDIT_ENTITY_TYPES.MATERIAL,
-        '123',
       );
 
       expect(auditActionRepository.findByCode).toHaveBeenCalledWith(
@@ -82,8 +80,6 @@ describe('AuditService', () => {
         expect.objectContaining({
           userId: 'user-1',
           auditActionId: '1',
-          entityType: AUDIT_ENTITY_TYPES.MATERIAL,
-          entityId: '123',
         }),
         undefined,
       );

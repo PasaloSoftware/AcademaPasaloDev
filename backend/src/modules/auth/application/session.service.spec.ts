@@ -4,7 +4,6 @@ import { SessionService } from './session.service';
 import { UserSessionRepository } from '@modules/auth/infrastructure/user-session.repository';
 import { SessionAnomalyDetectorService } from '@modules/auth/application/session-anomaly-detector.service';
 import { SessionStatusService } from '@modules/auth/application/session-status.service';
-import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { SessionValidatorService } from '@modules/auth/application/session-validator.service';
 import { SessionConflictService } from '@modules/auth/application/session-conflict.service';
 import { SessionSecurityService } from '@modules/auth/application/session-security.service';
@@ -45,7 +44,8 @@ describe('SessionService', () => {
             existsByUserIdAndDeviceId: jest.fn(),
             findOtherActiveSession: jest.fn(),
             findSessionsByUserAndStatus: jest.fn(),
-            findActiveSessionsByUserId: jest.fn(),
+            findActiveSessionIdsByUserId: jest.fn(),
+            deactivateActiveSessionsByUserId: jest.fn(),
             update: jest.fn(),
           },
         },
@@ -75,10 +75,6 @@ describe('SessionService', () => {
             cleanupExcessPendingSessions: jest.fn(),
           },
         },
-        {
-          provide: RedisCacheService,
-          useValue: { get: jest.fn(), del: jest.fn() },
-        },
       ],
     }).compile();
 
@@ -91,7 +87,7 @@ describe('SessionService', () => {
   });
 
   describe('createSession (Modo Pasivo)', () => {
-    it('debe crear sesión ACTIVE incluso con anomalía (modo pasivo)', async () => {
+    it('debe crear sesion ACTIVE incluso con anomalia (modo pasivo)', async () => {
       (anomalyDetector.resolveCoordinates as jest.Mock).mockResolvedValue({
         metadata,
         locationSource: LOCATION_SOURCES.GPS,
@@ -127,7 +123,7 @@ describe('SessionService', () => {
       ).toHaveBeenCalled();
     });
 
-    it('debe dar prioridad a Concurrencia (PENDING_CONCURRENT_RESOLUTION) sobre Anomalía', async () => {
+    it('debe dar prioridad a Concurrencia sobre Anomalia', async () => {
       (anomalyDetector.resolveCoordinates as jest.Mock).mockResolvedValue({
         metadata,
         locationSource: LOCATION_SOURCES.NONE,
@@ -141,8 +137,9 @@ describe('SessionService', () => {
       ).mockResolvedValue({ id: 'existing' });
       (sessionStatusService.getIdByCode as jest.Mock).mockImplementation(
         (code) => {
-          if (code === SESSION_STATUS_CODES.PENDING_CONCURRENT_RESOLUTION)
+          if (code === SESSION_STATUS_CODES.PENDING_CONCURRENT_RESOLUTION) {
             return 'pending-id';
+          }
           return 'other';
         },
       );
@@ -167,7 +164,7 @@ describe('SessionService', () => {
       ).toHaveBeenCalled();
     });
 
-    it('debe limpiar sesiones pendientes antiguas al alcanzar el límite (protección contra agotamiento)', async () => {
+    it('debe limpiar sesiones pendientes antiguas al alcanzar el limite', async () => {
       (anomalyDetector.resolveCoordinates as jest.Mock).mockResolvedValue({
         metadata,
         locationSource: LOCATION_SOURCES.NONE,
@@ -196,22 +193,34 @@ describe('SessionService', () => {
   });
 
   describe('deactivateAllUserSessions', () => {
-    it('debe desactivar todas las sesiones y ponerlas en estado REVOKED', async () => {
-      const activeSessions = [{ id: 's1' }, { id: 's2' }];
+    it('debe desactivar todas las sesiones activas en batch', async () => {
       (
-        userSessionRepository.findActiveSessionsByUserId as jest.Mock
-      ).mockResolvedValue(activeSessions);
+        userSessionRepository.findActiveSessionIdsByUserId as jest.Mock
+      ).mockResolvedValue(['s1', 's2']);
       (sessionStatusService.getIdByCode as jest.Mock).mockResolvedValue(
         'revoked-id',
       );
 
       await service.deactivateAllUserSessions('u1');
 
-      expect(userSessionRepository.update).toHaveBeenCalledTimes(2);
-      expect(userSessionRepository.update).toHaveBeenCalledWith('s1', {
-        sessionStatusId: 'revoked-id',
-        isActive: false,
-      });
+      expect(
+        userSessionRepository.deactivateActiveSessionsByUserId,
+      ).toHaveBeenCalledWith('u1', 'revoked-id');
+    });
+
+    it('omite el update batch si no hay sesiones activas', async () => {
+      (
+        userSessionRepository.findActiveSessionIdsByUserId as jest.Mock
+      ).mockResolvedValue([]);
+      (sessionStatusService.getIdByCode as jest.Mock).mockResolvedValue(
+        'revoked-id',
+      );
+
+      await service.deactivateAllUserSessions('u1');
+
+      expect(
+        userSessionRepository.deactivateActiveSessionsByUserId,
+      ).not.toHaveBeenCalled();
     });
   });
 });

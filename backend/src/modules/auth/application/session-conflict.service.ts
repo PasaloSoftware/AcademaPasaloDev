@@ -201,16 +201,11 @@ export class SessionConflictService {
         technicalSettings.auth.security.maxPendingSessionsPerUser - 1,
       );
 
-      for (const session of sessionsToRevoke) {
-        await this.userSessionRepository.update(
-          session.id,
-          {
-            sessionStatusId: revokedStatusId,
-            isActive: false,
-          },
-          manager,
-        );
-      }
+      await this.userSessionRepository.deactivateSessionsByIds(
+        sessionsToRevoke.map((session) => session.id),
+        revokedStatusId,
+        manager,
+      );
     }
   }
 }

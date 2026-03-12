@@ -343,10 +343,6 @@ describe('AuthService', () => {
     expect(typeof result.accessToken).toBe('string');
     expect(sessionServiceMock.rotateRefreshToken).toHaveBeenCalledTimes(1);
 
-    expect(redisCacheServiceMock.del).toHaveBeenCalledWith(
-      'cache:session:123:user',
-    );
-
     expect(redisCacheServiceMock.set).toHaveBeenCalledWith(
       expect.stringMatching(/^blacklist:refresh:/),
       expect.objectContaining({ reason: 'TOKEN_ROTATED' }),

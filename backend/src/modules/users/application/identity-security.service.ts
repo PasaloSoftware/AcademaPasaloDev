@@ -53,20 +53,11 @@ export class IdentitySecurityService {
         );
       }
 
-      for (const session of activeSessions) {
-        await this.userSessionRepository.update(
-          session.id,
-          {
-            sessionStatusId: revokedStatus.id,
-            isActive: false,
-          },
-          manager,
-        );
-      }
-    }
-
-    for (const session of activeSessions) {
-      await this.cacheService.del(`cache:session:${session.id}:user`);
+      await this.userSessionRepository.deactivateActiveSessionsByUserId(
+        userId,
+        revokedStatus.id,
+        manager,
+      );
     }
 
     await this.cacheService.del(`cache:user:profile:${userId}`);

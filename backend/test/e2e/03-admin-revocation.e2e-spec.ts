@@ -15,7 +15,10 @@ import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.co
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 
 interface EnrollmentResponse {
-  id: string;
+  id?: string;
+  data?: {
+    id: string;
+  };
 }
 
 describe('E2E: Revocación Administrativa', () => {
@@ -89,7 +92,7 @@ describe('E2E: Revocación Administrativa', () => {
       });
 
     const body = res.body as EnrollmentResponse;
-    enrollmentId = body.id;
+    enrollmentId = body.data?.id ?? body.id ?? '';
   });
 
   afterAll(async () => {

@@ -168,6 +168,7 @@ describe('IAM (e2e)', () => {
       return Promise.resolve(null);
     }),
     update: jest.fn(),
+    updateLastActivity: jest.fn().mockResolvedValue(undefined),
     findActiveById: jest.fn((id) => {
       if (id === 'session-admin')
         return Promise.resolve({

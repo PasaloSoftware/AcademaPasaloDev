@@ -414,8 +414,6 @@ CREATE TABLE audit_log (
   user_id BIGINT NOT NULL,
   audit_action_id BIGINT NOT NULL,
   event_datetime DATETIME NOT NULL,
-  entity_type VARCHAR(50),
-  entity_id BIGINT,
   FOREIGN KEY (user_id) REFERENCES user(id),
   FOREIGN KEY (audit_action_id) REFERENCES audit_action(id)
 );

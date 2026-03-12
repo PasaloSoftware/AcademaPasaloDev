@@ -42,42 +42,18 @@ describe('Redis Auth Security & Performance (E2E)', () => {
   });
 
   let token: string;
-  let sessionId: string;
-
-  it('STEP 1: Debe crear una sesión y generar caché al loguearse (Simulado)', async () => {
+  it('STEP 1: Debe crear una sesion autenticada', async () => {
     const auth = await seeder.createAuthenticatedUser(
       TestSeeder.generateUniqueEmail('redis'),
       ['STUDENT'],
     );
     token = auth.token;
 
-    const payload = jwtService.decode(token);
-    sessionId = payload.sessionId;
-
-    expect(sessionId).toBeDefined();
+    const payload = jwtService.decode(token) as JwtPayload;
+    expect(payload.sessionId).toBeDefined();
   });
 
-  it('STEP 2: [PERFORMANCE] Primera petición debe ser Cache Miss (Hit DB) y guardar en Redis', async () => {
-    const validatorSpy = jest.spyOn(sessionValidator, 'validateSession');
-    const redisSetSpy = jest.spyOn(redisService, 'set');
-
-    await request(app.getHttpServer())
-      .get('/api/v1/enrollments/my-courses')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-
-    expect(validatorSpy).toHaveBeenCalled();
-    expect(redisSetSpy).toHaveBeenCalledWith(
-      expect.stringContaining(`cache:session:${sessionId}:user`),
-      expect.anything(),
-      expect.anything(),
-    );
-
-    validatorSpy.mockRestore();
-    redisSetSpy.mockRestore();
-  });
-
-  it('STEP 3: [SECURITY] Segunda petición valida sesión en BD para detectar baneo en caliente', async () => {
+  it('STEP 2: [PERFORMANCE] Primera peticion valida sesion en BD sin depender de cache de usuario', async () => {
     const validatorSpy = jest.spyOn(sessionValidator, 'validateSession');
 
     await request(app.getHttpServer())
@@ -90,21 +66,28 @@ describe('Redis Auth Security & Performance (E2E)', () => {
     validatorSpy.mockRestore();
   });
 
-  it('STEP 4: [SECURITY] Logout debe invalidar el token inmediatamente (Borrar caché)', async () => {
-    const redisDelSpy = jest.spyOn(redisService, 'del');
+  it('STEP 3: [SECURITY] Segunda peticion sigue validando sesion en BD para detectar baneo en caliente', async () => {
+    const validatorSpy = jest.spyOn(sessionValidator, 'validateSession');
 
+    await request(app.getHttpServer())
+      .get('/api/v1/enrollments/my-courses')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(validatorSpy).toHaveBeenCalled();
+
+    validatorSpy.mockRestore();
+  });
+
+  it('STEP 4: [SECURITY] Logout invalida la sesion inmediatamente', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/logout')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(redisDelSpy).toHaveBeenCalledWith(`cache:session:${sessionId}:user`);
-
     await request(app.getHttpServer())
       .get('/api/v1/enrollments/my-courses')
       .set('Authorization', `Bearer ${token}`)
       .expect(401);
-
-    redisDelSpy.mockRestore();
   });
 });

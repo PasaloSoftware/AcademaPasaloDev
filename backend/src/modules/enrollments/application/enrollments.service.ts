@@ -32,6 +32,7 @@ import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.const
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import { User } from '@modules/users/domain/user.entity';
 
 @Injectable()
 export class EnrollmentsService {
@@ -375,29 +376,42 @@ export class EnrollmentsService {
     userId: string,
     manager: EntityManager,
   ): Promise<void> {
-    const rows = await manager.query<
-      Array<{ isActiveStudent: number | string }>
-    >(
-      `
-        SELECT EXISTS(
-          SELECT 1
-          FROM user u
-          INNER JOIN user_role ur
-            ON ur.user_id = u.id
-          INNER JOIN role r
-            ON r.id = ur.role_id
-          WHERE u.id = ?
-            AND u.is_active = 1
-            AND r.code = ?
-        ) AS isActiveStudent
-      `,
-      [userId, ROLE_CODES.STUDENT],
-    );
-
-    if (Number(rows[0]?.isActiveStudent) !== 1) {
-      throw new BadRequestException(
-        'El usuario debe ser un alumno activo para matricularse.',
+    if (typeof manager.query === 'function') {
+      const rows = await manager.query<
+        Array<{ isActiveStudent: number | string }>
+      >(
+        `
+          SELECT EXISTS(
+            SELECT 1
+            FROM user u
+            INNER JOIN user_role ur
+              ON ur.user_id = u.id
+            INNER JOIN role r
+              ON r.id = ur.role_id
+            WHERE u.id = ?
+              AND u.is_active = 1
+              AND r.code = ?
+          ) AS isActiveStudent
+        `,
+        [userId, ROLE_CODES.STUDENT],
       );
+
+      if (Number(rows[0]?.isActiveStudent) === 1) {
+        return;
+      }
+    } else {
+      const user = await manager.getRepository(User).findOne({
+        where: { id: userId, isActive: true },
+        relations: { roles: true },
+      });
+
+      if (user?.roles?.some((role) => role.code === ROLE_CODES.STUDENT)) {
+        return;
+      }
     }
+
+    throw new BadRequestException(
+      'El usuario debe ser un alumno activo para matricularse.',
+    );
   }
 }

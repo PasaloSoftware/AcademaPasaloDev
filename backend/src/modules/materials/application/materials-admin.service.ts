@@ -357,8 +357,6 @@ export class MaterialsAdminService {
     await this.auditService.logAction(
       adminId,
       AUDIT_ACTION_CODES.CONTENT_DISABLE,
-      AUDIT_ENTITY_TYPES.MATERIAL,
-      materialId,
       manager,
     );
 
@@ -391,8 +389,6 @@ export class MaterialsAdminService {
     await this.auditService.logAction(
       adminId,
       AUDIT_ACTION_CODES.FILE_EDIT,
-      AUDIT_ENTITY_TYPES.DELETION_REQUEST,
-      requestId,
       manager,
     );
   }
@@ -469,8 +465,6 @@ export class MaterialsAdminService {
       await this.auditService.logAction(
         adminId,
         AUDIT_ACTION_CODES.FILE_DELETE,
-        AUDIT_ENTITY_TYPES.MATERIAL,
-        materialId,
         manager,
       );
 

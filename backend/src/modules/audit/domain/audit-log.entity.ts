@@ -29,10 +29,4 @@ export class AuditLog {
 
   @Column({ type: 'datetime', name: 'event_datetime' })
   eventDatetime: Date;
-
-  @Column({ type: 'varchar', length: 50, name: 'entity_type', nullable: true })
-  entityType: string | null;
-
-  @Column({ type: 'bigint', name: 'entity_id', nullable: true })
-  entityId: string | null;
 }

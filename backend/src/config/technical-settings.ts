@@ -70,8 +70,8 @@ export const technicalSettings = {
     },
 
     session: {
-      // src/modules/auth/strategies/jwt.strategy.ts
-      sessionUserCacheTtlSeconds: 3600,
+      // src/modules/auth/application/session-validator.service.ts
+      lastActivityUpdateWindowMinutes: 5,
     },
 
     oauth: {
