@@ -277,7 +277,11 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       const createRes = await request(app.getHttpServer())
         .post('/api/v1/materials')
         .set('Authorization', `Bearer ${professor.token}`)
-        .attach('file', Buffer.from('%PDF-1.4 restore-original'), 'restore-v1.pdf')
+        .attach(
+          'file',
+          Buffer.from('%PDF-1.4 restore-original'),
+          'restore-v1.pdf',
+        )
         .field('materialFolderId', folderId)
         .field('displayName', 'Restorable')
         .expect(201);
@@ -289,12 +293,18 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       await request(app.getHttpServer())
         .post(`/api/v1/materials/${restorableMaterialId}/versions`)
         .set('Authorization', `Bearer ${professor.token}`)
-        .attach('file', Buffer.from('%PDF-1.4 restore-version2'), 'restore-v2.pdf')
+        .attach(
+          'file',
+          Buffer.from('%PDF-1.4 restore-version2'),
+          'restore-v2.pdf',
+        )
         .expect(201);
 
-      const oldestVersion = await dataSource.getRepository(MaterialVersion).findOneOrFail({
-        where: { materialId: restorableMaterialId, versionNumber: 1 },
-      });
+      const oldestVersion = await dataSource
+        .getRepository(MaterialVersion)
+        .findOneOrFail({
+          where: { materialId: restorableMaterialId, versionNumber: 1 },
+        });
 
       await request(app.getHttpServer())
         .post(
@@ -388,7 +398,10 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
 
       const original = await dataSource
         .getRepository(Material)
-        .findOne({ where: { id: materialId }, relations: { fileVersion: true } });
+        .findOne({
+          where: { id: materialId },
+          relations: { fileVersion: true },
+        });
       expect(original).not.toBeNull();
       expect(original?.fileResourceId).toBe(originalFileResourceId);
       expect(original?.fileVersion?.versionNumber).toBe(1);

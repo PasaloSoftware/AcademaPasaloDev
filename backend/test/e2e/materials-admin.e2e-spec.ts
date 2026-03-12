@@ -275,7 +275,9 @@ describe('E2E: Materials Admin Full Flow', () => {
       searchData.items.some((item: any) => item.displayName === 'Material 2'),
     ).toBe(true);
     expect(
-      searchData.items.some((item: any) => item.evaluation.courseCode.includes('ADM101')),
+      searchData.items.some((item: any) =>
+        item.evaluation.courseCode.includes('ADM101'),
+      ),
     ).toBe(true);
   });
 

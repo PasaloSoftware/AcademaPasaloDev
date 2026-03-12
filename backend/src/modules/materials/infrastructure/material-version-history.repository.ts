@@ -28,7 +28,9 @@ export class MaterialVersionHistoryRepository {
     private readonly ormRepository: Repository<MaterialVersion>,
   ) {}
 
-  async findByMaterialId(materialId: string): Promise<MaterialVersionHistoryRow[]> {
+  async findByMaterialId(
+    materialId: string,
+  ): Promise<MaterialVersionHistoryRow[]> {
     return await this.ormRepository
       .createQueryBuilder('mv')
       .innerJoin('mv.fileResource', 'fr')

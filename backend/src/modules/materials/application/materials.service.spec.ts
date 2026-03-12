@@ -1140,7 +1140,11 @@ describe('MaterialsService', () => {
         return await cb(manager);
       });
 
-      const result = await service.restoreVersion(mockProfessor, 'mat-1', 'ver-1');
+      const result = await service.restoreVersion(
+        mockProfessor,
+        'mat-1',
+        'ver-1',
+      );
 
       expect(result).toBe(restoredMaterial);
       expect(cacheService.del).toHaveBeenCalledWith(

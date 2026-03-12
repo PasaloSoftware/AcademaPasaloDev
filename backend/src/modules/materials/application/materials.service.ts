@@ -334,7 +334,6 @@ export class MaterialsService {
               isNewFile = false;
             }
           }
-
         } else {
           finalResource = existingResource;
         }
@@ -537,8 +536,8 @@ export class MaterialsService {
 
         const currentMaterialVersion = freshMaterial.fileVersionId
           ? await manager.findOne(MaterialVersion, {
-          where: { id: freshMaterial.fileVersionId },
-          })
+              where: { id: freshMaterial.fileVersionId },
+            })
           : null;
         let savedVersion: MaterialVersion | null = null;
         const maxAttempts = 3;
@@ -547,10 +546,11 @@ export class MaterialsService {
             where: { materialId: freshMaterial.id },
             order: { versionNumber: 'DESC' },
           });
-          const nextVersionNumber = Math.max(
-            currentMaterialVersion?.versionNumber || 0,
-            latestMaterialVersion?.versionNumber || 0,
-          ) + 1;
+          const nextVersionNumber =
+            Math.max(
+              currentMaterialVersion?.versionNumber || 0,
+              latestMaterialVersion?.versionNumber || 0,
+            ) + 1;
 
           const versionEntity = manager.create(MaterialVersion, {
             materialId: freshMaterial.id,
@@ -882,16 +882,25 @@ export class MaterialsService {
       throw new NotFoundException('Material no encontrado');
     }
 
-    const folder = await this.folderRepository.findById(material.materialFolderId);
+    const folder = await this.folderRepository.findById(
+      material.materialFolderId,
+    );
     if (!folder) {
       throw new NotFoundException('Carpeta contenedora no encontrada');
     }
 
-    await this.checkAuthorizedAccess(user, folder.evaluationId, folder, material);
+    await this.checkAuthorizedAccess(
+      user,
+      folder.evaluationId,
+      folder,
+      material,
+    );
 
-    const rows = await this.materialVersionHistoryRepository.findByMaterialId(materialId);
+    const rows =
+      await this.materialVersionHistoryRepository.findByMaterialId(materialId);
     const currentVersionId = material.fileVersionId;
-    const currentVersion = rows.find((row) => row.versionId === currentVersionId) || null;
+    const currentVersion =
+      rows.find((row) => row.versionId === currentVersionId) || null;
 
     return {
       materialId: material.id,
@@ -1377,10 +1386,11 @@ export class MaterialsService {
         where: { materialId },
         order: { versionNumber: 'DESC' },
       });
-      const nextVersionNumber = Math.max(
-        currentVersionNumberHint,
-        latestMaterialVersion?.versionNumber || 0,
-      ) + 1;
+      const nextVersionNumber =
+        Math.max(
+          currentVersionNumberHint,
+          latestMaterialVersion?.versionNumber || 0,
+        ) + 1;
 
       const versionEntity = manager.create(MaterialVersion, {
         materialId,

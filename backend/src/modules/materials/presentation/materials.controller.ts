@@ -213,7 +213,10 @@ export class MaterialsController {
     @CurrentUser() user: UserWithSession,
     @Param('id') materialId: string,
   ) {
-    return await this.materialsService.getMaterialVersionHistory(user, materialId);
+    return await this.materialsService.getMaterialVersionHistory(
+      user,
+      materialId,
+    );
   }
 
   @Post('request-deletion')
