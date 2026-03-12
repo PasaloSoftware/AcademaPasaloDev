@@ -185,9 +185,8 @@ export class MaterialsService {
       });
       const savedRootFolder = await manager.save(rootFolder);
 
-      const subFolders: MaterialFolder[] = [];
-      for (const subfolderName of normalizedSubfolderNames) {
-        const subFolder = manager.create(MaterialFolder, {
+      const subFolders = normalizedSubfolderNames.map((subfolderName) =>
+        manager.create(MaterialFolder, {
           evaluationId: dto.evaluationId,
           parentFolderId: savedRootFolder.id,
           folderStatusId: activeStatus.id,
@@ -197,13 +196,14 @@ export class MaterialsService {
           createdById: user.id,
           createdAt: now,
           updatedAt: now,
-        });
-        subFolders.push(await manager.save(subFolder));
-      }
+        }),
+      );
+      const savedSubFolders =
+        subFolders.length > 0 ? await manager.save(subFolders) : [];
 
       return {
         rootFolder: savedRootFolder,
-        subFolders,
+        subFolders: savedSubFolders,
       };
     });
 

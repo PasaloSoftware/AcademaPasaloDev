@@ -224,9 +224,17 @@ describe('MaterialsService', () => {
         if (!runInTransaction) return Promise.resolve();
 
         const mockManager = {
-          save: jest.fn((entity: unknown) =>
-            Promise.resolve({ ...(entity as object), id: 'saved-id' }),
-          ),
+          save: jest.fn((entity: unknown) => {
+            if (Array.isArray(entity)) {
+              return Promise.resolve(
+                entity.map((item, index) => ({
+                  ...(item as object),
+                  id: `saved-id-${index + 1}`,
+                })),
+              );
+            }
+            return Promise.resolve({ ...(entity as object), id: 'saved-id' });
+          }),
           create: jest.fn((entity: unknown, data: object) => ({
             ...data,
             id: 'created-id',
