@@ -213,7 +213,7 @@ export class NotificationsService implements OnApplicationBootstrap {
         } satisfies NotificationTargetDto,
       ]),
     );
-    const classEventTargetMap = new Map(
+    const classEventTargetMap = new Map<string, NotificationTargetDto>(
       classEventTargets.map((row) => [
         row.classEventId,
         {
@@ -222,7 +222,7 @@ export class NotificationsService implements OnApplicationBootstrap {
           evaluationId: row.evaluationId,
           courseCycleId: row.courseCycleId,
           folderId: null,
-        } satisfies NotificationTargetDto,
+        } as NotificationTargetDto,
       ]),
     );
 
