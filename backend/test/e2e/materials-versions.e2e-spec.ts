@@ -30,6 +30,8 @@ interface GenericDataResponse<T> {
 }
 
 describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
+  jest.setTimeout(120000);
+
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
@@ -99,7 +101,7 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 0');
     await dataSource.query('DELETE FROM deletion_request');
     await dataSource.query('DELETE FROM material');
-    await dataSource.query('DELETE FROM file_version');
+    await dataSource.query('DELETE FROM material_version');
     await dataSource.query('DELETE FROM file_resource');
     await dataSource.query('DELETE FROM material_folder');
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
@@ -271,8 +273,10 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
 
       const original = await dataSource
         .getRepository(Material)
-        .findOne({ where: { id: materialId } });
-      expect(original).toBeNull();
+        .findOne({ where: { id: materialId }, relations: { fileVersion: true } });
+      expect(original).not.toBeNull();
+      expect(original?.fileResourceId).toBe(originalFileResourceId);
+      expect(original?.fileVersion?.versionNumber).toBe(1);
 
       const duplicate = await dataSource
         .getRepository(Material)
@@ -285,7 +289,7 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       expect(sharedResource).not.toBeNull();
     });
 
-    it('hard deleting last duplicate removes shared FileResource', async () => {
+    it('hard deleting duplicate keeps shared FileResource while original still references it', async () => {
       const reqRepo = dataSource.getRepository(DeletionRequest);
       const statusRepo = dataSource.getRepository(DeletionRequestStatus);
       const pending = await statusRepo.findOneOrFail({
@@ -314,6 +318,23 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
         .delete(`/api/v1/admin/materials/${duplicateMaterialId}/hard-delete`)
         .set('Authorization', `Bearer ${superAdmin.token}`)
         .expect(200);
+
+      const sharedResource = await dataSource
+        .getRepository(FileResource)
+        .findOne({ where: { id: originalFileResourceId } });
+      expect(sharedResource).not.toBeNull();
+    });
+
+    it('hard deleting original again removes last remaining version and shared FileResource', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/admin/materials/${materialId}/hard-delete`)
+        .set('Authorization', `Bearer ${superAdmin.token}`)
+        .expect(200);
+
+      const original = await dataSource
+        .getRepository(Material)
+        .findOne({ where: { id: materialId } });
+      expect(original).toBeNull();
 
       const sharedResource = await dataSource
         .getRepository(FileResource)

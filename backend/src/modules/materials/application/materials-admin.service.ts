@@ -112,8 +112,8 @@ export class MaterialsAdminService {
        LEFT JOIN material m
          ON dr.entity_type = ?
         AND m.id = dr.entity_id
-       LEFT JOIN file_version fv ON fv.id = m.file_version_id
-       LEFT JOIN file_resource fr ON fr.id = fv.file_resource_id
+       LEFT JOIN material_version mv ON mv.id = m.current_version_id
+       LEFT JOIN file_resource fr ON fr.id = mv.file_resource_id
        WHERE dr.deletion_request_status_id = ?
        ORDER BY dr.created_at ASC`,
       [AUDIT_ENTITY_TYPES.MATERIAL, pendingStatus.id],
@@ -411,11 +411,11 @@ export class MaterialsAdminService {
       );
     }
 
-    let fileToDeleteResource: {
+    const filesToDelete: Array<{
       storageProvider: FileResource['storageProvider'];
       storageKey: string;
       storageUrl: string | null;
-    } | null = null;
+    }> = [];
 
     await this.dataSource.transaction(async (manager) => {
       const materialRecord = await manager.findOne(Material, {
@@ -425,10 +425,46 @@ export class MaterialsAdminService {
 
       if (!materialRecord) return;
 
-      const versionId = materialRecord.fileVersionId;
-      const resourceId = materialRecord.fileVersion.fileResourceId;
+      const currentVersionId =
+        materialRecord.fileVersionId || materialRecord.fileVersion?.id || null;
+      if (!currentVersionId) {
+        throw new InternalServerErrorException(
+          'Integridad de datos corrupta: material sin version actual',
+        );
+      }
 
-      await manager.delete(Material, materialId);
+      const currentVersion =
+        materialRecord.fileVersion ||
+        (await manager.findOne(FileVersion, {
+          where: { id: currentVersionId },
+        }));
+      if (!currentVersion) {
+        throw new InternalServerErrorException(
+          'Integridad de datos corrupta: version actual no encontrada',
+        );
+      }
+
+      await manager.update(Material, materialId, {
+        fileVersionId: null,
+        updatedAt: new Date(),
+      });
+
+      await manager.delete(FileVersion, currentVersionId);
+
+      const previousVersion = await manager.findOne(FileVersion, {
+        where: { materialId },
+        order: { versionNumber: 'DESC' },
+      });
+
+      if (previousVersion) {
+        await manager.update(Material, materialId, {
+          fileVersionId: previousVersion.id,
+          fileResourceId: previousVersion.fileResourceId,
+          updatedAt: new Date(),
+        });
+      } else {
+        await manager.delete(Material, materialId);
+      }
 
       await this.auditService.logAction(
         adminId,
@@ -438,34 +474,31 @@ export class MaterialsAdminService {
         manager,
       );
 
-      const materialRefs = await manager.count(Material, {
-        where: { fileVersionId: versionId },
+      const versionRefs = await manager.count(FileVersion, {
+        where: { fileResourceId: currentVersion.fileResourceId },
       });
 
-      if (materialRefs === 0) {
-        await manager.delete(FileVersion, versionId);
-
-        const versionRefs = await manager.count(FileVersion, {
-          where: { fileResourceId: resourceId },
+      if (versionRefs === 0) {
+        const resource = await manager.findOne(FileResource, {
+          where: { id: currentVersion.fileResourceId },
         });
-
-        if (versionRefs === 0) {
-          const resource = await manager.findOne(FileResource, {
-            where: { id: resourceId },
+        if (
+          resource &&
+          typeof resource.storageProvider === 'string' &&
+          typeof resource.storageKey === 'string' &&
+          resource.storageKey.trim()
+        ) {
+          filesToDelete.push({
+            storageProvider: resource.storageProvider,
+            storageKey: resource.storageKey,
+            storageUrl: resource.storageUrl,
           });
-          if (resource) {
-            fileToDeleteResource = {
-              storageProvider: resource.storageProvider,
-              storageKey: resource.storageKey,
-              storageUrl: resource.storageUrl,
-            };
-            await manager.delete(FileResource, resourceId);
-          }
+          await manager.delete(FileResource, currentVersion.fileResourceId);
         }
       }
     });
 
-    if (fileToDeleteResource) {
+    for (const fileToDeleteResource of filesToDelete) {
       await this.storageService.deleteFile(
         fileToDeleteResource.storageKey,
         fileToDeleteResource.storageProvider,

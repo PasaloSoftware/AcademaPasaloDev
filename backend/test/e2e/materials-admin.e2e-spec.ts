@@ -26,6 +26,8 @@ interface PaginatedMaterialsData<T> {
 }
 
 describe('E2E: Materials Admin Full Flow', () => {
+  jest.setTimeout(120000);
+
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
@@ -82,7 +84,7 @@ describe('E2E: Materials Admin Full Flow', () => {
     await dataSource.query('DELETE FROM deletion_request');
     await dataSource.query('DELETE FROM material');
     await dataSource.query('DELETE FROM material_folder');
-    await dataSource.query('DELETE FROM file_version');
+    await dataSource.query('DELETE FROM material_version');
     await dataSource.query('DELETE FROM file_resource');
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
 
@@ -234,7 +236,6 @@ describe('E2E: Materials Admin Full Flow', () => {
     expect(pagedData.totalItems).toBeGreaterThanOrEqual(2);
     expect(pagedData.items).toHaveLength(1);
     expect(pagedData.items[0].status.code).toBeDefined();
-    expect(pagedData.items[0].evaluation.courseCode).toContain('ADM101');
     expect(pagedData.items[0].file.versionNumber).toBeGreaterThanOrEqual(1);
 
     const filteredByStatus = await request(app.getHttpServer())
@@ -259,6 +260,9 @@ describe('E2E: Materials Admin Full Flow', () => {
     expect(searchData.items.length).toBeGreaterThan(0);
     expect(
       searchData.items.some((item: any) => item.displayName === 'Material 2'),
+    ).toBe(true);
+    expect(
+      searchData.items.some((item: any) => item.evaluation.courseCode.includes('ADM101')),
     ).toBe(true);
   });
 

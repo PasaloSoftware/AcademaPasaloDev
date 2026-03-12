@@ -15,7 +15,6 @@ import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { FileResourceRepository } from '@modules/materials/infrastructure/file-resource.repository';
-import { FileVersionRepository } from '@modules/materials/infrastructure/file-version.repository';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
 import { DeletionRequestRepository } from '@modules/materials/infrastructure/deletion-request.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
@@ -80,7 +79,6 @@ export class MaterialsService {
     private readonly folderRepository: MaterialFolderRepository,
     private readonly materialRepository: MaterialRepository,
     private readonly fileResourceRepository: FileResourceRepository,
-    private readonly fileVersionRepository: FileVersionRepository,
     private readonly catalogRepository: MaterialCatalogRepository,
     private readonly deletionRequestRepository: DeletionRequestRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
@@ -274,8 +272,6 @@ export class MaterialsService {
           );
 
         let finalResource: FileResource;
-        let finalVersion: FileVersion;
-
         if (!existingResource) {
           const uniqueName = this.buildStorageObjectName(file.originalname);
           savedResource = await this.storageService.saveFile(
@@ -336,46 +332,15 @@ export class MaterialsService {
             }
           }
 
-          const version1 = await manager.findOne(FileVersion, {
-            where: { fileResourceId: finalResource.id, versionNumber: 1 },
-          });
-          if (!version1) {
-            const versionEntity = manager.create(FileVersion, {
-              fileResourceId: finalResource.id,
-              versionNumber: 1,
-              storageUrl: finalResource.storageUrl,
-              createdById: user.id,
-              createdAt: now,
-            });
-            finalVersion = await manager.save(versionEntity);
-          } else {
-            finalVersion = version1;
-          }
         } else {
           finalResource = existingResource;
-          const version1 = await manager.findOne(FileVersion, {
-            where: { fileResourceId: finalResource.id, versionNumber: 1 },
-          });
-
-          if (!version1) {
-            const versionEntity = manager.create(FileVersion, {
-              fileResourceId: finalResource.id,
-              versionNumber: 1,
-              storageUrl: finalResource.storageUrl,
-              createdById: user.id,
-              createdAt: now,
-            });
-            finalVersion = await manager.save(versionEntity);
-          } else {
-            finalVersion = version1;
-          }
         }
 
         const materialEntity = manager.create(Material, {
           materialFolderId: folder.id,
           classEventId: dto.classEventId || null,
           fileResourceId: finalResource.id,
-          fileVersionId: finalVersion.id,
+          fileVersionId: null,
           materialStatusId: activeStatus.id,
           displayName: dto.displayName,
           visibleFrom,
@@ -385,8 +350,27 @@ export class MaterialsService {
           updatedAt: now,
         });
         const savedMaterial = await manager.save(materialEntity);
+        const versionEntity = manager.create(FileVersion, {
+          materialId: savedMaterial.id,
+          fileResourceId: finalResource.id,
+          versionNumber: 1,
+          restoredFromMaterialVersionId: null,
+          createdById: user.id,
+          createdAt: now,
+        });
+        const savedVersion =
+          (await manager.save(versionEntity)) ||
+          (await manager.findOne(FileVersion, {
+            where: { materialId: savedMaterial.id, versionNumber: 1 },
+          }));
+        if (!savedVersion) {
+          throw new InternalServerErrorException(
+            'No se pudo crear la version inicial del material',
+          );
+        }
+        savedMaterial.fileVersionId = savedVersion.id;
 
-        return savedMaterial;
+        return (await manager.save(savedMaterial)) || savedMaterial;
       });
 
       await this.invalidateFolderCache(dto.materialFolderId);
@@ -548,30 +532,28 @@ export class MaterialsService {
           );
         }
 
-        const currentMaterialVersion = await manager.findOne(FileVersion, {
+        const currentMaterialVersion = freshMaterial.fileVersionId
+          ? await manager.findOne(FileVersion, {
           where: { id: freshMaterial.fileVersionId },
-        });
-        const nextMaterialVersionNumber =
-          (currentMaterialVersion?.versionNumber || 0) + 1;
-
+          })
+          : null;
         let savedVersion: FileVersion | null = null;
         const maxAttempts = 3;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          const latestVersion = await manager.findOne(FileVersion, {
-            where: { fileResourceId: finalResource.id },
+          const latestMaterialVersion = await manager.findOne(FileVersion, {
+            where: { materialId: freshMaterial.id },
             order: { versionNumber: 'DESC' },
           });
-          const nextResourceVersionNumber =
-            (latestVersion?.versionNumber || 0) + 1;
           const nextVersionNumber = Math.max(
-            nextMaterialVersionNumber,
-            nextResourceVersionNumber,
-          );
+            currentMaterialVersion?.versionNumber || 0,
+            latestMaterialVersion?.versionNumber || 0,
+          ) + 1;
 
           const versionEntity = manager.create(FileVersion, {
+            materialId: freshMaterial.id,
             fileResourceId: finalResource.id,
             versionNumber: nextVersionNumber,
-            storageUrl: finalResource.storageUrl,
+            restoredFromMaterialVersionId: null,
             createdById: user.id,
             createdAt: now,
           });
