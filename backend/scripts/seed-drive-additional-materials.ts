@@ -287,7 +287,7 @@ async function ensureFileResourceAndVersion(input: {
   driveFile: Required<Pick<DriveFile, 'id' | 'name' | 'mimeType'>> &
     Pick<DriveFile, 'size' | 'webViewLink'>;
   actorUserId: string;
-}): Promise<{ fileResourceId: string; fileVersionId: string }> {
+}): Promise<{ fileResourceId: string }> {
   const { dataSource, driveFile, actorUserId } = input;
   const storageKey = String(driveFile.id).trim();
   const storageUrl =
@@ -345,52 +345,13 @@ async function ensureFileResourceAndVersion(input: {
     throw new Error(`No se pudo resolver file_resource para storageKey=${storageKey}`);
   }
 
-  let fileVersion = (await dataSource.query(
-    `
-      SELECT id
-      FROM file_version
-      WHERE file_resource_id = ?
-      ORDER BY version_number DESC
-      LIMIT 1
-    `,
-    [fileResourceId],
-  )) as Array<{ id: string | number }>;
-
-  if (!fileVersion[0]?.id) {
-    await dataSource.query(
-      `
-        INSERT INTO file_version
-          (file_resource_id, version_number, storage_url, created_at, created_by)
-        VALUES
-          (?, 1, ?, NOW(), ?)
-      `,
-      [fileResourceId, storageUrl, actorUserId],
-    );
-    fileVersion = (await dataSource.query(
-      `
-        SELECT id
-        FROM file_version
-        WHERE file_resource_id = ?
-        ORDER BY version_number DESC
-        LIMIT 1
-      `,
-      [fileResourceId],
-    )) as Array<{ id: string | number }>;
-  }
-
-  const fileVersionId = String(fileVersion[0]?.id || '');
-  if (!fileVersionId) {
-    throw new Error(`No se pudo resolver file_version para resourceId=${fileResourceId}`);
-  }
-
-  return { fileResourceId, fileVersionId };
+  return { fileResourceId };
 }
 
 async function ensureMaterial(input: {
   dataSource: DataSource;
   materialFolderId: string;
   fileResourceId: string;
-  fileVersionId: string;
   materialStatusId: string;
   displayName: string;
   actorUserId: string;
@@ -399,7 +360,6 @@ async function ensureMaterial(input: {
     dataSource,
     materialFolderId,
     fileResourceId,
-    fileVersionId,
     materialStatusId,
     displayName,
     actorUserId,
@@ -420,22 +380,81 @@ async function ensureMaterial(input: {
     return;
   }
 
-  await dataSource.query(
-    `
-      INSERT INTO material
-        (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
-      VALUES
-        (?, NULL, ?, ?, ?, ?, NULL, NULL, ?, NOW(), NOW())
-    `,
-    [
-      materialFolderId,
-      fileResourceId,
-      fileVersionId,
-      materialStatusId,
-      displayName,
-      actorUserId,
-    ],
-  );
+  await dataSource.query('START TRANSACTION');
+  try {
+    await dataSource.query(
+      `
+        INSERT INTO material
+          (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+        VALUES
+          (?, NULL, ?, NULL, ?, ?, NULL, NULL, ?, NOW(), NOW())
+      `,
+      [
+        materialFolderId,
+        fileResourceId,
+        materialStatusId,
+        displayName,
+        actorUserId,
+      ],
+    );
+
+    const materialRows = (await dataSource.query(
+      `
+        SELECT id
+        FROM material
+        WHERE material_folder_id = ?
+          AND file_resource_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [materialFolderId, fileResourceId],
+    )) as Array<{ id: string | number }>;
+    const materialId = String(materialRows[0]?.id || '').trim();
+    if (!materialId) {
+      throw new Error(
+        `No se pudo resolver material para folderId=${materialFolderId}, resourceId=${fileResourceId}`,
+      );
+    }
+
+    await dataSource.query(
+      `
+        INSERT INTO material_version
+          (material_id, file_resource_id, version_number, restored_from_material_version_id, created_at, created_by)
+        VALUES
+          (?, ?, 1, NULL, NOW(), ?)
+      `,
+      [materialId, fileResourceId, actorUserId],
+    );
+
+    const versionRows = (await dataSource.query(
+      `
+        SELECT id
+        FROM material_version
+        WHERE material_id = ?
+          AND version_number = 1
+        LIMIT 1
+      `,
+      [materialId],
+    )) as Array<{ id: string | number }>;
+    const currentVersionId = String(versionRows[0]?.id || '').trim();
+    if (!currentVersionId) {
+      throw new Error(`No se pudo resolver material_version para materialId=${materialId}`);
+    }
+
+    await dataSource.query(
+      `
+        UPDATE material
+        SET current_version_id = ?
+        WHERE id = ?
+      `,
+      [currentVersionId, materialId],
+    );
+
+    await dataSource.query('COMMIT');
+  } catch (error) {
+    await dataSource.query('ROLLBACK');
+    throw error;
+  }
 }
 
 async function main(): Promise<void> {
@@ -574,7 +593,6 @@ async function main(): Promise<void> {
         dataSource,
         materialFolderId: materialAdicionalFolderId,
         fileResourceId: resumenesResource.fileResourceId,
-        fileVersionId: resumenesResource.fileVersionId,
         materialStatusId,
         displayName: copiedResumenes.name,
         actorUserId,
@@ -583,7 +601,6 @@ async function main(): Promise<void> {
         dataSource,
         materialFolderId: enunciadosFolderId,
         fileResourceId: enunciadosResource.fileResourceId,
-        fileVersionId: enunciadosResource.fileVersionId,
         materialStatusId,
         displayName: copiedEnunciados.name,
         actorUserId,

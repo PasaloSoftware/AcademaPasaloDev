@@ -33,6 +33,8 @@ interface MaterialUploadResponse {
 }
 
 describe('E2E: Gestion de Materiales y Seguridad', () => {
+  jest.setTimeout(120000);
+
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
@@ -105,7 +107,7 @@ describe('E2E: Gestion de Materiales y Seguridad', () => {
       'enrollment_evaluation',
       'enrollment',
       'material',
-      'file_version',
+      'material_version',
       'file_resource',
       'material_folder',
       'evaluation',

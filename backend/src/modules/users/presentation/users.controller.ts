@@ -41,6 +41,48 @@ export class UsersController {
     });
   }
 
+  @Post('students')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Alumno creado exitosamente')
+  async createStudent(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createWithRole(
+      createUserDto,
+      ROLE_CODES.STUDENT,
+    );
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Post('professors')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Profesor creado exitosamente')
+  async createProfessor(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createWithRole(
+      createUserDto,
+      ROLE_CODES.PROFESSOR,
+    );
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Post('admins')
+  @Roles(ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Administrador creado exitosamente')
+  async createAdmin(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createWithRole(
+      createUserDto,
+      ROLE_CODES.ADMIN,
+    );
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
   @Get()
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Usuarios obtenidos exitosamente')
@@ -73,32 +115,10 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Usuario actualizado exitosamente')
-  async update(
-    @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
-    @CurrentUser() currentUser: User,
-  ) {
-    const isAdmin = currentUser.roles.some((r) =>
-      ADMIN_ROLE_CODES.includes(r.code),
-    );
-
-    if (!isAdmin && currentUser.id !== id) {
-      throw new ForbiddenException(
-        'No tienes permiso para actualizar este perfil',
-      );
-    }
-
-    let finalUpdateDto = updateUserDto;
-
-    if (!isAdmin) {
-      finalUpdateDto = plainToInstance(UpdateUserDto, {
-        profilePhotoUrl: updateUserDto.profilePhotoUrl,
-        photoSource: updateUserDto.photoSource,
-      });
-    }
-
-    const user = await this.usersService.update(id, finalUpdateDto);
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    const user = await this.usersService.update(id, updateUserDto);
     return plainToInstance(UserResponseDto, user, {
       excludeExtraneousValues: true,
     });

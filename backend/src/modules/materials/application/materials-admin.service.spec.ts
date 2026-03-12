@@ -314,14 +314,17 @@ describe('MaterialsAdminService', () => {
             .fn()
             .mockResolvedValueOnce({
               ...mockMaterial,
-              fileVersion: { fileResourceId: 'res-1' },
+              fileVersionId: 'ver-1',
+              fileVersion: { id: 'ver-1', fileResourceId: 'res-1' },
             })
+            .mockResolvedValueOnce(null)
             .mockResolvedValueOnce({
               id: 'res-1',
               storageProvider: 'GDRIVE',
               storageKey: 'file-123',
               storageUrl: null,
             }),
+          update: jest.fn().mockResolvedValue({}),
           delete: jest.fn().mockResolvedValue({}),
           count: jest.fn().mockResolvedValue(0),
         } as any;
@@ -369,12 +372,17 @@ describe('MaterialsAdminService', () => {
 
       dataSource.transaction.mockImplementation(async (cb: any) => {
         const manager = {
-          findOne: jest.fn().mockResolvedValue({
-            ...mockMaterial,
-            fileVersion: { fileResourceId: 'res-1' },
-          }),
+          findOne: jest
+            .fn()
+            .mockResolvedValueOnce({
+              ...mockMaterial,
+              fileVersionId: 'ver-1',
+              fileVersion: { id: 'ver-1', fileResourceId: 'res-1' },
+            })
+            .mockResolvedValueOnce(null),
+          update: jest.fn().mockResolvedValue({}),
           delete: jest.fn().mockResolvedValue({}),
-          count: jest.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(2),
+          count: jest.fn().mockResolvedValueOnce(2),
         } as any;
         return cb(manager);
       });

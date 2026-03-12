@@ -1,5 +1,6 @@
 import { Job, UnrecoverableError } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { User } from '@modules/users/domain/user.entity';
 import { MediaAccessMembershipProcessor } from '@modules/media-access/infrastructure/processors/media-access-membership.processor';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
@@ -19,6 +20,7 @@ describe('MediaAccessMembershipProcessor', () => {
   let provisioningService: jest.Mocked<EvaluationDriveAccessProvisioningService>;
   let evaluationDriveAccessRepository: jest.Mocked<EvaluationDriveAccessRepository>;
   let reconciliationService: jest.Mocked<MediaAccessReconciliationService>;
+  let configService: jest.Mocked<Partial<ConfigService>>;
 
   beforeEach(() => {
     dataSource = {
@@ -47,6 +49,10 @@ describe('MediaAccessMembershipProcessor', () => {
       reconcileActiveScopes: jest.fn(),
     } as unknown as jest.Mocked<MediaAccessReconciliationService>;
 
+    configService = {
+      get: jest.fn().mockReturnValue('academiapasalo.com'),
+    };
+
     processor = new MediaAccessMembershipProcessor(
       dataSource as DataSource,
       userRepository as Repository<User>,
@@ -54,6 +60,7 @@ describe('MediaAccessMembershipProcessor', () => {
       provisioningService,
       evaluationDriveAccessRepository,
       reconciliationService,
+      configService as unknown as ConfigService,
     );
   });
 
@@ -217,6 +224,7 @@ describe('MediaAccessMembershipProcessor', () => {
     (dataSource.query as jest.Mock).mockResolvedValueOnce([
       { email: 'student@test.com' },
       { email: 'other@test.com' },
+      { email: 'prof@test.com' },
     ]);
     (
       workspaceGroupsService.listGroupMembers as unknown as jest.Mock
@@ -240,6 +248,10 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-20-viewers@academiapasalo.com',
       memberEmail: 'other@test.com',
+    });
+    expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
+      groupEmail: 'ev-20-viewers@academiapasalo.com',
+      memberEmail: 'prof@test.com',
     });
     expect(workspaceGroupsService.removeMemberFromGroup).not.toHaveBeenCalled();
   });
@@ -291,5 +303,36 @@ describe('MediaAccessMembershipProcessor', () => {
         data: {},
       } as unknown as Job),
     ).rejects.toBeInstanceOf(UnrecoverableError);
+  });
+
+  it('otorga membresía de course_cycle y crea grupo si no existe', async () => {
+    (dataSource.query as jest.Mock).mockResolvedValueOnce([{ hasAccess: 1 }]);
+    (userRepository.findOne as jest.Mock).mockResolvedValue({
+      id: '10',
+      email: 'student@test.com',
+    } as User);
+    workspaceGroupsService.findOrCreateGroup.mockResolvedValue({
+      id: 'cc-group-id',
+      email: 'cc-5-viewers@academiapasalo.com',
+    } as never);
+
+    await processor.process({
+      id: 'job-cc-grant',
+      name: MEDIA_ACCESS_JOB_NAMES.SYNC_COURSE_CYCLE_MEMBERSHIP,
+      data: {
+        action: MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT,
+        userId: '10',
+        courseCycleId: '5',
+        source: 'ENROLLMENT_CREATED_COURSE_CYCLE',
+      },
+    } as unknown as Job);
+
+    expect(workspaceGroupsService.findOrCreateGroup).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'cc-5-viewers@academiapasalo.com' }),
+    );
+    expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
+      groupEmail: 'cc-5-viewers@academiapasalo.com',
+      memberEmail: 'student@test.com',
+    });
   });
 });

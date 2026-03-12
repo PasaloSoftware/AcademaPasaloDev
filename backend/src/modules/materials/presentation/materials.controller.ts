@@ -79,6 +79,22 @@ export class MaterialsController {
     return await this.materialsService.addVersion(user, materialId, file);
   }
 
+  @Post(':id/restore-version/:versionId')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.PROFESSOR, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Version restaurada exitosamente')
+  async restoreVersion(
+    @CurrentUser() user: UserWithSession,
+    @Param('id') materialId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return await this.materialsService.restoreVersion(
+      user,
+      materialId,
+      versionId,
+    );
+  }
+
   @Get('folders/evaluation/:evaluationId')
   @Roles(
     ROLE_CODES.STUDENT,
@@ -180,6 +196,24 @@ export class MaterialsController {
     @Param('id') materialId: string,
   ) {
     return await this.materialsService.getMaterialLastModified(
+      user,
+      materialId,
+    );
+  }
+
+  @Get(':id/versions-history')
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
+  @ResponseMessage('Historial de versiones del material obtenido exitosamente')
+  async getMaterialVersionHistory(
+    @CurrentUser() user: UserWithSession,
+    @Param('id') materialId: string,
+  ) {
+    return await this.materialsService.getMaterialVersionHistory(
       user,
       materialId,
     );

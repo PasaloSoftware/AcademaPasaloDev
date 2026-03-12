@@ -247,6 +247,209 @@ _Todos los endpoints requieren JWT y una sesión activa en BD._
   }
   ```
 
+#### Endpoints nuevos recomendados para creacion por rol
+
+Estos endpoints existen para que frontend no tenga que crear un usuario base y luego hacer una segunda llamada de asignacion de rol para los flujos mas comunes.
+
+##### A. Crear Alumno
+
+- **Endpoint:** `POST /students`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Objetivo:** Crear un usuario nuevo con rol inicial `STUDENT`.
+- **Request Body:**
+  ```json
+  {
+    "email": "string (email valido, max 255, obligatorio)",
+    "firstName": "string (min 2, max 50, obligatorio, solo letras)",
+    "lastName1": "string (opcional, max 50, solo letras)",
+    "lastName2": "string (opcional, max 50, solo letras)",
+    "phone": "string (opcional, max 20, numeros y caracteres validos)",
+    "career": "string (opcional, max 100)",
+    "profilePhotoUrl": "string (opcional, max 500)",
+    "photoSource": "google | uploaded | none (opcional)"
+  }
+  ```
+- **Campos obligatorios minimos para crear desde frontend:**
+  - `email`
+  - `firstName`
+- **Response (`data`):** `UserResponseDto` con rol `STUDENT` ya asignado.
+- **Ejemplo de response exitosa:**
+  ```json
+  {
+    "statusCode": 201,
+    "message": "Alumno creado exitosamente",
+    "data": {
+      "id": "145",
+      "email": "alumno1@academiapasalo.com",
+      "firstName": "Carlos",
+      "lastName1": "Soto",
+      "lastName2": "Perez",
+      "phone": "999888777",
+      "career": "Ingenieria",
+      "profilePhotoUrl": null,
+      "photoSource": "none",
+      "isActive": true,
+      "roles": [
+        {
+          "code": "STUDENT",
+          "name": "Alumno"
+        }
+      ]
+    },
+    "timestamp": "2026-03-10T12:00:00.000Z"
+  }
+  ```
+- **Comportamiento detallado:**
+  - crea el usuario en una sola transaccion
+  - asigna el rol `STUDENT` desde el inicio
+  - deja `lastActiveRoleId` alineado al rol creado
+  - no realiza matricula automaticamente
+- **Secuencia recomendada de frontend:**
+  1. llamar `POST /users/students`
+  2. guardar `data.id`
+  3. si el flujo requiere inscripcion inmediata, llamar `POST /enrollments` con ese `userId`
+- **Errores esperados:**
+  - `403` si el actor no es `ADMIN` ni `SUPER_ADMIN`
+  - `409` si el correo ya existe
+
+##### B. Crear Profesor
+
+- **Endpoint:** `POST /professors`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Objetivo:** Crear un usuario nuevo con rol inicial `PROFESSOR`.
+- **Request Body:**
+  ```json
+  {
+    "email": "string (email valido, max 255, obligatorio)",
+    "firstName": "string (min 2, max 50, obligatorio, solo letras)",
+    "lastName1": "string (opcional, max 50, solo letras)",
+    "lastName2": "string (opcional, max 50, solo letras)",
+    "phone": "string (opcional, max 20, numeros y caracteres validos)",
+    "career": "string (opcional, max 100)",
+    "profilePhotoUrl": "string (opcional, max 500)",
+    "photoSource": "google | uploaded | none (opcional)"
+  }
+  ```
+- **Campos obligatorios minimos para crear desde frontend:**
+  - `email`
+  - `firstName`
+- **Response (`data`):** `UserResponseDto` con rol `PROFESSOR` ya asignado.
+- **Ejemplo de response exitosa:**
+  ```json
+  {
+    "statusCode": 201,
+    "message": "Profesor creado exitosamente",
+    "data": {
+      "id": "201",
+      "email": "profesor1@academiapasalo.com",
+      "firstName": "Luis",
+      "lastName1": "Ramos",
+      "lastName2": "Quispe",
+      "phone": null,
+      "career": null,
+      "profilePhotoUrl": null,
+      "photoSource": "none",
+      "isActive": true,
+      "roles": [
+        {
+          "code": "PROFESSOR",
+          "name": "Profesor"
+        }
+      ]
+    },
+    "timestamp": "2026-03-10T12:00:00.000Z"
+  }
+  ```
+- **Comportamiento detallado:**
+  - crea el usuario en una sola transaccion
+  - asigna el rol `PROFESSOR` desde el inicio
+  - no asigna al profesor a ningun curso o ciclo
+- **Secuencia recomendada de frontend:**
+  1. llamar `POST /users/professors`
+  2. guardar `data.id`
+  3. si corresponde, llamar `POST /courses/cycle/:courseCycleId/professors` usando `professorUserId = data.id`
+- **Errores esperados:**
+  - `403` si el actor no es `ADMIN` ni `SUPER_ADMIN`
+  - `409` si el correo ya existe
+
+##### C. Crear Administrador
+
+- **Endpoint:** `POST /admins`
+- **Roles:** `SUPER_ADMIN`
+- **Objetivo:** Crear un usuario nuevo con rol inicial `ADMIN`.
+- **Request Body:**
+  ```json
+  {
+    "email": "string (email valido, max 255, obligatorio)",
+    "firstName": "string (min 2, max 50, obligatorio, solo letras)",
+    "lastName1": "string (opcional, max 50, solo letras)",
+    "lastName2": "string (opcional, max 50, solo letras)",
+    "phone": "string (opcional, max 20, numeros y caracteres validos)",
+    "career": "string (opcional, max 100)",
+    "profilePhotoUrl": "string (opcional, max 500)",
+    "photoSource": "google | uploaded | none (opcional)"
+  }
+  ```
+- **Campos obligatorios minimos para crear desde frontend:**
+  - `email`
+  - `firstName`
+- **Response (`data`):** `UserResponseDto` con rol `ADMIN` ya asignado.
+- **Ejemplo de response exitosa:**
+  ```json
+  {
+    "statusCode": 201,
+    "message": "Administrador creado exitosamente",
+    "data": {
+      "id": "310",
+      "email": "admin2@academiapasalo.com",
+      "firstName": "Marina",
+      "lastName1": "Lopez",
+      "lastName2": null,
+      "phone": null,
+      "career": null,
+      "profilePhotoUrl": null,
+      "photoSource": "none",
+      "isActive": true,
+      "roles": [
+        {
+          "code": "ADMIN",
+          "name": "Administrador"
+        }
+      ]
+    },
+    "timestamp": "2026-03-10T12:00:00.000Z"
+  }
+  ```
+- **Comportamiento detallado:**
+  - solo `SUPER_ADMIN` puede ejecutar esta accion
+  - crea el usuario en una sola transaccion
+  - asigna el rol `ADMIN` desde el inicio
+  - encola la reconciliacion de staff viewers porque el usuario entra al conjunto administrativo
+- **Regla importante de UX:**
+  - si el perfil activo es `ADMIN`, frontend debe ocultar o deshabilitar esta accion
+- **Errores esperados:**
+  - `403` si el actor no es `SUPER_ADMIN`
+  - `409` si el correo ya existe
+
+#### Nota de integracion para frontend
+
+- `POST /users` sigue existiendo y crea un usuario base.
+- Para flujos reales de negocio, frontend debe preferir:
+  - `POST /users/students`
+  - `POST /users/professors`
+  - `POST /users/admins`
+- Esto evita llamadas extra de asignacion de rol y deja el usuario listo para los siguientes pasos operativos.
+- En los tres endpoints nuevos el formato del payload es exactamente el mismo:
+  - `email: string`
+  - `firstName: string`
+  - `lastName1?: string`
+  - `lastName2?: string`
+  - `phone?: string`
+  - `career?: string`
+  - `profilePhotoUrl?: string`
+  - `photoSource?: "google" | "uploaded" | "none"`
+- El frontend no debe enviar `roles`, `lastActiveRoleId`, `isActive`, `createdAt` ni `updatedAt` en estos endpoints.
+
 ### 2. Listar Usuarios
 
 - **Endpoint:** `GET /`
@@ -336,6 +539,41 @@ Base URL: `/api/v1/enrollments`
     "historicalCourseCycleIds": ["string"]
   }
   ```
+
+#### Regla nueva obligatoria sobre `userId`
+
+El `userId` enviado debe pertenecer a un usuario activo con rol `STUDENT`.
+
+Esto implica lo siguiente para frontend:
+
+1. No usar este endpoint sobre usuarios creados con `POST /users` si aun no tienen rol.
+2. No usar este endpoint sobre usuarios con rol `PROFESSOR`, `ADMIN` o `SUPER_ADMIN`.
+3. El flujo recomendado para alta rapida de alumno es:
+   1. `POST /users/students`
+   2. `POST /enrollments`
+4. Si el backend responde `400` con un mensaje equivalente a `El usuario debe ser un alumno activo para matricularse.`, debe tratarse como error funcional del flujo, no como error tecnico.
+
+#### Ejemplo de secuencia recomendada para frontend
+
+**Paso 1: crear alumno**
+
+```http
+POST /api/v1/users/students
+```
+
+**Paso 2: matricular alumno**
+
+```http
+POST /api/v1/enrollments
+```
+
+```json
+{
+  "userId": "id retornado por /users/students",
+  "courseCycleId": "string",
+  "enrollmentTypeCode": "FULL"
+}
+```
 
 #### Modelo de dominio (clave para Frontend)
 
@@ -493,36 +731,48 @@ _Requiere Authorization: Bearer <accessToken>._
 
 ---
 
-## ÉPICA 8: Notificaciones (Notifications)
+## EPICA 8: Notificaciones (Notifications)
 
 Base URL: `/api/v1/notifications`
-_Requiere Authorization: Bearer \<accessToken>._
+_Requiere Authorization: Bearer \<accessToken\>._
 _Accesible para todos los roles: `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`._
 
 ### Comportamiento general
 
-Las notificaciones se despachan de forma **asíncrona** a través de una cola de trabajos (BullMQ). Esto significa que **no son síncronas con la acción que las genera** — puede existir un delay de milisegundos a pocos segundos entre, por ejemplo, que un profesor suba un material y que la notificación aparezca en el listado del alumno. El frontend **no debe asumir** que la notificación ya existe inmediatamente después de ejecutar una acción.
+Las notificaciones se despachan de forma asincrona a traves de una cola de trabajos (BullMQ). Esto significa que no son sincronas con la accion que las genera; puede existir un delay de milisegundos a pocos segundos entre, por ejemplo, que un profesor suba un material y que la notificacion aparezca en el listado del alumno. El frontend no debe asumir que la notificacion ya existe inmediatamente despues de ejecutar una accion.
 
-### Tipos de notificación
+### Tipos de notificacion
 
-| Código            | Descripción                                    | `entityType`        | `entityId`       |
-| ----------------- | ---------------------------------------------- | ------------------- | ---------------- |
-| `NEW_MATERIAL`    | Nuevo material subido en una carpeta del curso | `"material_folder"` | ID de la carpeta |
-| `CLASS_SCHEDULED` | Nueva sesión de clase creada                   | `"class_event"`     | ID del evento    |
-| `CLASS_UPDATED`   | Sesión modificada (fecha, hora o enlace)       | `"class_event"`     | ID del evento    |
-| `CLASS_CANCELLED` | Sesión cancelada                               | `"class_event"`     | ID del evento    |
-| `CLASS_REMINDER`  | Recordatorio previo a la clase                 | `"class_event"`     | ID del evento    |
+| Codigo | `entityType` | `entityId` esperado |
+| --- | --- | --- |
+| `NEW_MATERIAL` | `"material"` | `materialId` |
+| `MATERIAL_UPDATED` | `"material"` | `materialId` |
+| `CLASS_SCHEDULED` | `"class_event"` | `classEventId` |
+| `CLASS_UPDATED` | `"class_event"` | `classEventId` |
+| `CLASS_CANCELLED` | `"class_event"` | `classEventId` |
+| `CLASS_REMINDER` | `"class_event"` | `classEventId` |
+| `CLASS_RECORDING_AVAILABLE` | `"class_event"` | `classEventId` |
+| `DELETION_REQUEST_APPROVED` | `"deletion_request"` | `requestId` |
+| `DELETION_REQUEST_REJECTED` | `"deletion_request"` | `requestId` |
 
-`entityType` y `entityId` permiten construir deep-links en el cliente para navegar directamente a la entidad relacionada. Ambos campos pueden ser `null` si la notificación no está asociada a una entidad concreta.
+`entityType` y `entityId` representan la referencia persistida de la notificacion. Para navegacion en frontend, se debe priorizar `target` cuando exista.
 
-### Estrategia de actualización en cliente (pull puro)
+### Estrategia de actualizacion en cliente (pull puro)
 
-El sistema no expone WebSocket ni Server-Sent Events. La actualización del estado de notificaciones debe implementarse en el cliente con las siguientes reglas:
+El sistema no expone WebSocket ni Server-Sent Events. La actualizacion del estado de notificaciones debe implementarse en el cliente con las siguientes reglas:
 
-1. **Polling del badge** — Llamar a `GET /notifications/unread-count` cada 60 segundos **únicamente cuando la pestaña está activa** (`document.visibilityState === 'visible'`). Esta llamada es ligera (sin payload) y sirve para mantener el contador del badge actualizado.
-2. **Pausa con Visibility API** — Detener el intervalo de polling cuando la pestaña queda oculta y reanudarlo al recuperar el foco. Esto evita llamadas innecesarias y reduce carga en el servidor.
-3. **Carga del listado bajo demanda** — Llamar a `GET /notifications` únicamente cuando el usuario abre el panel de notificaciones. Nunca en background.
-4. **Invalidación por acción** — Tras marcar una notificación como leída (`PATCH /:id/read` o `PATCH /read-all`), refrescar el contador del badge de forma inmediata sin esperar al siguiente ciclo de polling.
+1. **Polling del badge**: llamar a `GET /notifications/unread-count` cada 60 segundos unicamente cuando la pestana esta activa (`document.visibilityState === 'visible'`).
+2. **Pausa con Visibility API**: detener el intervalo de polling cuando la pestana queda oculta y reanudarlo al recuperar el foco.
+3. **Carga del listado bajo demanda**: llamar a `GET /notifications` unicamente cuando el usuario abre el panel de notificaciones.
+4. **Invalidacion por accion**: tras marcar una notificacion como leida (`PATCH /:id/read` o `PATCH /read-all`), refrescar el contador del badge de forma inmediata.
+
+### Regla de navegacion
+
+El frontend debe usar:
+
+1. `type` para decidir la UI.
+2. `target` para navegar cuando exista.
+3. `entityType` + `entityId` como referencia persistida.
 
 ---
 
@@ -530,13 +780,13 @@ El sistema no expone WebSocket ni Server-Sent Events. La actualización del esta
 
 `GET /notifications`
 
-**Purpose:** Obtiene la lista paginada de notificaciones del usuario autenticado, con soporte para filtrar solo las no leídas.
+**Purpose:** Obtiene la lista paginada de notificaciones del usuario autenticado, con soporte para filtrar solo las no leidas.
 
 **Query Parameters:**
 
-- `onlyUnread` (boolean, opcional): Si es `"true"`, devuelve únicamente las notificaciones no leídas. Sin este parámetro, devuelve todas (leídas y no leídas).
-- `limit` (integer, opcional): Número máximo de notificaciones por página. Min: 1, Max: 100. Default: 20.
-- `offset` (integer, opcional): Número de notificaciones a omitir (para paginación). Min: 0. Default: 0.
+- `onlyUnread` (boolean, opcional): si es `"true"`, devuelve unicamente las notificaciones no leidas.
+- `limit` (integer, opcional): numero maximo de notificaciones por pagina. Min: 1, Max: 100. Default: 20.
+- `offset` (integer, opcional): numero de notificaciones a omitir. Min: 0. Default: 0.
 
 **Response:**
 `data` (Array de objetos):
@@ -545,28 +795,69 @@ El sistema no expone WebSocket ni Server-Sent Events. La actualización del esta
 [
   {
     "notificationId": "notif-abc-123",
-    "type": "NEW_MATERIAL",
-    "typeName": "Nuevo Material",
-    "title": "Nuevo material disponible",
-    "message": "Se ha subido nuevo material en el curso Matemáticas I.",
-    "entityType": "material_folder",
-    "entityId": "folder-xyz-456",
+    "type": "MATERIAL_UPDATED",
+    "typeName": "Material Actualizado",
+    "title": "Material actualizado",
+    "message": "Se actualizo 'Guia de integrales' de la clase 3 de la PC2 del curso Calculo.",
+    "entityType": "material",
+    "entityId": "mat-900",
+    "target": {
+      "materialId": "mat-900",
+      "classEventId": "evt-300",
+      "evaluationId": "eval-22",
+      "courseCycleId": "cycle-8",
+      "folderId": "folder-41"
+    },
     "isRead": false,
     "readAt": null,
-    "createdAt": "2026-02-28T10:30:00.000Z"
+    "createdAt": "2026-03-11T03:20:00.000Z"
+  },
+  {
+    "notificationId": "notif-def-456",
+    "type": "CLASS_RECORDING_AVAILABLE",
+    "typeName": "Grabacion Disponible",
+    "title": "Grabacion disponible",
+    "message": "La grabacion de la clase 5 de la PC1 del curso Fisica ya esta disponible.",
+    "entityType": "class_event",
+    "entityId": "evt-501",
+    "target": {
+      "materialId": null,
+      "classEventId": "evt-501",
+      "evaluationId": "eval-31",
+      "courseCycleId": "cycle-11",
+      "folderId": null
+    },
+    "isRead": false,
+    "readAt": null,
+    "createdAt": "2026-03-11T03:25:00.000Z"
   }
 ]
 ```
 
-**Errores:** No lanza errores de negocio. Devuelve un array vacío si el usuario no tiene notificaciones.
+**Significado de `target`:**
+
+- `target.materialId`: material puntual a enfocar
+- `target.classEventId`: sesion puntual a abrir
+- `target.evaluationId`: evaluacion de la sesion
+- `target.courseCycleId`: opcional para rutas del frontend que agrupen por ciclo
+- `target.folderId`: carpeta relacionada si la UI la necesita
+
+**Reglas de uso en frontend:**
+
+- Si `type` es `CLASS_RECORDING_AVAILABLE`, navegar a la vista de sesiones usando `target.classEventId`.
+- Si `type` es `NEW_MATERIAL` o `MATERIAL_UPDATED`, navegar a la vista de sesiones usando `target.classEventId` y enfocar el material con `target.materialId`.
+- `message` ya llega enriquecido con clase, evaluacion y curso cuando aplica.
+- `target` puede ser `null` en tipos sin destino navegable.
+
+**Errores:** No lanza errores de negocio. Devuelve un array vacio si el usuario no tiene notificaciones.
 
 ---
 
-### 2. Obtener Conteo de No Leídas
+### 2. Obtener Conteo de No Leidas
 
 `GET /notifications/unread-count`
 
-**Purpose:** Devuelve el número total de notificaciones no leídas del usuario autenticado. Diseñado para actualizar el badge del icono de notificaciones con el mínimo costo posible.
+**Purpose:** Devuelve el numero total de notificaciones no leidas del usuario autenticado. Disenado para actualizar el badge del icono de notificaciones con el minimo costo posible.
 
 **Response:**
 `data`:
@@ -581,11 +872,11 @@ El sistema no expone WebSocket ni Server-Sent Events. La actualización del esta
 
 ---
 
-### 3. Marcar Todas como Leídas
+### 3. Marcar Todas como Leidas
 
 `PATCH /notifications/read-all`
 
-**Purpose:** Marca todas las notificaciones no leídas del usuario autenticado como leídas en una sola operación. Es idempotente: si no hay notificaciones no leídas, la operación se completa sin error.
+**Purpose:** Marca todas las notificaciones no leidas del usuario autenticado como leidas en una sola operacion. Es idempotente: si no hay notificaciones no leidas, la operacion se completa sin error.
 
 **Request Body:** No requerido.
 
@@ -595,89 +886,21 @@ El sistema no expone WebSocket ni Server-Sent Events. La actualización del esta
 
 ---
 
-### 4. Marcar una Notificación como Leída
+### 4. Marcar una Notificacion como Leida
 
 `PATCH /notifications/:id/read`
 
-**Purpose:** Marca una notificación específica como leída.
+**Purpose:** Marca una notificacion especifica como leida.
 
 **Path Parameters:**
 
-- `id` (string): ID de la notificación (`notificationId`).
+- `id` (string): ID de la notificacion (`notificationId`).
 
 **Request Body:** No requerido.
 
 **Response:** `204 No Content` (sin body).
 
 **Errores:**
-| Código | Causa |
+| Codigo | Causa |
 |---|---|
-| `404 Not Found` | La notificación no existe o no pertenece al usuario autenticado. |
-
----
-
-## Update 2026-03-02 - Cursos/Evaluaciones
-
-Para contratos actuales de frontend sobre:
-1. `PUT /courses/cycle/:courseCycleId/evaluation-structure`
-2. `GET /courses/cycle/:courseCycleId/bank-structure`
-3. `POST /evaluations` con validacion estricta por estructura
-
-Revisar en detalle: `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
-`UPDATE FRONTEND CONTRACT - FASES 2, 3 Y 4 (2026-03-02)`.
-
-Update adicional (2026-03-06):
-- `PATCH /courses/cycle/:id/intro-video`
-- `GET /courses/cycle/:id/intro-video-link`
-
-### Alta integral de curso/ciclo (orquestada)
-- Endpoint: `POST /courses/setup`
-- Roles: `ADMIN`, `SUPER_ADMIN`
-- Crea en una sola operacion:
-1. Curso base.
-2. CourseCycle.
-3. Estructura de tipos permitidos.
-4. Evaluaciones reales (payload explicito por `evaluationTypeId + number`).
-5. Plantilla de carpetas de materiales por evaluacion.
-6. Provision Drive de evaluaciones y course_cycle (intro + banco).
-
-- Payload base:
-```json
-{
-  "course": {
-    "code": "MATE101",
-    "name": "Calculo I",
-    "courseTypeId": "1",
-    "cycleLevelId": "1",
-    "primaryColor": "#0E7490",
-    "secondaryColor": "#F59E0B"
-  },
-  "academicCycleId": "8",
-  "allowedEvaluationTypeIds": ["1", "2", "3"],
-  "evaluationsToCreate": [
-    {
-      "evaluationTypeId": "1",
-      "number": 1,
-      "startDate": "2026-03-10",
-      "endDate": "2026-07-20"
-    }
-  ],
-  "professorUserIds": ["2"],
-  "materialsTemplate": {
-    "applyToEachEvaluation": true,
-    "roots": [
-      { "name": "Sesiones", "subfolderNames": [] },
-      { "name": "Material Adicional", "subfolderNames": ["Resumenes", "Enunciados"] }
-    ]
-  }
-}
-```
-
-- Regla importante:
-  - no se envia `count` para banco ni para evaluaciones.
-  - las cards/carpetas de banco se derivan de evaluaciones reales creadas.
-
-Contrato detallado en `docs/API_CONTENT_AND_FEEDBACK.md`, seccion:
-`UPDATE FRONTEND CONTRACT - INTRO VIDEO POR CURSO/CICLO (2026-03-06)`.
-
-
+| `404 Not Found` | La notificacion no existe o no pertenece al usuario autenticado. |

@@ -403,7 +403,31 @@ export class ClassEventsService {
       categoryCycleContext,
     );
 
-    void this.notificationsDispatchService.dispatchClassUpdated(eventId);
+    const shouldNotifyClassUpdated =
+      title !== undefined ||
+      topic !== undefined ||
+      startDatetime !== undefined ||
+      endDatetime !== undefined ||
+      liveMeetingUrl !== undefined;
+    const normalizedPreviousRecordingUrl = String(
+      event.recordingUrl || '',
+    ).trim();
+    const normalizedNextRecordingUrl =
+      recordingUrl !== undefined
+        ? String(recordingUrl || '').trim()
+        : normalizedPreviousRecordingUrl;
+    const recordingChanged =
+      recordingUrl !== undefined &&
+      normalizedNextRecordingUrl !== normalizedPreviousRecordingUrl;
+
+    if (shouldNotifyClassUpdated) {
+      void this.notificationsDispatchService.dispatchClassUpdated(eventId);
+    }
+    if (recordingChanged) {
+      void this.notificationsDispatchService.dispatchClassRecordingAvailable(
+        eventId,
+      );
+    }
     if (startDatetime !== undefined) {
       void this.notificationsDispatchService.scheduleClassReminder(
         eventId,

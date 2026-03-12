@@ -125,10 +125,6 @@ export class CourseSetupService {
     const bankEvaluation = await this.findBankEvaluationForCourseCycle(
       createdCourseCycle.id,
     );
-    const allEvaluationIdsForDrive = [
-      ...createdEvaluations.map((item) => item.id),
-      ...(bankEvaluation ? [bankEvaluation.id] : []),
-    ];
 
     const shouldApplyMaterialsTemplate =
       dto.materialsTemplate.applyToEachEvaluation !== false;
@@ -151,11 +147,17 @@ export class CourseSetupService {
     }
 
     const provisionedEvaluationScopes: string[] = [];
-    for (const evaluationId of allEvaluationIdsForDrive) {
+    for (const createdEvaluation of createdEvaluations) {
+      if (
+        createdEvaluation.evaluationTypeCode ===
+        EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS
+      ) {
+        continue;
+      }
       await this.evaluationDriveAccessProvisioningService.provisionByEvaluationId(
-        evaluationId,
+        createdEvaluation.id,
       );
-      provisionedEvaluationScopes.push(evaluationId);
+      provisionedEvaluationScopes.push(createdEvaluation.id);
     }
 
     const courseCycleMeta = await this.getCourseCycleMeta(

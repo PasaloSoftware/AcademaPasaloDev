@@ -193,7 +193,7 @@ export class MediaAccessMembershipDispatchService {
     try {
       await this.mediaAccessQueue.addBulk(jobs);
     } catch (error) {
-      this.logger.warn({
+      this.logger.error({
         context: MediaAccessMembershipDispatchService.name,
         message: 'No se pudo encolar sync de membresía en Media Access',
         action,
@@ -201,6 +201,7 @@ export class MediaAccessMembershipDispatchService {
         totalJobs: jobs.length,
         error: error instanceof Error ? error.message : String(error),
       });
+      throw error;
     }
   }
 
@@ -237,7 +238,7 @@ export class MediaAccessMembershipDispatchService {
     try {
       await this.mediaAccessQueue.addBulk(jobs);
     } catch (error) {
-      this.logger.warn({
+      this.logger.error({
         context: MediaAccessMembershipDispatchService.name,
         message:
           'No se pudo encolar sync de membresia course_cycle en Media Access',
@@ -246,6 +247,7 @@ export class MediaAccessMembershipDispatchService {
         totalJobs: jobs.length,
         error: error instanceof Error ? error.message : String(error),
       });
+      throw error;
     }
   }
 

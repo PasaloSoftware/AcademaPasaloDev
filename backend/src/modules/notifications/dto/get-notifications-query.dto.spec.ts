@@ -6,10 +6,19 @@ import { technicalSettings } from '@config/technical-settings';
 async function transform(
   plain: Record<string, unknown>,
 ): Promise<GetNotificationsQueryDto> {
-  return plainToInstance(GetNotificationsQueryDto, plain, {
+  const dto = new GetNotificationsQueryDto();
+  const transformed = plainToInstance(GetNotificationsQueryDto, plain, {
     excludeExtraneousValues: false,
     enableImplicitConversion: false,
   });
+
+  for (const [key, value] of Object.entries(transformed)) {
+    if (value !== undefined) {
+      (dto as Record<string, unknown>)[key] = value;
+    }
+  }
+
+  return dto;
 }
 
 describe('GetNotificationsQueryDto', () => {
@@ -19,39 +28,46 @@ describe('GetNotificationsQueryDto', () => {
       expect(dto.limit).toBe(technicalSettings.notifications.defaultPageLimit);
     });
 
-    it('parsea string numérico válido', async () => {
+    it('parsea string numerico valido', async () => {
       const dto = await transform({ limit: '50' });
       expect(dto.limit).toBe(50);
     });
 
-    it('parsea número directamente', async () => {
+    it('parsea numero directamente', async () => {
       const dto = await transform({ limit: 30 });
       expect(dto.limit).toBe(30);
     });
 
-    it('usa valor por defecto cuando el string no es numérico', async () => {
+    it('falla validacion cuando el string no es numerico', async () => {
       const dto = await transform({ limit: 'abc' });
-      expect(dto.limit).toBe(technicalSettings.notifications.defaultPageLimit);
+      const errors = await validate(dto);
+      const limitError = errors.find((e) => e.property === 'limit');
+      expect(limitError).toBeDefined();
     });
 
-    it('usa valor por defecto cuando el tipo no es string ni number', async () => {
+    it('falla validacion cuando el tipo no es string ni number', async () => {
       const dto = await transform({ limit: true });
-      expect(dto.limit).toBe(technicalSettings.notifications.defaultPageLimit);
+      const errors = await validate(dto);
+      const limitError = errors.find((e) => e.property === 'limit');
+      expect(limitError).toBeDefined();
     });
 
-    it('usa valor por defecto cuando limit es null', async () => {
+    it('trata limit null como valor opcional y no falla validacion', async () => {
       const dto = await transform({ limit: null });
-      expect(dto.limit).toBe(technicalSettings.notifications.defaultPageLimit);
+      const errors = await validate(dto);
+      const limitError = errors.find((e) => e.property === 'limit');
+      expect(dto.limit).toBeNull();
+      expect(limitError).toBeUndefined();
     });
 
-    it('falla validación si limit es menor que 1', async () => {
+    it('falla validacion si limit es menor que 1', async () => {
       const dto = await transform({ limit: '0' });
       const errors = await validate(dto);
       const limitError = errors.find((e) => e.property === 'limit');
       expect(limitError).toBeDefined();
     });
 
-    it('falla validación si limit es mayor que 100', async () => {
+    it('falla validacion si limit es mayor que 100', async () => {
       const dto = await transform({ limit: '101' });
       const errors = await validate(dto);
       const limitError = errors.find((e) => e.property === 'limit');
@@ -65,27 +81,31 @@ describe('GetNotificationsQueryDto', () => {
       expect(dto.offset).toBe(0);
     });
 
-    it('parsea string numérico válido', async () => {
+    it('parsea string numerico valido', async () => {
       const dto = await transform({ offset: '40' });
       expect(dto.offset).toBe(40);
     });
 
-    it('parsea número directamente', async () => {
+    it('parsea numero directamente', async () => {
       const dto = await transform({ offset: 20 });
       expect(dto.offset).toBe(20);
     });
 
-    it('usa 0 cuando el string no es numérico', async () => {
+    it('falla validacion cuando el string no es numerico', async () => {
       const dto = await transform({ offset: 'xyz' });
-      expect(dto.offset).toBe(0);
+      const errors = await validate(dto);
+      const offsetError = errors.find((e) => e.property === 'offset');
+      expect(offsetError).toBeDefined();
     });
 
-    it('usa 0 cuando el tipo no es string ni number', async () => {
+    it('falla validacion cuando el tipo no es string ni number', async () => {
       const dto = await transform({ offset: {} });
-      expect(dto.offset).toBe(0);
+      const errors = await validate(dto);
+      const offsetError = errors.find((e) => e.property === 'offset');
+      expect(offsetError).toBeDefined();
     });
 
-    it('falla validación si offset es negativo', async () => {
+    it('falla validacion si offset es negativo', async () => {
       const dto = await transform({ offset: '-1' });
       const errors = await validate(dto);
       const offsetError = errors.find((e) => e.property === 'offset');
@@ -109,16 +129,11 @@ describe('GetNotificationsQueryDto', () => {
       expect(dto.onlyUnread).toBe(false);
     });
 
-    it('deja undefined para valores no reconocidos', async () => {
-      const dto = await transform({ onlyUnread: '1' });
-      expect(dto.onlyUnread).toBeUndefined();
-    });
-
-    it('no falla validación cuando el valor no reconocido produce undefined (IsOptional lo acepta)', async () => {
+    it('falla validacion para valores no reconocidos', async () => {
       const dto = await transform({ onlyUnread: '1' });
       const errors = await validate(dto);
       const unreadError = errors.find((e) => e.property === 'onlyUnread');
-      expect(unreadError).toBeUndefined();
+      expect(unreadError).toBeDefined();
     });
   });
 });

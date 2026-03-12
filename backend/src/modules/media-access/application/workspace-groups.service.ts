@@ -26,10 +26,14 @@ type WorkspaceGroupMembersListResponse = {
   nextPageToken?: string;
 };
 
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 1000;
+const RATE_LIMIT_STATUS = 429;
+
 @Injectable()
 export class WorkspaceGroupsService {
   private readonly logger = new Logger(WorkspaceGroupsService.name);
-  private workspaceJwtClient: JWT | null = null;
+  private workspaceJwtClientPromise: Promise<JWT> | null = null;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -48,16 +52,18 @@ export class WorkspaceGroupsService {
 
     let response: { data: WorkspaceGroup };
     try {
-      response = await client.request<WorkspaceGroup>({
-        url: 'https://admin.googleapis.com/admin/directory/v1/groups',
-        method: 'POST',
-        data: {
-          email: normalizedEmail,
-          name: input.name.trim(),
-          description: input.description.trim(),
-        },
-        headers: { 'Content-Type': 'application/json' },
-      });
+      response = await this.withRetry(() =>
+        client.request<WorkspaceGroup>({
+          url: 'https://admin.googleapis.com/admin/directory/v1/groups',
+          method: 'POST',
+          data: {
+            email: normalizedEmail,
+            name: input.name.trim(),
+            description: input.description.trim(),
+          },
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
     } catch (error) {
       const status = this.getStatusFromError(error);
       if (status !== 409) {
@@ -109,21 +115,22 @@ export class WorkspaceGroupsService {
     }
 
     try {
-      await client.request({
-        url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members`,
-        method: 'POST',
-        data: {
-          email: normalizedMemberEmail,
-          role: 'MEMBER',
-        },
-        headers: { 'Content-Type': 'application/json' },
-      });
+      await this.withRetry(() =>
+        client.request({
+          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members`,
+          method: 'POST',
+          data: {
+            email: normalizedMemberEmail,
+            role: 'MEMBER',
+          },
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
     } catch (error) {
       const status = this.getStatusFromError(error);
       if (status !== 409) {
         throw error;
       }
-      // Idempotencia frente a carreras entre workers.
       return;
     }
 
@@ -143,16 +150,17 @@ export class WorkspaceGroupsService {
     const client = await this.getWorkspaceJwtClient();
 
     try {
-      await client.request({
-        url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members/${encodeURIComponent(normalizedMemberEmail)}`,
-        method: 'DELETE',
-      });
+      await this.withRetry(() =>
+        client.request({
+          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members/${encodeURIComponent(normalizedMemberEmail)}`,
+          method: 'DELETE',
+        }),
+      );
     } catch (error) {
       const status = this.getStatusFromError(error);
       if (status !== 404) {
         throw error;
       }
-      // Idempotencia para revocacion repetida.
       return;
     }
 
@@ -172,16 +180,16 @@ export class WorkspaceGroupsService {
     do {
       let response: { data: WorkspaceGroupMembersListResponse };
       try {
-        const queryParams = new URLSearchParams({
-          maxResults: '200',
-        });
+        const queryParams = new URLSearchParams({ maxResults: '200' });
         if (pageToken) {
           queryParams.set('pageToken', pageToken);
         }
-        response = await client.request<WorkspaceGroupMembersListResponse>({
-          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members?${queryParams.toString()}`,
-          method: 'GET',
-        });
+        response = await this.withRetry(() =>
+          client.request<WorkspaceGroupMembersListResponse>({
+            url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members?${queryParams.toString()}`,
+            method: 'GET',
+          }),
+        );
       } catch (error) {
         const status = this.getStatusFromError(error);
         if (status === 404) {
@@ -214,10 +222,12 @@ export class WorkspaceGroupsService {
     const normalizedGroupEmail = groupEmail.trim().toLowerCase();
     const client = await this.getWorkspaceJwtClient();
     try {
-      await client.request({
-        url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}`,
-        method: 'DELETE',
-      });
+      await this.withRetry(() =>
+        client.request({
+          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}`,
+          method: 'DELETE',
+        }),
+      );
     } catch (error) {
       const status = this.getStatusFromError(error);
       if (status === 404) {
@@ -237,20 +247,18 @@ export class WorkspaceGroupsService {
     groupEmail: string,
   ): Promise<WorkspaceGroup | null> {
     try {
-      const response = await client.request<WorkspaceGroup>({
-        url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(groupEmail)}`,
-        method: 'GET',
-      });
+      const response = await this.withRetry(() =>
+        client.request<WorkspaceGroup>({
+          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(groupEmail)}`,
+          method: 'GET',
+        }),
+      );
       if (!response.data.id || !response.data.email) {
         return null;
       }
       return response.data;
     } catch (error) {
-      const maybeError = error as {
-        code?: number;
-        response?: { status?: number };
-      };
-      const status = maybeError.response?.status ?? maybeError.code;
+      const status = this.getStatusFromError(error);
       if (status === 404) {
         return null;
       }
@@ -264,10 +272,12 @@ export class WorkspaceGroupsService {
     memberEmail: string,
   ): Promise<WorkspaceGroupMember | null> {
     try {
-      const response = await client.request<WorkspaceGroupMember>({
-        url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(groupEmail)}/members/${encodeURIComponent(memberEmail)}`,
-        method: 'GET',
-      });
+      const response = await this.withRetry(() =>
+        client.request<WorkspaceGroupMember>({
+          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(groupEmail)}/members/${encodeURIComponent(memberEmail)}`,
+          method: 'GET',
+        }),
+      );
       if (!response.data.email) {
         return null;
       }
@@ -281,11 +291,19 @@ export class WorkspaceGroupsService {
     }
   }
 
-  private async getWorkspaceJwtClient(): Promise<JWT> {
-    if (this.workspaceJwtClient) {
-      return this.workspaceJwtClient;
+  private getWorkspaceJwtClient(): Promise<JWT> {
+    if (this.workspaceJwtClientPromise === null) {
+      this.workspaceJwtClientPromise = this.initWorkspaceJwtClient().catch(
+        (error) => {
+          this.workspaceJwtClientPromise = null;
+          throw error;
+        },
+      );
     }
+    return this.workspaceJwtClientPromise;
+  }
 
+  private async initWorkspaceJwtClient(): Promise<JWT> {
     const keyFile = this.configService.get<string>(
       'GOOGLE_APPLICATION_CREDENTIALS',
       '',
@@ -339,8 +357,30 @@ export class WorkspaceGroupsService {
       subject: adminEmail,
     });
     await client.authorize();
-    this.workspaceJwtClient = client;
-    return this.workspaceJwtClient;
+    return client;
+  }
+
+  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        const status = this.getStatusFromError(error);
+        if (status !== RATE_LIMIT_STATUS || attempt === MAX_RETRY_ATTEMPTS) {
+          throw error;
+        }
+        await this.sleep(Math.pow(2, attempt) * RETRY_BASE_DELAY_MS);
+      }
+    }
+    throw new InternalServerErrorException(
+      'Máximo de reintentos alcanzado en llamada a Google Workspace API',
+    );
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   private getStatusFromError(error: unknown): number | undefined {

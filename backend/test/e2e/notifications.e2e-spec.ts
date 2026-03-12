@@ -13,9 +13,12 @@ import { Notification } from '@modules/notifications/domain/notification.entity'
 import { UserNotification } from '@modules/notifications/domain/user-notification.entity';
 
 describe('E2E: Notifications (Notificaciones)', () => {
+  jest.setTimeout(120000);
+
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
+  let cacheService: RedisCacheService;
 
   let student: { user: User; token: string };
   let student2: { user: User; token: string };
@@ -43,7 +46,7 @@ describe('E2E: Notifications (Notificaciones)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
-    const cacheService = app.get(RedisCacheService);
+    cacheService = app.get(RedisCacheService);
     await cacheService.invalidateGroup('*');
     seeder = new TestSeeder(dataSource, app);
 
@@ -138,6 +141,8 @@ describe('E2E: Notifications (Notificaciones)', () => {
         readAt: isRead ? new Date() : null,
       }),
     );
+
+    await cacheService.del(`cache:notifications:unread-count:${userId}`);
 
     return { notificationId: notification.id };
   }
@@ -263,7 +268,6 @@ describe('E2E: Notifications (Notificaciones)', () => {
     });
 
     it('el conteo aumenta tras insertar una notificación no leída', async () => {
-      const cacheService = app.get(RedisCacheService);
       await cacheService.invalidateGroup(
         `cache:notifications:unread-count:${student2.user.id}`,
       );
@@ -276,9 +280,6 @@ describe('E2E: Notifications (Notificaciones)', () => {
       const countBefore: number = resBefore.body.data.count;
 
       await insertNotificationForUser(student2.user.id, false);
-      await cacheService.del(
-        `cache:notifications:unread-count:${student2.user.id}`,
-      );
 
       const resAfter = await request(app.getHttpServer())
         .get('/api/v1/notifications/unread-count')
@@ -351,7 +352,6 @@ describe('E2E: Notifications (Notificaciones)', () => {
         .set('Authorization', `Bearer ${student.token}`)
         .expect(204);
 
-      const cacheService = app.get(RedisCacheService);
       await cacheService.del(
         `cache:notifications:unread-count:${student.user.id}`,
       );

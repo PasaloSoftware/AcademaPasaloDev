@@ -67,6 +67,67 @@ export class UsersService {
     }
   }
 
+  async createWithRole(
+    createUserDto: CreateUserDto,
+    roleCode: string,
+  ): Promise<User> {
+    const normalizedRoleCode = String(roleCode || '')
+      .trim()
+      .toUpperCase();
+
+    const createdUser = await this.dataSource.transaction(async (manager) => {
+      const existingUser = await this.userRepository.findByEmail(
+        createUserDto.email,
+        manager,
+      );
+
+      if (existingUser) {
+        throw new ConflictException('El correo electrónico ya está registrado');
+      }
+
+      const role = await this.roleRepository.findByCode(
+        normalizedRoleCode,
+        manager,
+      );
+      if (!role) {
+        throw new NotFoundException(`Rol ${normalizedRoleCode} no encontrado`);
+      }
+
+      const now = new Date();
+      try {
+        return await this.userRepository.create(
+          {
+            ...createUserDto,
+            createdAt: now,
+            updatedAt: null,
+            roles: [role],
+            lastActiveRoleId: role.id,
+          },
+          manager,
+        );
+      } catch (error) {
+        const errno = getErrnoFromDbError(error as DatabaseError);
+        if (errno === MySqlErrorCode.DUPLICATE_ENTRY) {
+          throw new ConflictException(
+            'El correo electrónico ya está registrado',
+          );
+        }
+        throw error;
+      }
+    });
+
+    await this.enqueueImmediateStaffReconciliationIfNeeded({
+      userId: createdUser.id,
+      roleCode: normalizedRoleCode,
+      event: 'ASSIGN_ROLE',
+      shouldEnqueue:
+        createdUser.isActive &&
+        this.shouldTriggerStaffReconciliationForRoleCode(normalizedRoleCode),
+    });
+
+    return createdUser;
+  }
+
   async findAll(): Promise<User[]> {
     return await this.userRepository.findAll();
   }

@@ -408,6 +408,48 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
     * `body: { file: Buffer, materialFolderId: string, displayName: string, classEventId?: string }`
 - **POST /materials/:id/versions:** Actualizar versión de archivo existente.
     * `body: { file: Buffer }`
+- **POST /materials/:id/restore-version/:versionId:** Restaurar una version previa creando una nueva version actual.
+    * **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+    * **Path Params:**
+      - `id`: string (materialId)
+      - `versionId`: string (version historica a restaurar)
+    * **Comportamiento:**
+      - no sobreescribe el historial existente
+      - crea una nueva version del material usando el `file_resource` de la version restaurada
+      - actualiza la version actual del material al nuevo registro creado
+    * **Notas:**
+      - si restauras la version 2 y la actual es la 5, el resultado sera una nueva version 6
+      - la respuesta mantiene el contrato actual del material
+- **GET /materials/:id/versions-history:** Consultar historial de versiones del material.
+    * **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+    * **Path Params:**
+      - `id`: string (materialId)
+    * **Response (`data`):**
+      - `materialId`: string
+      - `currentVersionId`: string | null
+      - `currentVersionNumber`: number | null
+      - `versions`: array
+      - `versions[].versionId`: string
+      - `versions[].versionNumber`: number
+      - `versions[].isCurrent`: boolean
+      - `versions[].createdAt`: string ISO-8601
+      - `versions[].createdBy`: object | null
+      - `versions[].createdBy.id`: string
+      - `versions[].createdBy.email`: string | null
+      - `versions[].createdBy.firstName`: string | null
+      - `versions[].createdBy.lastName1`: string | null
+      - `versions[].createdBy.lastName2`: string | null
+      - `versions[].file`: object
+      - `versions[].file.resourceId`: string
+      - `versions[].file.originalName`: string
+      - `versions[].file.mimeType`: string
+      - `versions[].file.sizeBytes`: string
+      - `versions[].file.storageProvider`: `LOCAL` | `GDRIVE` | `S3`
+      - `versions[].file.driveFileId`: string | null
+      - `versions[].file.storageUrl`: string | null
+    * **Notas:**
+      - El orden es descendente: versiÃ³n actual primero.
+      - `driveFileId` solo viene cuando el storage provider es `GDRIVE`.
 - **GET /materials/:id/last-modified:** Consultar fecha/hora de ultima modificacion de un material.
     * **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
     * **Path Params:**
@@ -661,8 +703,6 @@ Se agrega soporte para video introductorio a nivel `course_cycle` (no por evalua
   "storageProvider": "GDRIVE"
 }
 ```
-
-
 
 
 

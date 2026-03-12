@@ -5,11 +5,11 @@ import { technicalSettings } from '@config/technical-settings';
 export class GetNotificationsQueryDto {
   @Expose()
   @IsOptional()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === undefined) return undefined;
     if (value === 'true' || value === true) return true;
     if (value === 'false' || value === false) return false;
-    return undefined;
+    return value;
   })
   @IsBoolean({ message: 'onlyUnread debe ser "true" o "false"' })
   onlyUnread?: boolean;
@@ -17,13 +17,14 @@ export class GetNotificationsQueryDto {
   @Expose()
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => {
-    if (typeof value !== 'string' && typeof value !== 'number') {
-      return technicalSettings.notifications.defaultPageLimit;
+    if (value === undefined) {
+      return undefined;
     }
-    const parsed = parseInt(String(value), 10);
-    return Number.isFinite(parsed)
-      ? parsed
-      : technicalSettings.notifications.defaultPageLimit;
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return value;
+    }
+    const parsed = Number(String(value));
+    return Number.isInteger(parsed) ? parsed : value;
   })
   @IsInt()
   @Min(1)
@@ -33,11 +34,14 @@ export class GetNotificationsQueryDto {
   @Expose()
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => {
-    if (typeof value !== 'string' && typeof value !== 'number') {
-      return 0;
+    if (value === undefined) {
+      return undefined;
     }
-    const parsed = parseInt(String(value), 10);
-    return Number.isFinite(parsed) ? parsed : 0;
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return value;
+    }
+    const parsed = Number(String(value));
+    return Number.isInteger(parsed) ? parsed : value;
   })
   @IsInt()
   @Min(0)

@@ -9,7 +9,7 @@ import { AuditModule } from '@modules/audit/audit.module';
 import { MaterialFolder } from './domain/material-folder.entity';
 import { Material } from './domain/material.entity';
 import { FileResource } from './domain/file-resource.entity';
-import { FileVersion } from './domain/file-version.entity';
+import { MaterialVersion } from './domain/material-version.entity';
 import { DeletionRequest } from './domain/deletion-request.entity';
 import { FolderStatus } from './domain/folder-status.entity';
 import { MaterialStatus } from './domain/material-status.entity';
@@ -18,7 +18,8 @@ import { DeletionRequestStatus } from './domain/deletion-request-status.entity';
 import { MaterialFolderRepository } from './infrastructure/material-folder.repository';
 import { MaterialRepository } from './infrastructure/material.repository';
 import { FileResourceRepository } from './infrastructure/file-resource.repository';
-import { FileVersionRepository } from './infrastructure/file-version.repository';
+import { MaterialVersionRepository } from './infrastructure/material-version.repository';
+import { MaterialVersionHistoryRepository } from './infrastructure/material-version-history.repository';
 import { DeletionRequestRepository } from './infrastructure/deletion-request.repository';
 import { MaterialCatalogRepository } from './infrastructure/material-catalog.repository';
 import { StorageModule } from '@infrastructure/storage/storage.module';
@@ -34,7 +35,7 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
       MaterialFolder,
       Material,
       FileResource,
-      FileVersion,
+      MaterialVersion,
       DeletionRequest,
       FolderStatus,
       MaterialStatus,
@@ -55,7 +56,8 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
     MaterialFolderRepository,
     MaterialRepository,
     FileResourceRepository,
-    FileVersionRepository,
+    MaterialVersionRepository,
+    MaterialVersionHistoryRepository,
     DeletionRequestRepository,
     MaterialCatalogRepository,
   ],

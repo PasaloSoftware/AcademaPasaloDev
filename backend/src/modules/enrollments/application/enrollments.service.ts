@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
 } from '@nestjs/common';
-import { DataSource, In, LessThan } from 'typeorm';
+import { DataSource, EntityManager, In, LessThan } from 'typeorm';
 import { EnrollmentRepository } from '@modules/enrollments/infrastructure/enrollment.repository';
 import { EnrollmentStatusRepository } from '@modules/enrollments/infrastructure/enrollment-status.repository';
 import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
@@ -31,6 +31,7 @@ import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.co
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
+import { ROLE_CODES } from '@common/constants/role-codes.constants';
 
 @Injectable()
 export class EnrollmentsService {
@@ -126,6 +127,8 @@ export class EnrollmentsService {
             'El usuario ya cuenta con una matricula activa en este curso.',
           );
         }
+
+        await this.assertUserIsActiveStudent(dto.userId, manager);
 
         const type = await this.enrollmentTypeRepository.findByCode(
           dto.enrollmentTypeCode,
@@ -366,5 +369,35 @@ export class EnrollmentsService {
       revokedEvaluations: evaluationIdsToRevoke.length,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  private async assertUserIsActiveStudent(
+    userId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const rows = await manager.query<
+      Array<{ isActiveStudent: number | string }>
+    >(
+      `
+        SELECT EXISTS(
+          SELECT 1
+          FROM user u
+          INNER JOIN user_role ur
+            ON ur.user_id = u.id
+          INNER JOIN role r
+            ON r.id = ur.role_id
+          WHERE u.id = ?
+            AND u.is_active = 1
+            AND r.code = ?
+        ) AS isActiveStudent
+      `,
+      [userId, ROLE_CODES.STUDENT],
+    );
+
+    if (Number(rows[0]?.isActiveStudent) !== 1) {
+      throw new BadRequestException(
+        'El usuario debe ser un alumno activo para matricularse.',
+      );
+    }
   }
 }

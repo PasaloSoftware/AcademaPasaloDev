@@ -60,6 +60,24 @@ export const MEDIA_ACCESS_SYNC_SOURCES = {
   ADMIN_MANUAL_RECOVERY: 'ADMIN_MANUAL_RECOVERY',
 } as const;
 
+export const GOOGLE_WORKSPACE_GROUP_ROLES = {
+  MEMBER: 'MEMBER',
+  MANAGER: 'MANAGER',
+  OWNER: 'OWNER',
+} as const;
+
+export type GoogleWorkspaceGroupRole =
+  (typeof GOOGLE_WORKSPACE_GROUP_ROLES)[keyof typeof GOOGLE_WORKSPACE_GROUP_ROLES];
+
+export function isGoogleGroupMemberRemovable(role?: string): boolean {
+  const normalized = String(role || '')
+    .trim()
+    .toUpperCase();
+  return (
+    normalized === GOOGLE_WORKSPACE_GROUP_ROLES.MEMBER || normalized === ''
+  );
+}
+
 export type MediaContentKind =
   (typeof MEDIA_CONTENT_KINDS)[keyof typeof MEDIA_CONTENT_KINDS];
 export type MediaAccessMode =

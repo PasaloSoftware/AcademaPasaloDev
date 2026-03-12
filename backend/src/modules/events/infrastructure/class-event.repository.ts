@@ -19,6 +19,15 @@ export type GlobalSessionRow = {
   secondaryColor: string | null;
 };
 
+export type NotificationClassEventTargetRow = {
+  classEventId: string;
+  evaluationId: string;
+  courseCycleId: string;
+  sessionNumber: number;
+  evaluationTypeCode: string;
+  evaluationNumber: number;
+};
+
 @Injectable()
 export class ClassEventRepository {
   constructor(
@@ -65,6 +74,34 @@ export class ClassEventRepository {
       ? manager.getRepository(ClassEvent)
       : this.ormRepository;
     return await repo.findOne({ where: { id } });
+  }
+
+  async findNotificationTargetsByIds(
+    classEventIds: string[],
+  ): Promise<NotificationClassEventTargetRow[]> {
+    if (classEventIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.ormRepository
+      .createQueryBuilder('ce')
+      .innerJoin('ce.evaluation', 'ev')
+      .innerJoin('ev.evaluationType', 'et')
+      .innerJoin('ev.courseCycle', 'cc')
+      .where('ce.id IN (:...classEventIds)', { classEventIds })
+      .select('ce.id', 'classEventId')
+      .addSelect('ce.session_number', 'sessionNumber')
+      .addSelect('ev.id', 'evaluationId')
+      .addSelect('cc.id', 'courseCycleId')
+      .addSelect('et.code', 'evaluationTypeCode')
+      .addSelect('ev.number', 'evaluationNumber')
+      .getRawMany<NotificationClassEventTargetRow>();
+
+    return rows.map((row) => ({
+      ...row,
+      sessionNumber: Number(row.sessionNumber),
+      evaluationNumber: Number(row.evaluationNumber),
+    }));
   }
 
   async findByEvaluationId(evaluationId: string): Promise<ClassEvent[]> {

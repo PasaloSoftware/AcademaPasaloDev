@@ -15,8 +15,8 @@ import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { FileResourceRepository } from '@modules/materials/infrastructure/file-resource.repository';
-import { FileVersionRepository } from '@modules/materials/infrastructure/file-version.repository';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
+import { MaterialVersionHistoryRepository } from '@modules/materials/infrastructure/material-version-history.repository';
 import { DeletionRequestRepository } from '@modules/materials/infrastructure/deletion-request.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
 import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
@@ -27,7 +27,7 @@ import { RequestDeletionDto } from '@modules/materials/dto/request-deletion.dto'
 import { MaterialFolder } from '@modules/materials/domain/material-folder.entity';
 import { Material } from '@modules/materials/domain/material.entity';
 import { FileResource } from '@modules/materials/domain/file-resource.entity';
-import { FileVersion } from '@modules/materials/domain/file-version.entity';
+import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
 import { User } from '@modules/users/domain/user.entity';
 import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { AuditService } from '@modules/audit/application/audit.service';
@@ -64,6 +64,7 @@ import {
   buildDrivePreviewUrl,
 } from '@modules/media-access/domain/media-access-url.util';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
+import { MaterialVersionHistoryDto } from '@modules/materials/dto/material-version-history.dto';
 
 @Injectable()
 export class MaterialsService {
@@ -80,7 +81,7 @@ export class MaterialsService {
     private readonly folderRepository: MaterialFolderRepository,
     private readonly materialRepository: MaterialRepository,
     private readonly fileResourceRepository: FileResourceRepository,
-    private readonly fileVersionRepository: FileVersionRepository,
+    private readonly materialVersionHistoryRepository: MaterialVersionHistoryRepository,
     private readonly catalogRepository: MaterialCatalogRepository,
     private readonly deletionRequestRepository: DeletionRequestRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
@@ -274,8 +275,6 @@ export class MaterialsService {
           );
 
         let finalResource: FileResource;
-        let finalVersion: FileVersion;
-
         if (!existingResource) {
           const uniqueName = this.buildStorageObjectName(file.originalname);
           savedResource = await this.storageService.saveFile(
@@ -335,47 +334,15 @@ export class MaterialsService {
               isNewFile = false;
             }
           }
-
-          const version1 = await manager.findOne(FileVersion, {
-            where: { fileResourceId: finalResource.id, versionNumber: 1 },
-          });
-          if (!version1) {
-            const versionEntity = manager.create(FileVersion, {
-              fileResourceId: finalResource.id,
-              versionNumber: 1,
-              storageUrl: finalResource.storageUrl,
-              createdById: user.id,
-              createdAt: now,
-            });
-            finalVersion = await manager.save(versionEntity);
-          } else {
-            finalVersion = version1;
-          }
         } else {
           finalResource = existingResource;
-          const version1 = await manager.findOne(FileVersion, {
-            where: { fileResourceId: finalResource.id, versionNumber: 1 },
-          });
-
-          if (!version1) {
-            const versionEntity = manager.create(FileVersion, {
-              fileResourceId: finalResource.id,
-              versionNumber: 1,
-              storageUrl: finalResource.storageUrl,
-              createdById: user.id,
-              createdAt: now,
-            });
-            finalVersion = await manager.save(versionEntity);
-          } else {
-            finalVersion = version1;
-          }
         }
 
         const materialEntity = manager.create(Material, {
           materialFolderId: folder.id,
           classEventId: dto.classEventId || null,
           fileResourceId: finalResource.id,
-          fileVersionId: finalVersion.id,
+          fileVersionId: null,
           materialStatusId: activeStatus.id,
           displayName: dto.displayName,
           visibleFrom,
@@ -385,8 +352,27 @@ export class MaterialsService {
           updatedAt: now,
         });
         const savedMaterial = await manager.save(materialEntity);
+        const versionEntity = manager.create(MaterialVersion, {
+          materialId: savedMaterial.id,
+          fileResourceId: finalResource.id,
+          versionNumber: 1,
+          restoredFromMaterialVersionId: null,
+          createdById: user.id,
+          createdAt: now,
+        });
+        const savedVersion =
+          (await manager.save(versionEntity)) ||
+          (await manager.findOne(MaterialVersion, {
+            where: { materialId: savedMaterial.id, versionNumber: 1 },
+          }));
+        if (!savedVersion) {
+          throw new InternalServerErrorException(
+            'No se pudo crear la version inicial del material',
+          );
+        }
+        savedMaterial.fileVersionId = savedVersion.id;
 
-        return savedMaterial;
+        return (await manager.save(savedMaterial)) || savedMaterial;
       });
 
       await this.invalidateFolderCache(dto.materialFolderId);
@@ -394,10 +380,12 @@ export class MaterialsService {
         await this.invalidateClassEventMaterialsCache(dto.classEventId);
       }
 
-      void this.notificationsDispatchService.dispatchNewMaterial(
-        result.id,
-        dto.materialFolderId,
-      );
+      if (result.classEventId) {
+        void this.notificationsDispatchService.dispatchNewMaterial(
+          result.id,
+          dto.materialFolderId,
+        );
+      }
 
       return result;
     } catch (error) {
@@ -546,30 +534,29 @@ export class MaterialsService {
           );
         }
 
-        const currentMaterialVersion = await manager.findOne(FileVersion, {
-          where: { id: freshMaterial.fileVersionId },
-        });
-        const nextMaterialVersionNumber =
-          (currentMaterialVersion?.versionNumber || 0) + 1;
-
-        let savedVersion: FileVersion | null = null;
+        const currentMaterialVersion = freshMaterial.fileVersionId
+          ? await manager.findOne(MaterialVersion, {
+              where: { id: freshMaterial.fileVersionId },
+            })
+          : null;
+        let savedVersion: MaterialVersion | null = null;
         const maxAttempts = 3;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          const latestVersion = await manager.findOne(FileVersion, {
-            where: { fileResourceId: finalResource.id },
+          const latestMaterialVersion = await manager.findOne(MaterialVersion, {
+            where: { materialId: freshMaterial.id },
             order: { versionNumber: 'DESC' },
           });
-          const nextResourceVersionNumber =
-            (latestVersion?.versionNumber || 0) + 1;
-          const nextVersionNumber = Math.max(
-            nextMaterialVersionNumber,
-            nextResourceVersionNumber,
-          );
+          const nextVersionNumber =
+            Math.max(
+              currentMaterialVersion?.versionNumber || 0,
+              latestMaterialVersion?.versionNumber || 0,
+            ) + 1;
 
-          const versionEntity = manager.create(FileVersion, {
+          const versionEntity = manager.create(MaterialVersion, {
+            materialId: freshMaterial.id,
             fileResourceId: finalResource.id,
             versionNumber: nextVersionNumber,
-            storageUrl: finalResource.storageUrl,
+            restoredFromMaterialVersionId: null,
             createdById: user.id,
             createdAt: now,
           });
@@ -605,6 +592,14 @@ export class MaterialsService {
       if (result.classEventId) {
         await this.invalidateClassEventMaterialsCache(result.classEventId);
       }
+
+      if (result.classEventId) {
+        void this.notificationsDispatchService.dispatchMaterialUpdated(
+          result.id,
+          result.materialFolderId,
+        );
+      }
+
       return result;
     } catch (error) {
       if (isNewFile && savedResource) await this.rollbackFile(savedResource);
@@ -876,6 +871,142 @@ export class MaterialsService {
       materialId: material.id,
       lastModifiedAt: material.updatedAt ?? material.createdAt,
     };
+  }
+
+  async getMaterialVersionHistory(
+    user: UserWithSession,
+    materialId: string,
+  ): Promise<MaterialVersionHistoryDto> {
+    const material = await this.materialRepository.findById(materialId);
+    if (!material) {
+      throw new NotFoundException('Material no encontrado');
+    }
+
+    const folder = await this.folderRepository.findById(
+      material.materialFolderId,
+    );
+    if (!folder) {
+      throw new NotFoundException('Carpeta contenedora no encontrada');
+    }
+
+    await this.checkAuthorizedAccess(
+      user,
+      folder.evaluationId,
+      folder,
+      material,
+    );
+
+    const rows =
+      await this.materialVersionHistoryRepository.findByMaterialId(materialId);
+    const currentVersionId = material.fileVersionId;
+    const currentVersion =
+      rows.find((row) => row.versionId === currentVersionId) || null;
+
+    return {
+      materialId: material.id,
+      currentVersionId,
+      currentVersionNumber: currentVersion?.versionNumber ?? null,
+      versions: rows.map((row) => ({
+        versionId: row.versionId,
+        versionNumber: Number(row.versionNumber),
+        isCurrent: row.versionId === currentVersionId,
+        createdAt: row.createdAt,
+        createdBy: row.createdById
+          ? {
+              id: row.createdById,
+              email: row.createdByEmail,
+              firstName: row.createdByFirstName,
+              lastName1: row.createdByLastName1,
+              lastName2: row.createdByLastName2,
+            }
+          : null,
+        file: {
+          resourceId: row.fileResourceId,
+          originalName: row.originalName,
+          mimeType: row.mimeType,
+          sizeBytes: row.sizeBytes,
+          storageProvider: row.storageProvider,
+          driveFileId:
+            row.storageProvider === STORAGE_PROVIDER_CODES.GDRIVE
+              ? row.storageKey
+              : null,
+          storageUrl: row.storageUrl,
+        },
+      })),
+    };
+  }
+
+  async restoreVersion(
+    user: UserWithSession,
+    materialId: string,
+    versionId: string,
+  ): Promise<Material> {
+    const now = new Date();
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      const freshMaterial = await manager.findOne(Material, {
+        where: { id: materialId },
+        relations: { materialFolder: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!freshMaterial) {
+        throw new NotFoundException('Material no encontrado');
+      }
+      if (!freshMaterial.materialFolder) {
+        throw new InternalServerErrorException(
+          'Integridad de datos corrupta: Material sin carpeta contenedora',
+        );
+      }
+
+      await this.assertCanManageEvaluation(
+        user,
+        freshMaterial.materialFolder.evaluationId,
+        manager,
+      );
+
+      const targetVersion = await manager.findOne(MaterialVersion, {
+        where: { id: versionId, materialId: freshMaterial.id },
+      });
+      if (!targetVersion) {
+        throw new NotFoundException(
+          'Version del material no encontrada para restauracion',
+        );
+      }
+
+      const currentMaterialVersion = freshMaterial.fileVersionId
+        ? await manager.findOne(MaterialVersion, {
+            where: { id: freshMaterial.fileVersionId },
+          })
+        : null;
+
+      const restoredVersion = await this.createNextMaterialVersion(
+        manager,
+        freshMaterial.id,
+        targetVersion.fileResourceId,
+        user.id,
+        now,
+        currentMaterialVersion?.versionNumber || 0,
+        targetVersion.id,
+      );
+
+      freshMaterial.fileResourceId = targetVersion.fileResourceId;
+      freshMaterial.fileVersionId = restoredVersion.id;
+      freshMaterial.updatedAt = now;
+
+      return await manager.save(freshMaterial);
+    });
+
+    await this.invalidateFolderCache(result.materialFolderId);
+    if (result.classEventId) {
+      await this.invalidateClassEventMaterialsCache(result.classEventId);
+      void this.notificationsDispatchService.dispatchMaterialUpdated(
+        result.id,
+        result.materialFolderId,
+      );
+    }
+
+    return result;
   }
 
   async requestDeletion(
@@ -1239,6 +1370,53 @@ export class MaterialsService {
     await this.cacheService.del(MATERIAL_CACHE_KEYS.CLASS_EVENT(classEventId));
   }
 
+  private async createNextMaterialVersion(
+    manager: EntityManager,
+    materialId: string,
+    fileResourceId: string,
+    createdById: string,
+    createdAt: Date,
+    currentVersionNumberHint = 0,
+    restoredFromMaterialVersionId: string | null = null,
+  ): Promise<MaterialVersion> {
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const latestMaterialVersion = await manager.findOne(MaterialVersion, {
+        where: { materialId },
+        order: { versionNumber: 'DESC' },
+      });
+      const nextVersionNumber =
+        Math.max(
+          currentVersionNumberHint,
+          latestMaterialVersion?.versionNumber || 0,
+        ) + 1;
+
+      const versionEntity = manager.create(MaterialVersion, {
+        materialId,
+        fileResourceId,
+        versionNumber: nextVersionNumber,
+        restoredFromMaterialVersionId,
+        createdById,
+        createdAt,
+      });
+
+      try {
+        return await manager.save(versionEntity);
+      } catch (error) {
+        const dbErrno = getErrnoFromDbError(error);
+        const isLastAttempt = attempt === maxAttempts - 1;
+        if (dbErrno !== MySqlErrorCode.DUPLICATE_ENTRY || isLastAttempt) {
+          throw error;
+        }
+      }
+    }
+
+    throw new InternalServerErrorException(
+      'No se pudo crear una nueva version del material',
+    );
+  }
+
   private buildStorageObjectName(originalName: string): string {
     const normalizedOriginalName = String(originalName || '')
       .replace(/[\r\n\t]/g, ' ')
@@ -1248,11 +1426,9 @@ export class MaterialsService {
     }
 
     if (this.storageService.isGoogleDriveStorageEnabled()) {
-      // For Drive, keep original file name so operators and teachers see expected names.
       return normalizedOriginalName;
     }
 
-    // For local storage, keep technical uniqueness to prevent overwrite collisions.
     const extension = path.extname(normalizedOriginalName).trim();
     return extension ? `${randomUUID()}${extension}` : randomUUID();
   }

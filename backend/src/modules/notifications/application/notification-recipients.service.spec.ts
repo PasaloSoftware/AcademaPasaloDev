@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { InternalServerErrorException } from '@nestjs/common';
 import { SelectQueryBuilder } from 'typeorm';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
@@ -11,12 +10,17 @@ import { Material } from '@modules/materials/domain/material.entity';
 import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { ENROLLMENT_STATUS_CODES } from '@modules/enrollments/domain/enrollment.constants';
+import {
+  NotificationIntegrityError,
+  NotificationTargetNotFoundError,
+} from '@modules/notifications/domain/notification.errors';
 
 function makeQb(getRawOneResult: unknown, getRawManyResult: unknown[] = []) {
   const qb = {
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     innerJoin: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
@@ -88,10 +92,14 @@ describe('NotificationRecipientsService', () => {
   describe('resolveClassEventContext', () => {
     const classRow = {
       classEventId: 'evt-1',
-      classTitle: 'Clase de Álgebra',
+      evaluationId: 'eval-1',
+      sessionNumber: 1,
+      classTitle: 'Clase de Algebra',
       startDatetime: new Date('2026-03-01T14:00:00Z'),
       courseCycleId: 'cycle-1',
-      courseName: 'Matemáticas',
+      evaluationTypeCode: 'PC',
+      evaluationNumber: 1,
+      courseName: 'Matematicas',
     };
 
     it('devuelve el contexto con destinatarios fusionados sin duplicados', async () => {
@@ -107,21 +115,23 @@ describe('NotificationRecipientsService', () => {
       const result = await service.resolveClassEventContext('evt-1');
 
       expect(result.classEventId).toBe('evt-1');
-      expect(result.classTitle).toBe('Clase de Álgebra');
-      expect(result.courseName).toBe('Matemáticas');
+      expect(result.sessionNumber).toBe(1);
+      expect(result.evaluationLabel).toBe('PC1');
+      expect(result.classTitle).toBe('Clase de Algebra');
+      expect(result.courseName).toBe('Matematicas');
       expect(result.recipientUserIds).toHaveLength(3);
       expect(result.recipientUserIds).toEqual(
         expect.arrayContaining(['u1', 'u2', 'u3']),
       );
     });
 
-    it('lanza InternalServerErrorException si el classEvent no existe', async () => {
+    it('lanza NotificationTargetNotFoundError si el classEvent no existe', async () => {
       const ceQb = makeQb(null);
       mockClassEventRepo.createQueryBuilder.mockReturnValue(ceQb);
 
       await expect(
         service.resolveClassEventContext('evt-999'),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      ).rejects.toBeInstanceOf(NotificationTargetNotFoundError);
     });
 
     it('cachea el activeEnrollmentStatusId en llamadas sucesivas', async () => {
@@ -146,23 +156,28 @@ describe('NotificationRecipientsService', () => {
       expect(mockEnrollmentStatusRepo.findOne).toHaveBeenCalledTimes(1);
     });
 
-    it('lanza InternalServerErrorException si el estado ACTIVE no existe en BD', async () => {
+    it('lanza NotificationIntegrityError si el estado ACTIVE no existe en BD', async () => {
       mockEnrollmentStatusRepo.findOne.mockResolvedValue(null);
       const ceQb = makeQb(classRow);
       mockClassEventRepo.createQueryBuilder.mockReturnValue(ceQb);
 
       await expect(
         service.resolveClassEventContext('evt-1'),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      ).rejects.toBeInstanceOf(NotificationIntegrityError);
     });
   });
 
   describe('resolveMaterialContext', () => {
     const materialRow = {
       materialId: 'mat-1',
-      materialDisplayName: 'Guía de estudios',
+      materialDisplayName: 'Guia de estudios',
       folderId: 'folder-1',
+      classEventId: 'evt-9',
+      evaluationId: 'eval-2',
       courseCycleId: 'cycle-2',
+      evaluationTypeCode: 'PC',
+      evaluationNumber: 2,
+      sessionNumber: 4,
       courseName: 'Historia',
     };
 
@@ -180,7 +195,10 @@ describe('NotificationRecipientsService', () => {
 
       expect(result.materialId).toBe('mat-1');
       expect(result.folderId).toBe('folder-1');
-      expect(result.materialDisplayName).toBe('Guía de estudios');
+      expect(result.classEventId).toBe('evt-9');
+      expect(result.evaluationLabel).toBe('PC2');
+      expect(result.sessionNumber).toBe(4);
+      expect(result.materialDisplayName).toBe('Guia de estudios');
       expect(result.courseName).toBe('Historia');
       expect(result.recipientUserIds).toHaveLength(2);
       expect(result.recipientUserIds).toEqual(
@@ -188,23 +206,27 @@ describe('NotificationRecipientsService', () => {
       );
     });
 
-    it('lanza InternalServerErrorException si el material no existe', async () => {
+    it('lanza NotificationTargetNotFoundError si el material no existe', async () => {
       const matQb = makeQb(null);
       mockMaterialRepo.createQueryBuilder.mockReturnValue(matQb);
 
       await expect(
         service.resolveMaterialContext('mat-999', 'folder-1'),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      ).rejects.toBeInstanceOf(NotificationTargetNotFoundError);
     });
   });
 
   describe('mergeUniqueUserIds', () => {
-    it('devuelve lista vacía cuando no hay listas', async () => {
+    it('devuelve lista vacia cuando no hay listas', async () => {
       const ceQb = makeQb({
         classEventId: 'evt-1',
+        evaluationId: 'eval-1',
+        sessionNumber: 1,
         classTitle: 'T',
         startDatetime: new Date(),
         courseCycleId: 'c',
+        evaluationTypeCode: 'PC',
+        evaluationNumber: 1,
         courseName: 'C',
       });
       mockClassEventRepo.createQueryBuilder.mockReturnValue(ceQb);

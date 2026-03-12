@@ -7,8 +7,8 @@ import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { FileResourceRepository } from '@modules/materials/infrastructure/file-resource.repository';
-import { FileVersionRepository } from '@modules/materials/infrastructure/file-version.repository';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
+import { MaterialVersionHistoryRepository } from '@modules/materials/infrastructure/material-version-history.repository';
 import { DeletionRequestRepository } from '@modules/materials/infrastructure/deletion-request.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
 import { AuditService } from '@modules/audit/application/audit.service';
@@ -78,6 +78,8 @@ describe('MaterialsService', () => {
   let cacheService: jest.Mocked<RedisCacheService>;
   let classEventRepo: jest.Mocked<ClassEventRepository>;
   let driveAccessScopeService: jest.Mocked<DriveAccessScopeService>;
+  let notificationsDispatchService: jest.Mocked<NotificationsDispatchService>;
+  let materialVersionHistoryRepo: jest.Mocked<MaterialVersionHistoryRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -137,15 +139,17 @@ describe('MaterialsService', () => {
           },
         },
         {
-          provide: FileVersionRepository,
-          useValue: { create: jest.fn() },
-        },
-        {
           provide: MaterialCatalogRepository,
           useValue: {
             findFolderStatusByCode: jest.fn(),
             findMaterialStatusByCode: jest.fn(),
             findDeletionRequestStatusByCode: jest.fn(),
+          },
+        },
+        {
+          provide: MaterialVersionHistoryRepository,
+          useValue: {
+            findByMaterialId: jest.fn(),
           },
         },
         {
@@ -174,6 +178,7 @@ describe('MaterialsService', () => {
           provide: NotificationsDispatchService,
           useValue: {
             dispatchNewMaterial: jest.fn().mockResolvedValue(undefined),
+            dispatchMaterialUpdated: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -199,6 +204,8 @@ describe('MaterialsService', () => {
     cacheService = module.get(RedisCacheService);
     classEventRepo = module.get(ClassEventRepository);
     driveAccessScopeService = module.get(DriveAccessScopeService);
+    notificationsDispatchService = module.get(NotificationsDispatchService);
+    materialVersionHistoryRepo = module.get(MaterialVersionHistoryRepository);
     (
       courseCycleProfessorRepo.isProfessorAssignedToEvaluation as jest.Mock
     ).mockResolvedValue(true);
@@ -554,6 +561,7 @@ describe('MaterialsService', () => {
       const persistedMaterial = {
         id: 'mat-1',
         materialFolderId: 'folder-77',
+        classEventId: 'evt-5',
         fileVersionId: 'ver-1',
         materialFolder: { evaluationId: '100' },
       } as Material;
@@ -595,6 +603,12 @@ describe('MaterialsService', () => {
       expect(cacheService.del).toHaveBeenCalledWith(
         MATERIAL_CACHE_KEYS.CONTENTS('folder-77'),
       );
+      expect(
+        notificationsDispatchService.dispatchMaterialUpdated,
+      ).toHaveBeenCalledWith('mat-1', 'folder-77');
+      expect(
+        notificationsDispatchService.dispatchNewMaterial,
+      ).not.toHaveBeenCalled();
     });
 
     it('should deduplicate on addVersion when resource already exists', async () => {
@@ -995,6 +1009,175 @@ describe('MaterialsService', () => {
 
       expect(result.materialId).toBe('mat-1');
       expect(result.lastModifiedAt).toEqual(createdAt);
+    });
+  });
+
+  describe('getMaterialVersionHistory', () => {
+    it('should return ordered version history with current version marker', async () => {
+      materialRepo.findById.mockResolvedValue({
+        id: 'mat-1',
+        materialFolderId: 'folder-1',
+        fileVersionId: 'ver-2',
+      } as Material);
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      accessEngine.hasAccess.mockResolvedValue(true);
+      materialVersionHistoryRepo.findByMaterialId.mockResolvedValue([
+        {
+          versionId: 'ver-2',
+          versionNumber: 2,
+          createdAt: new Date('2026-03-02T00:00:00.000Z'),
+          createdById: 'user-1',
+          createdByEmail: 'prof@test.com',
+          createdByFirstName: 'Pro',
+          createdByLastName1: 'Fe',
+          createdByLastName2: null,
+          fileResourceId: 'res-2',
+          originalName: 'v2.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: '200',
+          storageProvider: 'LOCAL',
+          storageKey: 'local-v2',
+          storageUrl: '/tmp/v2.pdf',
+        },
+        {
+          versionId: 'ver-1',
+          versionNumber: 1,
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          createdById: 'user-1',
+          createdByEmail: 'prof@test.com',
+          createdByFirstName: 'Pro',
+          createdByLastName1: 'Fe',
+          createdByLastName2: null,
+          fileResourceId: 'res-1',
+          originalName: 'v1.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: '100',
+          storageProvider: 'GDRIVE',
+          storageKey: 'drive-file-1',
+          storageUrl: null,
+        },
+      ] as any);
+
+      const result = await service.getMaterialVersionHistory(
+        mockStudent,
+        'mat-1',
+      );
+
+      expect(result.materialId).toBe('mat-1');
+      expect(result.currentVersionId).toBe('ver-2');
+      expect(result.currentVersionNumber).toBe(2);
+      expect(result.versions).toHaveLength(2);
+      expect(result.versions[0]).toMatchObject({
+        versionId: 'ver-2',
+        versionNumber: 2,
+        isCurrent: true,
+      });
+      expect(result.versions[1].file.driveFileId).toBe('drive-file-1');
+    });
+
+    it('should throw when material does not exist', async () => {
+      materialRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.getMaterialVersionHistory(mockProfessor, 'mat-x'),
+      ).rejects.toThrow('Material no encontrado');
+    });
+  });
+
+  describe('restoreVersion', () => {
+    it('should create a restored version and make it current', async () => {
+      const restoredMaterial = {
+        id: 'mat-1',
+        materialFolderId: 'folder-1',
+        classEventId: 'ce-1',
+        fileResourceId: 'res-1',
+        fileVersionId: 'ver-3',
+        updatedAt: new Date('2026-03-03T00:00:00.000Z'),
+      } as Material;
+
+      dataSource.transaction.mockImplementationOnce(async (cb: any) => {
+        const manager = {
+          findOne: jest
+            .fn()
+            .mockResolvedValueOnce({
+              id: 'mat-1',
+              materialFolderId: 'folder-1',
+              classEventId: 'ce-1',
+              fileVersionId: 'ver-2',
+              materialFolder: { evaluationId: '100' },
+            })
+            .mockResolvedValueOnce({
+              id: 'ver-1',
+              materialId: 'mat-1',
+              fileResourceId: 'res-1',
+              versionNumber: 1,
+            })
+            .mockResolvedValueOnce({
+              id: 'ver-2',
+              materialId: 'mat-1',
+              fileResourceId: 'res-2',
+              versionNumber: 2,
+            })
+            .mockResolvedValueOnce({
+              id: 'ver-2',
+              materialId: 'mat-1',
+              fileResourceId: 'res-2',
+              versionNumber: 2,
+            }),
+          create: jest.fn((_: unknown, data: object) => data),
+          save: jest
+            .fn()
+            .mockResolvedValueOnce({
+              id: 'ver-3',
+              materialId: 'mat-1',
+              fileResourceId: 'res-1',
+              versionNumber: 3,
+              restoredFromMaterialVersionId: 'ver-1',
+            })
+            .mockResolvedValueOnce(restoredMaterial),
+        } as any;
+
+        return await cb(manager);
+      });
+
+      const result = await service.restoreVersion(
+        mockProfessor,
+        'mat-1',
+        'ver-1',
+      );
+
+      expect(result).toBe(restoredMaterial);
+      expect(cacheService.del).toHaveBeenCalledWith(
+        MATERIAL_CACHE_KEYS.CONTENTS('folder-1'),
+      );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        MATERIAL_CACHE_KEYS.CLASS_EVENT('ce-1'),
+      );
+      expect(
+        notificationsDispatchService.dispatchMaterialUpdated,
+      ).toHaveBeenCalledWith('mat-1', 'folder-1');
+    });
+
+    it('should reject restore when target version does not belong to material', async () => {
+      dataSource.transaction.mockImplementationOnce(async (cb: any) => {
+        const manager = {
+          findOne: jest
+            .fn()
+            .mockResolvedValueOnce({
+              id: 'mat-1',
+              materialFolderId: 'folder-1',
+              fileVersionId: 'ver-2',
+              materialFolder: { evaluationId: '100' },
+            })
+            .mockResolvedValueOnce(null),
+        } as any;
+
+        return await cb(manager);
+      });
+
+      await expect(
+        service.restoreVersion(mockProfessor, 'mat-1', 'ver-x'),
+      ).rejects.toThrow('Version del material no encontrada para restauracion');
     });
   });
 
