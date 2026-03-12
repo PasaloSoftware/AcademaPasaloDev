@@ -16,6 +16,7 @@ import { Material } from '@modules/materials/domain/material.entity';
 import { DeletionRequest } from '@modules/materials/domain/deletion-request.entity';
 import { DeletionRequestStatus } from '@modules/materials/domain/deletion-request-status.entity';
 import { FileResource } from '@modules/materials/domain/file-resource.entity';
+import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
 import { Readable } from 'stream';
 
 interface MaterialDataResponse {
@@ -210,6 +211,40 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       });
 
       expect(mat.fileVersion.versionNumber).toBe(2);
+    });
+
+    it('returns version history for the material', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/materials/${materialId}/versions-history`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      const body = res.body as GenericDataResponse<{
+        materialId: string;
+        currentVersionId: string;
+        currentVersionNumber: number;
+        versions: Array<{
+          versionId: string;
+          versionNumber: number;
+          isCurrent: boolean;
+          file: { resourceId: string };
+        }>;
+      }>;
+
+      expect(body.data.materialId).toBe(materialId);
+      expect(body.data.currentVersionNumber).toBe(2);
+      expect(body.data.versions).toHaveLength(2);
+      expect(body.data.versions[0].versionNumber).toBe(2);
+      expect(body.data.versions[0].isCurrent).toBe(true);
+      expect(body.data.versions[1].versionNumber).toBe(1);
+
+      const dbVersions = await dataSource.getRepository(MaterialVersion).find({
+        where: { materialId },
+        order: { versionNumber: 'DESC' },
+      });
+      expect(body.data.versions.map((item) => item.versionId)).toEqual(
+        dbVersions.map((item) => item.id),
+      );
     });
 
     it('allows authorized download after versioning', async () => {

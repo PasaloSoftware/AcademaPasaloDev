@@ -18,8 +18,8 @@ import { DeletionRequestStatus } from './domain/deletion-request-status.entity';
 import { MaterialFolderRepository } from './infrastructure/material-folder.repository';
 import { MaterialRepository } from './infrastructure/material.repository';
 import { FileResourceRepository } from './infrastructure/file-resource.repository';
-import { FileVersionRepository } from './infrastructure/file-version.repository';
 import { MaterialVersionRepository } from './infrastructure/material-version.repository';
+import { MaterialVersionHistoryRepository } from './infrastructure/material-version-history.repository';
 import { DeletionRequestRepository } from './infrastructure/deletion-request.repository';
 import { MaterialCatalogRepository } from './infrastructure/material-catalog.repository';
 import { StorageModule } from '@infrastructure/storage/storage.module';
@@ -57,7 +57,7 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
     MaterialRepository,
     FileResourceRepository,
     MaterialVersionRepository,
-    FileVersionRepository,
+    MaterialVersionHistoryRepository,
     DeletionRequestRepository,
     MaterialCatalogRepository,
   ],

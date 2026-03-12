@@ -185,6 +185,21 @@ export class MaterialsController {
     );
   }
 
+  @Get(':id/versions-history')
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
+  @ResponseMessage('Historial de versiones del material obtenido exitosamente')
+  async getMaterialVersionHistory(
+    @CurrentUser() user: UserWithSession,
+    @Param('id') materialId: string,
+  ) {
+    return await this.materialsService.getMaterialVersionHistory(user, materialId);
+  }
+
   @Post('request-deletion')
   @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)

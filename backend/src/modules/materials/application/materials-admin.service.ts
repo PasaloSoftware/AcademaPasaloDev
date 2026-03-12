@@ -19,9 +19,9 @@ import {
   ReviewDeletionRequestDto,
 } from '@modules/materials/dto/review-deletion-request.dto';
 import { StorageService } from '@infrastructure/storage/storage.service';
-import { FileVersion } from '@modules/materials/domain/file-version.entity';
 import { FileResource } from '@modules/materials/domain/file-resource.entity';
 import { Material } from '@modules/materials/domain/material.entity';
+import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
 import { AuditService } from '@modules/audit/application/audit.service';
 import {
   AUDIT_ACTION_CODES,
@@ -435,7 +435,7 @@ export class MaterialsAdminService {
 
       const currentVersion =
         materialRecord.fileVersion ||
-        (await manager.findOne(FileVersion, {
+        (await manager.findOne(MaterialVersion, {
           where: { id: currentVersionId },
         }));
       if (!currentVersion) {
@@ -449,9 +449,9 @@ export class MaterialsAdminService {
         updatedAt: new Date(),
       });
 
-      await manager.delete(FileVersion, currentVersionId);
+      await manager.delete(MaterialVersion, currentVersionId);
 
-      const previousVersion = await manager.findOne(FileVersion, {
+      const previousVersion = await manager.findOne(MaterialVersion, {
         where: { materialId },
         order: { versionNumber: 'DESC' },
       });
@@ -474,7 +474,7 @@ export class MaterialsAdminService {
         manager,
       );
 
-      const versionRefs = await manager.count(FileVersion, {
+      const versionRefs = await manager.count(MaterialVersion, {
         where: { fileResourceId: currentVersion.fileResourceId },
       });
 
