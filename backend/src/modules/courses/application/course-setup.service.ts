@@ -130,6 +130,7 @@ export class CourseSetupService {
       dto.materialsTemplate.applyToEachEvaluation !== false;
     const templateCreatedForEvaluations: string[] = [];
     if (shouldApplyMaterialsTemplate) {
+      const folderStatusId = await this.getActiveFolderStatusId();
       for (const createdEvaluation of createdEvaluations) {
         if (
           createdEvaluation.evaluationTypeCode ===
@@ -140,6 +141,7 @@ export class CourseSetupService {
         await this.ensureMaterialTemplateForEvaluation(
           createdEvaluation.id,
           user.id,
+          folderStatusId,
           dto.materialsTemplate.roots || [],
         );
         templateCreatedForEvaluations.push(createdEvaluation.id);
@@ -303,6 +305,7 @@ export class CourseSetupService {
   private async ensureMaterialTemplateForEvaluation(
     evaluationId: string,
     actorUserId: string,
+    folderStatusId: string,
     roots: Array<{ name: string; subfolderNames?: string[] }>,
   ): Promise<void> {
     const maxDepth = Number(technicalSettings.materials.maxFolderDepth || 3);
@@ -311,14 +314,6 @@ export class CourseSetupService {
         'materials.maxFolderDepth debe ser >= 2 para templates',
       );
     }
-
-    const folderStatusRows = await this.dataSource.query<FolderIdRow[]>(
-      `SELECT id FROM folder_status WHERE code = 'ACTIVE' LIMIT 1`,
-    );
-    if (!folderStatusRows[0]?.id) {
-      throw new InternalServerErrorException('No existe folder_status ACTIVE');
-    }
-    const folderStatusId = folderStatusRows[0].id;
 
     for (const root of roots) {
       const rootName = String(root.name || '').trim();
@@ -358,6 +353,16 @@ export class CourseSetupService {
         });
       }
     }
+  }
+
+  private async getActiveFolderStatusId(): Promise<string> {
+    const folderStatusRows = await this.dataSource.query<FolderIdRow[]>(
+      `SELECT id FROM folder_status WHERE code = 'ACTIVE' LIMIT 1`,
+    );
+    if (!folderStatusRows[0]?.id) {
+      throw new InternalServerErrorException('No existe folder_status ACTIVE');
+    }
+    return folderStatusRows[0].id;
   }
 
   private async findOrCreateFolder(input: {
