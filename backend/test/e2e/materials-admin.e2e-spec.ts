@@ -81,11 +81,24 @@ describe('E2E: Materials Admin Full Flow', () => {
     seeder = new TestSeeder(dataSource, app);
 
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 0');
-    await dataSource.query('DELETE FROM deletion_request');
-    await dataSource.query('DELETE FROM material');
-    await dataSource.query('DELETE FROM material_folder');
-    await dataSource.query('DELETE FROM material_version');
-    await dataSource.query('DELETE FROM file_resource');
+    const tables = [
+      'deletion_request',
+      'material',
+      'material_folder',
+      'material_version',
+      'file_resource',
+      'evaluation',
+      'course_cycle_professor',
+      'course_cycle',
+      'academic_cycle',
+      'course',
+      'user_role',
+      'user_session',
+      'user',
+    ];
+    for (const table of tables) {
+      await dataSource.query(`DELETE FROM ${table}`);
+    }
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
 
     await seeder.ensureMaterialStatuses();

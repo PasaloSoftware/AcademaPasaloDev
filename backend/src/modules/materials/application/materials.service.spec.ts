@@ -1084,6 +1084,99 @@ describe('MaterialsService', () => {
     });
   });
 
+  describe('restoreVersion', () => {
+    it('should create a restored version and make it current', async () => {
+      const restoredMaterial = {
+        id: 'mat-1',
+        materialFolderId: 'folder-1',
+        classEventId: 'ce-1',
+        fileResourceId: 'res-1',
+        fileVersionId: 'ver-3',
+        updatedAt: new Date('2026-03-03T00:00:00.000Z'),
+      } as Material;
+
+      dataSource.transaction.mockImplementationOnce(async (cb: any) => {
+        const manager = {
+          findOne: jest
+            .fn()
+            .mockResolvedValueOnce({
+              id: 'mat-1',
+              materialFolderId: 'folder-1',
+              classEventId: 'ce-1',
+              fileVersionId: 'ver-2',
+              materialFolder: { evaluationId: '100' },
+            })
+            .mockResolvedValueOnce({
+              id: 'ver-1',
+              materialId: 'mat-1',
+              fileResourceId: 'res-1',
+              versionNumber: 1,
+            })
+            .mockResolvedValueOnce({
+              id: 'ver-2',
+              materialId: 'mat-1',
+              fileResourceId: 'res-2',
+              versionNumber: 2,
+            })
+            .mockResolvedValueOnce({
+              id: 'ver-2',
+              materialId: 'mat-1',
+              fileResourceId: 'res-2',
+              versionNumber: 2,
+            }),
+          create: jest.fn((_: unknown, data: object) => data),
+          save: jest
+            .fn()
+            .mockResolvedValueOnce({
+              id: 'ver-3',
+              materialId: 'mat-1',
+              fileResourceId: 'res-1',
+              versionNumber: 3,
+              restoredFromMaterialVersionId: 'ver-1',
+            })
+            .mockResolvedValueOnce(restoredMaterial),
+        } as any;
+
+        return await cb(manager);
+      });
+
+      const result = await service.restoreVersion(mockProfessor, 'mat-1', 'ver-1');
+
+      expect(result).toBe(restoredMaterial);
+      expect(cacheService.del).toHaveBeenCalledWith(
+        MATERIAL_CACHE_KEYS.CONTENTS('folder-1'),
+      );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        MATERIAL_CACHE_KEYS.CLASS_EVENT('ce-1'),
+      );
+      expect(
+        notificationsDispatchService.dispatchMaterialUpdated,
+      ).toHaveBeenCalledWith('mat-1', 'folder-1');
+    });
+
+    it('should reject restore when target version does not belong to material', async () => {
+      dataSource.transaction.mockImplementationOnce(async (cb: any) => {
+        const manager = {
+          findOne: jest
+            .fn()
+            .mockResolvedValueOnce({
+              id: 'mat-1',
+              materialFolderId: 'folder-1',
+              fileVersionId: 'ver-2',
+              materialFolder: { evaluationId: '100' },
+            })
+            .mockResolvedValueOnce(null),
+        } as any;
+
+        return await cb(manager);
+      });
+
+      await expect(
+        service.restoreVersion(mockProfessor, 'mat-1', 'ver-x'),
+      ).rejects.toThrow('Version del material no encontrada para restauracion');
+    });
+  });
+
   describe('getAuthorizedDocumentLink', () => {
     it('should return a direct Drive preview URL when resource provider is GDRIVE', async () => {
       materialRepo.findById.mockResolvedValue({

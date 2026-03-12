@@ -45,6 +45,8 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
   let materialId: string;
   let duplicateMaterialId: string;
   let originalFileResourceId: string;
+  let restorableMaterialId: string;
+  let restorableOriginalFileResourceId: string;
 
   const now = new Date();
   const nextMonth = new Date();
@@ -100,11 +102,24 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
 
     await cacheService.invalidateGroup('cache:*');
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 0');
-    await dataSource.query('DELETE FROM deletion_request');
-    await dataSource.query('DELETE FROM material');
-    await dataSource.query('DELETE FROM material_version');
-    await dataSource.query('DELETE FROM file_resource');
-    await dataSource.query('DELETE FROM material_folder');
+    const tables = [
+      'deletion_request',
+      'material',
+      'material_version',
+      'file_resource',
+      'material_folder',
+      'evaluation',
+      'course_cycle_professor',
+      'course_cycle',
+      'academic_cycle',
+      'course',
+      'user_role',
+      'user_session',
+      'user',
+    ];
+    for (const table of tables) {
+      await dataSource.query(`DELETE FROM ${table}`);
+    }
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
 
     await seeder.ensureMaterialStatuses();
@@ -254,6 +269,71 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
         .expect(200);
 
       expect(storageMock.getFileStream).toHaveBeenCalled();
+    });
+  });
+
+  describe('Restore version', () => {
+    it('restores an older version by creating a new current version', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/materials')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .attach('file', Buffer.from('%PDF-1.4 restore-original'), 'restore-v1.pdf')
+        .field('materialFolderId', folderId)
+        .field('displayName', 'Restorable')
+        .expect(201);
+
+      const createdMaterial = createRes.body as MaterialDataResponse;
+      restorableMaterialId = createdMaterial.data.id;
+      restorableOriginalFileResourceId = createdMaterial.data.fileResourceId;
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/materials/${restorableMaterialId}/versions`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .attach('file', Buffer.from('%PDF-1.4 restore-version2'), 'restore-v2.pdf')
+        .expect(201);
+
+      const oldestVersion = await dataSource.getRepository(MaterialVersion).findOneOrFail({
+        where: { materialId: restorableMaterialId, versionNumber: 1 },
+      });
+
+      await request(app.getHttpServer())
+        .post(
+          `/api/v1/materials/${restorableMaterialId}/restore-version/${oldestVersion.id}`,
+        )
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(201);
+
+      const material = await dataSource.getRepository(Material).findOneOrFail({
+        where: { id: restorableMaterialId },
+        relations: { fileVersion: true },
+      });
+
+      expect(material.fileResourceId).toBe(restorableOriginalFileResourceId);
+      expect(material.fileVersion?.versionNumber).toBe(3);
+
+      const historyRes = await request(app.getHttpServer())
+        .get(`/api/v1/materials/${restorableMaterialId}/versions-history`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      const historyBody = historyRes.body as GenericDataResponse<{
+        currentVersionNumber: number;
+        versions: Array<{
+          versionNumber: number;
+          isCurrent: boolean;
+          file: { resourceId: string };
+        }>;
+      }>;
+
+      expect(historyBody.data.currentVersionNumber).toBe(3);
+      expect(historyBody.data.versions).toHaveLength(3);
+      expect(historyBody.data.versions[0]).toMatchObject({
+        versionNumber: 3,
+        isCurrent: true,
+      });
+      expect(historyBody.data.versions[0].file.resourceId).toBe(
+        restorableOriginalFileResourceId,
+      );
     });
   });
 

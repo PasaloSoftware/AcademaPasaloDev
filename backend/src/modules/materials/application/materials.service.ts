@@ -927,6 +927,79 @@ export class MaterialsService {
     };
   }
 
+  async restoreVersion(
+    user: UserWithSession,
+    materialId: string,
+    versionId: string,
+  ): Promise<Material> {
+    const now = new Date();
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      const freshMaterial = await manager.findOne(Material, {
+        where: { id: materialId },
+        relations: { materialFolder: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!freshMaterial) {
+        throw new NotFoundException('Material no encontrado');
+      }
+      if (!freshMaterial.materialFolder) {
+        throw new InternalServerErrorException(
+          'Integridad de datos corrupta: Material sin carpeta contenedora',
+        );
+      }
+
+      await this.assertCanManageEvaluation(
+        user,
+        freshMaterial.materialFolder.evaluationId,
+        manager,
+      );
+
+      const targetVersion = await manager.findOne(MaterialVersion, {
+        where: { id: versionId, materialId: freshMaterial.id },
+      });
+      if (!targetVersion) {
+        throw new NotFoundException(
+          'Version del material no encontrada para restauracion',
+        );
+      }
+
+      const currentMaterialVersion = freshMaterial.fileVersionId
+        ? await manager.findOne(MaterialVersion, {
+            where: { id: freshMaterial.fileVersionId },
+          })
+        : null;
+
+      const restoredVersion = await this.createNextMaterialVersion(
+        manager,
+        freshMaterial.id,
+        targetVersion.fileResourceId,
+        user.id,
+        now,
+        currentMaterialVersion?.versionNumber || 0,
+        targetVersion.id,
+      );
+
+      freshMaterial.fileResourceId = targetVersion.fileResourceId;
+      freshMaterial.fileVersionId = restoredVersion.id;
+      freshMaterial.updatedAt = now;
+
+      return await manager.save(freshMaterial);
+    });
+
+    await this.invalidateFolderCache(result.materialFolderId);
+    if (result.classEventId) {
+      await this.invalidateClassEventMaterialsCache(result.classEventId);
+      void this.notificationsDispatchService.dispatchMaterialUpdated(
+        result.id,
+        result.materialFolderId,
+      );
+    }
+
+    return result;
+  }
+
   async requestDeletion(
     user: UserWithSession,
     dto: RequestDeletionDto,
@@ -1286,6 +1359,52 @@ export class MaterialsService {
 
   private async invalidateClassEventMaterialsCache(classEventId: string) {
     await this.cacheService.del(MATERIAL_CACHE_KEYS.CLASS_EVENT(classEventId));
+  }
+
+  private async createNextMaterialVersion(
+    manager: EntityManager,
+    materialId: string,
+    fileResourceId: string,
+    createdById: string,
+    createdAt: Date,
+    currentVersionNumberHint = 0,
+    restoredFromMaterialVersionId: string | null = null,
+  ): Promise<MaterialVersion> {
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const latestMaterialVersion = await manager.findOne(MaterialVersion, {
+        where: { materialId },
+        order: { versionNumber: 'DESC' },
+      });
+      const nextVersionNumber = Math.max(
+        currentVersionNumberHint,
+        latestMaterialVersion?.versionNumber || 0,
+      ) + 1;
+
+      const versionEntity = manager.create(MaterialVersion, {
+        materialId,
+        fileResourceId,
+        versionNumber: nextVersionNumber,
+        restoredFromMaterialVersionId,
+        createdById,
+        createdAt,
+      });
+
+      try {
+        return await manager.save(versionEntity);
+      } catch (error) {
+        const dbErrno = getErrnoFromDbError(error);
+        const isLastAttempt = attempt === maxAttempts - 1;
+        if (dbErrno !== MySqlErrorCode.DUPLICATE_ENTRY || isLastAttempt) {
+          throw error;
+        }
+      }
+    }
+
+    throw new InternalServerErrorException(
+      'No se pudo crear una nueva version del material',
+    );
   }
 
   private buildStorageObjectName(originalName: string): string {
