@@ -56,8 +56,8 @@ export const NOTIFICATION_MESSAGES = {
   },
   [NOTIFICATION_TYPE_CODES.CLASS_UPDATED]: {
     title: 'Clase actualizada',
-    message: (classTitle: string, nuevaFecha: string) =>
-      `La clase '${classTitle}' ha sido reprogramada al ${nuevaFecha}.`,
+    message: (classTitle: string) =>
+      `El horario de la clase '${classTitle}' ha sido actualizado. Revisa los detalles mas recientes en la plataforma.`,
   },
   [NOTIFICATION_TYPE_CODES.CLASS_CANCELLED]: {
     title: 'Clase cancelada',

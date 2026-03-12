@@ -183,6 +183,9 @@ export class NotificationsDispatchService {
     startDatetime: Date,
   ): Promise<void> {
     try {
+      const jobId = `class-reminder-${classEventId}`;
+      const existingJob = await this.notificationsQueue.getJob(jobId);
+
       let reminderMinutes: number;
       try {
         const raw = await this.settingsService.getString(
@@ -207,6 +210,9 @@ export class NotificationsDispatchService {
       const maxMinutes = technicalSettings.notifications.reminderMaxMinutes;
 
       if (reminderMinutes < minMinutes || reminderMinutes > maxMinutes) {
+        if (existingJob) {
+          await existingJob.remove();
+        }
         this.logger.error({
           context: NotificationsDispatchService.name,
           message:
@@ -223,6 +229,9 @@ export class NotificationsDispatchService {
         startDatetime.getTime() - reminderMinutes * 60 * 1000 - Date.now();
 
       if (delayMs < technicalSettings.notifications.reminderMinEnqueueMs) {
+        if (existingJob) {
+          await existingJob.remove();
+        }
         this.logger.log({
           context: NotificationsDispatchService.name,
           message:
@@ -234,8 +243,6 @@ export class NotificationsDispatchService {
         return;
       }
 
-      const jobId = `class-reminder-${classEventId}`;
-      const existingJob = await this.notificationsQueue.getJob(jobId);
       if (existingJob) {
         await existingJob.remove();
       }

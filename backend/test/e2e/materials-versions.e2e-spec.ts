@@ -396,12 +396,10 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
         .set('Authorization', `Bearer ${superAdmin.token}`)
         .expect(200);
 
-      const original = await dataSource
-        .getRepository(Material)
-        .findOne({
-          where: { id: materialId },
-          relations: { fileVersion: true },
-        });
+      const original = await dataSource.getRepository(Material).findOne({
+        where: { id: materialId },
+        relations: { fileVersion: true },
+      });
       expect(original).not.toBeNull();
       expect(original?.fileResourceId).toBe(originalFileResourceId);
       expect(original?.fileVersion?.versionNumber).toBe(1);

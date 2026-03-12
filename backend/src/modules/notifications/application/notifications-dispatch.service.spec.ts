@@ -271,6 +271,32 @@ describe('NotificationsDispatchService', () => {
       expect(mockJob.remove).toHaveBeenCalledTimes(1);
       expect(mockQueue.add).toHaveBeenCalled();
     });
+
+    it('elimina el reminder existente si el nuevo horario ya no alcanza el umbral minimo', async () => {
+      mockSettingsService.getString.mockResolvedValue('30');
+      (mockQueue.getJob as jest.Mock).mockResolvedValue(mockJob);
+      mockJob.remove.mockResolvedValue(undefined);
+      const startDatetime = new Date(Date.now() + 60 * 1000);
+
+      await service.scheduleClassReminder('event-12', startDatetime);
+
+      expect(mockQueue.getJob).toHaveBeenCalledWith('class-reminder-event-12');
+      expect(mockJob.remove).toHaveBeenCalledTimes(1);
+      expect(mockQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('elimina el reminder existente si la configuracion de reminder queda fuera de rango', async () => {
+      mockSettingsService.getString.mockResolvedValue('5');
+      (mockQueue.getJob as jest.Mock).mockResolvedValue(mockJob);
+      mockJob.remove.mockResolvedValue(undefined);
+      const startDatetime = new Date(Date.now() + 60 * 60 * 1000);
+
+      await service.scheduleClassReminder('event-13', startDatetime);
+
+      expect(mockQueue.getJob).toHaveBeenCalledWith('class-reminder-event-13');
+      expect(mockJob.remove).toHaveBeenCalledTimes(1);
+      expect(mockQueue.add).not.toHaveBeenCalled();
+    });
   });
 
   describe('cancelClassReminder', () => {

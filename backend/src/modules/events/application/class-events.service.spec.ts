@@ -301,7 +301,36 @@ describe('ClassEventsService', () => {
       expect(cacheModuleService.invalidateForEvaluation).toHaveBeenCalled();
     });
 
-    it('debe notificar clase actualizada cuando cambia metadata y no la grabacion', async () => {
+    it('debe notificar clase actualizada cuando cambia el horario', async () => {
+      classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.update.mockResolvedValue({
+        ...mockEvent,
+        startDatetime: new Date('2026-02-01T09:00:00Z'),
+        endDatetime: new Date('2026-02-01T11:00:00Z'),
+      });
+
+      await service.updateEvent(
+        'event-1',
+        mockProfessor,
+        undefined,
+        undefined,
+        new Date('2026-02-01T09:00:00Z'),
+        new Date('2026-02-01T11:00:00Z'),
+      );
+
+      expect(
+        notificationsDispatchService.dispatchClassUpdated,
+      ).toHaveBeenCalledWith('event-1');
+      expect(
+        notificationsDispatchService.scheduleClassReminder,
+      ).toHaveBeenCalledWith('event-1', new Date('2026-02-01T09:00:00Z'));
+      expect(
+        notificationsDispatchService.dispatchClassRecordingAvailable,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('no debe notificar clase actualizada cuando solo cambia el titulo', async () => {
       classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
       evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
       classEventRepository.update.mockResolvedValue({
@@ -317,7 +346,38 @@ describe('ClassEventsService', () => {
 
       expect(
         notificationsDispatchService.dispatchClassUpdated,
+      ).not.toHaveBeenCalled();
+      expect(
+        notificationsDispatchService.scheduleClassReminder,
+      ).not.toHaveBeenCalled();
+      expect(
+        notificationsDispatchService.dispatchClassRecordingAvailable,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('debe notificar cambio de horario si solo cambia la hora de fin, sin reprogramar reminder', async () => {
+      classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.update.mockResolvedValue({
+        ...mockEvent,
+        endDatetime: new Date('2026-02-01T11:00:00Z'),
+      });
+
+      await service.updateEvent(
+        'event-1',
+        mockProfessor,
+        undefined,
+        undefined,
+        undefined,
+        new Date('2026-02-01T11:00:00Z'),
+      );
+
+      expect(
+        notificationsDispatchService.dispatchClassUpdated,
       ).toHaveBeenCalledWith('event-1');
+      expect(
+        notificationsDispatchService.scheduleClassReminder,
+      ).not.toHaveBeenCalled();
       expect(
         notificationsDispatchService.dispatchClassRecordingAvailable,
       ).not.toHaveBeenCalled();

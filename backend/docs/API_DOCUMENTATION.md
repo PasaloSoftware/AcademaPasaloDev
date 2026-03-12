@@ -757,6 +757,14 @@ Las notificaciones se despachan de forma asincrona a traves de una cola de traba
 
 `entityType` y `entityId` representan la referencia persistida de la notificacion. Para navegacion en frontend, se debe priorizar `target` cuando exista.
 
+Reglas funcionales relevantes para frontend:
+
+1. `CLASS_UPDATED` se genera solo cuando cambia el horario de la sesion (`startDatetime` y/o `endDatetime`).
+2. Cambios de titulo, tema o link en vivo no generan por si solos una notificacion `CLASS_UPDATED`.
+3. `CLASS_RECORDING_AVAILABLE` es independiente y se genera cuando la grabacion queda disponible.
+4. Si cambia la hora de inicio de una clase, el backend reemplaza automaticamente el reminder anterior para evitar duplicados.
+5. Si el nuevo horario ya no permite reminder, el backend elimina el reminder previo pendiente.
+
 ### Estrategia de actualizacion en cliente (pull puro)
 
 El sistema no expone WebSocket ni Server-Sent Events. La actualizacion del estado de notificaciones debe implementarse en el cliente con las siguientes reglas:
@@ -845,6 +853,7 @@ El frontend debe usar:
 **Reglas de uso en frontend:**
 
 - Si `type` es `CLASS_RECORDING_AVAILABLE`, navegar a la vista de sesiones usando `target.classEventId`.
+- Si `type` es `CLASS_UPDATED`, refrescar detalle/calendario de la sesion usando `target.classEventId`.
 - Si `type` es `NEW_MATERIAL` o `MATERIAL_UPDATED`, navegar a la vista de sesiones usando `target.classEventId` y enfocar el material con `target.materialId`.
 - `message` ya llega enriquecido con clase, evaluacion y curso cuando aplica.
 - `target` puede ser `null` en tipos sin destino navegable.

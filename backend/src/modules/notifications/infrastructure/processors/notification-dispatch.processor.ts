@@ -674,7 +674,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
       return `${sessionLabel} ha sido programada para el ${fechaFormateada}.`;
     }
     if (type === NOTIFICATION_TYPE_CODES.CLASS_UPDATED) {
-      return `${sessionLabel} ha sido reprogramada al ${fechaFormateada}.`;
+      return `El horario de ${this.lowercaseLeadingArticle(sessionLabel)} ha sido actualizado. Revisa los detalles mas recientes en la plataforma.`;
     }
     if (type === NOTIFICATION_TYPE_CODES.CLASS_CANCELLED) {
       return `${sessionLabel} programada para el ${fechaFormateada} ha sido cancelada.`;

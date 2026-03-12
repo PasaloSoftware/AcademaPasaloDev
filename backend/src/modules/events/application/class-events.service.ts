@@ -403,12 +403,13 @@ export class ClassEventsService {
       categoryCycleContext,
     );
 
-    const shouldNotifyClassUpdated =
-      title !== undefined ||
-      topic !== undefined ||
-      startDatetime !== undefined ||
-      endDatetime !== undefined ||
-      liveMeetingUrl !== undefined;
+    const startDatetimeChanged =
+      startDatetime !== undefined &&
+      event.startDatetime.getTime() !== startDatetime.getTime();
+    const endDatetimeChanged =
+      endDatetime !== undefined &&
+      event.endDatetime.getTime() !== endDatetime.getTime();
+    const shouldNotifyClassUpdated = startDatetimeChanged || endDatetimeChanged;
     const normalizedPreviousRecordingUrl = String(
       event.recordingUrl || '',
     ).trim();
@@ -428,7 +429,7 @@ export class ClassEventsService {
         eventId,
       );
     }
-    if (startDatetime !== undefined) {
+    if (startDatetimeChanged) {
       void this.notificationsDispatchService.scheduleClassReminder(
         eventId,
         updated.startDatetime,

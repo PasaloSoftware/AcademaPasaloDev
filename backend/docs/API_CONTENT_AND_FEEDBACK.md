@@ -35,6 +35,13 @@ Flujo esperado para frontend:
 
 Gestión de sesiones sincrónicas vinculadas a evaluaciones. Incluye lógica de acceso dinámico diferenciando entre clase en vivo y grabaciones.
 
+Notas operativas relevantes:
+
+1. Cuando una sesion cambia de horario, el backend genera notificacion academica de cambio de horario.
+2. Si solo cambian titulo, tema o link en vivo, la sesion se actualiza pero no se emite notificacion academica de horario.
+3. Cuando una grabacion queda disponible, el backend genera una notificacion separada de tipo grabacion disponible.
+4. Si una sesion se reprograma, el reminder previo se reemplaza automaticamente; no deben existir reminders duplicados para la misma clase.
+
 ### 1. Calendario Unificado (Mi Horario)
 Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentro de un rango de fechas específico.
 - **Endpoint:** `GET /class-events/my-schedule`
@@ -703,7 +710,6 @@ Se agrega soporte para video introductorio a nivel `course_cycle` (no por evalua
   "storageProvider": "GDRIVE"
 }
 ```
-
 
 
 

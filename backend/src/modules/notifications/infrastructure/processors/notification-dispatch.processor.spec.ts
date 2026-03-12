@@ -175,8 +175,8 @@ describe('NotificationDispatchProcessor', () => {
             title: NOTIFICATION_MESSAGES[type].title,
             message:
               type === NOTIFICATION_TYPE_CODES.NEW_MATERIAL
-                ? "Se publico 'Guia de estudios' de la clase 2 de la PC1 del curso Matematicas."
-                : "Se actualizo 'Guia de estudios' de la clase 2 de la PC1 del curso Matematicas.",
+                ? "Se publicó 'Guia de estudios' de la clase 2 de la PC1 del curso Matematicas."
+                : "Se actualizó 'Guia de estudios' de la clase 2 de la PC1 del curso Matematicas.",
             entityType: NOTIFICATION_ENTITY_TYPES.MATERIAL,
             entityId: 'mat-1',
           }),
@@ -299,6 +299,55 @@ describe('NotificationDispatchProcessor', () => {
       expect(
         mockUserNotifRepo.invalidateUnreadCountForUsers,
       ).toHaveBeenCalledWith(classContext.recipientUserIds);
+    });
+
+    it('usa un mensaje de horario actualizado para CLASS_UPDATED', async () => {
+      mockRecipientsService.resolveClassEventContext.mockResolvedValue(
+        classContext,
+      );
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        ...notifType,
+        code: NOTIFICATION_TYPE_CODES.CLASS_UPDATED,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.CLASS_UPDATED,
+        classEventId: 'evt-1',
+      });
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message:
+            'El horario de la clase 1 de la PC1 del curso Matematicas ha sido actualizado. Revisa los detalles mas recientes en la plataforma.',
+        }),
+      );
+    });
+
+    it('mantiene separado CLASS_RECORDING_AVAILABLE del cambio de horario', async () => {
+      mockRecipientsService.resolveClassEventContext.mockResolvedValue(
+        classContext,
+      );
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        ...notifType,
+        code: NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
+        classEventId: 'evt-1',
+      });
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'La grabación de la clase 1 de la PC1 del curso Matematicas ya está disponible.',
+          ),
+        }),
+      );
     });
 
     it('no crea notificacion si recipientUserIds esta vacio', async () => {
