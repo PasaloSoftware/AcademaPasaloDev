@@ -207,20 +207,23 @@ export class CoursesService {
       }
     }
 
-    await this.dataSource.transaction(async (manager) => {
-      const repo = manager.getRepository(Course);
-      await repo.update(id, {
-        ...(dto.code && { code: dto.code }),
-        ...(dto.name && { name: dto.name }),
-        ...(dto.primaryColor !== undefined && {
-          primaryColor: dto.primaryColor,
-        }),
-        ...(dto.secondaryColor !== undefined && {
-          secondaryColor: dto.secondaryColor,
-        }),
-        ...(dto.courseTypeId && { courseTypeId: dto.courseTypeId }),
-        ...(dto.cycleLevelId && { cycleLevelId: dto.cycleLevelId }),
-      });
+    const updatedCourse = await this.dataSource.transaction(async (manager) => {
+      return await this.courseRepository.updateAndReturn(
+        id,
+        {
+          ...(dto.code && { code: dto.code }),
+          ...(dto.name && { name: dto.name }),
+          ...(dto.primaryColor !== undefined && {
+            primaryColor: dto.primaryColor,
+          }),
+          ...(dto.secondaryColor !== undefined && {
+            secondaryColor: dto.secondaryColor,
+          }),
+          ...(dto.courseTypeId && { courseTypeId: dto.courseTypeId }),
+          ...(dto.cycleLevelId && { cycleLevelId: dto.cycleLevelId }),
+        },
+        manager,
+      );
     });
 
     await this.cacheService.invalidateGroup(
@@ -236,7 +239,7 @@ export class CoursesService {
       CLASS_EVENT_CACHE_KEYS.GLOBAL_EVALUATION_LIST_GROUP,
     );
 
-    return await this.findCourseById(id);
+    return updatedCourse;
   }
 
   async assignToCycle(dto: AssignCourseToCycleDto): Promise<CourseCycle> {
