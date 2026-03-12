@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, Brackets } from 'typeorm';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
@@ -171,11 +175,18 @@ export class ClassEventRepository {
     const repo = manager
       ? manager.getRepository(ClassEvent)
       : this.ormRepository;
-    await repo.update(id, { ...data, updatedAt: new Date() });
+    const result = await repo.update(id, { ...data, updatedAt: new Date() });
+    if (!result.affected) {
+      throw new NotFoundException('Evento de clase no encontrado');
+    }
+
     const updated = await repo.findOne({ where: { id } });
     if (!updated) {
-      throw new Error('Evento de clase no encontrado despues de actualizar');
+      throw new InternalServerErrorException(
+        'No se pudo rehidratar el evento de clase despues de actualizar',
+      );
     }
+
     return updated;
   }
 

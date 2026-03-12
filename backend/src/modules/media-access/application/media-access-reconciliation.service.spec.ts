@@ -4,6 +4,7 @@ import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastru
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 import { technicalSettings } from '@config/technical-settings';
 import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 
 describe('MediaAccessReconciliationService', () => {
   let service: MediaAccessReconciliationService;
@@ -174,6 +175,24 @@ describe('MediaAccessReconciliationService', () => {
     ).toHaveBeenCalledWith(
       'scope-folder-200',
       'staff-viewers@academiapasalo.com',
+    );
+  });
+
+  it('lanza error de safety stop si el cursor no avanza', async () => {
+    evaluationDriveAccessRepository.findActiveByIdCursor.mockResolvedValue([
+      {
+        id: '0',
+        evaluationId: '200',
+        viewerGroupEmail: 'ev-200-viewers@academiapasalo.com',
+        driveScopeFolderId: 'scope-folder-200',
+        isActive: true,
+      } as never,
+    ]);
+    (dataSource.query as jest.Mock).mockResolvedValue([]);
+    workspaceGroupsService.listGroupMembers.mockResolvedValue([] as never);
+
+    await expect(service.reconcileActiveScopes()).rejects.toBeInstanceOf(
+      MediaAccessReconciliationSafetyStopError,
     );
   });
 });

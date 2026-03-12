@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import {
@@ -103,5 +104,25 @@ describe('MediaAccessMembershipDispatchService', () => {
       jobId: 'media-access__recover-scope__200__reconcile__keep-extra',
       removeOnComplete: true,
     });
+  });
+
+  it('lanza BadRequestException si falta input obligatorio en recover scope', async () => {
+    await expect(
+      service.enqueueRecoverEvaluationScope({
+        evaluationId: '200',
+        requestedByUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('lanza BadRequestException si pruneExtraMembers requiere reconciliacion', async () => {
+    await expect(
+      service.enqueueRecoverEvaluationScope({
+        evaluationId: '200',
+        requestedByUserId: '10',
+        reconcileMembers: false,
+        pruneExtraMembers: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

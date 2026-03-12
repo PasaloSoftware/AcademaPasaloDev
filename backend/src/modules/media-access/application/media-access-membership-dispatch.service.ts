@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
@@ -124,7 +124,7 @@ export class MediaAccessMembershipDispatchService {
     const evaluationId = String(input.evaluationId || '').trim();
     const requestedByUserId = String(input.requestedByUserId || '').trim();
     if (!evaluationId || !requestedByUserId) {
-      throw new Error(
+      throw new BadRequestException(
         'evaluationId y requestedByUserId son obligatorios para recover scope',
       );
     }
@@ -132,7 +132,7 @@ export class MediaAccessMembershipDispatchService {
     const reconcileMembers = input.reconcileMembers !== false;
     const pruneExtraMembers = input.pruneExtraMembers === true;
     if (pruneExtraMembers && !reconcileMembers) {
-      throw new Error(
+      throw new BadRequestException(
         'No se puede podar miembros si reconcileMembers está desactivado',
       );
     }

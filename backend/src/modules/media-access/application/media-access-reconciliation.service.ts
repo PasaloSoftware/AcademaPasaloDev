@@ -9,6 +9,7 @@ import {
   isGoogleGroupMemberRemovable,
 } from '@modules/media-access/domain/media-access.constants';
 import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 
 type ReconciliationSummary = {
   scopesProcessed: number;
@@ -95,7 +96,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     while (true) {
       processedBatches += 1;
       if (processedBatches > MAX_SCOPE_BATCHES) {
-        throw new Error(
+        throw new MediaAccessReconciliationSafetyStopError(
           `Safety stop en reconciliación: excedido máximo de lotes (${MAX_SCOPE_BATCHES})`,
         );
       }
@@ -158,7 +159,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
 
       const nextScopeId = String(scopes[scopes.length - 1].id);
       if (nextScopeId === lastScopeId) {
-        throw new Error(
+        throw new MediaAccessReconciliationSafetyStopError(
           `Safety stop en reconciliación: cursor no avanza (scopeId=${nextScopeId})`,
         );
       }

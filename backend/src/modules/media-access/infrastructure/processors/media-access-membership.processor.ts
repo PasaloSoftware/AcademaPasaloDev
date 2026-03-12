@@ -22,6 +22,7 @@ import {
 } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MediaAccessReconciliationService } from '@modules/media-access/application/media-access-reconciliation.service';
 import { ConfigService } from '@nestjs/config';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 
 @Injectable()
 @Processor(QUEUES.MEDIA_ACCESS)
@@ -44,11 +45,11 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
 
   async process(job: Job): Promise<void> {
     if (job.name === MEDIA_ACCESS_JOB_NAMES.RECONCILE_SCOPES) {
-      await this.reconciliationService.runReconciliation();
+      await this.runReconciliationJob();
       return;
     }
     if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS) {
-      await this.reconciliationService.runStaffViewersSyncOnly();
+      await this.runStaffViewersSyncJob();
       return;
     }
     if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP) {
@@ -78,6 +79,28 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     throw new UnrecoverableError(
       `Job media-access no soportado: ${String(job.name)}`,
     );
+  }
+
+  private async runReconciliationJob(): Promise<void> {
+    try {
+      await this.reconciliationService.runReconciliation();
+    } catch (error) {
+      if (error instanceof MediaAccessReconciliationSafetyStopError) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  private async runStaffViewersSyncJob(): Promise<void> {
+    try {
+      await this.reconciliationService.runStaffViewersSyncOnly();
+    } catch (error) {
+      if (error instanceof MediaAccessReconciliationSafetyStopError) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
   }
 
   @OnWorkerEvent('error')

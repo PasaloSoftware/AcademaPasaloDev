@@ -7,6 +7,7 @@ import { WorkspaceGroupsService } from '@modules/media-access/application/worksp
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import { MediaAccessReconciliationService } from '@modules/media-access/application/media-access-reconciliation.service';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 import {
   MEDIA_ACCESS_JOB_NAMES,
   MEDIA_ACCESS_MEMBERSHIP_ACTIONS,
@@ -212,6 +213,20 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(reconciliationService.runStaffViewersSyncOnly).toHaveBeenCalledTimes(
       1,
     );
+  });
+
+  it('convierte safety stop de reconciliacion en error no recuperable', async () => {
+    reconciliationService.runReconciliation.mockRejectedValue(
+      new MediaAccessReconciliationSafetyStopError('cursor no avanza'),
+    );
+
+    await expect(
+      processor.process({
+        id: 'job-reconcile-safety-stop',
+        name: MEDIA_ACCESS_JOB_NAMES.RECONCILE_SCOPES,
+        data: {},
+      } as unknown as Job),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 
   it('recupera scope y reconcilia miembros en job manual de recover', async () => {
