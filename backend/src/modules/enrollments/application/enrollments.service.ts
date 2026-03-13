@@ -288,15 +288,15 @@ export class EnrollmentsService {
           );
         }
 
-        await this.cacheService.del(
-          ENROLLMENT_CACHE_KEYS.DASHBOARD(dto.userId),
-        );
-        await this.cacheService.invalidateGroup(
-          ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(dto.userId),
-        );
-        await this.cacheService.invalidateGroup(
-          CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(dto.userId),
-        );
+        await Promise.all([
+          this.cacheService.del(ENROLLMENT_CACHE_KEYS.DASHBOARD(dto.userId)),
+          this.cacheService.invalidateGroup(
+            ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(dto.userId),
+          ),
+          this.cacheService.invalidateGroup(
+            CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(dto.userId),
+          ),
+        ]);
 
         this.logger.log({
           message: 'Matricula procesada exitosamente',
@@ -343,15 +343,15 @@ export class EnrollmentsService {
       cancelledAt: new Date(),
     });
 
-    await this.cacheService.del(
-      ENROLLMENT_CACHE_KEYS.DASHBOARD(enrollment.userId),
-    );
-    await this.cacheService.invalidateGroup(
-      ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(enrollment.userId),
-    );
-    await this.cacheService.invalidateGroup(
-      CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(enrollment.userId),
-    );
+    await Promise.all([
+      this.cacheService.del(ENROLLMENT_CACHE_KEYS.DASHBOARD(enrollment.userId)),
+      this.cacheService.invalidateGroup(
+        ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(enrollment.userId),
+      ),
+      this.cacheService.invalidateGroup(
+        CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(enrollment.userId),
+      ),
+    ]);
     await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserEvaluations(
       enrollment.userId,
       evaluationIdsToRevoke,

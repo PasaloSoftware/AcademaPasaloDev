@@ -18,6 +18,7 @@ import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import { technicalSettings } from '@config/technical-settings';
 import { DataSource } from 'typeorm';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 
 @Injectable()
 export class EvaluationsService {
@@ -168,7 +169,9 @@ export class EvaluationsService {
       await this.assertCourseCycleExists(courseCycleId);
     }
 
-    return await this.evaluationRepository.findByCourseCycle(courseCycleId);
+    const evaluations =
+      await this.evaluationRepository.findByCourseCycle(courseCycleId);
+    return this.filterOutBankEvaluations(evaluations);
   }
 
   private async assertCourseCycleExists(courseCycleId: string): Promise<void> {
@@ -191,5 +194,14 @@ export class EvaluationsService {
     if (!exists) {
       throw new NotFoundException('Ciclo del curso no encontrado');
     }
+  }
+
+  private filterOutBankEvaluations(evaluations: Evaluation[]): Evaluation[] {
+    return (evaluations || []).filter(
+      (evaluation) =>
+        String(evaluation.evaluationType?.code || '')
+          .trim()
+          .toUpperCase() !== EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+    );
   }
 }

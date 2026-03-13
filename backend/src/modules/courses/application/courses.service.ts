@@ -226,18 +226,18 @@ export class CoursesService {
       );
     });
 
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.GLOBAL_CONTENT_GROUP,
-    );
-    await this.cacheService.invalidateGroup(
-      ENROLLMENT_CACHE_KEYS.GLOBAL_DASHBOARD_GROUP,
-    );
-    await this.cacheService.invalidateGroup(
-      CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_GROUP,
-    );
-    await this.cacheService.invalidateGroup(
-      CLASS_EVENT_CACHE_KEYS.GLOBAL_EVALUATION_LIST_GROUP,
-    );
+    await Promise.all([
+      this.cacheService.invalidateGroup(COURSE_CACHE_KEYS.GLOBAL_CONTENT_GROUP),
+      this.cacheService.invalidateGroup(
+        ENROLLMENT_CACHE_KEYS.GLOBAL_DASHBOARD_GROUP,
+      ),
+      this.cacheService.invalidateGroup(
+        CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_GROUP,
+      ),
+      this.cacheService.invalidateGroup(
+        CLASS_EVENT_CACHE_KEYS.GLOBAL_EVALUATION_LIST_GROUP,
+      ),
+    ]);
 
     return updatedCourse;
   }
@@ -327,12 +327,14 @@ export class CoursesService {
       );
     });
 
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_ASSIGNMENT_GROUP,
-    );
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-    );
+    await Promise.all([
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_ASSIGNMENT_GROUP,
+      ),
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
+      ),
+    ]);
 
     const evaluationIds =
       await this.listEvaluationIdsByCourseCycle(courseCycleId);
@@ -365,12 +367,14 @@ export class CoursesService {
       );
     });
 
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_ASSIGNMENT_GROUP,
-    );
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-    );
+    await Promise.all([
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_ASSIGNMENT_GROUP,
+      ),
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
+      ),
+    ]);
 
     const evaluationIds =
       await this.listEvaluationIdsByCourseCycle(courseCycleId);
@@ -507,12 +511,12 @@ export class CoursesService {
       );
     });
 
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
-    );
-    await this.cacheService.del(
-      COURSE_CACHE_KEYS.BANK_STRUCTURE(courseCycleId),
-    );
+    await Promise.all([
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
+      ),
+      this.cacheService.del(COURSE_CACHE_KEYS.BANK_STRUCTURE(courseCycleId)),
+    ]);
 
     return {
       courseCycleId,

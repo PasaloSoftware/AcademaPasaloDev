@@ -8,6 +8,8 @@ import { CourseCycleAllowedEvaluationTypeRepository } from '@modules/courses/inf
 import { AcademicCycleRepository } from '@modules/cycles/infrastructure/academic-cycle.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { DataSource } from 'typeorm';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import { ROLE_CODES } from '@common/constants/role-codes.constants';
 
 describe('EvaluationsService create', () => {
   let service: EvaluationsService;
@@ -201,5 +203,31 @@ describe('EvaluationsService create', () => {
         endDate: '2026-02-01T23:59:59.000Z',
       }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should hide BANCO_ENUNCIADOS in visible course-cycle evaluations list', async () => {
+    (cacheService.get as jest.Mock).mockResolvedValue(true);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: '1',
+        evaluationType: { code: 'PC' },
+      },
+      {
+        id: '2',
+        evaluationType: { code: EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS },
+      },
+      {
+        id: '3',
+        evaluationType: { code: 'EX' },
+      },
+    ]);
+
+    const result = await service.findByCourseCycle(
+      '10',
+      'prof-1',
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(result.map((item) => item.id)).toEqual(['1', '3']);
   });
 });

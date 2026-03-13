@@ -207,8 +207,10 @@ export class MaterialsService {
       };
     });
 
-    await this.invalidateRootCache(dto.evaluationId);
-    await this.invalidateFolderCache(result.rootFolder.id);
+    await this.invalidateMaterialStructureCaches(
+      dto.evaluationId,
+      result.rootFolder.id,
+    );
 
     return result;
   }
@@ -375,10 +377,10 @@ export class MaterialsService {
         return (await manager.save(savedMaterial)) || savedMaterial;
       });
 
-      await this.invalidateFolderCache(dto.materialFolderId);
-      if (dto.classEventId) {
-        await this.invalidateClassEventMaterialsCache(dto.classEventId);
-      }
+      await this.invalidateMaterialContextCaches(
+        dto.materialFolderId,
+        dto.classEventId,
+      );
 
       if (result.classEventId) {
         void this.notificationsDispatchService.dispatchNewMaterial(
@@ -588,10 +590,10 @@ export class MaterialsService {
         return updatedMaterial;
       });
 
-      await this.invalidateFolderCache(result.materialFolderId);
-      if (result.classEventId) {
-        await this.invalidateClassEventMaterialsCache(result.classEventId);
-      }
+      await this.invalidateMaterialContextCaches(
+        result.materialFolderId,
+        result.classEventId,
+      );
 
       if (result.classEventId) {
         void this.notificationsDispatchService.dispatchMaterialUpdated(
@@ -997,9 +999,11 @@ export class MaterialsService {
       return await manager.save(freshMaterial);
     });
 
-    await this.invalidateFolderCache(result.materialFolderId);
+    await this.invalidateMaterialContextCaches(
+      result.materialFolderId,
+      result.classEventId,
+    );
     if (result.classEventId) {
-      await this.invalidateClassEventMaterialsCache(result.classEventId);
       void this.notificationsDispatchService.dispatchMaterialUpdated(
         result.id,
         result.materialFolderId,
@@ -1366,6 +1370,29 @@ export class MaterialsService {
 
   private async invalidateClassEventMaterialsCache(classEventId: string) {
     await this.cacheService.del(MATERIAL_CACHE_KEYS.CLASS_EVENT(classEventId));
+  }
+
+  private async invalidateMaterialStructureCaches(
+    evaluationId: string,
+    rootFolderId: string,
+  ): Promise<void> {
+    await Promise.all([
+      this.invalidateRootCache(evaluationId),
+      this.invalidateFolderCache(rootFolderId),
+    ]);
+  }
+
+  private async invalidateMaterialContextCaches(
+    folderId: string,
+    classEventId?: string | null,
+  ): Promise<void> {
+    const operations: Promise<void>[] = [this.invalidateFolderCache(folderId)];
+
+    if (classEventId) {
+      operations.push(this.invalidateClassEventMaterialsCache(classEventId));
+    }
+
+    await Promise.all(operations);
   }
 
   private async createNextMaterialVersion(
