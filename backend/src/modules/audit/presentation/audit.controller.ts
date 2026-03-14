@@ -2,12 +2,14 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Logger,
   Query,
   UseGuards,
   Res,
   Param,
 } from '@nestjs/common';
 import * as express from 'express';
+import { Readable } from 'stream';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -26,6 +28,8 @@ import { AuditService } from '@modules/audit/application/audit.service';
 @Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditController {
+  private readonly logger = new Logger(AuditController.name);
+
   constructor(
     private readonly auditService: AuditService,
     private readonly auditExportJobsService: AuditExportJobsService,
@@ -53,7 +57,17 @@ export class AuditController {
         'Content-Disposition': `attachment; filename="${result.fileName}"`,
       });
 
-      this.attachResponseCleanup(res, result.onComplete);
+      this.attachResponseCleanup(
+        res,
+        result.stream,
+        {
+          downloadKind: 'sync',
+          requestedByUserId: user.id,
+          fileName: result.fileName,
+        },
+        result.onFinish,
+        result.onAbort,
+      );
       result.stream.pipe(res);
       return;
     }
@@ -93,32 +107,95 @@ export class AuditController {
       'Content-Disposition': `attachment; filename="${result.fileName}"`,
     });
 
-    this.attachResponseCleanup(res, result.onComplete);
+    this.attachResponseCleanup(
+      res,
+      result.stream,
+      {
+        downloadKind: 'async',
+        requestedByUserId: user.id,
+        jobId,
+        fileName: result.fileName,
+      },
+      result.onFinish,
+      result.onAbort,
+    );
     result.stream.pipe(res);
   }
 
   private attachResponseCleanup(
     res: express.Response,
-    onComplete?: () => Promise<void>,
+    stream: NodeJS.ReadableStream,
+    logContext: {
+      downloadKind: 'sync' | 'async';
+      requestedByUserId: string;
+      fileName: string;
+      jobId?: string;
+    },
+    onFinish?: () => Promise<void>,
+    onAbort?: () => Promise<void>,
   ): void {
-    if (!onComplete) {
+    if (!onFinish && !onAbort) {
       return;
     }
 
-    let handled = false;
-    const runCleanup = async () => {
-      if (handled) {
+    let cleanupResolved = false;
+    let streamFailed = false;
+    const runCleanup = async (
+      handler: (() => Promise<void>) | undefined,
+      failureMessage: string,
+    ): Promise<void> => {
+      if (cleanupResolved || !handler) {
         return;
       }
-      handled = true;
-      await onComplete();
+
+      cleanupResolved = true;
+      await handler().catch((error: unknown) => {
+        this.logger.error({
+          context: AuditController.name,
+          message: failureMessage,
+          ...logContext,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     };
 
     res.once('finish', () => {
-      void runCleanup();
+      if (streamFailed) {
+        return;
+      }
+      void runCleanup(onFinish, 'Fallo el cleanup post-descarga del export de auditoria');
     });
     res.once('close', () => {
-      void runCleanup();
+      if (!res.writableFinished) {
+        void runCleanup(onAbort, 'Fallo el cleanup por aborto del export de auditoria');
+      }
+    });
+    (stream as Readable).once('error', (error: unknown) => {
+      streamFailed = true;
+      this.logger.error({
+        context: AuditController.name,
+        message: 'Fallo el stream del export de auditoria',
+        ...logContext,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      void runCleanup(
+        onAbort,
+        'Fallo el cleanup por error de stream del export de auditoria',
+      );
+      if (res.writableFinished) {
+        return;
+      }
+
+      if (!res.headersSent) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'No se pudo transmitir el archivo del reporte de auditoria',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.destroy(error instanceof Error ? error : new Error(String(error)));
     });
   }
 }

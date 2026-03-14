@@ -15,6 +15,7 @@ import {
   AUDIT_JOB_NAMES,
 } from '../src/modules/audit/interfaces/audit.constants';
 import { AuditService } from '../src/modules/audit/application/audit.service';
+import { RedisCacheService } from '../src/infrastructure/cache/redis-cache.service';
 
 jest.setTimeout(60000);
 
@@ -32,6 +33,7 @@ describe('AuditController (e2e)', () => {
   let accessUserId: string;
   let auditQueue: Queue;
   let auditService: AuditService;
+  let redisCacheService: RedisCacheService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -60,6 +62,10 @@ describe('AuditController (e2e)', () => {
     seeder = new TestSeeder(dataSource, app);
     auditQueue = app.get<Queue>(getQueueToken('audit-queue'));
     auditService = app.get(AuditService);
+    redisCacheService = app.get(RedisCacheService);
+    await auditQueue.pause();
+    await auditQueue.obliterate({ force: true });
+    await auditQueue.resume();
 
     const auth = await seeder.createAuthenticatedUser('admin-audit@test.com', [
       'ADMIN',
@@ -78,6 +84,7 @@ describe('AuditController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await redisCacheService.del(AUDIT_JOB_IDS.EXPORT_LOCK_KEY);
     const jobs = await auditQueue.getJobs(
       [
         'active',
@@ -89,10 +96,14 @@ describe('AuditController (e2e)', () => {
         'failed',
       ],
       0,
-      20,
+      -1,
     );
 
     for (const job of jobs) {
+      if (!job) {
+        continue;
+      }
+
       if (
         job.name !== AUDIT_JOB_NAMES.GENERATE_EXPORT &&
         job.name !== AUDIT_JOB_NAMES.EXPIRE_EXPORT_ARTIFACT
@@ -102,12 +113,15 @@ describe('AuditController (e2e)', () => {
 
       let state = await job.getState();
       let attempts = 0;
-      while (state === 'active' && attempts < 10) {
+      while (state === 'active' && attempts < 50) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         state = await job.getState();
         attempts += 1;
       }
-      await job.remove();
+
+      if (state !== 'active') {
+        await job.remove();
+      }
     }
   });
 
@@ -212,41 +226,35 @@ describe('AuditController (e2e)', () => {
     const getExportPlanSpy = jest
       .spyOn(auditService, 'getExportPlan')
       .mockResolvedValueOnce({
-      mode: 'async',
-      totalRows: 120000,
-      thresholdRows: 100000,
-      rowsPerFile: 100000,
-      estimatedFileCount: 2,
-      artifactTtlSeconds: 3600,
-    });
+        mode: 'async',
+        totalRows: 120000,
+        thresholdRows: 100000,
+        rowsPerFile: 100000,
+        estimatedFileCount: 2,
+        artifactTtlSeconds: 3600,
+      });
 
+    await auditQueue.pause();
     const response = await request(app.getHttpServer())
       .get('/api/v1/audit/export')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(202);
+    const queuedJob = await auditQueue.getJob(response.body.data.jobId);
+    if (queuedJob) {
+      await queuedJob.remove();
+    }
+    await auditQueue.resume();
 
-    expect(response.body.data.jobId).toBe(AUDIT_JOB_IDS.EXPORT_SINGLETON);
+    expect(response.body.data.jobId).toEqual(expect.any(String));
     expect(response.body.data.status).toBe(AUDIT_EXPORT_STATUS.QUEUED);
-
-    const job = await auditQueue.getJob(AUDIT_JOB_IDS.EXPORT_SINGLETON);
-    expect(job).toBeTruthy();
     getExportPlanSpy.mockRestore();
   });
 
   it('/audit/export (GET) - should reject concurrent exports with 409', async () => {
-    await auditQueue.add(
-      AUDIT_JOB_NAMES.GENERATE_EXPORT,
-      {
-        requestedByUserId: accessUserId,
-        filters: {},
-        requestedAtIso: new Date().toISOString(),
-        totalRows: 150000,
-        estimatedFileCount: 2,
-      },
-      {
-        jobId: AUDIT_JOB_IDS.EXPORT_SINGLETON,
-        delay: 60000,
-      },
+    await redisCacheService.set(
+      AUDIT_JOB_IDS.EXPORT_LOCK_KEY,
+      'manual-lock',
+      3600,
     );
 
     await request(app.getHttpServer())
@@ -256,47 +264,55 @@ describe('AuditController (e2e)', () => {
   });
 
   it('/audit/export-jobs/:id (GET) - should return the job status', async () => {
-    const getExportPlanSpy = jest
-      .spyOn(auditService, 'getExportPlan')
-      .mockResolvedValueOnce({
-        mode: 'async',
-        totalRows: 120000,
-        thresholdRows: 100000,
-        rowsPerFile: 100000,
-        estimatedFileCount: 2,
-        artifactTtlSeconds: 3600,
-      });
-
-    await request(app.getHttpServer())
-      .get('/api/v1/audit/export')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .expect(202);
-
-    let response;
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      response = await request(app.getHttpServer())
-        .get(`/api/v1/audit/export-jobs/${AUDIT_JOB_IDS.EXPORT_SINGLETON}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
-
-      if (response.body.data.status === AUDIT_EXPORT_STATUS.READY) {
-        break;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    expect(response?.body.data.jobId).toBe(AUDIT_JOB_IDS.EXPORT_SINGLETON);
-    expect(response?.body.data.status).toBe(AUDIT_EXPORT_STATUS.READY);
-    getExportPlanSpy.mockRestore();
-  });
-
-  it('/audit/export-jobs/:id/download (GET) - should download the async zip and block other admins', async () => {
+    const jobId = 'job-status-1';
     const artifact = await auditService.generateAsyncExportArtifact(
       {},
       120000,
       100000,
-      AUDIT_JOB_IDS.EXPORT_SINGLETON,
+      jobId,
+    );
+    const job = await auditQueue.add(
+      AUDIT_JOB_NAMES.GENERATE_EXPORT,
+      {
+        requestedByUserId: accessUserId,
+        filters: {},
+        requestedAtIso: new Date().toISOString(),
+        totalRows: 120000,
+        estimatedFileCount: 2,
+        lockToken: 'lock-status-1',
+      },
+      {
+        jobId,
+        delay: 60000,
+      },
+    );
+    await job.updateProgress({
+      stage: AUDIT_EXPORT_STATUS.READY,
+      progress: 100,
+      totalRows: 120000,
+      estimatedFileCount: 2,
+      artifactName: artifact.artifactName,
+      artifactStorageKey: artifact.artifactStorageKey,
+      artifactExpiresAt: artifact.artifactExpiresAt,
+      errorMessage: null,
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/audit/export-jobs/${jobId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(response.body.data.jobId).toBe(jobId);
+    expect(response.body.data.status).toBe(AUDIT_EXPORT_STATUS.READY);
+  });
+
+  it('/audit/export-jobs/:id/download (GET) - should download the async zip and block other admins', async () => {
+    const jobId = 'job-download-1';
+    const artifact = await auditService.generateAsyncExportArtifact(
+      {},
+      120000,
+      100000,
+      jobId,
     );
 
     const job = await auditQueue.add(
@@ -307,9 +323,10 @@ describe('AuditController (e2e)', () => {
         requestedAtIso: new Date().toISOString(),
         totalRows: 120000,
         estimatedFileCount: 2,
+        lockToken: 'lock-download-1',
       },
       {
-        jobId: AUDIT_JOB_IDS.EXPORT_SINGLETON,
+        jobId,
         delay: 60000,
       },
     );
@@ -325,12 +342,12 @@ describe('AuditController (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .get(`/api/v1/audit/export-jobs/${AUDIT_JOB_IDS.EXPORT_SINGLETON}`)
+      .get(`/api/v1/audit/export-jobs/${jobId}`)
       .set('Authorization', `Bearer ${secondAdminAccessToken}`)
       .expect(403);
 
     const downloadResponse = await request(app.getHttpServer())
-      .get(`/api/v1/audit/export-jobs/${AUDIT_JOB_IDS.EXPORT_SINGLETON}/download`)
+      .get(`/api/v1/audit/export-jobs/${jobId}/download`)
       .set('Authorization', `Bearer ${accessToken}`)
       .buffer()
       .parse((res, callback) => {
@@ -355,10 +372,58 @@ describe('AuditController (e2e)', () => {
     );
 
     const expiredStatus = await request(app.getHttpServer())
-      .get(`/api/v1/audit/export-jobs/${AUDIT_JOB_IDS.EXPORT_SINGLETON}`)
+      .get(`/api/v1/audit/export-jobs/${jobId}`)
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
     expect(expiredStatus.body.data.status).toBe(AUDIT_EXPORT_STATUS.EXPIRED);
+  });
+
+  it('/audit/export-jobs/:id/download (GET) - should return 410 when the artifact already expired', async () => {
+    const jobId = 'job-expired-1';
+    const artifact = await auditService.generateAsyncExportArtifact(
+      {},
+      120000,
+      100000,
+      jobId,
+    );
+
+    const job = await auditQueue.add(
+      AUDIT_JOB_NAMES.GENERATE_EXPORT,
+      {
+        requestedByUserId: accessUserId,
+        filters: {},
+        requestedAtIso: new Date().toISOString(),
+        totalRows: 120000,
+        estimatedFileCount: 2,
+        lockToken: 'lock-expired-1',
+      },
+      {
+        jobId,
+        delay: 60000,
+      },
+    );
+    await job.updateProgress({
+      stage: AUDIT_EXPORT_STATUS.READY,
+      progress: 100,
+      totalRows: 120000,
+      estimatedFileCount: 2,
+      artifactName: artifact.artifactName,
+      artifactStorageKey: artifact.artifactStorageKey,
+      artifactExpiresAt: '2020-03-14T21:00:00.000Z',
+      errorMessage: null,
+    });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/audit/export-jobs/${jobId}/download`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(410);
+
+    const statusResponse = await request(app.getHttpServer())
+      .get(`/api/v1/audit/export-jobs/${jobId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(statusResponse.body.data.status).toBe(AUDIT_EXPORT_STATUS.EXPIRED);
   });
 });

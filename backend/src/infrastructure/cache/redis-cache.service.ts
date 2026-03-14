@@ -34,7 +34,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
 
     this.redisClient.on('error', (error: Error) => {
       this.logger.error({
-        message: 'Error en la conexión a Redis',
+        message: 'Error en la conexion a Redis',
         error: error.message,
         timestamp: new Date().toISOString(),
       });
@@ -42,14 +42,14 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
 
     this.redisClient.on('connect', () => {
       this.logger.log({
-        message: 'Conexión a Redis establecida correctamente',
+        message: 'Conexion a Redis establecida correctamente',
         timestamp: new Date().toISOString(),
       });
     });
 
     this.redisClient.connect().catch((error: Error) => {
       this.logger.error({
-        message: 'Fallo al inicializar la conexión a Redis',
+        message: 'Fallo al inicializar la conexion a Redis',
         error: error.message,
         timestamp: new Date().toISOString(),
       });
@@ -67,7 +67,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       return JSON.parse(data) as T;
     } catch (error) {
       this.logger.error({
-        message: 'Error al obtener dato de caché',
+        message: 'Error al obtener dato de cache',
         key,
         error: error instanceof Error ? error.message : 'Error desconocido',
         timestamp: new Date().toISOString(),
@@ -86,11 +86,91 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       this.logger.error({
-        message: 'Error al guardar dato en caché',
+        message: 'Error al guardar dato en cache',
         key,
         error: error instanceof Error ? error.message : 'Error desconocido',
         timestamp: new Date().toISOString(),
       });
+    }
+  }
+
+  async setIfNotExists(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    try {
+      const result = await this.redisClient.set(
+        key,
+        value,
+        'EX',
+        ttlSeconds,
+        'NX',
+      );
+      return result === 'OK';
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al adquirir lock en Redis',
+        key,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+      throw error;
+    }
+  }
+
+  async expireIfValueMatches(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    try {
+      const result = await this.redisClient.eval(
+        `
+          if redis.call('GET', KEYS[1]) == ARGV[1] then
+            return redis.call('EXPIRE', KEYS[1], ARGV[2])
+          end
+          return 0
+        `,
+        1,
+        key,
+        value,
+        String(ttlSeconds),
+      );
+      return Number(result) === 1;
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al renovar lock en Redis',
+        key,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+      throw error;
+    }
+  }
+
+  async delIfValueMatches(key: string, value: string): Promise<boolean> {
+    try {
+      const result = await this.redisClient.eval(
+        `
+          if redis.call('GET', KEYS[1]) == ARGV[1] then
+            return redis.call('DEL', KEYS[1])
+          end
+          return 0
+        `,
+        1,
+        key,
+        value,
+      );
+      return Number(result) === 1;
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al liberar lock en Redis',
+        key,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+      throw error;
     }
   }
 
@@ -99,7 +179,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       await this.redisClient.del(key);
     } catch (error) {
       this.logger.error({
-        message: 'Error al eliminar dato de caché',
+        message: 'Error al eliminar dato de cache',
         key,
         error: error instanceof Error ? error.message : 'Error desconocido',
         timestamp: new Date().toISOString(),
@@ -184,8 +264,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       stream.on('end', () => {
         if (keysToDelete.length === 0) {
           this.logger.log({
-            message:
-              'Invalidación de grupo completada (sin llaves encontradas)',
+            message: 'Invalidacion de grupo completada (sin llaves encontradas)',
             pattern,
             keysDeleted: 0,
             timestamp: new Date().toISOString(),
@@ -198,7 +277,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
           .del(...keysToDelete)
           .then(() => {
             this.logger.log({
-              message: 'Invalidación de grupo completada',
+              message: 'Invalidacion de grupo completada',
               pattern,
               keysDeleted: keysToDelete.length,
               timestamp: new Date().toISOString(),
@@ -216,7 +295,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
             ? error
             : new Error(util.inspect(error, { depth: null }));
         this.logger.error({
-          message: 'Error durante la invalidación de grupo',
+          message: 'Error durante la invalidacion de grupo',
           pattern,
           error: errObject.message,
           timestamp: new Date().toISOString(),

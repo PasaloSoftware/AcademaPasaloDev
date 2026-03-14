@@ -27,3 +27,9 @@ export type AuditExportPlan = {
   estimatedFileCount: number;
   artifactTtlSeconds: number;
 };
+
+export type AuditExportCursor = {
+  datetime: Date;
+  sourceRank: number;
+  entityId: number;
+};

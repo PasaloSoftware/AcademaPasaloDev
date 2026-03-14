@@ -1,4 +1,5 @@
 import { AuditHistoryFilters } from './audit-export.interface';
+import { AuditExportStatus } from './audit.constants';
 
 export type AuditExportJobPayload = {
   requestedByUserId: string;
@@ -6,6 +7,7 @@ export type AuditExportJobPayload = {
   requestedAtIso: string;
   totalRows: number;
   estimatedFileCount: number;
+  lockToken: string;
 };
 
 export type AuditExportCleanupPayload = {
@@ -13,13 +15,7 @@ export type AuditExportCleanupPayload = {
 };
 
 export type AuditExportJobProgress = {
-  stage:
-    | 'queued'
-    | 'counted'
-    | 'processing'
-    | 'ready'
-    | 'failed'
-    | 'expired';
+  stage: AuditExportStatus;
   progress: number;
   totalRows: number;
   estimatedFileCount: number;
@@ -33,5 +29,6 @@ export type AuditPreparedDownload = {
   fileName: string;
   mimeType: string;
   stream: NodeJS.ReadableStream;
-  onComplete?: () => Promise<void>;
+  onFinish?: () => Promise<void>;
+  onAbort?: () => Promise<void>;
 };

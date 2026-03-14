@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { technicalSettings } from '@config/technical-settings';
+import { AUDIT_EXCEL_CONFIG } from '@modules/audit/interfaces/audit.constants';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -161,12 +162,25 @@ export class AuditExportArtifactsService implements OnModuleInit {
   }
 
   private formatTimestamp(now: Date): string {
-    const year = now.getUTCFullYear();
-    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(now.getUTCDate()).padStart(2, '0');
-    const hour = String(now.getUTCHours()).padStart(2, '0');
-    const minute = String(now.getUTCMinutes()).padStart(2, '0');
-    const second = String(now.getUTCSeconds()).padStart(2, '0');
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: AUDIT_EXCEL_CONFIG.TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const get = (type: Intl.DateTimeFormatPartTypes): string =>
+      parts.find((part) => part.type === type)?.value ?? '00';
+    const year = get('year');
+    const month = get('month');
+    const day = get('day');
+    const hour = get('hour');
+    const minute = get('minute');
+    const second = get('second');
 
     return `${year}-${month}-${day}_${hour}-${minute}-${second}`;
   }

@@ -1,6 +1,8 @@
+import { AuditExportStatus } from '@modules/audit/interfaces/audit.constants';
+
 export class AuditExportJobResponseDto {
   jobId: string;
-  status: 'queued' | 'processing' | 'ready' | 'failed' | 'expired';
+  status: AuditExportStatus;
   mode: 'sync' | 'async';
   totalRows: number;
   thresholdRows: number;
@@ -11,7 +13,7 @@ export class AuditExportJobResponseDto {
 
 export class AuditExportJobStatusDto {
   jobId: string;
-  status: 'queued' | 'processing' | 'ready' | 'failed' | 'expired';
+  status: AuditExportStatus;
   progress: number;
   totalRows: number;
   estimatedFileCount: number;

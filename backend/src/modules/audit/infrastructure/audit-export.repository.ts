@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   AUDIT_LABELS,
   AUDIT_SOURCES,
   type AuditSource,
 } from '@modules/audit/interfaces/audit.constants';
-import { ParsedAuditHistoryFilters } from '@modules/audit/interfaces/audit-export.interface';
+import {
+  AuditExportCursor,
+  ParsedAuditHistoryFilters,
+} from '@modules/audit/interfaces/audit-export.interface';
 import { UnifiedAuditHistoryDto } from '@modules/audit/dto/unified-audit-history.dto';
 
 type UnifiedAuditRow = {
@@ -21,10 +24,19 @@ type UnifiedAuditRow = {
   ipAddress?: string | null;
   userAgent?: string | null;
   metadata?: Record<string, unknown> | string | null;
+  sortSourceRank: number;
+  sortEntityId: number;
+};
+
+type InvalidMetadataWarningState = {
+  warningCount: number;
+  warningsSuppressed: boolean;
 };
 
 @Injectable()
 export class AuditExportRepository {
+  private readonly logger = new Logger(AuditExportRepository.name);
+
   constructor(private readonly dataSource: DataSource) {}
 
   async countUnifiedHistory(filters: ParsedAuditHistoryFilters): Promise<number> {
@@ -51,16 +63,64 @@ export class AuditExportRepository {
     });
 
     const rows = await this.dataSource.query<UnifiedAuditRow[]>(sql, params);
-    return rows.map((row) => this.mapUnifiedRow(row));
+    const warningState: InvalidMetadataWarningState = {
+      warningCount: 0,
+      warningsSuppressed: false,
+    };
+    return rows.map((row) => this.mapUnifiedRow(row, warningState));
   }
 
-  private mapUnifiedRow(row: UnifiedAuditRow): UnifiedAuditHistoryDto {
-    const metadata =
-      row.metadata == null
-        ? undefined
-        : typeof row.metadata === 'string'
-          ? (JSON.parse(row.metadata) as Record<string, unknown>)
-          : row.metadata;
+  async findUnifiedHistoryChunk(
+    filters: ParsedAuditHistoryFilters,
+    limit: number,
+    cursor?: AuditExportCursor,
+  ): Promise<UnifiedAuditHistoryDto[]> {
+    const safeLimit = Math.max(1, limit);
+    const { sql, params } = this.buildUnifiedSelect(filters, {
+      limit: safeLimit,
+      cursor,
+    });
+
+    const rows = await this.dataSource.query<UnifiedAuditRow[]>(sql, params);
+    const warningState: InvalidMetadataWarningState = {
+      warningCount: 0,
+      warningsSuppressed: false,
+    };
+    return rows.map((row) => this.mapUnifiedRow(row, warningState));
+  }
+
+  private mapUnifiedRow(
+    row: UnifiedAuditRow,
+    warningState: InvalidMetadataWarningState,
+  ): UnifiedAuditHistoryDto {
+    let metadata: Record<string, unknown> | undefined;
+    if (row.metadata != null) {
+      if (typeof row.metadata === 'string') {
+        try {
+          metadata = JSON.parse(row.metadata) as Record<string, unknown>;
+        } catch (error) {
+          if (warningState.warningCount < 5) {
+            this.logger.warn({
+              context: AuditExportRepository.name,
+              message: 'Se omitio metadata invalida en una fila de auditoria unificada',
+              auditRowId: row.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            warningState.warningCount += 1;
+          } else if (!warningState.warningsSuppressed) {
+            this.logger.warn({
+              context: AuditExportRepository.name,
+              message:
+                'Se suprimiran warnings adicionales de metadata invalida para evitar ruido en logs',
+            });
+            warningState.warningsSuppressed = true;
+          }
+          metadata = undefined;
+        }
+      } else {
+        metadata = row.metadata;
+      }
+    }
 
     return {
       id: row.id,
@@ -83,7 +143,8 @@ export class AuditExportRepository {
     filters: ParsedAuditHistoryFilters,
     options: {
       limit: number;
-      offset: number;
+      offset?: number;
+      cursor?: AuditExportCursor;
     },
   ): { sql: string; params: unknown[] } {
     const branches: string[] = [];
@@ -98,10 +159,36 @@ export class AuditExportRepository {
     }
 
     const unionSql = branches.join(' UNION ALL ');
+    const clauses = [`SELECT * FROM (${unionSql}) unified_history`];
 
-    params.push(options.limit, options.offset);
+    if (options.cursor) {
+      clauses.push(
+        'WHERE (datetime < ? OR (datetime = ? AND sortSourceRank < ?) OR (datetime = ? AND sortSourceRank = ? AND sortEntityId < ?))',
+      );
+      params.push(
+        options.cursor.datetime,
+        options.cursor.datetime,
+        options.cursor.sourceRank,
+        options.cursor.datetime,
+        options.cursor.sourceRank,
+        options.cursor.entityId,
+      );
+      clauses.push(
+        'ORDER BY datetime DESC, sortSourceRank DESC, sortEntityId DESC LIMIT ?',
+      );
+      params.push(options.limit);
+      return {
+        sql: clauses.join(' '),
+        params,
+      };
+    }
+
+    clauses.push(
+      'ORDER BY datetime DESC, sortSourceRank DESC, sortEntityId DESC LIMIT ? OFFSET ?',
+    );
+    params.push(options.limit, options.offset ?? 0);
     return {
-      sql: `SELECT * FROM (${unionSql}) unified_history ORDER BY datetime DESC, id DESC LIMIT ? OFFSET ?`,
+      sql: clauses.join(' '),
       params,
     };
   }
@@ -140,7 +227,7 @@ export class AuditExportRepository {
       AUDIT_LABELS.NOT_AVAILABLE,
       AUDIT_LABELS.UNKNOWN_ROLE,
       AUDIT_LABELS.UNKNOWN_ACTION,
-      AUDIT_LABELS.SOURCE_SECURITY,
+      AUDIT_LABELS.UNKNOWN_ACTION,
       AUDIT_SOURCES.SECURITY,
       ...whereParams,
     );
@@ -162,7 +249,9 @@ export class AuditExportRepository {
         ? AS source,
         e.ip_address AS ipAddress,
         e.user_agent AS userAgent,
-        e.metadata AS metadata
+        e.metadata AS metadata,
+        2 AS sortSourceRank,
+        e.id AS sortEntityId
       FROM security_event e
       LEFT JOIN security_event_type et ON et.id = e.security_event_type_id
       LEFT JOIN user u ON u.id = e.user_id
@@ -189,7 +278,7 @@ export class AuditExportRepository {
       AUDIT_LABELS.NOT_AVAILABLE,
       AUDIT_LABELS.UNKNOWN_ROLE,
       AUDIT_LABELS.UNKNOWN_ACTION,
-      AUDIT_LABELS.SOURCE_AUDIT,
+      AUDIT_LABELS.UNKNOWN_ACTION,
       AUDIT_SOURCES.AUDIT,
       ...whereParams,
     );
@@ -211,7 +300,9 @@ export class AuditExportRepository {
         ? AS source,
         NULL AS ipAddress,
         NULL AS userAgent,
-        NULL AS metadata
+        NULL AS metadata,
+        1 AS sortSourceRank,
+        l.id AS sortEntityId
       FROM audit_log l
       LEFT JOIN audit_action a ON a.id = l.audit_action_id
       LEFT JOIN user u ON u.id = l.user_id

@@ -23,6 +23,7 @@ import {
 } from '@modules/audit/interfaces/audit.constants';
 import {
   AuditExportPlan,
+  AuditExportCursor,
   AuditHistoryFilters,
   ParsedAuditHistoryFilters,
 } from '@modules/audit/interfaces/audit-export.interface';
@@ -77,8 +78,7 @@ export class AuditService implements OnApplicationBootstrap {
       if (currentPattern !== cronPattern) {
         this.logger.log({
           context: AuditService.name,
-          message:
-            'Detectado cambio en el patrón de horario. Actualizando Redis...',
+          message: 'Detectado cambio en el patron de horario. Actualizando Redis...',
           oldPattern: currentPattern,
           newPattern: cronPattern,
         });
@@ -126,13 +126,12 @@ export class AuditService implements OnApplicationBootstrap {
       if (!action) {
         this.logger.error({
           context: AuditService.name,
-          message:
-            'Crítico: El código de acción de auditoría no está configurado en la BD',
+          message: 'Critico: El codigo de accion de auditoria no esta configurado en la BD',
           actionCode,
           userId,
         });
         throw new InternalServerErrorException(
-          'Error de integridad: Código de auditoría no válido',
+          'Error de integridad: Codigo de auditoria no valido',
         );
       }
 
@@ -172,12 +171,14 @@ export class AuditService implements OnApplicationBootstrap {
   }
 
   async getExportPlan(filters: AuditHistoryFilters): Promise<AuditExportPlan> {
-    await this.auditExportCoordinator.ensureNoExportInProgress();
     const totalRows = await this.countUnifiedHistory(filters);
     return this.auditExportCoordinator.buildExportPlan(totalRows);
   }
 
-  async prepareSyncExport(filters: AuditHistoryFilters): Promise<{
+  async prepareSyncExport(
+    filters: AuditHistoryFilters,
+    onBatchProcessed?: () => Promise<void>,
+  ): Promise<{
     fileName: string;
     filePath: string;
     mimeType: string;
@@ -186,7 +187,14 @@ export class AuditService implements OnApplicationBootstrap {
     const fileName = this.auditExportArtifacts.buildSyncFileName(now);
     const filePath = await this.auditExportArtifacts.createSyncTempFile(fileName);
 
-    await this.writeWorkbookToFile(filters, filePath);
+    try {
+      await this.writeWorkbookToFile(filters, filePath, {
+        onBatchProcessed,
+      });
+    } catch (error) {
+      await this.auditExportArtifacts.deleteFileIfExists(filePath);
+      throw error;
+    }
 
     return {
       fileName,
@@ -202,6 +210,7 @@ export class AuditService implements OnApplicationBootstrap {
     rowsPerFile: number,
     jobId: string,
     onProgress?: (progress: number, estimatedFileCount: number) => Promise<void>,
+    onBatchProcessed?: () => Promise<void>,
   ): Promise<{
     artifactName: string;
     artifactStorageKey: string;
@@ -212,11 +221,21 @@ export class AuditService implements OnApplicationBootstrap {
     const estimatedFileCount =
       totalRows === 0 ? 1 : Math.ceil(totalRows / rowsPerFile);
     const generatedFiles: Array<{ filePath: string; entryName: string }> = [];
+    let cursor: AuditExportCursor | undefined;
+    let artifactFilePath: string | undefined;
 
     try {
+      this.logger.log({
+        context: AuditService.name,
+        message: 'Iniciando generacion asincrona de artefacto de auditoria',
+        jobId,
+        totalRows,
+        rowsPerFile,
+        estimatedFileCount,
+      });
+
       for (let partIndex = 0; partIndex < estimatedFileCount; partIndex += 1) {
-        const offset = partIndex * rowsPerFile;
-        const remaining = totalRows - offset;
+        const remaining = totalRows - partIndex * rowsPerFile;
         const maxRows =
           totalRows === 0 ? 0 : Math.min(rowsPerFile, Math.max(remaining, 0));
         const partName = this.auditExportArtifacts.buildAsyncPartFileName(
@@ -225,7 +244,11 @@ export class AuditService implements OnApplicationBootstrap {
         );
         const partPath = path.join(workspace, partName);
 
-        await this.writeWorkbookToFile(filters, partPath, { offset, maxRows });
+        cursor = await this.writeWorkbookToFile(filters, partPath, {
+          cursor,
+          maxRows,
+          onBatchProcessed,
+        });
         generatedFiles.push({ filePath: partPath, entryName: partName });
 
         if (onProgress) {
@@ -243,7 +266,17 @@ export class AuditService implements OnApplicationBootstrap {
       const artifact = await this.auditExportArtifacts.reserveArtifact(
         this.auditExportArtifacts.buildAsyncZipName(now),
       );
+      artifactFilePath = artifact.filePath;
       await this.auditExportArtifacts.zipFiles(generatedFiles, artifact.filePath);
+
+      this.logger.log({
+        context: AuditService.name,
+        message: 'Artefacto asincrono de auditoria generado exitosamente',
+        jobId,
+        artifactName: artifact.fileName,
+        storageKey: artifact.storageKey,
+        estimatedFileCount,
+      });
 
       return {
         artifactName: artifact.fileName,
@@ -253,6 +286,11 @@ export class AuditService implements OnApplicationBootstrap {
         ).toISOString(),
         estimatedFileCount,
       };
+    } catch (error) {
+      if (artifactFilePath) {
+        await this.auditExportArtifacts.deleteFileIfExists(artifactFilePath);
+      }
+      throw error;
     } finally {
       await this.auditExportArtifacts.deleteDirectoryIfExists(workspace);
     }
@@ -261,12 +299,20 @@ export class AuditService implements OnApplicationBootstrap {
   private async writeWorkbookToFile(
     filters: AuditHistoryFilters,
     filePath: string,
-    options?: { offset?: number; maxRows?: number },
-  ): Promise<void> {
+    options?: {
+      cursor?: AuditExportCursor;
+      maxRows?: number;
+      onBatchProcessed?: () => Promise<void>;
+    },
+  ): Promise<AuditExportCursor | undefined> {
     const parsedFilters = this.parseHistoryFilters(filters);
-    const offsetStart = Math.max(0, options?.offset ?? 0);
     const maxRows = options?.maxRows;
-    const pageSize = Math.min(5000, maxRows && maxRows > 0 ? maxRows : 5000);
+    const pageSize = Math.min(
+      technicalSettings.audit.exportReadBatchSize,
+      maxRows && maxRows > 0
+        ? maxRows
+        : technicalSettings.audit.exportReadBatchSize,
+    );
 
     const workbook = new ExcelStream.xlsx.WorkbookWriter({
       filename: filePath,
@@ -326,8 +372,9 @@ export class AuditService implements OnApplicationBootstrap {
     };
     worksheet.getRow(1).commit();
 
-    let offset = offsetStart;
     let writtenRows = 0;
+    let cursor = options?.cursor;
+    let lastCursor = cursor;
 
     while (true) {
       const remainingRows =
@@ -336,10 +383,10 @@ export class AuditService implements OnApplicationBootstrap {
         break;
       }
 
-      const batch = await this.auditExportRepository.findUnifiedHistory(
+      const batch = await this.auditExportRepository.findUnifiedHistoryChunk(
         parsedFilters,
         Math.min(pageSize, remainingRows || pageSize),
-        offset,
+        cursor,
       );
 
       if (!batch.length) {
@@ -354,16 +401,40 @@ export class AuditService implements OnApplicationBootstrap {
               row.source === AUDIT_SOURCES.SECURITY
                 ? AUDIT_LABELS.SOURCE_SECURITY
                 : AUDIT_LABELS.SOURCE_AUDIT,
-            datetime: row.datetime.toLocaleString(AUDIT_EXCEL_CONFIG.LOCALE_ES_PE),
+            datetime: this.formatExcelDatetime(row.datetime),
           })
           .commit();
+
+        lastCursor = {
+          datetime: row.datetime,
+          sourceRank: row.source === AUDIT_SOURCES.SECURITY ? 2 : 1,
+          entityId: Number(String(row.id).split('-')[1]),
+        };
       }
 
       writtenRows += batch.length;
-      offset += batch.length;
+      cursor = lastCursor;
+
+      if (options?.onBatchProcessed) {
+        await options.onBatchProcessed();
+      }
     }
 
     worksheet.commit();
     await workbook.commit();
+    return lastCursor;
+  }
+
+  private formatExcelDatetime(date: Date): string {
+    return date.toLocaleString(AUDIT_EXCEL_CONFIG.LOCALE_ES_PE, {
+      timeZone: AUDIT_EXCEL_CONFIG.TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
   }
 }

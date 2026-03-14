@@ -12,7 +12,7 @@ export const AUDIT_JOB_NAMES = {
 } as const;
 
 export const AUDIT_JOB_IDS = {
-  EXPORT_SINGLETON: 'audit-export-global',
+  EXPORT_LOCK_KEY: 'lock:audit-export-global',
 } as const;
 
 export const AUDIT_EXPORT_STATUS = {
@@ -21,6 +21,18 @@ export const AUDIT_EXPORT_STATUS = {
   READY: 'ready',
   FAILED: 'failed',
   EXPIRED: 'expired',
+} as const;
+
+export type AuditExportStatus =
+  (typeof AUDIT_EXPORT_STATUS)[keyof typeof AUDIT_EXPORT_STATUS];
+
+export const AUDIT_QUEUE_STATES = {
+  ACTIVE: 'active',
+  FAILED: 'failed',
+  WAITING: 'waiting',
+  WAITING_CHILDREN: 'waiting-children',
+  DELAYED: 'delayed',
+  PRIORITIZED: 'prioritized',
 } as const;
 
 export const AUDIT_ACTION_CODES = {
@@ -50,16 +62,17 @@ export const AUDIT_SYSTEM_SETTING_KEYS = {
 
 export const AUDIT_LABELS = {
   SOURCE_SECURITY: 'SEGURIDAD',
-  SOURCE_AUDIT: 'AUDITORÍA',
+  SOURCE_AUDIT: 'AUDITORIA',
   UNKNOWN_USER: 'Usuario Desconocido',
   UNKNOWN_ROLE: 'Sin Rol',
-  UNKNOWN_ACTION: 'Acción no definida',
+  UNKNOWN_ACTION: 'Accion no definida',
   NOT_AVAILABLE: 'N/A',
 } as const;
 
 export const AUDIT_EXCEL_CONFIG = {
   SHEET_NAME: 'Historial',
   LOCALE_ES_PE: 'es-PE',
+  TIME_ZONE: 'America/Lima',
   HEADER_FILL_COLOR: 'FF2D5F9E',
   HEADER_FONT_COLOR: 'FFFFFFFF',
   COLUMNS: {
@@ -67,8 +80,8 @@ export const AUDIT_EXCEL_CONFIG = {
     USER_NAME: 'USUARIO',
     USER_EMAIL: 'CORREO',
     USER_ROLE: 'ROL',
-    ACTION_NAME: 'ACCIÓN',
-    ACTION_CODE: 'CÓDIGO',
+    ACTION_NAME: 'ACCION',
+    ACTION_CODE: 'CODIGO',
     SOURCE: 'FUENTE',
     IP: 'IP',
     USER_AGENT: 'NAVEGADOR',

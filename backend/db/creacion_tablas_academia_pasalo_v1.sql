@@ -491,6 +491,9 @@ ON user_session(user_id, created_at);
 CREATE INDEX idx_security_event_user_date
 ON security_event(user_id, event_datetime);
 
+CREATE INDEX idx_security_event_date_id
+ON security_event(event_datetime, id);
+
 CREATE INDEX idx_enrollment_user_course_cycle
 ON enrollment(user_id, course_cycle_id);
 
@@ -565,6 +568,9 @@ ON material_version(file_resource_id);
 
 CREATE INDEX idx_audit_log_user_date
 ON audit_log(user_id, event_datetime);
+
+CREATE INDEX idx_audit_log_date_id
+ON audit_log(event_datetime, id);
 
 CREATE INDEX idx_notification_created_at ON notification(created_at);
 

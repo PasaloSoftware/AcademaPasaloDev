@@ -15,6 +15,7 @@ import { technicalSettings } from '@config/technical-settings';
 import { Queue } from 'bullmq';
 import { AuditService } from '@modules/audit/application/audit.service';
 import { AuditExportArtifactsService } from '@modules/audit/application/audit-export-artifacts.service';
+import { AuditExportCoordinatorService } from '@modules/audit/application/audit-export-coordinator.service';
 
 @Injectable()
 @Processor(QUEUES.AUDIT)
@@ -24,6 +25,7 @@ export class AuditExportProcessor extends WorkerHost {
   constructor(
     private readonly auditService: AuditService,
     private readonly auditExportArtifacts: AuditExportArtifactsService,
+    private readonly auditExportCoordinator: AuditExportCoordinatorService,
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {
     super();
@@ -59,6 +61,14 @@ export class AuditExportProcessor extends WorkerHost {
   private async handleGenerateExport(
     job: Job<AuditExportJobPayload>,
   ): Promise<void> {
+    this.logger.log({
+      context: AuditExportProcessor.name,
+      message: 'Iniciando job de exportacion masiva de auditoria',
+      jobId: String(job.id),
+      totalRows: job.data.totalRows,
+      estimatedFileCount: job.data.estimatedFileCount,
+    });
+
     await job.updateProgress({
       stage: AUDIT_EXPORT_STATUS.PROCESSING,
       progress: 1,
@@ -70,13 +80,38 @@ export class AuditExportProcessor extends WorkerHost {
       errorMessage: null,
     } satisfies AuditExportJobProgress);
 
+    let refreshTimer: NodeJS.Timeout | undefined;
+    let refreshFailure: Error | undefined;
+    let generatedArtifact:
+      | {
+          artifactName: string;
+          artifactStorageKey: string;
+          artifactExpiresAt: string;
+          estimatedFileCount: number;
+        }
+      | undefined;
+
     try {
-      const artifact = await this.auditService.generateAsyncExportArtifact(
+      await this.auditExportCoordinator.refreshExportLock(job.data.lockToken);
+      refreshTimer = setInterval(() => {
+        void this.auditExportCoordinator
+          .refreshExportLock(job.data.lockToken)
+          .catch((error: unknown) => {
+            refreshFailure =
+              error instanceof Error ? error : new Error(String(error));
+          });
+      }, technicalSettings.audit.exportLockRefreshIntervalMs);
+      refreshTimer.unref?.();
+      generatedArtifact = await this.auditService.generateAsyncExportArtifact(
         job.data.filters,
         job.data.totalRows,
         technicalSettings.audit.exportRowsPerFile,
         String(job.id),
         async (progressValue, estimatedFileCount) => {
+          if (refreshFailure) {
+            throw refreshFailure;
+          }
+          await this.auditExportCoordinator.refreshExportLock(job.data.lockToken);
           await job.updateProgress({
             stage: AUDIT_EXPORT_STATUS.PROCESSING,
             progress: progressValue,
@@ -88,39 +123,117 @@ export class AuditExportProcessor extends WorkerHost {
             errorMessage: null,
           } satisfies AuditExportJobProgress);
         },
+        async () => {
+          if (refreshFailure) {
+            throw refreshFailure;
+          }
+          await this.auditExportCoordinator.refreshExportLock(job.data.lockToken);
+        },
       );
+      if (refreshFailure) {
+        throw refreshFailure;
+      }
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+      }
 
       await job.updateProgress({
         stage: AUDIT_EXPORT_STATUS.READY,
         progress: 100,
         totalRows: job.data.totalRows,
-        estimatedFileCount: artifact.estimatedFileCount,
-        artifactName: artifact.artifactName,
-        artifactStorageKey: artifact.artifactStorageKey,
-        artifactExpiresAt: artifact.artifactExpiresAt,
+        estimatedFileCount: generatedArtifact.estimatedFileCount,
+        artifactName: generatedArtifact.artifactName,
+        artifactStorageKey: generatedArtifact.artifactStorageKey,
+        artifactExpiresAt: generatedArtifact.artifactExpiresAt,
         errorMessage: null,
       } satisfies AuditExportJobProgress);
 
-      await this.auditQueue.add(
-        AUDIT_JOB_NAMES.EXPIRE_EXPORT_ARTIFACT,
-        { exportJobId: String(job.id) },
-        {
-          delay: technicalSettings.audit.exportArtifactTtlSeconds * 1000,
-          jobId: `expire-${String(job.id)}-${Date.now()}`,
-        },
-      );
+      this.logger.log({
+        context: AuditExportProcessor.name,
+        message: 'Job de exportacion masiva de auditoria finalizado',
+        jobId: String(job.id),
+        artifactName: generatedArtifact.artifactName,
+        estimatedFileCount: generatedArtifact.estimatedFileCount,
+      });
+
+      await this.auditExportCoordinator.releaseExportLock(job.data.lockToken);
+
+      try {
+        await this.auditQueue.add(
+          AUDIT_JOB_NAMES.EXPIRE_EXPORT_ARTIFACT,
+          { exportJobId: String(job.id) },
+          {
+            delay: technicalSettings.audit.exportArtifactTtlSeconds * 1000,
+            jobId: `expire-${String(job.id)}-${Date.now()}`,
+          },
+        );
+      } catch (error) {
+        this.logger.error({
+          context: AuditExportProcessor.name,
+          message:
+            'No se pudo programar la expiracion diferida del artefacto de auditoria; se usara expiracion por TTL en lectura',
+          jobId: String(job.id),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     } catch (error) {
-      await job.updateProgress({
-        stage: AUDIT_EXPORT_STATUS.FAILED,
-        progress: 100,
-        totalRows: job.data.totalRows,
-        estimatedFileCount: job.data.estimatedFileCount,
-        artifactName: null,
-        artifactStorageKey: null,
-        artifactExpiresAt: null,
-        errorMessage:
-          error instanceof Error ? error.message : 'Error generando exportacion',
-      } satisfies AuditExportJobProgress);
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+      }
+      this.logger.error({
+        context: AuditExportProcessor.name,
+        message: 'Fallo la generacion del export masivo de auditoria',
+        jobId: String(job.id),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      try {
+        if (generatedArtifact?.artifactStorageKey) {
+          try {
+            await this.auditExportArtifacts.deleteArtifactByStorageKey(
+              generatedArtifact.artifactStorageKey,
+            );
+          } catch (cleanupError) {
+            this.logger.error({
+              context: AuditExportProcessor.name,
+              message:
+                'No se pudo limpiar el artefacto temporal tras fallar el export masivo de auditoria',
+              jobId: String(job.id),
+              artifactStorageKey: generatedArtifact.artifactStorageKey,
+              error:
+                cleanupError instanceof Error
+                  ? cleanupError.message
+                  : String(cleanupError),
+            });
+          }
+        }
+
+        try {
+          await job.updateProgress({
+            stage: AUDIT_EXPORT_STATUS.FAILED,
+            progress: 100,
+            totalRows: job.data.totalRows,
+            estimatedFileCount: job.data.estimatedFileCount,
+            artifactName: null,
+            artifactStorageKey: null,
+            artifactExpiresAt: null,
+            errorMessage:
+              error instanceof Error ? error.message : 'Error generando exportacion',
+          } satisfies AuditExportJobProgress);
+        } catch (progressError) {
+          this.logger.error({
+            context: AuditExportProcessor.name,
+            message:
+              'No se pudo persistir el estado FAILED del export masivo de auditoria',
+            jobId: String(job.id),
+            error:
+              progressError instanceof Error
+                ? progressError.message
+                : String(progressError),
+          });
+        }
+      } finally {
+        await this.auditExportCoordinator.releaseExportLock(job.data.lockToken);
+      }
       throw error;
     }
   }
@@ -155,5 +268,12 @@ export class AuditExportProcessor extends WorkerHost {
       artifactExpiresAt: progress.artifactExpiresAt ?? null,
       errorMessage: null,
     } satisfies AuditExportJobProgress);
+
+    this.logger.log({
+      context: AuditExportProcessor.name,
+      message: 'Artefacto temporal de auditoria expirado y eliminado',
+      exportJobId: job.data.exportJobId,
+      cleanupJobId: String(job.id),
+    });
   }
 }

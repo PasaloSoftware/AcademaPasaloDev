@@ -5,7 +5,7 @@ import { AuditService } from './audit.service';
 import { AuditLogRepository } from '@modules/audit/infrastructure/audit-log.repository';
 import { AuditActionRepository } from '@modules/audit/infrastructure/audit-action.repository';
 import { AuditExportRepository } from '@modules/audit/infrastructure/audit-export.repository';
-import { ConflictException, InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException } from '@nestjs/common';
 import { AuditAction } from '@modules/audit/domain/audit-action.entity';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import {
@@ -49,6 +49,7 @@ describe('AuditService', () => {
 
     auditExportRepository = {
       findUnifiedHistory: jest.fn().mockResolvedValue([]),
+      findUnifiedHistoryChunk: jest.fn().mockResolvedValue([]),
       countUnifiedHistory: jest.fn().mockResolvedValue(0),
     };
 
@@ -58,7 +59,6 @@ describe('AuditService', () => {
     };
 
     auditExportCoordinator = {
-      ensureNoExportInProgress: jest.fn().mockResolvedValue(undefined),
       buildExportPlan: jest.fn().mockImplementation((totalRows: number) => ({
         mode: totalRows >= 100000 ? 'async' : 'sync',
         totalRows,
@@ -74,6 +74,7 @@ describe('AuditService', () => {
       createSyncTempFile: jest
         .fn()
         .mockResolvedValue(path.join(os.tmpdir(), 'audit-sync-test.xlsx')),
+      deleteFileIfExists: jest.fn().mockResolvedValue(undefined),
       buildAsyncPartFileName: jest.fn(),
       buildAsyncZipName: jest.fn(),
       createWorkspace: jest.fn(),
@@ -224,27 +225,17 @@ describe('AuditService', () => {
   });
 
   describe('getExportPlan', () => {
-    it('should enforce the global concurrency check before building the export plan', async () => {
+    it('should build the export plan from the unified count', async () => {
       (auditExportRepository.countUnifiedHistory as jest.Mock).mockResolvedValue(
         110000,
       );
 
       const result = await service.getExportPlan({});
 
-      expect(auditExportCoordinator.ensureNoExportInProgress).toHaveBeenCalled();
       expect(auditExportCoordinator.buildExportPlan).toHaveBeenCalledWith(
         110000,
       );
       expect(result.mode).toBe('async');
-    });
-
-    it('should propagate the concurrency conflict', async () => {
-      (
-        auditExportCoordinator.ensureNoExportInProgress as jest.Mock
-      ).mockRejectedValue(new ConflictException('busy'));
-
-      await expect(service.getExportPlan({})).rejects.toThrow(ConflictException);
-      expect(auditExportCoordinator.buildExportPlan).not.toHaveBeenCalled();
     });
   });
 
@@ -259,7 +250,7 @@ describe('AuditService', () => {
     });
 
     it('should write the sync export using paginated reads instead of a 1000-row hard limit', async () => {
-      (auditExportRepository.findUnifiedHistory as jest.Mock)
+      (auditExportRepository.findUnifiedHistoryChunk as jest.Mock)
         .mockResolvedValueOnce([
           {
             id: 'aud-1',
@@ -278,17 +269,94 @@ describe('AuditService', () => {
       const result = await service.prepareSyncExport({});
 
       expect(result.fileName).toBe('reporte-auditoria.xlsx');
-      expect(auditExportRepository.findUnifiedHistory).toHaveBeenNthCalledWith(
+      expect(
+        auditExportRepository.findUnifiedHistoryChunk,
+      ).toHaveBeenNthCalledWith(
         1,
         expect.any(Object),
         5000,
-        0,
+        undefined,
       );
-      expect(auditExportRepository.findUnifiedHistory).toHaveBeenNthCalledWith(
+      expect(
+        auditExportRepository.findUnifiedHistoryChunk,
+      ).toHaveBeenNthCalledWith(
         2,
         expect.any(Object),
         5000,
-        1,
+        expect.objectContaining({
+          sourceRank: 1,
+          entityId: 1,
+        }),
+      );
+    });
+
+    it('should delete the sync temp file if workbook generation fails', async () => {
+      (auditExportRepository.findUnifiedHistoryChunk as jest.Mock).mockRejectedValue(
+        new Error('db-failure'),
+      );
+
+      await expect(service.prepareSyncExport({})).rejects.toThrow('db-failure');
+      expect(auditExportArtifacts.deleteFileIfExists).toHaveBeenCalledWith(
+        path.join(os.tmpdir(), 'audit-sync-test.xlsx'),
+      );
+    });
+  });
+
+  describe('generateAsyncExportArtifact', () => {
+    it('should delete the reserved zip if packaging fails', async () => {
+      const workspace = path.join(
+        os.tmpdir(),
+        `audit-workspace-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      );
+      await fs.promises.mkdir(workspace, { recursive: true });
+      (auditExportArtifacts.createWorkspace as jest.Mock).mockResolvedValue(
+        workspace,
+      );
+      (auditExportArtifacts.buildAsyncPartFileName as jest.Mock).mockReturnValue(
+        'reporte-auditoria_parte-001_de-001.xlsx',
+      );
+      (auditExportArtifacts.buildAsyncZipName as jest.Mock).mockReturnValue(
+        'reporte-auditoria-masivo_2026-03-14_15-42-10.zip',
+      );
+      (auditExportArtifacts.reserveArtifact as jest.Mock).mockResolvedValue({
+        fileName: 'reporte-auditoria-masivo_2026-03-14_15-42-10.zip',
+        storageKey: 'artifact-key',
+        filePath: path.join(os.tmpdir(), 'artifact-key.zip'),
+      });
+      (auditExportArtifacts.zipFiles as jest.Mock).mockRejectedValue(
+        new Error('zip-failure'),
+      );
+      (auditExportRepository.findUnifiedHistoryChunk as jest.Mock).mockResolvedValue(
+        [],
+      );
+
+      await expect(
+        service.generateAsyncExportArtifact({}, 0, 100000, 'job-1'),
+      ).rejects.toThrow('zip-failure');
+      expect(auditExportArtifacts.deleteFileIfExists).toHaveBeenCalledWith(
+        path.join(os.tmpdir(), 'artifact-key.zip'),
+      );
+      expect(auditExportArtifacts.deleteDirectoryIfExists).toHaveBeenCalledWith(
+        workspace,
+      );
+    });
+  });
+
+  describe('formatExcelDatetime', () => {
+    it('should render the excel datetime using America/Lima instead of process timezone', () => {
+      const date = new Date('2026-03-14T15:00:00.000Z');
+
+      expect(service['formatExcelDatetime'](date)).toBe(
+        date.toLocaleString('es-PE', {
+          timeZone: 'America/Lima',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }),
       );
     });
   });
