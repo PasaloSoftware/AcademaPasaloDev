@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MaterialsService } from './application/materials.service';
+import { MaterialsDeletionService } from './application/materials-deletion.service';
+import { MaterialsFolderService } from './application/materials-folder.service';
+import { MaterialsExplorerService } from './application/materials-explorer.service';
+import { MaterialsReadService } from './application/materials-read.service';
 import { MaterialsAdminService } from './application/materials-admin.service';
 import { MaterialsController } from './presentation/materials.controller';
 
@@ -52,6 +56,10 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
   controllers: [MaterialsController, MaterialsAdminController],
   providers: [
     MaterialsService,
+    MaterialsDeletionService,
+    MaterialsFolderService,
+    MaterialsExplorerService,
+    MaterialsReadService,
     MaterialsAdminService,
     MaterialFolderRepository,
     MaterialRepository,

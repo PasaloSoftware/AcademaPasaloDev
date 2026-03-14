@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, EntityManager } from 'typeorm';
 import { MaterialsService } from '@modules/materials/application/materials.service';
+import { MaterialsDeletionService } from '@modules/materials/application/materials-deletion.service';
+import { MaterialsFolderService } from '@modules/materials/application/materials-folder.service';
+import { MaterialsExplorerService } from '@modules/materials/application/materials-explorer.service';
+import { MaterialsReadService } from '@modules/materials/application/materials-read.service';
 import { StorageService } from '@infrastructure/storage/storage.service';
 import { AccessEngineService } from '@modules/enrollments/application/access-engine.service';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
@@ -85,6 +89,10 @@ describe('MaterialsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MaterialsService,
+        MaterialsDeletionService,
+        MaterialsFolderService,
+        MaterialsExplorerService,
+        MaterialsReadService,
         {
           provide: DataSource,
           useValue: { transaction: jest.fn(), query: jest.fn() },
