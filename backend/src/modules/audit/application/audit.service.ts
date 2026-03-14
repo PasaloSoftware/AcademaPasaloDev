@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   OnApplicationBootstrap,
 } from '@nestjs/common';
-import { Workbook } from 'exceljs';
+import { stream as ExcelStream } from 'exceljs';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AuditLogRepository } from '@modules/audit/infrastructure/audit-log.repository';
@@ -26,8 +26,10 @@ import {
   AuditHistoryFilters,
   ParsedAuditHistoryFilters,
 } from '@modules/audit/interfaces/audit-export.interface';
+import { AuditExportArtifactsService } from './audit-export-artifacts.service';
 import type { EntityManager } from 'typeorm';
 import { AuditExportCoordinatorService } from './audit-export-coordinator.service';
+import * as path from 'path';
 
 @Injectable()
 export class AuditService implements OnApplicationBootstrap {
@@ -39,6 +41,7 @@ export class AuditService implements OnApplicationBootstrap {
     private readonly auditActionRepository: AuditActionRepository,
     private readonly auditExportRepository: AuditExportRepository,
     private readonly auditExportCoordinator: AuditExportCoordinatorService,
+    private readonly auditExportArtifacts: AuditExportArtifactsService,
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {}
 
@@ -174,13 +177,102 @@ export class AuditService implements OnApplicationBootstrap {
     return this.auditExportCoordinator.buildExportPlan(totalRows);
   }
 
-  async exportHistoryToExcel(filters: AuditHistoryFilters): Promise<Buffer> {
-    const history = await this.getUnifiedHistory(
-      { ...filters, limit: 1000 },
-      1000,
-    );
+  async prepareSyncExport(filters: AuditHistoryFilters): Promise<{
+    fileName: string;
+    filePath: string;
+    mimeType: string;
+  }> {
+    const now = new Date();
+    const fileName = this.auditExportArtifacts.buildSyncFileName(now);
+    const filePath = await this.auditExportArtifacts.createSyncTempFile(fileName);
 
-    const workbook = new Workbook();
+    await this.writeWorkbookToFile(filters, filePath);
+
+    return {
+      fileName,
+      filePath,
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+  }
+
+  async generateAsyncExportArtifact(
+    filters: AuditHistoryFilters,
+    totalRows: number,
+    rowsPerFile: number,
+    jobId: string,
+    onProgress?: (progress: number, estimatedFileCount: number) => Promise<void>,
+  ): Promise<{
+    artifactName: string;
+    artifactStorageKey: string;
+    artifactExpiresAt: string;
+    estimatedFileCount: number;
+  }> {
+    const workspace = await this.auditExportArtifacts.createWorkspace(jobId);
+    const estimatedFileCount =
+      totalRows === 0 ? 1 : Math.ceil(totalRows / rowsPerFile);
+    const generatedFiles: Array<{ filePath: string; entryName: string }> = [];
+
+    try {
+      for (let partIndex = 0; partIndex < estimatedFileCount; partIndex += 1) {
+        const offset = partIndex * rowsPerFile;
+        const remaining = totalRows - offset;
+        const maxRows =
+          totalRows === 0 ? 0 : Math.min(rowsPerFile, Math.max(remaining, 0));
+        const partName = this.auditExportArtifacts.buildAsyncPartFileName(
+          partIndex + 1,
+          estimatedFileCount,
+        );
+        const partPath = path.join(workspace, partName);
+
+        await this.writeWorkbookToFile(filters, partPath, { offset, maxRows });
+        generatedFiles.push({ filePath: partPath, entryName: partName });
+
+        if (onProgress) {
+          await onProgress(
+            Math.min(
+              99,
+              Math.round(((partIndex + 1) / estimatedFileCount) * 100),
+            ),
+            estimatedFileCount,
+          );
+        }
+      }
+
+      const now = new Date();
+      const artifact = await this.auditExportArtifacts.reserveArtifact(
+        this.auditExportArtifacts.buildAsyncZipName(now),
+      );
+      await this.auditExportArtifacts.zipFiles(generatedFiles, artifact.filePath);
+
+      return {
+        artifactName: artifact.fileName,
+        artifactStorageKey: artifact.storageKey,
+        artifactExpiresAt: new Date(
+          now.getTime() + technicalSettings.audit.exportArtifactTtlSeconds * 1000,
+        ).toISOString(),
+        estimatedFileCount,
+      };
+    } finally {
+      await this.auditExportArtifacts.deleteDirectoryIfExists(workspace);
+    }
+  }
+
+  private async writeWorkbookToFile(
+    filters: AuditHistoryFilters,
+    filePath: string,
+    options?: { offset?: number; maxRows?: number },
+  ): Promise<void> {
+    const parsedFilters = this.parseHistoryFilters(filters);
+    const offsetStart = Math.max(0, options?.offset ?? 0);
+    const maxRows = options?.maxRows;
+    const pageSize = Math.min(5000, maxRows && maxRows > 0 ? maxRows : 5000);
+
+    const workbook = new ExcelStream.xlsx.WorkbookWriter({
+      filename: filePath,
+      useStyles: true,
+      useSharedStrings: false,
+    });
     const worksheet = workbook.addWorksheet(AUDIT_EXCEL_CONFIG.SHEET_NAME);
 
     worksheet.columns = [
@@ -232,18 +324,46 @@ export class AuditService implements OnApplicationBootstrap {
       pattern: 'solid',
       fgColor: { argb: AUDIT_EXCEL_CONFIG.HEADER_FILL_COLOR },
     };
+    worksheet.getRow(1).commit();
 
-    history.forEach((row) => {
-      worksheet.addRow({
-        ...row,
-        source:
-          row.source === AUDIT_SOURCES.SECURITY
-            ? AUDIT_LABELS.SOURCE_SECURITY
-            : AUDIT_LABELS.SOURCE_AUDIT,
-        datetime: row.datetime.toLocaleString(AUDIT_EXCEL_CONFIG.LOCALE_ES_PE),
-      });
-    });
+    let offset = offsetStart;
+    let writtenRows = 0;
 
-    return (await workbook.xlsx.writeBuffer()) as unknown as Buffer;
+    while (true) {
+      const remainingRows =
+        maxRows == null ? pageSize : Math.max(0, maxRows - writtenRows);
+      if (maxRows != null && remainingRows === 0) {
+        break;
+      }
+
+      const batch = await this.auditExportRepository.findUnifiedHistory(
+        parsedFilters,
+        Math.min(pageSize, remainingRows || pageSize),
+        offset,
+      );
+
+      if (!batch.length) {
+        break;
+      }
+
+      for (const row of batch) {
+        worksheet
+          .addRow({
+            ...row,
+            source:
+              row.source === AUDIT_SOURCES.SECURITY
+                ? AUDIT_LABELS.SOURCE_SECURITY
+                : AUDIT_LABELS.SOURCE_AUDIT,
+            datetime: row.datetime.toLocaleString(AUDIT_EXCEL_CONFIG.LOCALE_ES_PE),
+          })
+          .commit();
+      }
+
+      writtenRows += batch.length;
+      offset += batch.length;
+    }
+
+    worksheet.commit();
+    await workbook.commit();
   }
 }

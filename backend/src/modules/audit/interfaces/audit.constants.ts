@@ -8,10 +8,19 @@ export type AuditSource = (typeof AUDIT_SOURCES)[keyof typeof AUDIT_SOURCES];
 export const AUDIT_JOB_NAMES = {
   CLEANUP_OLD_LOGS: 'cleanup-old-logs',
   GENERATE_EXPORT: 'generate-audit-export',
+  EXPIRE_EXPORT_ARTIFACT: 'expire-audit-export-artifact',
 } as const;
 
 export const AUDIT_JOB_IDS = {
   EXPORT_SINGLETON: 'audit-export-global',
+} as const;
+
+export const AUDIT_EXPORT_STATUS = {
+  QUEUED: 'queued',
+  PROCESSING: 'processing',
+  READY: 'ready',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
 } as const;
 
 export const AUDIT_ACTION_CODES = {

@@ -7,12 +7,15 @@ import { AuditActionRepository } from '@modules/audit/infrastructure/audit-actio
 import { AuditLogRepository } from '@modules/audit/infrastructure/audit-log.repository';
 import { AuditExportRepository } from '@modules/audit/infrastructure/audit-export.repository';
 import { AuditService } from '@modules/audit/application/audit.service';
+import { AuditExportJobsService } from '@modules/audit/application/audit-export-jobs.service';
 import { AuditController } from '@modules/audit/presentation/audit.controller';
 import { AuthModule } from '@modules/auth/auth.module';
 import { SettingsModule } from '@modules/settings/settings.module';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { AuditCleanupProcessor } from './infrastructure/processors/audit-cleanup.processor';
 import { AuditExportCoordinatorService } from './application/audit-export-coordinator.service';
+import { AuditExportProcessor } from './infrastructure/processors/audit-export.processor';
+import { AuditExportArtifactsService } from './application/audit-export-artifacts.service';
 
 @Module({
   imports: [
@@ -29,7 +32,10 @@ import { AuditExportCoordinatorService } from './application/audit-export-coordi
     AuditLogRepository,
     AuditExportRepository,
     AuditService,
+    AuditExportJobsService,
     AuditExportCoordinatorService,
+    AuditExportArtifactsService,
+    AuditExportProcessor,
     AuditCleanupProcessor,
   ],
   exports: [AuditService],

@@ -14,6 +14,10 @@ import {
 } from '../interfaces/audit.constants';
 import { SECURITY_EVENT_CODES } from '@modules/auth/interfaces/security.constants';
 import { AuditExportCoordinatorService } from './audit-export-coordinator.service';
+import { AuditExportArtifactsService } from './audit-export-artifacts.service';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 describe('AuditService', () => {
   let service: AuditService;
@@ -22,6 +26,7 @@ describe('AuditService', () => {
   let auditExportRepository: Partial<AuditExportRepository>;
   let auditQueue: Partial<Queue>;
   let auditExportCoordinator: Partial<AuditExportCoordinatorService>;
+  let auditExportArtifacts: Partial<AuditExportArtifactsService>;
 
   const mockAuditAction = {
     id: '1',
@@ -64,6 +69,19 @@ describe('AuditService', () => {
       })),
     };
 
+    auditExportArtifacts = {
+      buildSyncFileName: jest.fn().mockReturnValue('reporte-auditoria.xlsx'),
+      createSyncTempFile: jest
+        .fn()
+        .mockResolvedValue(path.join(os.tmpdir(), 'audit-sync-test.xlsx')),
+      buildAsyncPartFileName: jest.fn(),
+      buildAsyncZipName: jest.fn(),
+      createWorkspace: jest.fn(),
+      reserveArtifact: jest.fn(),
+      zipFiles: jest.fn(),
+      deleteDirectoryIfExists: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuditService,
@@ -73,6 +91,10 @@ describe('AuditService', () => {
         {
           provide: AuditExportCoordinatorService,
           useValue: auditExportCoordinator,
+        },
+        {
+          provide: AuditExportArtifactsService,
+          useValue: auditExportArtifacts,
         },
         { provide: getQueueToken(QUEUES.AUDIT), useValue: auditQueue },
       ],
@@ -223,6 +245,51 @@ describe('AuditService', () => {
 
       await expect(service.getExportPlan({})).rejects.toThrow(ConflictException);
       expect(auditExportCoordinator.buildExportPlan).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('prepareSyncExport', () => {
+    afterEach(async () => {
+      const filePath = path.join(os.tmpdir(), 'audit-sync-test.xlsx');
+      try {
+        await fs.promises.unlink(filePath);
+      } catch {
+        // ignore cleanup errors for temp test artifact
+      }
+    });
+
+    it('should write the sync export using paginated reads instead of a 1000-row hard limit', async () => {
+      (auditExportRepository.findUnifiedHistory as jest.Mock)
+        .mockResolvedValueOnce([
+          {
+            id: 'aud-1',
+            datetime: new Date('2026-03-14T10:00:00.000Z'),
+            userId: 'u1',
+            userName: 'Admin',
+            userEmail: 'admin@test.com',
+            userRole: 'Admin',
+            actionCode: AUDIT_ACTION_CODES.FILE_UPLOAD,
+            actionName: 'Upload',
+            source: AUDIT_SOURCES.AUDIT,
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.prepareSyncExport({});
+
+      expect(result.fileName).toBe('reporte-auditoria.xlsx');
+      expect(auditExportRepository.findUnifiedHistory).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Object),
+        5000,
+        0,
+      );
+      expect(auditExportRepository.findUnifiedHistory).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Object),
+        5000,
+        1,
+      );
     });
   });
 });
