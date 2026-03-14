@@ -82,6 +82,20 @@ describe('AuditController (e2e)', () => {
       .expect(200);
   });
 
+  it('/audit/history (GET) - should accept source and actionCode filters', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/audit/history?source=AUDIT&actionCode=FILE_UPLOAD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+  });
+
+  it('/audit/history (GET) - should reject an invalid source filter', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/audit/history?source=INVALID')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(400);
+  });
+
   it('/audit/export (GET) - should return an excel file', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/audit/export')
@@ -108,5 +122,35 @@ describe('AuditController (e2e)', () => {
     expect(Buffer.isBuffer(response.body)).toBe(true);
     const buffer = response.body as Buffer;
     expect(buffer.length).toBeGreaterThan(0);
+  });
+
+  it('/audit/export (GET) - should accept source and actionCode filters', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/audit/export?source=SECURITY&actionCode=LOGIN_SUCCESS')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .buffer()
+      .parse((res, callback) => {
+        res.setEncoding('binary');
+        let data = '';
+        res.on('data', (chunk: string) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          callback(null, Buffer.from(data, 'binary'));
+        });
+      })
+      .expect(200);
+
+    expect(response.header['content-type']).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(Buffer.isBuffer(response.body)).toBe(true);
+  });
+
+  it('/audit/export (GET) - should reject an invalid source filter', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/audit/export?source=INVALID')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(400);
   });
 });

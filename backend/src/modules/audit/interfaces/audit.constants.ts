@@ -7,6 +7,11 @@ export type AuditSource = (typeof AUDIT_SOURCES)[keyof typeof AUDIT_SOURCES];
 
 export const AUDIT_JOB_NAMES = {
   CLEANUP_OLD_LOGS: 'cleanup-old-logs',
+  GENERATE_EXPORT: 'generate-audit-export',
+} as const;
+
+export const AUDIT_JOB_IDS = {
+  EXPORT_SINGLETON: 'audit-export-global',
 } as const;
 
 export const AUDIT_ACTION_CODES = {

@@ -9,9 +9,9 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AuditLogRepository } from '@modules/audit/infrastructure/audit-log.repository';
 import { AuditActionRepository } from '@modules/audit/infrastructure/audit-action.repository';
-import { SecurityEventRepository } from '@modules/auth/infrastructure/security-event.repository';
 import { AuditLog } from '@modules/audit/domain/audit-log.entity';
 import { UnifiedAuditHistoryDto } from '@modules/audit/dto/unified-audit-history.dto';
+import { AuditExportRepository } from '@modules/audit/infrastructure/audit-export.repository';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { JobScheduler } from '@infrastructure/queue/queue.interfaces';
 import { technicalSettings } from '@config/technical-settings';
@@ -21,8 +21,13 @@ import {
   AUDIT_EXCEL_CONFIG,
   AUDIT_JOB_NAMES,
 } from '@modules/audit/interfaces/audit.constants';
+import {
+  AuditExportPlan,
+  AuditHistoryFilters,
+  ParsedAuditHistoryFilters,
+} from '@modules/audit/interfaces/audit-export.interface';
 import type { EntityManager } from 'typeorm';
-import { User } from '@modules/users/domain/user.entity';
+import { AuditExportCoordinatorService } from './audit-export-coordinator.service';
 
 @Injectable()
 export class AuditService implements OnApplicationBootstrap {
@@ -32,7 +37,8 @@ export class AuditService implements OnApplicationBootstrap {
   constructor(
     private readonly auditLogRepository: AuditLogRepository,
     private readonly auditActionRepository: AuditActionRepository,
-    private readonly securityEventRepository: SecurityEventRepository,
+    private readonly auditExportRepository: AuditExportRepository,
+    private readonly auditExportCoordinator: AuditExportCoordinatorService,
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {}
 
@@ -43,25 +49,14 @@ export class AuditService implements OnApplicationBootstrap {
     await this.setupRepeatableJobs();
   }
 
-  private resolveUserRole(user?: User): string {
-    if (!user) return AUDIT_LABELS.UNKNOWN_ROLE;
-
-    if (user.lastActiveRole?.name) {
-      return user.lastActiveRole.name;
-    }
-
-    if (user.roles && user.roles.length > 0) {
-      const firstRole = user.roles[0];
-      return firstRole?.name || AUDIT_LABELS.UNKNOWN_ROLE;
-    }
-
-    return AUDIT_LABELS.UNKNOWN_ROLE;
-  }
-
-  private resolveUserName(user?: User): string {
-    if (!user) return AUDIT_LABELS.UNKNOWN_USER;
-    const fullName = `${user.firstName} ${user.lastName1 || ''}`.trim();
-    return fullName || AUDIT_LABELS.UNKNOWN_USER;
+  private parseHistoryFilters(filters: AuditHistoryFilters): ParsedAuditHistoryFilters {
+    return {
+      startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+      endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+      userId: filters.userId,
+      source: filters.source,
+      actionCode: filters.actionCode,
+    };
   }
 
   async setupRepeatableJobs() {
@@ -155,67 +150,31 @@ export class AuditService implements OnApplicationBootstrap {
   }
 
   async getUnifiedHistory(
-    filters: {
-      startDate?: string;
-      endDate?: string;
-      userId?: string;
-      limit?: number;
-    },
+    filters: AuditHistoryFilters,
     maxAllowedLimit = 100,
   ): Promise<UnifiedAuditHistoryDto[]> {
-    const parsedFilters = {
-      startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-      endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-      userId: filters.userId,
-    };
-
+    const parsedFilters = this.parseHistoryFilters(filters);
     const safeLimit = filters.limit
       ? Math.min(filters.limit, maxAllowedLimit)
       : 50;
-
-    const [securityEvents, auditLogs] = await Promise.all([
-      this.securityEventRepository.findAll(parsedFilters, safeLimit),
-      this.auditLogRepository.findAll(parsedFilters, safeLimit),
-    ]);
-
-    const unifiedHistory: UnifiedAuditHistoryDto[] = [
-      ...securityEvents.map((e) => ({
-        id: `sec-${e.id}`,
-        datetime: e.eventDatetime,
-        userId: e.userId,
-        userName: this.resolveUserName(e.user),
-        userEmail: e.user?.email || AUDIT_LABELS.NOT_AVAILABLE,
-        userRole: this.resolveUserRole(e.user),
-        actionCode: e.securityEventType?.code || AUDIT_LABELS.UNKNOWN_ACTION,
-        actionName: e.securityEventType?.name || AUDIT_LABELS.SOURCE_SECURITY,
-        source: AUDIT_SOURCES.SECURITY,
-        ipAddress: e.ipAddress,
-        userAgent: e.userAgent,
-        metadata: e.metadata || undefined,
-      })),
-      ...auditLogs.map((l) => ({
-        id: `aud-${l.id}`,
-        datetime: l.eventDatetime,
-        userId: l.userId,
-        userName: this.resolveUserName(l.user),
-        userEmail: l.user?.email || AUDIT_LABELS.NOT_AVAILABLE,
-        userRole: this.resolveUserRole(l.user),
-        actionCode: l.auditAction?.code || AUDIT_LABELS.UNKNOWN_ACTION,
-        actionName: l.auditAction?.name || AUDIT_LABELS.SOURCE_AUDIT,
-        source: AUDIT_SOURCES.AUDIT,
-      })),
-    ];
-
-    return unifiedHistory
-      .sort((a, b) => b.datetime.getTime() - a.datetime.getTime())
-      .slice(0, safeLimit);
+    return await this.auditExportRepository.findUnifiedHistory(
+      parsedFilters,
+      safeLimit,
+    );
   }
 
-  async exportHistoryToExcel(filters: {
-    startDate?: string;
-    endDate?: string;
-    userId?: string;
-  }): Promise<Buffer> {
+  async countUnifiedHistory(filters: AuditHistoryFilters): Promise<number> {
+    const parsedFilters = this.parseHistoryFilters(filters);
+    return await this.auditExportRepository.countUnifiedHistory(parsedFilters);
+  }
+
+  async getExportPlan(filters: AuditHistoryFilters): Promise<AuditExportPlan> {
+    await this.auditExportCoordinator.ensureNoExportInProgress();
+    const totalRows = await this.countUnifiedHistory(filters);
+    return this.auditExportCoordinator.buildExportPlan(totalRows);
+  }
+
+  async exportHistoryToExcel(filters: AuditHistoryFilters): Promise<Buffer> {
     const history = await this.getUnifiedHistory(
       { ...filters, limit: 1000 },
       1000,

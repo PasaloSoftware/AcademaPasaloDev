@@ -280,6 +280,9 @@ export const technicalSettings = {
   audit: {
     // src/modules/audit/application/audit.service.ts
     cleanupCronPattern: '0 0 3 1 * *',
+    exportSyncThresholdRows: 100000,
+    exportRowsPerFile: 100000,
+    exportArtifactTtlSeconds: 3600,
     // src/modules/audit/infrastructure/processors/audit-cleanup.processor.ts
     retentionDefaultDays: 30,
     // src/modules/audit/infrastructure/processors/audit-cleanup.processor.ts
