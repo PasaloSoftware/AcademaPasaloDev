@@ -27,6 +27,10 @@ import TeacherVideoPageContent from '@/components/pages/teacher/VideoPageContent
 import TeacherPreviousCycleContent from '@/components/pages/teacher/PreviousCycleContent';
 import TeacherPreviousCycleEvaluationContent from '@/components/pages/teacher/PreviousCycleEvaluationContent';
 import TeacherBancoEnunciadosContent from '@/components/pages/teacher/BancoEnunciadosContent';
+import TeacherPerfilContent from '@/components/pages/teacher/PerfilContent';
+
+// Importar componentes de shared
+import SharedPerfilContent from '@/components/pages/shared/PerfilContent';
 
 // Importar componentes de admin
 import AdminInicioContent from '@/components/pages/admin/InicioContent';
@@ -61,6 +65,12 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   // Admin
   'admin/InicioContent': AdminInicioContent,
   'admin/AuditoriaContent': AdminAuditoriaContent,
+
+  // Shared
+  'shared/PerfilContent': SharedPerfilContent,
+
+  // Teacher (perfil)
+  'teacher/PerfilContent': TeacherPerfilContent,
 };
 
 interface RoleBasedContentProps {

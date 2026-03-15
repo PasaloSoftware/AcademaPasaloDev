@@ -135,6 +135,12 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
   '/plataforma/admin/auditoria': {
     ADMIN: 'admin/AuditoriaContent',
     SUPER_ADMIN: 'admin/AuditoriaContent'
+  },
+  '/plataforma/perfil': {
+    STUDENT: 'shared/PerfilContent',
+    TEACHER: 'teacher/PerfilContent',
+    ADMIN: 'shared/PerfilContent',
+    SUPER_ADMIN: 'shared/PerfilContent'
   }
 };
 

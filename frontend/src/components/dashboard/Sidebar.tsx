@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import RoleSwitcher, {
   getRoleFriendlyName,
+  roleIcons,
 } from "@/components/dashboard/RoleSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -41,6 +42,16 @@ export default function Sidebar({
   const { logout, user: authUser, switchProfile } = useAuth();
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
+
+  // Resolve active role code for icon
+  const activeRoleCode = (() => {
+    if (!authUser?.roles?.length) return 'STUDENT';
+    const activeRoleId = authUser.lastActiveRoleId || authUser.roles[0]?.id || authUser.roles[0]?.code || '';
+    const found = authUser.roles.find(r => (r.id || r.code) === activeRoleId);
+    return found?.code || 'STUDENT';
+  })();
+  const sidebarIcon = roleIcons[activeRoleCode] || 'school';
+  const hasMultipleRoles = !!(authUser && authUser.roles && authUser.roles.length > 1);
 
   // Auto-expandir items cuando un subitem está activo (inicialización)
   const getInitialExpandedItems = () => {
@@ -133,17 +144,21 @@ export default function Sidebar({
       {/* Header: Logo + Role */}
       {isCollapsed ? (
         <div className="p-4 flex items-center justify-center">
-          <Icon name="school" size={36} className="text-main" />
+          <Icon name={sidebarIcon} size={36} className="text-main" />
         </div>
       ) : (
         <div className="p-3 space-y-3">
           <div
             onMouseDown={handleHeaderMouseDown}
-            className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-primary-hover selected:bg-primary-selected cursor-pointer"
+            className={`flex items-center gap-2.5 p-2 rounded-xl ${
+              hasMultipleRoles
+                ? 'hover:bg-primary-hover selected:bg-primary-selected cursor-pointer'
+                : 'cursor-default'
+            }`}
           >
             {/* Icon Left */}
             <div className="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-lg p-1">
-              <Icon name="school" size={36} className="text-main" />
+              <Icon name={sidebarIcon} size={36} className="text-main" />
             </div>
 
             {/* Logo + Role Right */}
