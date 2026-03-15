@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
@@ -19,6 +15,10 @@ import {
   ClassEventContext,
   MaterialContext,
 } from '@modules/notifications/interfaces';
+import {
+  NotificationIntegrityError,
+  NotificationTargetNotFoundError,
+} from '@modules/notifications/domain/notification.errors';
 
 @Injectable()
 export class NotificationRecipientsService {
@@ -52,28 +52,35 @@ export class NotificationRecipientsService {
     const row = await this.classEventRepo
       .createQueryBuilder('ce')
       .select('ce.id', 'classEventId')
+      .addSelect('ev.id', 'evaluationId')
+      .addSelect('ce.session_number', 'sessionNumber')
       .addSelect('ce.title', 'classTitle')
       .addSelect('ce.start_datetime', 'startDatetime')
       .addSelect('ev.course_cycle_id', 'courseCycleId')
+      .addSelect('et.code', 'evaluationTypeCode')
+      .addSelect('ev.number', 'evaluationNumber')
       .addSelect('course.name', 'courseName')
       .innerJoin('ce.evaluation', 'ev')
+      .innerJoin('ev.evaluationType', 'et')
       .innerJoin('ev.courseCycle', 'cc')
       .innerJoin('cc.course', 'course')
       .where('ce.id = :classEventId', { classEventId })
       .getRawOne<{
         classEventId: string;
+        evaluationId: string;
+        sessionNumber: number;
         classTitle: string;
         startDatetime: Date;
         courseCycleId: string;
+        evaluationTypeCode: string;
+        evaluationNumber: number;
         courseName: string;
       }>();
 
     if (!row) {
-      throw new InternalServerErrorException({
-        context: NotificationRecipientsService.name,
-        message: 'No se encontró el class_event al resolver destinatarios',
-        classEventId,
-      });
+      throw new NotificationTargetNotFoundError(
+        `No se encontro el class_event ${classEventId} al resolver destinatarios`,
+      );
     }
 
     const activeStatusId = await this.resolveActiveEnrollmentStatusId();
@@ -105,9 +112,12 @@ export class NotificationRecipientsService {
 
     return {
       classEventId,
+      evaluationId: row.evaluationId,
+      sessionNumber: Number(row.sessionNumber),
       classTitle: row.classTitle,
       startDatetime: row.startDatetime,
       courseCycleId: row.courseCycleId,
+      evaluationLabel: `${row.evaluationTypeCode}${row.evaluationNumber}`,
       courseName: row.courseName,
       recipientUserIds: this.mergeUniqueUserIds(classProfs, activeStudents),
     };
@@ -122,12 +132,19 @@ export class NotificationRecipientsService {
       .select('m.id', 'materialId')
       .addSelect('m.display_name', 'materialDisplayName')
       .addSelect('m.material_folder_id', 'folderId')
+      .addSelect('m.class_event_id', 'classEventId')
+      .addSelect('ev.id', 'evaluationId')
       .addSelect('ev.course_cycle_id', 'courseCycleId')
+      .addSelect('et.code', 'evaluationTypeCode')
+      .addSelect('ev.number', 'evaluationNumber')
+      .addSelect('ce.session_number', 'sessionNumber')
       .addSelect('course.name', 'courseName')
       .innerJoin('m.materialFolder', 'mf')
       .innerJoin('mf.evaluation', 'ev')
+      .innerJoin('ev.evaluationType', 'et')
       .innerJoin('ev.courseCycle', 'cc')
       .innerJoin('cc.course', 'course')
+      .leftJoin('m.classEvent', 'ce')
       .where('m.id = :materialId AND m.material_folder_id = :folderId', {
         materialId,
         folderId,
@@ -136,17 +153,19 @@ export class NotificationRecipientsService {
         materialId: string;
         materialDisplayName: string;
         folderId: string;
+        classEventId: string | null;
+        evaluationId: string;
         courseCycleId: string;
+        evaluationTypeCode: string;
+        evaluationNumber: number;
+        sessionNumber: number | null;
         courseName: string;
       }>();
 
     if (!row) {
-      throw new InternalServerErrorException({
-        context: NotificationRecipientsService.name,
-        message: 'No se encontró el material al resolver destinatarios',
-        materialId,
-        folderId,
-      });
+      throw new NotificationTargetNotFoundError(
+        `No se encontro el material ${materialId} en folder ${folderId} al resolver destinatarios`,
+      );
     }
 
     const activeStatusId = await this.resolveActiveEnrollmentStatusId();
@@ -181,7 +200,15 @@ export class NotificationRecipientsService {
     return {
       materialId: row.materialId,
       folderId: row.folderId,
+      classEventId: row.classEventId,
+      evaluationId: row.evaluationId,
+      sessionNumber:
+        row.sessionNumber === null || row.sessionNumber === undefined
+          ? null
+          : Number(row.sessionNumber),
       materialDisplayName: row.materialDisplayName,
+      courseCycleId: row.courseCycleId,
+      evaluationLabel: `${row.evaluationTypeCode}${row.evaluationNumber}`,
       courseName: row.courseName,
       recipientUserIds: this.mergeUniqueUserIds(cycleProfs, activeStudents),
     };
@@ -203,11 +230,11 @@ export class NotificationRecipientsService {
       this.logger.error({
         context: NotificationRecipientsService.name,
         message:
-          'Crítico: No existe el estado de matrícula ACTIVE en la base de datos',
+          'Critico: No existe el estado de matricula ACTIVE en la base de datos',
         code: ENROLLMENT_STATUS_CODES.ACTIVE,
       });
-      throw new InternalServerErrorException(
-        'Error de integridad: estado de matrícula ACTIVE no configurado',
+      throw new NotificationIntegrityError(
+        'Error de integridad: estado de matricula ACTIVE no configurado',
       );
     }
 

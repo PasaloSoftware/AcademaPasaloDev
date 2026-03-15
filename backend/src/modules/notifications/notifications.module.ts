@@ -10,11 +10,14 @@ import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
 import { EnrollmentStatus } from '@modules/enrollments/domain/enrollment-status.entity';
 import { Material } from '@modules/materials/domain/material.entity';
 import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
 import { NotificationTypeRepository } from '@modules/notifications/infrastructure/notification-type.repository';
 import { NotificationRepository } from '@modules/notifications/infrastructure/notification.repository';
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
 import { NotificationsService } from '@modules/notifications/application/notifications.service';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { NotificationRecipientsService } from '@modules/notifications/application/notification-recipients.service';
 import { NotificationDispatchProcessor } from '@modules/notifications/infrastructure/processors/notification-dispatch.processor';
 import { NotificationsController } from '@modules/notifications/presentation/notifications.controller';
@@ -44,11 +47,14 @@ import { QUEUES } from '@infrastructure/queue/queue.constants';
     NotificationTypeRepository,
     NotificationRepository,
     UserNotificationRepository,
+    MaterialRepository,
+    ClassEventRepository,
     NotificationsService,
     NotificationsDispatchService,
+    AuditExportReadyNotificationService,
     NotificationRecipientsService,
     NotificationDispatchProcessor,
   ],
-  exports: [NotificationsDispatchService],
+  exports: [NotificationsDispatchService, AuditExportReadyNotificationService],
 })
 export class NotificationsModule {}

@@ -36,15 +36,10 @@ import { CourseCycleDriveProvisioningService } from '@modules/media-access/appli
     MediaAccessMembershipProcessor,
   ],
   exports: [
-    DriveScopeNamingService,
     DriveAccessScopeService,
-    EvaluationDriveAccessRepository,
-    WorkspaceGroupsService,
-    DriveScopeProvisioningService,
     EvaluationDriveAccessProvisioningService,
     CourseCycleDriveProvisioningService,
     MediaAccessMembershipDispatchService,
-    MediaAccessReconciliationService,
   ],
 })
 export class MediaAccessModule {}

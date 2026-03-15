@@ -7,6 +7,7 @@ import { NotificationTypeRepository } from '@modules/notifications/infrastructur
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
 import { NotificationRecipientsService } from '@modules/notifications/application/notification-recipients.service';
 import { SettingsService } from '@modules/settings/application/settings.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { NotificationType } from '@modules/notifications/domain/notification-type.entity';
 import { Notification } from '@modules/notifications/domain/notification.entity';
 import {
@@ -16,6 +17,10 @@ import {
   NOTIFICATION_ENTITY_TYPES,
 } from '@modules/notifications/domain/notification.constants';
 import { technicalSettings } from '@config/technical-settings';
+import {
+  NotificationIntegrityError,
+  NotificationTargetNotFoundError,
+} from '@modules/notifications/domain/notification.errors';
 
 const mockNotificationRepo = {
   create: jest.fn(),
@@ -29,6 +34,7 @@ const mockNotificationTypeRepo = {
 const mockUserNotifRepo = {
   bulkCreate: jest.fn(),
   invalidateUnreadCountForUsers: jest.fn(),
+  invalidateAllUnreadCounts: jest.fn(),
 };
 
 const mockRecipientsService = {
@@ -38,6 +44,10 @@ const mockRecipientsService = {
 
 const mockSettingsService = {
   getString: jest.fn(),
+};
+
+const mockAuditExportReadyNotificationService = {
+  createReadyNotification: jest.fn(),
 };
 
 const savedNotif = { id: '99' } as Notification;
@@ -80,6 +90,9 @@ describe('NotificationDispatchProcessor', () => {
       id: 'evt-2',
       isCancelled: false,
     });
+    mockAuditExportReadyNotificationService.createReadyNotification.mockResolvedValue(
+      undefined,
+    );
     mockDataSource.transaction.mockImplementation(
       async (cb: (manager: typeof mockManager) => Promise<unknown>) =>
         cb(mockManager),
@@ -101,6 +114,10 @@ describe('NotificationDispatchProcessor', () => {
           useValue: mockRecipientsService,
         },
         { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: AuditExportReadyNotificationService,
+          useValue: mockAuditExportReadyNotificationService,
+        },
       ],
     }).compile();
 
@@ -109,14 +126,14 @@ describe('NotificationDispatchProcessor', () => {
     mockNotificationTypeRepo.findByCode.mockResolvedValue(notifType);
   });
 
-  describe('process — enrutamiento por job.name', () => {
+  describe('process - enrutamiento por job.name', () => {
     it('ignora jobs con nombre desconocido sin lanzar error', async () => {
       const job = makeJob('unknown-job', {});
       await expect(processor.process(job)).resolves.toBeUndefined();
     });
   });
 
-  describe('handleDispatch — tipo desconocido', () => {
+  describe('handleDispatch - tipo desconocido', () => {
     it('lanza UnrecoverableError para tipo de dispatch no reconocido', async () => {
       const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
         type: 'UNKNOWN_TYPE' as typeof NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED,
@@ -129,70 +146,89 @@ describe('NotificationDispatchProcessor', () => {
     });
   });
 
-  describe('handleDispatch — NEW_MATERIAL', () => {
-    const payload = {
-      type: NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
-      materialId: 'mat-1',
-      folderId: 'folder-1',
-    } as const;
+  describe('handleDispatch - NEW_MATERIAL / MATERIAL_UPDATED', () => {
+    it.each([
+      NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
+      NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED,
+    ] as const)(
+      'crea la notificacion y la distribuye en transaccion para %s',
+      async (type) => {
+        const payload = {
+          type,
+          materialId: 'mat-1',
+          folderId: 'folder-1',
+        } as const;
 
-    it('crea la notificación y la distribuye en transacción cuando hay destinatarios', async () => {
+        mockRecipientsService.resolveMaterialContext.mockResolvedValue({
+          materialId: 'mat-1',
+          folderId: 'folder-1',
+          classEventId: 'evt-9',
+          evaluationId: 'eval-1',
+          sessionNumber: 2,
+          materialDisplayName: 'Guia de estudios',
+          courseCycleId: 'cycle-1',
+          evaluationLabel: 'PC1',
+          courseName: 'Matematicas',
+          recipientUserIds: ['u1', 'u2'],
+        });
+
+        const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, payload);
+        await processor.process(job);
+
+        expect(
+          mockRecipientsService.resolveMaterialContext,
+        ).toHaveBeenCalledWith('mat-1', 'folder-1');
+        expect(mockNotificationTypeRepo.findByCode).toHaveBeenCalledWith(type);
+        expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+        expect(mockManager.create).toHaveBeenCalledWith(
+          Notification,
+          expect.objectContaining({
+            notificationTypeId: notifType.id,
+            title: NOTIFICATION_MESSAGES[type].title,
+            message:
+              type === NOTIFICATION_TYPE_CODES.NEW_MATERIAL
+                ? "Se publicó 'Guia de estudios' de la clase 2 de la PC1 del curso Matematicas."
+                : "Se actualizó 'Guia de estudios' de la clase 2 de la PC1 del curso Matematicas.",
+            entityType: NOTIFICATION_ENTITY_TYPES.MATERIAL,
+            entityId: 'mat-1',
+          }),
+        );
+        expect(mockManager.insert).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.arrayContaining([
+            expect.objectContaining({
+              userId: 'u1',
+              notificationId: savedNotif.id,
+            }),
+            expect.objectContaining({
+              userId: 'u2',
+              notificationId: savedNotif.id,
+            }),
+          ]),
+        );
+        expect(
+          mockUserNotifRepo.invalidateUnreadCountForUsers,
+        ).toHaveBeenCalledWith(['u1', 'u2']);
+      },
+    );
+
+    it('no crea notificacion cuando recipientUserIds esta vacio', async () => {
+      const payload = {
+        type: NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
+        materialId: 'mat-1',
+        folderId: 'folder-1',
+      } as const;
+
       mockRecipientsService.resolveMaterialContext.mockResolvedValue({
         materialId: 'mat-1',
         folderId: 'folder-1',
-        materialDisplayName: 'Guía de estudios',
-        courseName: 'Matemáticas',
-        recipientUserIds: ['u1', 'u2'],
-      });
-
-      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, payload);
-      await processor.process(job);
-
-      expect(mockRecipientsService.resolveMaterialContext).toHaveBeenCalledWith(
-        'mat-1',
-        'folder-1',
-      );
-      expect(mockNotificationTypeRepo.findByCode).toHaveBeenCalledWith(
-        NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
-      );
-      expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(mockManager.create).toHaveBeenCalledWith(
-        Notification,
-        expect.objectContaining({
-          notificationTypeId: notifType.id,
-          title:
-            NOTIFICATION_MESSAGES[NOTIFICATION_TYPE_CODES.NEW_MATERIAL].title,
-          message: NOTIFICATION_MESSAGES[
-            NOTIFICATION_TYPE_CODES.NEW_MATERIAL
-          ].message('Guía de estudios', 'Matemáticas'),
-          entityType: NOTIFICATION_ENTITY_TYPES.MATERIAL_FOLDER,
-          entityId: 'folder-1',
-        }),
-      );
-      expect(mockManager.insert).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.arrayContaining([
-          expect.objectContaining({
-            userId: 'u1',
-            notificationId: savedNotif.id,
-          }),
-          expect.objectContaining({
-            userId: 'u2',
-            notificationId: savedNotif.id,
-          }),
-        ]),
-      );
-      expect(
-        mockUserNotifRepo.invalidateUnreadCountForUsers,
-      ).toHaveBeenCalledWith(['u1', 'u2']);
-    });
-
-    it('no crea notificación cuando recipientUserIds está vacío', async () => {
-      mockRecipientsService.resolveMaterialContext.mockResolvedValue({
-        materialId: 'mat-1',
-        folderId: 'folder-1',
-        materialDisplayName: 'Guía',
-        courseName: 'Matemáticas',
+        classEventId: 'evt-9',
+        evaluationId: 'eval-1',
+        sessionNumber: 2,
+        materialDisplayName: 'Guia',
+        courseCycleId: 'cycle-1',
+        evaluationLabel: 'PC1',
+        courseName: 'Matematicas',
         recipientUserIds: [],
       });
 
@@ -201,15 +237,35 @@ describe('NotificationDispatchProcessor', () => {
 
       expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
+
+    it('convierte target faltante en UnrecoverableError', async () => {
+      const payload = {
+        type: NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
+        materialId: 'mat-1',
+        folderId: 'folder-1',
+      } as const;
+      mockRecipientsService.resolveMaterialContext.mockRejectedValue(
+        new NotificationTargetNotFoundError('material inexistente'),
+      );
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, payload);
+
+      await expect(processor.process(job)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+    });
   });
 
-  describe('handleDispatch — CLASS_SCHEDULED / CLASS_UPDATED / CLASS_CANCELLED', () => {
+  describe('handleDispatch - CLASS_SCHEDULED / CLASS_UPDATED / CLASS_CANCELLED / CLASS_RECORDING_AVAILABLE', () => {
     const classContext = {
       classEventId: 'evt-1',
-      classTitle: 'Clase de Álgebra',
+      evaluationId: 'eval-1',
+      sessionNumber: 1,
+      classTitle: 'Clase de Algebra',
       startDatetime: new Date('2026-03-01T14:00:00Z'),
       courseCycleId: 'cycle-1',
-      courseName: 'Matemáticas',
+      evaluationLabel: 'PC1',
+      courseName: 'Matematicas',
       recipientUserIds: ['u1', 'u2', 'u3'],
     };
 
@@ -217,7 +273,8 @@ describe('NotificationDispatchProcessor', () => {
       NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED,
       NOTIFICATION_TYPE_CODES.CLASS_UPDATED,
       NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
-    ] as const)('crea y distribuye en transacción para %s', async (type) => {
+      NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
+    ] as const)('crea y distribuye en transaccion para %s', async (type) => {
       mockRecipientsService.resolveClassEventContext.mockResolvedValue(
         classContext,
       );
@@ -240,6 +297,7 @@ describe('NotificationDispatchProcessor', () => {
       expect(mockManager.create).toHaveBeenCalledWith(
         Notification,
         expect.objectContaining({
+          message: expect.any(String),
           entityType: NOTIFICATION_ENTITY_TYPES.CLASS_EVENT,
           entityId: 'evt-1',
         }),
@@ -255,7 +313,56 @@ describe('NotificationDispatchProcessor', () => {
       ).toHaveBeenCalledWith(classContext.recipientUserIds);
     });
 
-    it('no crea notificación si recipientUserIds está vacío', async () => {
+    it('usa un mensaje de horario actualizado para CLASS_UPDATED', async () => {
+      mockRecipientsService.resolveClassEventContext.mockResolvedValue(
+        classContext,
+      );
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        ...notifType,
+        code: NOTIFICATION_TYPE_CODES.CLASS_UPDATED,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.CLASS_UPDATED,
+        classEventId: 'evt-1',
+      });
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message:
+            'El horario de la clase 1 de la PC1 del curso Matematicas ha sido actualizado. Revisa los detalles mas recientes en la plataforma.',
+        }),
+      );
+    });
+
+    it('mantiene separado CLASS_RECORDING_AVAILABLE del cambio de horario', async () => {
+      mockRecipientsService.resolveClassEventContext.mockResolvedValue(
+        classContext,
+      );
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        ...notifType,
+        code: NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
+        classEventId: 'evt-1',
+      });
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'La grabación de la clase 1 de la PC1 del curso Matematicas ya está disponible.',
+          ),
+        }),
+      );
+    });
+
+    it('no crea notificacion si recipientUserIds esta vacio', async () => {
       mockRecipientsService.resolveClassEventContext.mockResolvedValue({
         ...classContext,
         recipientUserIds: [],
@@ -269,19 +376,63 @@ describe('NotificationDispatchProcessor', () => {
 
       expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
+
+    it('convierte errores de integridad en UnrecoverableError', async () => {
+      mockRecipientsService.resolveClassEventContext.mockRejectedValue(
+        new NotificationIntegrityError('ACTIVE faltante'),
+      );
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED,
+        classEventId: 'evt-1',
+      });
+
+      await expect(processor.process(job)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+    });
+  });
+
+  describe('handleDispatch - AUDIT_EXPORT_READY', () => {
+    it('delegates the ready notification persistence to the dedicated service', async () => {
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY,
+        requestedByUserId: 'admin-1',
+        exportJobId: 'audit-export-job-1',
+        artifactName: 'reporte-auditoria-masivo_2026-03-14_18-00-00.zip',
+        artifactExpiresAt: '2026-03-14T23:00:00.000Z',
+        estimatedFileCount: 3,
+      });
+
+      await processor.process(job);
+
+      expect(
+        mockAuditExportReadyNotificationService.createReadyNotification,
+      ).toHaveBeenCalledWith({
+        type: NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY,
+        requestedByUserId: 'admin-1',
+        exportJobId: 'audit-export-job-1',
+        artifactName: 'reporte-auditoria-masivo_2026-03-14_18-00-00.zip',
+        artifactExpiresAt: '2026-03-14T23:00:00.000Z',
+        estimatedFileCount: 3,
+      });
+    });
   });
 
   describe('handleClassReminder', () => {
     const classContext = {
       classEventId: 'evt-2',
-      classTitle: 'Clase de Física',
+      evaluationId: 'eval-2',
+      sessionNumber: 5,
+      classTitle: 'Clase de Fisica',
       startDatetime: new Date('2026-03-10T09:00:00Z'),
       courseCycleId: 'cycle-2',
-      courseName: 'Física',
+      evaluationLabel: 'PC2',
+      courseName: 'Fisica',
       recipientUserIds: ['u4', 'u5'],
     };
 
-    it('usa reminderMinutes del payload y crea la notificación en transacción', async () => {
+    it('usa reminderMinutes del payload y crea la notificacion en transaccion', async () => {
       mockRecipientsService.resolveClassEventContext.mockResolvedValue(
         classContext,
       );
@@ -296,9 +447,8 @@ describe('NotificationDispatchProcessor', () => {
       });
       await processor.process(job);
 
-      const expectedMsg = NOTIFICATION_MESSAGES[
-        NOTIFICATION_TYPE_CODES.CLASS_REMINDER
-      ].message(classContext.classTitle, 60);
+      const expectedMsg =
+        'Tienes la clase 5 de la PC2 del curso Fisica en 60 minutos.';
       expect(mockManager.create).toHaveBeenCalledWith(
         Notification,
         expect.objectContaining({ message: expectedMsg }),
@@ -310,7 +460,7 @@ describe('NotificationDispatchProcessor', () => {
       });
     });
 
-    it('no crea notificación si no hay destinatarios', async () => {
+    it('no crea notificacion si no hay destinatarios', async () => {
       mockRecipientsService.resolveClassEventContext.mockResolvedValue({
         ...classContext,
         recipientUserIds: [],
@@ -325,7 +475,7 @@ describe('NotificationDispatchProcessor', () => {
       expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('incluye a todos los destinatarios en la inserción masiva', async () => {
+    it('incluye a todos los destinatarios en la insercion masiva', async () => {
       mockRecipientsService.resolveClassEventContext.mockResolvedValue(
         classContext,
       );
@@ -372,7 +522,7 @@ describe('NotificationDispatchProcessor', () => {
   });
 
   describe('handleCleanup', () => {
-    it('ejecuta la limpieza con retención leída de settings', async () => {
+    it('ejecuta la limpieza con retencion leida de settings', async () => {
       mockSettingsService.getString.mockResolvedValue('90');
       mockNotificationRepo.deleteOlderThan.mockResolvedValue(42);
 
@@ -383,6 +533,7 @@ describe('NotificationDispatchProcessor', () => {
         expect.any(Date),
         technicalSettings.notifications.cleanupBatchSize,
       );
+      expect(mockUserNotifRepo.invalidateAllUnreadCounts).toHaveBeenCalled();
     });
 
     it('usa el valor por defecto si settings.getString lanza error', async () => {
@@ -396,9 +547,12 @@ describe('NotificationDispatchProcessor', () => {
         expect.any(Date),
         technicalSettings.notifications.cleanupBatchSize,
       );
+      expect(
+        mockUserNotifRepo.invalidateAllUnreadCounts,
+      ).not.toHaveBeenCalled();
     });
 
-    it('lanza UnrecoverableError si retentionDays está por debajo del mínimo seguro', async () => {
+    it('lanza UnrecoverableError si retentionDays esta por debajo del minimo seguro', async () => {
       const tooLow = technicalSettings.notifications.retentionMinSafeDays - 1;
       mockSettingsService.getString.mockResolvedValue(String(tooLow));
 

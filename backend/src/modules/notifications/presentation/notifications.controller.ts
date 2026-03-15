@@ -26,15 +26,11 @@ export class NotificationsController {
     @CurrentUser() user: User,
     @Query() query: GetNotificationsQueryDto,
   ): Promise<NotificationResponseDto[]> {
-    const userNotifications =
-      await this.notificationsService.getMyNotifications(
-        user.id,
-        query.onlyUnread ?? false,
-        query.limit,
-        query.offset,
-      );
-    return userNotifications.map((un) =>
-      NotificationResponseDto.fromEntity(un),
+    return await this.notificationsService.getMyNotificationResponses(
+      user.id,
+      query.onlyUnread ?? false,
+      query.limit,
+      query.offset,
     );
   }
 

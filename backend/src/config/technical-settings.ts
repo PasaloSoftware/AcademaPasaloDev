@@ -70,8 +70,8 @@ export const technicalSettings = {
     },
 
     session: {
-      // src/modules/auth/strategies/jwt.strategy.ts
-      sessionUserCacheTtlSeconds: 3600,
+      // src/modules/auth/application/session-validator.service.ts
+      lastActivityUpdateWindowMinutes: 5,
     },
 
     oauth: {
@@ -280,6 +280,12 @@ export const technicalSettings = {
   audit: {
     // src/modules/audit/application/audit.service.ts
     cleanupCronPattern: '0 0 3 1 * *',
+    exportSyncThresholdRows: 100000,
+    exportRowsPerFile: 100000,
+    exportReadBatchSize: 5000,
+    exportLockTtlSeconds: 3600,
+    exportLockRefreshIntervalMs: 30000,
+    exportArtifactTtlSeconds: 3600,
     // src/modules/audit/infrastructure/processors/audit-cleanup.processor.ts
     retentionDefaultDays: 30,
     // src/modules/audit/infrastructure/processors/audit-cleanup.processor.ts

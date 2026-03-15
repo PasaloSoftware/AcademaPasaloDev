@@ -403,8 +403,33 @@ export class ClassEventsService {
       categoryCycleContext,
     );
 
-    void this.notificationsDispatchService.dispatchClassUpdated(eventId);
-    if (startDatetime !== undefined) {
+    const startDatetimeChanged =
+      startDatetime !== undefined &&
+      event.startDatetime.getTime() !== startDatetime.getTime();
+    const endDatetimeChanged =
+      endDatetime !== undefined &&
+      event.endDatetime.getTime() !== endDatetime.getTime();
+    const shouldNotifyClassUpdated = startDatetimeChanged || endDatetimeChanged;
+    const normalizedPreviousRecordingUrl = String(
+      event.recordingUrl || '',
+    ).trim();
+    const normalizedNextRecordingUrl =
+      recordingUrl !== undefined
+        ? String(recordingUrl || '').trim()
+        : normalizedPreviousRecordingUrl;
+    const recordingChanged =
+      recordingUrl !== undefined &&
+      normalizedNextRecordingUrl !== normalizedPreviousRecordingUrl;
+
+    if (shouldNotifyClassUpdated) {
+      void this.notificationsDispatchService.dispatchClassUpdated(eventId);
+    }
+    if (recordingChanged) {
+      void this.notificationsDispatchService.dispatchClassRecordingAvailable(
+        eventId,
+      );
+    }
+    if (startDatetimeChanged) {
       void this.notificationsDispatchService.scheduleClassReminder(
         eventId,
         updated.startDatetime,

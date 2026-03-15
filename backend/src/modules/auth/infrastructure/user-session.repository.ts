@@ -119,6 +119,21 @@ export class UserSessionRepository {
     });
   }
 
+  async findActiveSessionIdsByUserId(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    const repo = this.getRepository(manager);
+    const rows = await repo
+      .createQueryBuilder('s')
+      .select('s.id', 'id')
+      .where('s.userId = :userId', { userId })
+      .andWhere('s.isActive = :isActive', { isActive: true })
+      .getRawMany<{ id: string }>();
+
+    return rows.map((row) => row.id);
+  }
+
   async findSessionsByUserAndStatus(
     userId: string,
     statusId: string,
@@ -188,6 +203,45 @@ export class UserSessionRepository {
   async deactivateSession(id: string, manager?: EntityManager): Promise<void> {
     const repo = this.getRepository(manager);
     await repo.update(id, { isActive: false });
+  }
+
+  async updateLastActivity(
+    id: string,
+    lastActivityAt: Date,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = this.getRepository(manager);
+    await repo.update(id, { lastActivityAt });
+  }
+
+  async deactivateActiveSessionsByUserId(
+    userId: string,
+    sessionStatusId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = this.getRepository(manager);
+    await repo.update(
+      { userId, isActive: true },
+      { sessionStatusId, isActive: false },
+    );
+  }
+
+  async deactivateSessionsByIds(
+    sessionIds: string[],
+    sessionStatusId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    if (sessionIds.length === 0) {
+      return;
+    }
+
+    const repo = this.getRepository(manager);
+    await repo
+      .createQueryBuilder()
+      .update(UserSession)
+      .set({ sessionStatusId, isActive: false })
+      .whereInIds(sessionIds)
+      .execute();
   }
 
   async save(

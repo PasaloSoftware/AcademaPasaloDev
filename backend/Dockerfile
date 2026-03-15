@@ -18,4 +18,4 @@ EXPOSE 3001
 ENV PORT=3001
 
 # Comando para iniciar la aplicación
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

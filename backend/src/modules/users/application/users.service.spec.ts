@@ -110,6 +110,99 @@ describe('UsersService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('createWithRole: crea usuario con rol inicial y ultimo rol activo', async () => {
+    const role = { id: '2', code: ROLE_CODES.STUDENT, name: 'Alumno' };
+    const createdUser = {
+      id: '10',
+      email: 'student@test.com',
+      firstName: 'Student',
+      lastName1: null,
+      lastName2: null,
+      phone: null,
+      career: null,
+      profilePhotoUrl: null,
+      photoSource: PhotoSource.NONE,
+      lastActiveRoleId: role.id,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: null,
+      roles: [role],
+    };
+
+    userRepositoryMock.findByEmail.mockResolvedValue(null);
+    roleRepositoryMock.findByCode.mockResolvedValue(role);
+    userRepositoryMock.create.mockResolvedValue(createdUser);
+
+    const result = await usersService.createWithRole(
+      {
+        email: 'student@test.com',
+        firstName: 'Student',
+      } as any,
+      ROLE_CODES.STUDENT,
+    );
+
+    expect(roleRepositoryMock.findByCode).toHaveBeenCalledWith(
+      ROLE_CODES.STUDENT,
+      expect.anything(),
+    );
+    expect(userRepositoryMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'student@test.com',
+        firstName: 'Student',
+        roles: [role],
+        lastActiveRoleId: role.id,
+      }),
+      expect.anything(),
+    );
+    expect(result).toBe(createdUser);
+    expect(mediaAccessQueueMock.add).not.toHaveBeenCalled();
+  });
+
+  it('createWithRole: admin activo encola reconciliacion de staff', async () => {
+    const role = { id: '2', code: ROLE_CODES.ADMIN, name: 'Admin' };
+    const createdUser = {
+      id: '11',
+      email: 'admin2@test.com',
+      firstName: 'Admin',
+      lastName1: null,
+      lastName2: null,
+      phone: null,
+      career: null,
+      profilePhotoUrl: null,
+      photoSource: PhotoSource.NONE,
+      lastActiveRoleId: role.id,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: null,
+      roles: [role],
+    };
+
+    userRepositoryMock.findByEmail.mockResolvedValue(null);
+    roleRepositoryMock.findByCode.mockResolvedValue(role);
+    userRepositoryMock.create.mockResolvedValue(createdUser);
+
+    await usersService.createWithRole(
+      {
+        email: 'admin2@test.com',
+        firstName: 'Admin',
+      } as any,
+      ROLE_CODES.ADMIN,
+    );
+
+    expect(mediaAccessQueueMock.add).toHaveBeenCalledWith(
+      MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS,
+      expect.objectContaining({
+        source: MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+        event: 'ASSIGN_ROLE',
+        userId: '11',
+        roleCode: ROLE_CODES.ADMIN,
+      }),
+      expect.objectContaining({
+        removeOnComplete: true,
+      }),
+    );
+  });
+
   it('assignRole: éxito invalida identidad por cambio de rol', async () => {
     const user = {
       id: '1',

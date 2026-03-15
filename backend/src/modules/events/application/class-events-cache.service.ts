@@ -5,6 +5,11 @@ import { EvaluationRepository } from '@modules/evaluations/infrastructure/evalua
 import { CategoryCycleContext } from '@modules/events/interfaces/class-event.interfaces';
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
 
+type ResolvedCategoryCycleCacheContext = {
+  group: string | null;
+  index: string | null;
+};
+
 @Injectable()
 export class ClassEventsCacheService {
   constructor(
@@ -34,12 +39,17 @@ export class ClassEventsCacheService {
     }
     await Promise.all(deleteOps);
 
+    const resolvedCategoryCycleContext = categoryCycleContext
+      ? null
+      : await this.resolveCategoryCycleCacheContextByEvaluationId(evaluationId);
     const categoryCycleGroup =
       this.resolveCategoryCycleGroupByContext(categoryCycleContext) ??
-      (await this.resolveCategoryCycleGroupByEvaluationId(evaluationId));
+      resolvedCategoryCycleContext?.group ??
+      null;
     const categoryCycleIndex =
       this.resolveCategoryCycleIndexByContext(categoryCycleContext) ??
-      (await this.resolveCategoryCycleIndexByEvaluationId(evaluationId));
+      resolvedCategoryCycleContext?.index ??
+      null;
     const affectedUserIds =
       await this.classEventRepository.findAffectedScheduleUserIdsByEvaluation(
         evaluationId,
@@ -98,45 +108,30 @@ export class ClassEventsCacheService {
     );
   }
 
-  private async resolveCategoryCycleGroupByEvaluationId(
+  private async resolveCategoryCycleCacheContextByEvaluationId(
     evaluationId: string,
-  ): Promise<string | null> {
+  ): Promise<ResolvedCategoryCycleCacheContext> {
     const evaluation =
       await this.evaluationRepository.findByIdWithCycle(evaluationId);
     if (!evaluation) {
-      return null;
+      return { group: null, index: null };
     }
 
     const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
     const academicCycleId = evaluation.courseCycle?.academicCycleId;
     if (!courseTypeId || !academicCycleId) {
-      return null;
+      return { group: null, index: null };
     }
 
-    return CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_GROUP(
-      courseTypeId,
-      academicCycleId,
-    );
-  }
-
-  private async resolveCategoryCycleIndexByEvaluationId(
-    evaluationId: string,
-  ): Promise<string | null> {
-    const evaluation =
-      await this.evaluationRepository.findByIdWithCycle(evaluationId);
-    if (!evaluation) {
-      return null;
-    }
-
-    const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
-    const academicCycleId = evaluation.courseCycle?.academicCycleId;
-    if (!courseTypeId || !academicCycleId) {
-      return null;
-    }
-
-    return CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
-      courseTypeId,
-      academicCycleId,
-    );
+    return {
+      group: CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_GROUP(
+        courseTypeId,
+        academicCycleId,
+      ),
+      index: CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+        courseTypeId,
+        academicCycleId,
+      ),
+    };
   }
 }

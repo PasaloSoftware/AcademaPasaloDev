@@ -41,6 +41,48 @@ export class UsersController {
     });
   }
 
+  @Post('students')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Alumno creado exitosamente')
+  async createStudent(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createWithRole(
+      createUserDto,
+      ROLE_CODES.STUDENT,
+    );
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Post('professors')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Profesor creado exitosamente')
+  async createProfessor(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createWithRole(
+      createUserDto,
+      ROLE_CODES.PROFESSOR,
+    );
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Post('admins')
+  @Roles(ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Administrador creado exitosamente')
+  async createAdmin(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createWithRole(
+      createUserDto,
+      ROLE_CODES.ADMIN,
+    );
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
   @Get()
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Usuarios obtenidos exitosamente')

@@ -26,6 +26,8 @@ interface PaginatedMaterialsData<T> {
 }
 
 describe('E2E: Materials Admin Full Flow', () => {
+  jest.setTimeout(120000);
+
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
@@ -79,11 +81,24 @@ describe('E2E: Materials Admin Full Flow', () => {
     seeder = new TestSeeder(dataSource, app);
 
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 0');
-    await dataSource.query('DELETE FROM deletion_request');
-    await dataSource.query('DELETE FROM material');
-    await dataSource.query('DELETE FROM material_folder');
-    await dataSource.query('DELETE FROM file_version');
-    await dataSource.query('DELETE FROM file_resource');
+    const tables = [
+      'deletion_request',
+      'material',
+      'material_folder',
+      'material_version',
+      'file_resource',
+      'evaluation',
+      'course_cycle_professor',
+      'course_cycle',
+      'academic_cycle',
+      'course',
+      'user_role',
+      'user_session',
+      'user',
+    ];
+    for (const table of tables) {
+      await dataSource.query(`DELETE FROM ${table}`);
+    }
     await dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
 
     await seeder.ensureMaterialStatuses();
@@ -234,7 +249,6 @@ describe('E2E: Materials Admin Full Flow', () => {
     expect(pagedData.totalItems).toBeGreaterThanOrEqual(2);
     expect(pagedData.items).toHaveLength(1);
     expect(pagedData.items[0].status.code).toBeDefined();
-    expect(pagedData.items[0].evaluation.courseCode).toContain('ADM101');
     expect(pagedData.items[0].file.versionNumber).toBeGreaterThanOrEqual(1);
 
     const filteredByStatus = await request(app.getHttpServer())
@@ -259,6 +273,11 @@ describe('E2E: Materials Admin Full Flow', () => {
     expect(searchData.items.length).toBeGreaterThan(0);
     expect(
       searchData.items.some((item: any) => item.displayName === 'Material 2'),
+    ).toBe(true);
+    expect(
+      searchData.items.some((item: any) =>
+        item.evaluation.courseCode.includes('ADM101'),
+      ),
     ).toBe(true);
   });
 

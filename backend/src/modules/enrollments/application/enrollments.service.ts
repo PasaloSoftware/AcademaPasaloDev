@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
 } from '@nestjs/common';
-import { DataSource, In, LessThan } from 'typeorm';
+import { DataSource, EntityManager, In, LessThan } from 'typeorm';
 import { EnrollmentRepository } from '@modules/enrollments/infrastructure/enrollment.repository';
 import { EnrollmentStatusRepository } from '@modules/enrollments/infrastructure/enrollment-status.repository';
 import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
@@ -31,6 +31,8 @@ import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.co
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
+import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import { User } from '@modules/users/domain/user.entity';
 
 @Injectable()
 export class EnrollmentsService {
@@ -126,6 +128,8 @@ export class EnrollmentsService {
             'El usuario ya cuenta con una matricula activa en este curso.',
           );
         }
+
+        await this.assertUserIsActiveStudent(dto.userId, manager);
 
         const type = await this.enrollmentTypeRepository.findByCode(
           dto.enrollmentTypeCode,
@@ -284,15 +288,15 @@ export class EnrollmentsService {
           );
         }
 
-        await this.cacheService.del(
-          ENROLLMENT_CACHE_KEYS.DASHBOARD(dto.userId),
-        );
-        await this.cacheService.invalidateGroup(
-          ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(dto.userId),
-        );
-        await this.cacheService.invalidateGroup(
-          CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(dto.userId),
-        );
+        await Promise.all([
+          this.cacheService.del(ENROLLMENT_CACHE_KEYS.DASHBOARD(dto.userId)),
+          this.cacheService.invalidateGroup(
+            ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(dto.userId),
+          ),
+          this.cacheService.invalidateGroup(
+            CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(dto.userId),
+          ),
+        ]);
 
         this.logger.log({
           message: 'Matricula procesada exitosamente',
@@ -339,15 +343,15 @@ export class EnrollmentsService {
       cancelledAt: new Date(),
     });
 
-    await this.cacheService.del(
-      ENROLLMENT_CACHE_KEYS.DASHBOARD(enrollment.userId),
-    );
-    await this.cacheService.invalidateGroup(
-      ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(enrollment.userId),
-    );
-    await this.cacheService.invalidateGroup(
-      CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(enrollment.userId),
-    );
+    await Promise.all([
+      this.cacheService.del(ENROLLMENT_CACHE_KEYS.DASHBOARD(enrollment.userId)),
+      this.cacheService.invalidateGroup(
+        ENROLLMENT_CACHE_KEYS.USER_ACCESS_GROUP(enrollment.userId),
+      ),
+      this.cacheService.invalidateGroup(
+        CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(enrollment.userId),
+      ),
+    ]);
     await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserEvaluations(
       enrollment.userId,
       evaluationIdsToRevoke,
@@ -366,5 +370,48 @@ export class EnrollmentsService {
       revokedEvaluations: evaluationIdsToRevoke.length,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  private async assertUserIsActiveStudent(
+    userId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    if (typeof manager.query === 'function') {
+      const rows = await manager.query<
+        Array<{ isActiveStudent: number | string }>
+      >(
+        `
+          SELECT EXISTS(
+            SELECT 1
+            FROM user u
+            INNER JOIN user_role ur
+              ON ur.user_id = u.id
+            INNER JOIN role r
+              ON r.id = ur.role_id
+            WHERE u.id = ?
+              AND u.is_active = 1
+              AND r.code = ?
+          ) AS isActiveStudent
+        `,
+        [userId, ROLE_CODES.STUDENT],
+      );
+
+      if (Number(rows[0]?.isActiveStudent) === 1) {
+        return;
+      }
+    } else {
+      const user = await manager.getRepository(User).findOne({
+        where: { id: userId, isActive: true },
+        relations: { roles: true },
+      });
+
+      if (user?.roles?.some((role) => role.code === ROLE_CODES.STUDENT)) {
+        return;
+      }
+    }
+
+    throw new BadRequestException(
+      'El usuario debe ser un alumno activo para matricularse.',
+    );
   }
 }

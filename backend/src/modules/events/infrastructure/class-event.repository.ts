@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, Brackets } from 'typeorm';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
@@ -17,6 +21,15 @@ export type GlobalSessionRow = {
   courseName: string;
   primaryColor: string | null;
   secondaryColor: string | null;
+};
+
+export type NotificationClassEventTargetRow = {
+  classEventId: string;
+  evaluationId: string;
+  courseCycleId: string;
+  sessionNumber: number;
+  evaluationTypeCode: string;
+  evaluationNumber: number;
 };
 
 @Injectable()
@@ -65,6 +78,34 @@ export class ClassEventRepository {
       ? manager.getRepository(ClassEvent)
       : this.ormRepository;
     return await repo.findOne({ where: { id } });
+  }
+
+  async findNotificationTargetsByIds(
+    classEventIds: string[],
+  ): Promise<NotificationClassEventTargetRow[]> {
+    if (classEventIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.ormRepository
+      .createQueryBuilder('ce')
+      .innerJoin('ce.evaluation', 'ev')
+      .innerJoin('ev.evaluationType', 'et')
+      .innerJoin('ev.courseCycle', 'cc')
+      .where('ce.id IN (:...classEventIds)', { classEventIds })
+      .select('ce.id', 'classEventId')
+      .addSelect('ce.session_number', 'sessionNumber')
+      .addSelect('ev.id', 'evaluationId')
+      .addSelect('cc.id', 'courseCycleId')
+      .addSelect('et.code', 'evaluationTypeCode')
+      .addSelect('ev.number', 'evaluationNumber')
+      .getRawMany<NotificationClassEventTargetRow>();
+
+    return rows.map((row) => ({
+      ...row,
+      sessionNumber: Number(row.sessionNumber),
+      evaluationNumber: Number(row.evaluationNumber),
+    }));
   }
 
   async findByEvaluationId(evaluationId: string): Promise<ClassEvent[]> {
@@ -134,11 +175,18 @@ export class ClassEventRepository {
     const repo = manager
       ? manager.getRepository(ClassEvent)
       : this.ormRepository;
-    await repo.update(id, { ...data, updatedAt: new Date() });
+    const result = await repo.update(id, { ...data, updatedAt: new Date() });
+    if (!result.affected) {
+      throw new NotFoundException('Evento de clase no encontrado');
+    }
+
     const updated = await repo.findOne({ where: { id } });
     if (!updated) {
-      throw new Error('Evento de clase no encontrado despues de actualizar');
+      throw new InternalServerErrorException(
+        'No se pudo rehidratar el evento de clase despues de actualizar',
+      );
     }
+
     return updated;
   }
 

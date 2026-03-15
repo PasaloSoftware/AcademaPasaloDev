@@ -117,4 +117,10 @@ export class UserNotificationRepository {
       ),
     );
   }
+
+  async invalidateAllUnreadCounts(): Promise<void> {
+    await this.cacheService.invalidateGroup(
+      'cache:notifications:unread-count:*',
+    );
+  }
 }

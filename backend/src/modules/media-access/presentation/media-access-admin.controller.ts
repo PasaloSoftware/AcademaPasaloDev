@@ -10,7 +10,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Auth } from '@common/decorators/auth.decorator';
-import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
@@ -30,7 +29,6 @@ export class MediaAccessAdminController {
   ) {}
 
   @Post('evaluations/:evaluationId/recover-scope')
-  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
   @ResponseMessage('Recuperación de scope Drive encolada exitosamente')
   async recoverEvaluationScope(

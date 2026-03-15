@@ -14,6 +14,7 @@ type WorkspaceGroupsServiceInternals = {
     groupEmail: string,
     memberEmail: string,
   ) => Promise<{ id?: string; email?: string } | null>;
+  sleep: (ms: number) => Promise<void>;
 };
 
 describe('WorkspaceGroupsService', () => {
@@ -174,5 +175,55 @@ describe('WorkspaceGroupsService', () => {
     await expect(
       service.listGroupMembers('missing-group@academiapasalo.com'),
     ).resolves.toEqual([]);
+  });
+
+  it('reintenta automáticamente en error 429 y tiene éxito en el segundo intento', async () => {
+    jest
+      .spyOn(internals, 'getWorkspaceJwtClient')
+      .mockResolvedValue(mockClient);
+    jest.spyOn(internals, 'findGroupByEmail').mockResolvedValue(null);
+    jest.spyOn(internals, 'sleep').mockResolvedValue();
+
+    const requestMock = mockClient.request as unknown as jest.Mock;
+    requestMock
+      .mockRejectedValueOnce({ response: { status: 429 } })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'group-id-retry',
+          email: 'ev-4-viewers@academiapasalo.com',
+        },
+      });
+
+    const result = await service.findOrCreateGroup({
+      email: 'ev-4-viewers@academiapasalo.com',
+      name: 'Group 4',
+      description: 'desc 4',
+    });
+
+    expect(result.id).toBe('group-id-retry');
+    expect(requestMock).toHaveBeenCalledTimes(2);
+    expect(internals.sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it('propaga el error después de agotar los reintentos en 429', async () => {
+    jest
+      .spyOn(internals, 'getWorkspaceJwtClient')
+      .mockResolvedValue(mockClient);
+    jest.spyOn(internals, 'findGroupByEmail').mockResolvedValue(null);
+    jest.spyOn(internals, 'sleep').mockResolvedValue();
+
+    const requestMock = mockClient.request as unknown as jest.Mock;
+    requestMock.mockRejectedValue({ response: { status: 429 } });
+
+    await expect(
+      service.findOrCreateGroup({
+        email: 'ev-5-viewers@academiapasalo.com',
+        name: 'Group 5',
+        description: 'desc 5',
+      }),
+    ).rejects.toMatchObject({ response: { status: 429 } });
+
+    expect(requestMock).toHaveBeenCalledTimes(3);
+    expect(internals.sleep).toHaveBeenCalledTimes(2);
   });
 });
