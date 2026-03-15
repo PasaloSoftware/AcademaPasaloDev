@@ -5,6 +5,7 @@ import { Job, UnrecoverableError } from 'bullmq';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { technicalSettings } from '@config/technical-settings';
 import { SettingsService } from '@modules/settings/application/settings.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { NotificationRepository } from '@modules/notifications/infrastructure/notification.repository';
 import { NotificationTypeRepository } from '@modules/notifications/infrastructure/notification-type.repository';
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
@@ -28,6 +29,7 @@ import {
   DispatchClassPayload,
   DispatchMaterialPayload,
   DispatchDeletionReviewPayload,
+  DispatchAuditExportReadyPayload,
   ClassReminderPayload,
 } from '@modules/notifications/interfaces';
 import {
@@ -48,6 +50,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
     private readonly userNotificationRepository: UserNotificationRepository,
     private readonly recipientsService: NotificationRecipientsService,
     private readonly settingsService: SettingsService,
+    private readonly auditExportReadyNotificationService: AuditExportReadyNotificationService,
   ) {
     super();
   }
@@ -120,6 +123,11 @@ export class NotificationDispatchProcessor extends WorkerHost {
       type === NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED
     ) {
       await this.handleDeletionReview(job.data);
+      return;
+    }
+
+    if (type === NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY) {
+      await this.handleAuditExportReady(job.data);
       return;
     }
 
@@ -379,6 +387,14 @@ export class NotificationDispatchProcessor extends WorkerHost {
       reminderMinutes,
       recipientCount: context.recipientUserIds.length,
     });
+  }
+
+  private async handleAuditExportReady(
+    payload: DispatchAuditExportReadyPayload,
+  ): Promise<void> {
+    await this.auditExportReadyNotificationService.createReadyNotification(
+      payload,
+    );
   }
 
   private async handleDeletionReview(

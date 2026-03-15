@@ -39,7 +39,9 @@ export class AuditExportRepository {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async countUnifiedHistory(filters: ParsedAuditHistoryFilters): Promise<number> {
+  async countUnifiedHistory(
+    filters: ParsedAuditHistoryFilters,
+  ): Promise<number> {
     const { sql, params } = this.buildUnifiedCountQuery(filters);
     const rows = await this.dataSource.query<{ total: number | string }[]>(
       sql,
@@ -102,7 +104,8 @@ export class AuditExportRepository {
           if (warningState.warningCount < 5) {
             this.logger.warn({
               context: AuditExportRepository.name,
-              message: 'Se omitio metadata invalida en una fila de auditoria unificada',
+              message:
+                'Se omitio metadata invalida en una fila de auditoria unificada',
               auditRowId: row.id,
               error: error instanceof Error ? error.message : String(error),
             });
@@ -193,9 +196,10 @@ export class AuditExportRepository {
     };
   }
 
-  private buildUnifiedCountQuery(
-    filters: ParsedAuditHistoryFilters,
-  ): { sql: string; params: unknown[] } {
+  private buildUnifiedCountQuery(filters: ParsedAuditHistoryFilters): {
+    sql: string;
+    params: unknown[];
+  } {
     const branches: string[] = [];
     const params: unknown[] = [];
 

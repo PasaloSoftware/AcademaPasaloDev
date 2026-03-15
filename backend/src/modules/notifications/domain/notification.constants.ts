@@ -8,6 +8,7 @@ export const NOTIFICATION_TYPE_CODES = {
   CLASS_RECORDING_AVAILABLE: 'CLASS_RECORDING_AVAILABLE',
   DELETION_REQUEST_APPROVED: 'DELETION_REQUEST_APPROVED',
   DELETION_REQUEST_REJECTED: 'DELETION_REQUEST_REJECTED',
+  AUDIT_EXPORT_READY: 'AUDIT_EXPORT_READY',
 } as const;
 
 export type NotificationTypeCode =
@@ -36,18 +37,19 @@ export const NOTIFICATION_ENTITY_TYPES = {
   MATERIAL: 'material',
   CLASS_EVENT: 'class_event',
   DELETION_REQUEST: 'deletion_request',
+  AUDIT_EXPORT: 'audit_export',
 } as const;
 
 export const NOTIFICATION_MESSAGES = {
   [NOTIFICATION_TYPE_CODES.NEW_MATERIAL]: {
     title: 'Nuevo material disponible',
     message: (displayName: string, courseName: string) =>
-      `Se publicó '${displayName}' en el curso ${courseName}.`,
+      `Se publico '${displayName}' en el curso ${courseName}.`,
   },
   [NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED]: {
     title: 'Material actualizado',
     message: (displayName: string, courseName: string) =>
-      `Se actualizó '${displayName}' en el curso ${courseName}.`,
+      `Se actualizo '${displayName}' en el curso ${courseName}.`,
   },
   [NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED]: {
     title: 'Nueva clase programada',
@@ -70,20 +72,27 @@ export const NOTIFICATION_MESSAGES = {
       `Tienes una clase '${classTitle}' en ${minutosRestantes} minutos.`,
   },
   [NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE]: {
-    title: 'Grabación disponible',
+    title: 'Grabacion disponible',
     message: (classTitle: string) =>
-      `La grabación de la clase '${classTitle}' ya está disponible.`,
+      `La grabacion de la clase '${classTitle}' ya esta disponible.`,
   },
   [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED]: {
-    title: 'Solicitud de eliminación aprobada',
+    title: 'Solicitud de eliminacion aprobada',
     message: (displayName: string) =>
-      `Tu solicitud de eliminación del material '${displayName}' fue aprobada.`,
+      `Tu solicitud de eliminacion del material '${displayName}' fue aprobada.`,
   },
   [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED]: {
-    title: 'Solicitud de eliminación rechazada',
+    title: 'Solicitud de eliminacion rechazada',
     message: (displayName: string, adminComment?: string) =>
       adminComment && adminComment.trim().length > 0
-        ? `Tu solicitud de eliminación del material '${displayName}' fue rechazada. Motivo: ${adminComment.trim()}.`
-        : `Tu solicitud de eliminación del material '${displayName}' fue rechazada.`,
+        ? `Tu solicitud de eliminacion del material '${displayName}' fue rechazada. Motivo: ${adminComment.trim()}.`
+        : `Tu solicitud de eliminacion del material '${displayName}' fue rechazada.`,
+  },
+  [NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY]: {
+    title: 'Reporte de auditoria listo',
+    message: (artifactName: string, estimatedFileCount: number) =>
+      estimatedFileCount > 1
+        ? `Tu reporte de auditoria '${artifactName}' ya esta listo para descarga. Incluye ${estimatedFileCount} archivos Excel dentro de un zip y estara disponible por 1 hora.`
+        : `Tu reporte de auditoria '${artifactName}' ya esta listo para descarga y estara disponible por 1 hora.`,
   },
 } as const;

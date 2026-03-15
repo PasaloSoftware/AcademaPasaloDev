@@ -201,6 +201,46 @@ describe('NotificationsService', () => {
         evaluationId: 'eval-1',
         courseCycleId: 'cycle-1',
         folderId: 'folder-1',
+        auditExportJobId: null,
+      });
+    });
+
+    it('expone target directo para notificaciones de exportacion de auditoria', async () => {
+      const items = [
+        {
+          notificationId: 'n-audit-export',
+          notification: {
+            id: 'n-audit-export',
+            entityType: 'audit_export',
+            entityId: 'audit-export-job-1',
+            title: 'Reporte de auditoria listo',
+            message: 'Tu reporte ya esta listo.',
+            createdAt: new Date('2026-03-01T00:00:00Z'),
+            notificationType: {
+              code: 'AUDIT_EXPORT_READY',
+              name: 'Reporte de auditoria listo',
+            },
+          },
+          isRead: false,
+          readAt: null,
+        } as unknown as UserNotification,
+      ];
+      mockUserNotifRepo.findByUserPaginated.mockResolvedValue(items);
+
+      const result = await service.getMyNotificationResponses(
+        'u1',
+        false,
+        20,
+        0,
+      );
+
+      expect(result[0].target).toEqual({
+        materialId: null,
+        classEventId: null,
+        evaluationId: null,
+        courseCycleId: null,
+        folderId: null,
+        auditExportJobId: 'audit-export-job-1',
       });
     });
   });

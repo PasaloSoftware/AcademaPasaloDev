@@ -2,6 +2,7 @@ import { AuditExportProcessor } from './audit-export.processor';
 import { AuditService } from '@modules/audit/application/audit.service';
 import { AuditExportArtifactsService } from '@modules/audit/application/audit-export-artifacts.service';
 import { AuditExportCoordinatorService } from '@modules/audit/application/audit-export-coordinator.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { Queue } from 'bullmq';
 import {
   AUDIT_EXPORT_STATUS,
@@ -23,6 +24,9 @@ describe('AuditExportProcessor', () => {
       refreshExportLock: jest.fn().mockResolvedValue(undefined),
       releaseExportLock: jest.fn().mockResolvedValue(undefined),
     } as unknown as AuditExportCoordinatorService;
+    const auditExportReadyNotificationService = {
+      createReadyNotification: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditExportReadyNotificationService;
     const auditQueue = {
       add: jest.fn().mockRejectedValue(new Error('scheduler-down')),
     } as unknown as Queue;
@@ -30,6 +34,7 @@ describe('AuditExportProcessor', () => {
       auditService,
       auditExportArtifacts,
       auditExportCoordinator,
+      auditExportReadyNotificationService,
       auditQueue,
     );
 
@@ -38,6 +43,7 @@ describe('AuditExportProcessor', () => {
       id: 'job-1',
       name: AUDIT_JOB_NAMES.GENERATE_EXPORT,
       data: {
+        requestedByUserId: 'user-1',
         filters: {},
         totalRows: 120000,
         estimatedFileCount: 2,
@@ -58,6 +64,15 @@ describe('AuditExportProcessor', () => {
         stage: AUDIT_EXPORT_STATUS.FAILED,
       }),
     );
+    expect(
+      auditExportReadyNotificationService.createReadyNotification as jest.Mock,
+    ).toHaveBeenCalledWith({
+      requestedByUserId: 'user-1',
+      exportJobId: 'job-1',
+      artifactName: 'audit.zip',
+      artifactExpiresAt: '2099-03-14T21:00:00.000Z',
+      estimatedFileCount: 2,
+    });
   });
 
   it('should delete the generated artifact if persisting READY status fails', async () => {
@@ -76,6 +91,9 @@ describe('AuditExportProcessor', () => {
       refreshExportLock: jest.fn().mockResolvedValue(undefined),
       releaseExportLock: jest.fn().mockResolvedValue(true),
     } as unknown as AuditExportCoordinatorService;
+    const auditExportReadyNotificationService = {
+      createReadyNotification: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditExportReadyNotificationService;
     const auditQueue = {
       add: jest.fn().mockResolvedValue(undefined),
     } as unknown as Queue;
@@ -83,6 +101,7 @@ describe('AuditExportProcessor', () => {
       auditService,
       auditExportArtifacts,
       auditExportCoordinator,
+      auditExportReadyNotificationService,
       auditQueue,
     );
 
@@ -95,6 +114,7 @@ describe('AuditExportProcessor', () => {
       id: 'job-2',
       name: AUDIT_JOB_NAMES.GENERATE_EXPORT,
       data: {
+        requestedByUserId: 'user-1',
         filters: {},
         totalRows: 120000,
         estimatedFileCount: 2,
@@ -128,6 +148,9 @@ describe('AuditExportProcessor', () => {
       refreshExportLock: jest.fn().mockResolvedValue(undefined),
       releaseExportLock: jest.fn().mockResolvedValue(true),
     } as unknown as AuditExportCoordinatorService;
+    const auditExportReadyNotificationService = {
+      createReadyNotification: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditExportReadyNotificationService;
     const auditQueue = {
       add: jest.fn().mockResolvedValue(undefined),
     } as unknown as Queue;
@@ -135,6 +158,7 @@ describe('AuditExportProcessor', () => {
       auditService,
       auditExportArtifacts,
       auditExportCoordinator,
+      auditExportReadyNotificationService,
       auditQueue,
     );
 
@@ -147,6 +171,7 @@ describe('AuditExportProcessor', () => {
       id: 'job-3',
       name: AUDIT_JOB_NAMES.GENERATE_EXPORT,
       data: {
+        requestedByUserId: 'user-1',
         filters: {},
         totalRows: 120000,
         estimatedFileCount: 2,

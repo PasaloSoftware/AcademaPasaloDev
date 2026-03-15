@@ -27,6 +27,7 @@ interface AuditHistoryResponse {
 
 describe('AuditController (e2e)', () => {
   let app: INestApplication;
+  let dataSource: DataSource;
   let seeder: TestSeeder;
   let accessToken: string;
   let secondAdminAccessToken: string;
@@ -58,7 +59,14 @@ describe('AuditController (e2e)', () => {
 
     await app.init();
 
-    const dataSource = app.get(DataSource);
+    dataSource = app.get(DataSource);
+    await dataSource.query(`
+      INSERT INTO notification_type (code, name)
+      SELECT 'AUDIT_EXPORT_READY', 'Reporte de Auditoria Listo'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM notification_type WHERE code = 'AUDIT_EXPORT_READY'
+      )
+    `);
     seeder = new TestSeeder(dataSource, app);
     auditQueue = app.get<Queue>(getQueueToken('audit-queue'));
     auditService = app.get(AuditService);
@@ -261,6 +269,126 @@ describe('AuditController (e2e)', () => {
       .get('/api/v1/audit/export')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(409);
+  });
+
+  it('/audit/export (GET) - should create a ready notification for the async export owner', async () => {
+    const getExportPlanSpy = jest
+      .spyOn(auditService, 'getExportPlan')
+      .mockResolvedValueOnce({
+        mode: 'async',
+        totalRows: 120000,
+        thresholdRows: 100000,
+        rowsPerFile: 100000,
+        estimatedFileCount: 2,
+        artifactTtlSeconds: 3600,
+      });
+
+    const exportResponse = await request(app.getHttpServer())
+      .get('/api/v1/audit/export')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(202);
+
+    getExportPlanSpy.mockRestore();
+
+    const jobId = exportResponse.body.data.jobId as string;
+    let status = AUDIT_EXPORT_STATUS.QUEUED;
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const statusResponse = await request(app.getHttpServer())
+        .get(`/api/v1/audit/export-jobs/${jobId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      status = statusResponse.body.data.status;
+      if (
+        status === AUDIT_EXPORT_STATUS.READY ||
+        status === AUDIT_EXPORT_STATUS.FAILED
+      ) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    expect(status).toBe(AUDIT_EXPORT_STATUS.READY);
+
+    let persistedNotifications:
+      | Array<{ code: string; entity_type: string; entity_id: string; user_id: string }>
+      | undefined;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      persistedNotifications = await dataSource.query(
+        `
+          SELECT nt.code, n.entity_type, n.entity_id, un.user_id
+          FROM user_notification un
+          INNER JOIN notification n ON n.id = un.notification_id
+          INNER JOIN notification_type nt ON nt.id = n.notification_type_id
+          WHERE nt.code = 'AUDIT_EXPORT_READY' AND n.entity_id = ?
+        `,
+        [jobId],
+      );
+
+      if ((persistedNotifications?.length ?? 0) > 0) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    expect(persistedNotifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'AUDIT_EXPORT_READY',
+          entity_type: 'audit_export',
+          entity_id: jobId,
+          user_id: accessUserId,
+        }),
+      ]),
+    );
+
+    let ownerNotification: Record<string, unknown> | undefined;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const notificationsResponse = await request(app.getHttpServer())
+        .get('/api/v1/notifications?limit=20&offset=0')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      ownerNotification = (
+        notificationsResponse.body.data as Array<Record<string, unknown>>
+      ).find(
+        (notification) =>
+          notification.type === 'AUDIT_EXPORT_READY' &&
+          notification.entityType === 'audit_export' &&
+          notification.entityId === jobId,
+      );
+
+      if (ownerNotification) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    expect(ownerNotification).toEqual(
+      expect.objectContaining({
+        type: 'AUDIT_EXPORT_READY',
+        entityType: 'audit_export',
+        entityId: jobId,
+        target: expect.objectContaining({
+          auditExportJobId: jobId,
+        }),
+      }),
+    );
+
+    const secondAdminNotificationsResponse = await request(app.getHttpServer())
+      .get('/api/v1/notifications?limit=20&offset=0')
+      .set('Authorization', `Bearer ${secondAdminAccessToken}`)
+      .expect(200);
+
+    expect(
+      (
+        secondAdminNotificationsResponse.body.data as Array<Record<string, unknown>>
+      ).some((notification) => notification.entityId === jobId),
+    ).toBe(false);
   });
 
   it('/audit/export-jobs/:id (GET) - should return the job status', async () => {

@@ -49,7 +49,10 @@ export class AuditController {
     @CurrentUser() user: User,
     @Query() query: AuditExportQueryDto,
   ): Promise<void> {
-    const result = await this.auditExportJobsService.requestExport(user.id, query);
+    const result = await this.auditExportJobsService.requestExport(
+      user.id,
+      query,
+    );
 
     if ('stream' in result) {
       res.set({
@@ -163,11 +166,17 @@ export class AuditController {
       if (streamFailed) {
         return;
       }
-      void runCleanup(onFinish, 'Fallo el cleanup post-descarga del export de auditoria');
+      void runCleanup(
+        onFinish,
+        'Fallo el cleanup post-descarga del export de auditoria',
+      );
     });
     res.once('close', () => {
       if (!res.writableFinished) {
-        void runCleanup(onAbort, 'Fallo el cleanup por aborto del export de auditoria');
+        void runCleanup(
+          onAbort,
+          'Fallo el cleanup por aborto del export de auditoria',
+        );
       }
     });
     (stream as Readable).once('error', (error: unknown) => {

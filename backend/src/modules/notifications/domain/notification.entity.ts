@@ -28,7 +28,7 @@ export class Notification {
   @Column({ type: 'varchar', length: 50, name: 'entity_type', nullable: true })
   entityType: string | null;
 
-  @Column({ type: 'bigint', name: 'entity_id', nullable: true })
+  @Column({ type: 'varchar', length: 64, name: 'entity_id', nullable: true })
   entityId: string | null;
 
   @Column({ type: 'datetime', name: 'created_at' })

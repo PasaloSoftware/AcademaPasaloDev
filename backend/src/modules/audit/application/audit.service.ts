@@ -53,7 +53,9 @@ export class AuditService implements OnApplicationBootstrap {
     await this.setupRepeatableJobs();
   }
 
-  private parseHistoryFilters(filters: AuditHistoryFilters): ParsedAuditHistoryFilters {
+  private parseHistoryFilters(
+    filters: AuditHistoryFilters,
+  ): ParsedAuditHistoryFilters {
     return {
       startDate: filters.startDate ? new Date(filters.startDate) : undefined,
       endDate: filters.endDate ? new Date(filters.endDate) : undefined,
@@ -78,7 +80,8 @@ export class AuditService implements OnApplicationBootstrap {
       if (currentPattern !== cronPattern) {
         this.logger.log({
           context: AuditService.name,
-          message: 'Detectado cambio en el patron de horario. Actualizando Redis...',
+          message:
+            'Detectado cambio en el patron de horario. Actualizando Redis...',
           oldPattern: currentPattern,
           newPattern: cronPattern,
         });
@@ -126,7 +129,8 @@ export class AuditService implements OnApplicationBootstrap {
       if (!action) {
         this.logger.error({
           context: AuditService.name,
-          message: 'Critico: El codigo de accion de auditoria no esta configurado en la BD',
+          message:
+            'Critico: El codigo de accion de auditoria no esta configurado en la BD',
           actionCode,
           userId,
         });
@@ -185,7 +189,8 @@ export class AuditService implements OnApplicationBootstrap {
   }> {
     const now = new Date();
     const fileName = this.auditExportArtifacts.buildSyncFileName(now);
-    const filePath = await this.auditExportArtifacts.createSyncTempFile(fileName);
+    const filePath =
+      await this.auditExportArtifacts.createSyncTempFile(fileName);
 
     try {
       await this.writeWorkbookToFile(filters, filePath, {
@@ -209,7 +214,10 @@ export class AuditService implements OnApplicationBootstrap {
     totalRows: number,
     rowsPerFile: number,
     jobId: string,
-    onProgress?: (progress: number, estimatedFileCount: number) => Promise<void>,
+    onProgress?: (
+      progress: number,
+      estimatedFileCount: number,
+    ) => Promise<void>,
     onBatchProcessed?: () => Promise<void>,
   ): Promise<{
     artifactName: string;
@@ -267,7 +275,10 @@ export class AuditService implements OnApplicationBootstrap {
         this.auditExportArtifacts.buildAsyncZipName(now),
       );
       artifactFilePath = artifact.filePath;
-      await this.auditExportArtifacts.zipFiles(generatedFiles, artifact.filePath);
+      await this.auditExportArtifacts.zipFiles(
+        generatedFiles,
+        artifact.filePath,
+      );
 
       this.logger.log({
         context: AuditService.name,
@@ -282,7 +293,8 @@ export class AuditService implements OnApplicationBootstrap {
         artifactName: artifact.fileName,
         artifactStorageKey: artifact.storageKey,
         artifactExpiresAt: new Date(
-          now.getTime() + technicalSettings.audit.exportArtifactTtlSeconds * 1000,
+          now.getTime() +
+            technicalSettings.audit.exportArtifactTtlSeconds * 1000,
         ).toISOString(),
         estimatedFileCount,
       };

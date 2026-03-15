@@ -717,17 +717,31 @@ _Requiere Authorization: Bearer <accessToken>._
 
 `GET /export`
 
-**Purpose:** Descarga un reporte profesional en formato `.xlsx` con el historial filtrado. Soporta hasta 1000 registros por descarga.
+**Purpose:** Punto de entrada unico para exportacion de auditoria. El backend decide si responde un `.xlsx` sync o si encola un job async para generar un `.zip`.
 
 **Query Parameters:**
 
-- `startDate`, `endDate`, `userId` (Mismos filtros que el historial).
+- `startDate`, `endDate`, `userId`, `source`, `actionCode`
 
 **Response:**
 
-- **Content-Type:** `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
-- **Content-Disposition:** `attachment; filename=reporte-auditoria-YYYY-MM-DD.xlsx`
-- **Body:** Stream binario del archivo Excel.
+- `200 OK` con `.xlsx` si el export es pequeno
+- `202 Accepted` con `jobId` si el export es masivo
+- `409 Conflict` si ya existe otra exportacion en proceso
+
+### 3. Estado de Exportacion Async
+
+`GET /export-jobs/:id`
+
+**Purpose:** Consulta el estado de un job async de exportacion de auditoria.
+
+### 4. Descargar Exportacion Async
+
+`GET /export-jobs/:id/download`
+
+**Purpose:** Descarga el artefacto `.zip` de un job async listo.
+
+> Ver contrato detallado, ejemplos de request/response y flujo de integracion frontend en `docs/API_AUDIT_EXPORT_DOCUMENTATION.md`.
 
 ---
 
@@ -754,6 +768,7 @@ Las notificaciones se despachan de forma asincrona a traves de una cola de traba
 | `CLASS_RECORDING_AVAILABLE` | `"class_event"` | `classEventId` |
 | `DELETION_REQUEST_APPROVED` | `"deletion_request"` | `requestId` |
 | `DELETION_REQUEST_REJECTED` | `"deletion_request"` | `requestId` |
+| `AUDIT_EXPORT_READY` | `"audit_export"` | `jobId` del export async |
 
 `entityType` y `entityId` representan la referencia persistida de la notificacion. Para navegacion en frontend, se debe priorizar `target` cuando exista.
 
@@ -764,6 +779,7 @@ Reglas funcionales relevantes para frontend:
 3. `CLASS_RECORDING_AVAILABLE` es independiente y se genera cuando la grabacion queda disponible.
 4. Si cambia la hora de inicio de una clase, el backend reemplaza automaticamente el reminder anterior para evitar duplicados.
 5. Si el nuevo horario ya no permite reminder, el backend elimina el reminder previo pendiente.
+6. `AUDIT_EXPORT_READY` se genera cuando un export async de auditoria queda listo para descarga.
 
 ### Estrategia de actualizacion en cliente (pull puro)
 
@@ -814,7 +830,8 @@ El frontend debe usar:
       "classEventId": "evt-300",
       "evaluationId": "eval-22",
       "courseCycleId": "cycle-8",
-      "folderId": "folder-41"
+      "folderId": "folder-41",
+      "auditExportJobId": null
     },
     "isRead": false,
     "readAt": null,
@@ -833,7 +850,8 @@ El frontend debe usar:
       "classEventId": "evt-501",
       "evaluationId": "eval-31",
       "courseCycleId": "cycle-11",
-      "folderId": null
+      "folderId": null,
+      "auditExportJobId": null
     },
     "isRead": false,
     "readAt": null,
@@ -849,12 +867,14 @@ El frontend debe usar:
 - `target.evaluationId`: evaluacion de la sesion
 - `target.courseCycleId`: opcional para rutas del frontend que agrupen por ciclo
 - `target.folderId`: carpeta relacionada si la UI la necesita
+- `target.auditExportJobId`: `jobId` del export async cuando `type = AUDIT_EXPORT_READY`
 
 **Reglas de uso en frontend:**
 
 - Si `type` es `CLASS_RECORDING_AVAILABLE`, navegar a la vista de sesiones usando `target.classEventId`.
 - Si `type` es `CLASS_UPDATED`, refrescar detalle/calendario de la sesion usando `target.classEventId`.
 - Si `type` es `NEW_MATERIAL` o `MATERIAL_UPDATED`, navegar a la vista de sesiones usando `target.classEventId` y enfocar el material con `target.materialId`.
+- Si `type` es `AUDIT_EXPORT_READY`, abrir el flujo de descarga de auditoria usando `target.auditExportJobId`.
 - `message` ya llega enriquecido con clase, evaluacion y curso cuando aplica.
 - `target` puede ser `null` en tipos sin destino navegable.
 

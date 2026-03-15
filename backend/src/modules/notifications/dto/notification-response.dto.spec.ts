@@ -85,6 +85,7 @@ describe('NotificationResponseDto', () => {
         evaluationId: 'eval-1',
         courseCycleId: 'cycle-1',
         folderId: null,
+        auditExportJobId: null,
       });
 
       expect(dto.target).toEqual({
@@ -93,6 +94,7 @@ describe('NotificationResponseDto', () => {
         evaluationId: 'eval-1',
         courseCycleId: 'cycle-1',
         folderId: null,
+        auditExportJobId: null,
       });
     });
 

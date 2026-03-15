@@ -17,6 +17,7 @@ import { NotificationRepository } from '@modules/notifications/infrastructure/no
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
 import { NotificationsService } from '@modules/notifications/application/notifications.service';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { NotificationRecipientsService } from '@modules/notifications/application/notification-recipients.service';
 import { NotificationDispatchProcessor } from '@modules/notifications/infrastructure/processors/notification-dispatch.processor';
 import { NotificationsController } from '@modules/notifications/presentation/notifications.controller';
@@ -50,9 +51,10 @@ import { QUEUES } from '@infrastructure/queue/queue.constants';
     ClassEventRepository,
     NotificationsService,
     NotificationsDispatchService,
+    AuditExportReadyNotificationService,
     NotificationRecipientsService,
     NotificationDispatchProcessor,
   ],
-  exports: [NotificationsDispatchService],
+  exports: [NotificationsDispatchService, AuditExportReadyNotificationService],
 })
 export class NotificationsModule {}

@@ -88,7 +88,8 @@ export class AuditExportCoordinatorService {
 
       this.logger.error({
         context: AuditExportCoordinatorService.name,
-        message: 'Fallo tecnico al renovar el lock global del export de auditoria',
+        message:
+          'Fallo tecnico al renovar el lock global del export de auditoria',
         lockToken,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -140,7 +141,8 @@ export class AuditExportCoordinatorService {
             'No se pudo liberar el lock global del export de auditoria; se acorto su TTL como fallback',
           lockToken,
           fallbackTtlSeconds: this.releaseFailureFallbackTtlSeconds,
-          error: lastError instanceof Error ? lastError.message : String(lastError),
+          error:
+            lastError instanceof Error ? lastError.message : String(lastError),
         });
         return false;
       }

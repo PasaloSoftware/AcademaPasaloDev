@@ -264,7 +264,8 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       stream.on('end', () => {
         if (keysToDelete.length === 0) {
           this.logger.log({
-            message: 'Invalidacion de grupo completada (sin llaves encontradas)',
+            message:
+              'Invalidacion de grupo completada (sin llaves encontradas)',
             pattern,
             keysDeleted: 0,
             timestamp: new Date().toISOString(),

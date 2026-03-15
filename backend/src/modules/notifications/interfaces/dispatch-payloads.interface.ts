@@ -23,10 +23,20 @@ export interface DispatchDeletionReviewPayload {
   adminComment?: string;
 }
 
+export interface DispatchAuditExportReadyPayload {
+  type: (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['AUDIT_EXPORT_READY'];
+  requestedByUserId: string;
+  exportJobId: string;
+  artifactName: string;
+  artifactExpiresAt: string;
+  estimatedFileCount: number;
+}
+
 export type DispatchPayload =
   | DispatchClassPayload
   | DispatchMaterialPayload
-  | DispatchDeletionReviewPayload;
+  | DispatchDeletionReviewPayload
+  | DispatchAuditExportReadyPayload;
 
 export interface ClassReminderPayload {
   classEventId: string;

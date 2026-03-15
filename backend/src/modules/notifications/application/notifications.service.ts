@@ -210,6 +210,7 @@ export class NotificationsService implements OnApplicationBootstrap {
           evaluationId: row.evaluationId,
           courseCycleId: row.courseCycleId,
           folderId: row.folderId,
+          auditExportJobId: null as string | null,
         } satisfies NotificationTargetDto,
       ]),
     );
@@ -217,11 +218,12 @@ export class NotificationsService implements OnApplicationBootstrap {
       classEventTargets.map((row) => [
         row.classEventId,
         {
-          materialId: null,
+          materialId: null as string | null,
           classEventId: row.classEventId,
           evaluationId: row.evaluationId,
           courseCycleId: row.courseCycleId,
-          folderId: null,
+          folderId: null as string | null,
+          auditExportJobId: null as string | null,
         } as NotificationTargetDto,
       ]),
     );
@@ -247,6 +249,18 @@ export class NotificationsService implements OnApplicationBootstrap {
         if (target) {
           targetMap.set(un.notificationId, target);
         }
+        continue;
+      }
+
+      if (entityType === NOTIFICATION_ENTITY_TYPES.AUDIT_EXPORT) {
+        targetMap.set(un.notificationId, {
+          materialId: null as string | null,
+          classEventId: null as string | null,
+          evaluationId: null as string | null,
+          courseCycleId: null as string | null,
+          folderId: null as string | null,
+          auditExportJobId: entityId,
+        });
       }
     }
 

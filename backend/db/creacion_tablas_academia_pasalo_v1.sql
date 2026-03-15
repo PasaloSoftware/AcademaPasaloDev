@@ -391,7 +391,7 @@ CREATE TABLE notification (
   title                VARCHAR(255) NOT NULL,
   message              VARCHAR(500) NOT NULL,
   entity_type          VARCHAR(50)  NULL,
-  entity_id            BIGINT       NULL,
+  entity_id            VARCHAR(64)  NULL,
   created_at           DATETIME     NOT NULL,
   CONSTRAINT fk_notification_type
     FOREIGN KEY (notification_type_id) REFERENCES notification_type(id)

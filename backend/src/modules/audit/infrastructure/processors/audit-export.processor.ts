@@ -1,4 +1,9 @@
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import {
+  InjectQueue,
+  OnWorkerEvent,
+  Processor,
+  WorkerHost,
+} from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job, UnrecoverableError } from 'bullmq';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
@@ -16,6 +21,7 @@ import { Queue } from 'bullmq';
 import { AuditService } from '@modules/audit/application/audit.service';
 import { AuditExportArtifactsService } from '@modules/audit/application/audit-export-artifacts.service';
 import { AuditExportCoordinatorService } from '@modules/audit/application/audit-export-coordinator.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 
 @Injectable()
 @Processor(QUEUES.AUDIT)
@@ -26,6 +32,7 @@ export class AuditExportProcessor extends WorkerHost {
     private readonly auditService: AuditService,
     private readonly auditExportArtifacts: AuditExportArtifactsService,
     private readonly auditExportCoordinator: AuditExportCoordinatorService,
+    private readonly auditExportReadyNotificationService: AuditExportReadyNotificationService,
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {
     super();
@@ -46,7 +53,9 @@ export class AuditExportProcessor extends WorkerHost {
       return;
     }
 
-    throw new UnrecoverableError(`Job de auditoria no soportado: ${String(job.name)}`);
+    throw new UnrecoverableError(
+      `Job de auditoria no soportado: ${String(job.name)}`,
+    );
   }
 
   @OnWorkerEvent('error')
@@ -111,7 +120,9 @@ export class AuditExportProcessor extends WorkerHost {
           if (refreshFailure) {
             throw refreshFailure;
           }
-          await this.auditExportCoordinator.refreshExportLock(job.data.lockToken);
+          await this.auditExportCoordinator.refreshExportLock(
+            job.data.lockToken,
+          );
           await job.updateProgress({
             stage: AUDIT_EXPORT_STATUS.PROCESSING,
             progress: progressValue,
@@ -127,7 +138,9 @@ export class AuditExportProcessor extends WorkerHost {
           if (refreshFailure) {
             throw refreshFailure;
           }
-          await this.auditExportCoordinator.refreshExportLock(job.data.lockToken);
+          await this.auditExportCoordinator.refreshExportLock(
+            job.data.lockToken,
+          );
         },
       );
       if (refreshFailure) {
@@ -157,6 +170,27 @@ export class AuditExportProcessor extends WorkerHost {
       });
 
       await this.auditExportCoordinator.releaseExportLock(job.data.lockToken);
+      try {
+        await this.auditExportReadyNotificationService.createReadyNotification({
+          requestedByUserId: job.data.requestedByUserId,
+          exportJobId: String(job.id),
+          artifactName: generatedArtifact.artifactName,
+          artifactExpiresAt: generatedArtifact.artifactExpiresAt,
+          estimatedFileCount: generatedArtifact.estimatedFileCount,
+        });
+      } catch (notificationError) {
+        this.logger.warn({
+          context: AuditExportProcessor.name,
+          message:
+            'No se pudo crear la notificacion de reporte de auditoria listo; el reporte seguira disponible para descarga',
+          jobId: String(job.id),
+          requestedByUserId: job.data.requestedByUserId,
+          error:
+            notificationError instanceof Error
+              ? notificationError.message
+              : String(notificationError),
+        });
+      }
 
       try {
         await this.auditQueue.add(
@@ -217,7 +251,9 @@ export class AuditExportProcessor extends WorkerHost {
             artifactStorageKey: null,
             artifactExpiresAt: null,
             errorMessage:
-              error instanceof Error ? error.message : 'Error generando exportacion',
+              error instanceof Error
+                ? error.message
+                : 'Error generando exportacion',
           } satisfies AuditExportJobProgress);
         } catch (progressError) {
           this.logger.error({

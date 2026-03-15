@@ -16,6 +16,7 @@ import { AuditCleanupProcessor } from './infrastructure/processors/audit-cleanup
 import { AuditExportCoordinatorService } from './application/audit-export-coordinator.service';
 import { AuditExportProcessor } from './infrastructure/processors/audit-export.processor';
 import { AuditExportArtifactsService } from './application/audit-export-artifacts.service';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuditExportArtifactsService } from './application/audit-export-artifact
     }),
     forwardRef(() => AuthModule),
     SettingsModule,
+    NotificationsModule,
   ],
   controllers: [AuditController],
   providers: [

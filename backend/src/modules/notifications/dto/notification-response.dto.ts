@@ -7,6 +7,7 @@ export type NotificationTargetDto = {
   evaluationId: string | null;
   courseCycleId: string | null;
   folderId: string | null;
+  auditExportJobId: string | null;
 };
 
 export class NotificationResponseDto {

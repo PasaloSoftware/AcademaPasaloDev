@@ -7,6 +7,7 @@ import { NotificationTypeRepository } from '@modules/notifications/infrastructur
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
 import { NotificationRecipientsService } from '@modules/notifications/application/notification-recipients.service';
 import { SettingsService } from '@modules/settings/application/settings.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { NotificationType } from '@modules/notifications/domain/notification-type.entity';
 import { Notification } from '@modules/notifications/domain/notification.entity';
 import {
@@ -43,6 +44,10 @@ const mockRecipientsService = {
 
 const mockSettingsService = {
   getString: jest.fn(),
+};
+
+const mockAuditExportReadyNotificationService = {
+  createReadyNotification: jest.fn(),
 };
 
 const savedNotif = { id: '99' } as Notification;
@@ -85,6 +90,9 @@ describe('NotificationDispatchProcessor', () => {
       id: 'evt-2',
       isCancelled: false,
     });
+    mockAuditExportReadyNotificationService.createReadyNotification.mockResolvedValue(
+      undefined,
+    );
     mockDataSource.transaction.mockImplementation(
       async (cb: (manager: typeof mockManager) => Promise<unknown>) =>
         cb(mockManager),
@@ -106,6 +114,10 @@ describe('NotificationDispatchProcessor', () => {
           useValue: mockRecipientsService,
         },
         { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: AuditExportReadyNotificationService,
+          useValue: mockAuditExportReadyNotificationService,
+        },
       ],
     }).compile();
 
@@ -378,6 +390,32 @@ describe('NotificationDispatchProcessor', () => {
       await expect(processor.process(job)).rejects.toBeInstanceOf(
         UnrecoverableError,
       );
+    });
+  });
+
+  describe('handleDispatch - AUDIT_EXPORT_READY', () => {
+    it('delegates the ready notification persistence to the dedicated service', async () => {
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY,
+        requestedByUserId: 'admin-1',
+        exportJobId: 'audit-export-job-1',
+        artifactName: 'reporte-auditoria-masivo_2026-03-14_18-00-00.zip',
+        artifactExpiresAt: '2026-03-14T23:00:00.000Z',
+        estimatedFileCount: 3,
+      });
+
+      await processor.process(job);
+
+      expect(
+        mockAuditExportReadyNotificationService.createReadyNotification,
+      ).toHaveBeenCalledWith({
+        type: NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY,
+        requestedByUserId: 'admin-1',
+        exportJobId: 'audit-export-job-1',
+        artifactName: 'reporte-auditoria-masivo_2026-03-14_18-00-00.zip',
+        artifactExpiresAt: '2026-03-14T23:00:00.000Z',
+        estimatedFileCount: 3,
+      });
     });
   });
 

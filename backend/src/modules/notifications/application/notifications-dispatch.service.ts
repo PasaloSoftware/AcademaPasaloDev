@@ -178,6 +178,36 @@ export class NotificationsDispatchService {
     }
   }
 
+  async dispatchAuditExportReady(
+    requestedByUserId: string,
+    exportJobId: string,
+    artifactName: string,
+    artifactExpiresAt: string,
+    estimatedFileCount: number,
+  ): Promise<void> {
+    try {
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY,
+          requestedByUserId,
+          exportJobId,
+          artifactName,
+          artifactExpiresAt,
+          estimatedFileCount,
+        },
+        `audit-export-ready:${exportJobId}`,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationsDispatchService.name,
+        message: 'No se pudo encolar la notificacion AUDIT_EXPORT_READY',
+        requestedByUserId,
+        exportJobId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   async scheduleClassReminder(
     classEventId: string,
     startDatetime: Date,

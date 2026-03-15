@@ -197,6 +197,34 @@ describe('NotificationsDispatchService', () => {
     });
   });
 
+  describe('dispatchAuditExportReady', () => {
+    it('encola el job AUDIT_EXPORT_READY con jobId estable', async () => {
+      await service.dispatchAuditExportReady(
+        'user-1',
+        'export-job-1',
+        'reporte-auditoria-masivo_2026-03-14_18-00-00.zip',
+        '2026-03-14T23:00:00.000Z',
+        3,
+      );
+
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        NOTIFICATION_JOB_NAMES.DISPATCH,
+        {
+          type: NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY,
+          requestedByUserId: 'user-1',
+          exportJobId: 'export-job-1',
+          artifactName: 'reporte-auditoria-masivo_2026-03-14_18-00-00.zip',
+          artifactExpiresAt: '2026-03-14T23:00:00.000Z',
+          estimatedFileCount: 3,
+        },
+        {
+          jobId: 'audit-export-ready:export-job-1',
+          removeOnComplete: true,
+        },
+      );
+    });
+  });
+
   describe('scheduleClassReminder', () => {
     it('omite el reminder si el delay calculado es menor al umbral minimo', async () => {
       mockSettingsService.getString.mockResolvedValue('30');

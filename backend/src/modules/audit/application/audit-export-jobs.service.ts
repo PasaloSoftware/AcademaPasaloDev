@@ -97,10 +97,14 @@ export class AuditExportJobsService {
           mimeType: prepared.mimeType,
           stream: this.auditExportArtifacts.createReadStream(prepared.filePath),
           onFinish: async () => {
-            await this.auditExportArtifacts.deleteFileIfExists(prepared.filePath);
+            await this.auditExportArtifacts.deleteFileIfExists(
+              prepared.filePath,
+            );
           },
           onAbort: async () => {
-            await this.auditExportArtifacts.deleteFileIfExists(prepared.filePath);
+            await this.auditExportArtifacts.deleteFileIfExists(
+              prepared.filePath,
+            );
           },
         };
       }
@@ -126,9 +130,13 @@ export class AuditExportJobsService {
         errorMessage: null,
       };
 
-      const job = await this.auditQueue.add(AUDIT_JOB_NAMES.GENERATE_EXPORT, payload, {
-        jobId,
-      });
+      const job = await this.auditQueue.add(
+        AUDIT_JOB_NAMES.GENERATE_EXPORT,
+        payload,
+        {
+          jobId,
+        },
+      );
       await job.updateProgress(progress);
       shouldReleaseLock = false;
 
@@ -351,7 +359,10 @@ export class AuditExportJobsService {
     if (progressStage === AUDIT_EXPORT_STATUS.EXPIRED) {
       return AUDIT_EXPORT_STATUS.EXPIRED;
     }
-    if (progressStage === AUDIT_EXPORT_STATUS.FAILED || state === AUDIT_QUEUE_STATES.FAILED) {
+    if (
+      progressStage === AUDIT_EXPORT_STATUS.FAILED ||
+      state === AUDIT_QUEUE_STATES.FAILED
+    ) {
       return AUDIT_EXPORT_STATUS.FAILED;
     }
     if (state === AUDIT_QUEUE_STATES.ACTIVE) {

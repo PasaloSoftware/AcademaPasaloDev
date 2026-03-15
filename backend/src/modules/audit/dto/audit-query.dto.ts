@@ -13,10 +13,7 @@ import { AUDIT_SOURCES, type AuditSource } from '../interfaces/audit.constants';
 export class AuditBaseQueryDto {
   @Expose()
   @IsOptional()
-  @IsISO8601(
-    {},
-    { message: 'startDate debe ser una fecha ISO-8601 valida' },
-  )
+  @IsISO8601({}, { message: 'startDate debe ser una fecha ISO-8601 valida' })
   startDate?: string;
 
   @Expose()
