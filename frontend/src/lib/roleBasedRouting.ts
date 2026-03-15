@@ -27,22 +27,27 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/curso/[id]/evaluacion/[id]': {
-    allowedRoles: ['STUDENT'],
+    allowedRoles: ['STUDENT', 'TEACHER'],
     component: 'EvaluationContent',
     redirectOnDenied: '/plataforma/inicio'
   },
+  '/plataforma/curso/[id]/evaluacion/[id]/clase/[id]': {
+    allowedRoles: ['STUDENT', 'TEACHER'],
+    component: 'VideoPageContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
   '/plataforma/curso/[id]/ciclo-anterior/[id]': {
-    allowedRoles: ['STUDENT'],
+    allowedRoles: ['STUDENT', 'TEACHER'],
     component: 'PreviousCycleContent',
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
-    allowedRoles: ['STUDENT'],
+    allowedRoles: ['STUDENT', 'TEACHER'],
     component: 'PreviousCycleEvaluationContent',
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/curso/[id]/banco/[id]': {
-    allowedRoles: ['STUDENT'],
+    allowedRoles: ['STUDENT', 'TEACHER'],
     component: 'BancoEnunciadosContent',
     redirectOnDenied: '/plataforma/inicio'
   },
@@ -97,16 +102,24 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
     ADMIN: 'admin/CursoContent'
   },
   '/plataforma/curso/[id]/evaluacion/[id]': {
-    STUDENT: 'student/EvaluationContent'
+    STUDENT: 'student/EvaluationContent',
+    TEACHER: 'teacher/EvaluationContent'
+  },
+  '/plataforma/curso/[id]/evaluacion/[id]/clase/[id]': {
+    STUDENT: 'student/VideoPageContent',
+    TEACHER: 'teacher/VideoPageContent'
   },
   '/plataforma/curso/[id]/ciclo-anterior/[id]': {
-    STUDENT: 'student/PreviousCycleContent'
+    STUDENT: 'student/PreviousCycleContent',
+    TEACHER: 'teacher/PreviousCycleContent'
   },
   '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
-    STUDENT: 'student/PreviousCycleEvaluationContent'
+    STUDENT: 'student/PreviousCycleEvaluationContent',
+    TEACHER: 'teacher/PreviousCycleEvaluationContent'
   },
   '/plataforma/curso/[id]/banco/[id]': {
-    STUDENT: 'student/BancoEnunciadosContent'
+    STUDENT: 'student/BancoEnunciadosContent',
+    TEACHER: 'teacher/BancoEnunciadosContent'
   },
   '/plataforma/calendario': {
     STUDENT: 'student/CalendarioContent',

@@ -1,135 +1,136 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
-import { coursesService } from "@/services/courses.service";
-import { enrollmentService } from "@/services/enrollment.service";
-import { Enrollment } from "@/types/enrollment";
-import {
-  CurrentCycleResponse,
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { coursesService } from '@/services/courses.service';
+import type { CourseCycle } from '@/types/api';
+import type {
+  StaffCourseContentResponse,
+  StaffCourseEvaluation,
+  CycleEvaluation,
+  EvaluationLabel,
   PreviousCyclesResponse,
   BankStructureResponse,
-} from "@/types/curso";
-import { useRouter } from "next/navigation";
-import Icon from "@/components/ui/Icon";
+} from '@/types/curso';
+import Icon from '@/components/ui/Icon';
 import {
   EvaluationCard,
   PreviousCycleCard,
   BancoCategoryCard,
   sortEvaluations,
-} from "@/components/shared/evaluationHelpers";
+} from '@/components/shared/evaluationHelpers';
 
 interface CursoContentProps {
   cursoId: string;
 }
 
-type TabOption = "vigente" | "anteriores" | "banco";
+type TabOption = 'vigente' | 'anteriores' | 'banco';
 
-// ============================================
-// Componente principal
-// ============================================
+function mapStaffEvalToLabel(eval_: StaffCourseEvaluation): EvaluationLabel {
+  const now = new Date();
+  const start = new Date(eval_.startDate);
+  const end = new Date(eval_.endDate);
+
+  if (now > end) return 'Completado';
+  if (now < start) return 'Próximamente';
+  return 'En curso';
+}
+
+function mapStaffEvaluation(eval_: StaffCourseEvaluation): CycleEvaluation {
+  return {
+    id: eval_.id,
+    evaluationTypeCode: '',
+    shortName: eval_.name || eval_.evaluationType,
+    fullName: eval_.evaluationType,
+    label: mapStaffEvalToLabel(eval_),
+  };
+}
 
 export default function CursoContent({ cursoId }: CursoContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const { user } = useAuth();
 
-  // Datos del enrollment (para header: nombre, profesor, tipo, nivel)
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+  const [courseCycle, setCourseCycle] = useState<CourseCycle | null>(null);
+  const [cycleContent, setCycleContent] = useState<StaffCourseContentResponse | null>(null);
+  const [loadingCourse, setLoadingCourse] = useState(true);
+  const [loadingContent, setLoadingContent] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [errorContent, setErrorContent] = useState<string | null>(null);
 
-  // Tab activo
-  const [activeTab, setActiveTab] = useState<TabOption>("vigente");
+  const [activeTab, setActiveTab] = useState<TabOption>('vigente');
 
-  // Datos del ciclo vigente
-  const [currentCycle, setCurrentCycle] = useState<CurrentCycleResponse | null>(
-    null,
-  );
-  const [loadingCurrent, setLoadingCurrent] = useState(true);
-  const [errorCurrent, setErrorCurrent] = useState<string | null>(null);
-
-  // Datos de ciclos anteriores
-  const [previousCycles, setPreviousCycles] =
-    useState<PreviousCyclesResponse | null>(null);
+  const [previousCycles, setPreviousCycles] = useState<PreviousCyclesResponse | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
-  // Datos del banco de enunciados
-  const [bankStructure, setBankStructure] =
-    useState<BankStructureResponse | null>(null);
+  const [bankStructure, setBankStructure] = useState<BankStructureResponse | null>(null);
   const [loadingBank, setLoadingBank] = useState(false);
-  // Loading general (enrollment)
-  const [loadingEnrollment, setLoadingEnrollment] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Obtener datos del enrollment para el header
   useEffect(() => {
-    async function loadEnrollment() {
-      setLoadingEnrollment(true);
+    async function loadCourseCycle() {
+      setLoadingCourse(true);
       setError(null);
       try {
-        const response = await enrollmentService.getMyCourses();
-        const enrollments = Array.isArray(response)
-          ? response
-          : response.data || [];
-        const found = enrollments.find(
-          (e: Enrollment) => e.courseCycle.id === cursoId,
+        const courses = await coursesService.getMyCourseCycles();
+        const found = (Array.isArray(courses) ? courses : []).find(
+          (cc) => cc.id === cursoId,
         );
         if (found) {
-          setEnrollment(found);
+          setCourseCycle(found);
           setBreadcrumbItems([
-            { label: "Cursos" },
-            { label: found.courseCycle.course.name },
+            { label: 'Cursos' },
+            { label: found.course?.name || '' },
           ]);
         } else {
-          setError("No se encontró la matrícula para este curso");
+          setError('No se encontró el curso asignado');
         }
       } catch (err) {
-        console.error("Error al cargar matrícula:", err);
-        setError("Error al cargar los datos del curso");
+        console.error('Error al cargar curso:', err);
+        setError('Error al cargar los datos del curso');
       } finally {
-        setLoadingEnrollment(false);
+        setLoadingCourse(false);
       }
     }
 
-    if (cursoId) loadEnrollment();
+    if (cursoId) loadCourseCycle();
   }, [cursoId, setBreadcrumbItems]);
 
-  // Obtener evaluaciones del ciclo vigente
   useEffect(() => {
-    async function loadCurrentCycle() {
-      setLoadingCurrent(true);
-      setErrorCurrent(null);
+    async function loadContent() {
+      setLoadingContent(true);
+      setErrorContent(null);
       try {
-        const data = await coursesService.getCurrentCycleContent(cursoId);
-        setCurrentCycle(data);
+        const data = await coursesService.getCourseContent(cursoId);
+        setCycleContent(data);
       } catch (err) {
-        console.error("Error al cargar ciclo vigente:", err);
-        setErrorCurrent("Error al cargar las evaluaciones del ciclo vigente");
+        console.error('Error al cargar contenido del ciclo:', err);
+        setErrorContent('Error al cargar las evaluaciones');
       } finally {
-        setLoadingCurrent(false);
+        setLoadingContent(false);
       }
     }
 
-    if (cursoId) loadCurrentCycle();
+    if (cursoId) loadContent();
   }, [cursoId]);
 
-  // Cargar lista de ciclos anteriores cuando canViewPreviousCycles = true
   useEffect(() => {
     async function loadPreviousCycles() {
-      if (!currentCycle?.canViewPreviousCycles) return;
       setLoadingPrevious(true);
       try {
         const data = await coursesService.getPreviousCycles(cursoId);
         setPreviousCycles(data);
       } catch (err) {
-        console.error("Error al cargar ciclos anteriores:", err);
+        console.error('Error al cargar ciclos anteriores:', err);
       } finally {
         setLoadingPrevious(false);
       }
     }
 
-    loadPreviousCycles();
-  }, [cursoId, currentCycle?.canViewPreviousCycles]);
+    if (cursoId) loadPreviousCycles();
+  }, [cursoId]);
 
-  // Cargar estructura del banco de enunciados
   useEffect(() => {
     async function loadBankStructure() {
       setLoadingBank(true);
@@ -137,7 +138,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         const data = await coursesService.getBankStructure(cursoId);
         setBankStructure(data);
       } catch (err) {
-        console.error("Error al cargar banco de enunciados:", err);
+        console.error('Error al cargar banco de enunciados:', err);
       } finally {
         setLoadingBank(false);
       }
@@ -146,30 +147,17 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     if (cursoId) loadBankStructure();
   }, [cursoId]);
 
-  // Helpers
-  const getInitials = (firstName: string, lastName1: string) => {
-    return `${firstName[0] || ""}${lastName1[0] || ""}`.toUpperCase();
+  const getTeacherInitials = (): string => {
+    if (!user) return 'XX';
+    return `${user.firstName[0]}${(user.lastName1 || 'X')[0]}`.toUpperCase();
   };
 
-  const getProfessorName = () => {
-    if (!enrollment) return "";
-    const profs = enrollment.courseCycle.professors;
-    if (profs.length === 0) return "Sin asignar";
-    return `${profs[0].firstName} ${profs[0].lastName1}`;
+  const getTeacherName = (): string => {
+    if (!user) return '';
+    return `${user.firstName} ${user.lastName1 || ''}`.trim();
   };
 
-  const getProfessorInitials = () => {
-    if (!enrollment) return "";
-    const profs = enrollment.courseCycle.professors;
-    if (profs.length === 0) return "XX";
-    return getInitials(profs[0].firstName, profs[0].lastName1);
-  };
-
-  // ============================================
-  // Loading state
-  // ============================================
-
-  if (loadingEnrollment || loadingCurrent) {
+  if (loadingCourse || loadingContent) {
     return (
       <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
         <div className="self-stretch animate-pulse">
@@ -198,11 +186,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     );
   }
 
-  // ============================================
-  // Error state
-  // ============================================
-
-  if (error || errorCurrent || !enrollment) {
+  if (error || errorContent || !courseCycle) {
     return (
       <div className="bg-white rounded-2xl border border-stroke-primary p-12 text-center">
         <Icon
@@ -211,7 +195,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           className="text-error-solid mb-4 mx-auto"
         />
         <h1 className="text-2xl font-bold text-primary mb-2">
-          {error || errorCurrent || "Curso no encontrado"}
+          {error || errorContent || 'Curso no encontrado'}
         </h1>
         <p className="text-secondary mb-6">
           El curso solicitado no está disponible.
@@ -220,37 +204,27 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     );
   }
 
-  // Datos derivados del enrollment
-  const courseName = enrollment.courseCycle.course.name;
-  const courseTypeName =
-    enrollment.courseCycle.course.courseType?.name || "CIENCIAS";
-  const cycleLevelName = enrollment.courseCycle.course.cycleLevel?.name || "";
+  const courseName = courseCycle.course?.name || '';
+  const evaluations: CycleEvaluation[] = cycleContent
+    ? cycleContent.evaluations.map(mapStaffEvaluation)
+    : [];
 
-  // Tab config
-  const tabs: { key: TabOption; label: string; disabled?: boolean }[] = [
-    { key: "vigente", label: "Ciclo Vigente" },
-    { key: "anteriores", label: "Ciclos Pasados" },
-    { key: "banco", label: "Banco de Enunciados" },
+  const tabs: { key: TabOption; label: string }[] = [
+    { key: 'vigente', label: 'Ciclo Vigente' },
+    { key: 'anteriores', label: 'Ciclos Pasados' },
+    { key: 'banco', label: 'Banco de Enunciados' },
   ];
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
-      {/* ========================================
-          HEADER SECTION
-          ======================================== */}
+      {/* HEADER SECTION */}
       <div className="self-stretch inline-flex justify-start items-start gap-8 overflow-hidden mb-8">
-        {/* Left: Course Info */}
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-5">
           {/* Tags */}
           <div className="inline-flex justify-start items-center gap-2">
             <div className="px-2.5 py-1.5 bg-bg-success-light rounded-full flex justify-center items-center gap-1">
               <span className="text-text-success-primary text-xs font-medium leading-3">
-                {courseTypeName.toUpperCase()}
-              </span>
-            </div>
-            <div className="px-2.5 py-1.5 bg-bg-quartiary rounded-full flex justify-center items-center gap-1">
-              <span className="text-text-secondary text-xs font-medium leading-3">
-                {cycleLevelName.toUpperCase()}
+                CIENCIAS
               </span>
             </div>
           </div>
@@ -262,20 +236,20 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
             </div>
           </div>
 
-          {/* Teacher */}
+          {/* Teacher (self) */}
           <div className="self-stretch flex flex-col justify-start items-start gap-4">
             <div className="self-stretch inline-flex justify-start items-center gap-2">
               <div className="w-6 h-6 p-1 bg-bg-success-solid rounded-full flex justify-center items-center gap-2">
                 <span className="text-center text-text-white text-[10px] font-medium leading-3">
-                  {getProfessorInitials()}
+                  {getTeacherInitials()}
                 </span>
               </div>
               <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
                 <span className="text-text-secondary text-[10px] font-medium leading-3">
-                  ASESOR
+                  DOCENTE
                 </span>
                 <span className="self-stretch text-text-secondary text-base font-normal leading-4 line-clamp-1">
-                  {getProfessorName()}
+                  {getTeacherName()}
                 </span>
               </div>
             </div>
@@ -304,40 +278,33 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                 Profesor(a):
               </span>
               <span className="text-center text-text-tertiary text-xs font-normal leading-4 line-clamp-1">
-                {getProfessorName()}
+                {getTeacherName()}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ========================================
-          TABS + CONTENT SECTION
-          ======================================== */}
+      {/* TABS + CONTENT SECTION */}
       <div className="self-stretch inline-flex flex-col justify-start items-start gap-8">
         {/* Horizontal Pill Tabs */}
         <div className="w-[567px] p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-start gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              disabled={tab.disabled}
-              onClick={() => !tab.disabled && setActiveTab(tab.key)}
+              onClick={() => setActiveTab(tab.key)}
               className={`flex-1 px-2 py-2.5 rounded-lg flex justify-start items-center gap-2 transition-colors ${
-                tab.disabled
-                  ? "bg-bg-primary cursor-not-allowed opacity-50"
-                  : activeTab === tab.key
-                    ? "bg-bg-accent-primary-solid"
-                    : "bg-bg-primary hover:bg-bg-secondary"
+                activeTab === tab.key
+                  ? 'bg-bg-accent-primary-solid'
+                  : 'bg-bg-primary hover:bg-bg-secondary'
               }`}
             >
               <div className="flex-1 flex justify-start items-center gap-2">
                 <span
                   className={`flex-1 text-center text-[15px] leading-4 whitespace-nowrap ${
-                    tab.disabled
-                      ? "text-text-disabled"
-                      : activeTab === tab.key
-                        ? "text-text-white"
-                        : "text-text-secondary"
+                    activeTab === tab.key
+                      ? 'text-text-white'
+                      : 'text-text-secondary'
                   }`}
                 >
                   {tab.label}
@@ -347,25 +314,22 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           ))}
         </div>
 
-        {/* ========================================
-            TAB CONTENT: Ciclo Vigente
-            ======================================== */}
-        {activeTab === "vigente" && (
+        {/* TAB: Ciclo Vigente */}
+        {activeTab === 'vigente' && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
-            {/* Section Title */}
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
-                Ciclo Vigente {currentCycle?.cycleCode || ""}
+                Ciclo Vigente {cycleContent?.cycleCode || ''}
               </span>
             </div>
 
-            {/* Evaluation Cards (4-column grid with gap) */}
-            {currentCycle && currentCycle.evaluations.length > 0 ? (
+            {evaluations.length > 0 ? (
               <div className="self-stretch grid grid-cols-3 gap-8">
-                {sortEvaluations(currentCycle.evaluations).map((evaluation) => (
+                {sortEvaluations(evaluations).map((evaluation) => (
                   <EvaluationCard
                     key={evaluation.id}
                     evaluation={evaluation}
+                    forceEnabled
                     onSelect={(eval_) =>
                       router.push(
                         `/plataforma/curso/${cursoId}/evaluacion/${eval_.id}`,
@@ -394,12 +358,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           </div>
         )}
 
-        {/* ========================================
-            TAB CONTENT: Ciclos Pasados
-            ======================================== */}
-        {activeTab === "anteriores" && (
+        {/* TAB: Ciclos Pasados */}
+        {activeTab === 'anteriores' && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
-            {/* Section Title */}
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
                 Ciclos Pasados
@@ -436,8 +397,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     No hay ciclos pasados disponibles
                   </p>
                   <p className="text-text-secondary text-sm">
-                    Los ciclos pasados aparecerán aquí cuando estén
-                    disponibles
+                    Los ciclos pasados aparecerán aquí cuando estén disponibles
                   </p>
                 </div>
               </div>
@@ -445,12 +405,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           </div>
         )}
 
-        {/* ========================================
-            TAB CONTENT: Banco de Enunciados
-            ======================================== */}
-        {activeTab === "banco" && (
+        {/* TAB: Banco de Enunciados */}
+        {activeTab === 'banco' && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
-            {/* Section Title */}
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
                 Banco de Enunciados

@@ -15,6 +15,7 @@ import type {
   PreviousCyclesResponse,
   PreviousCycleContentResponse,
   BankStructureResponse,
+  StaffCourseContentResponse,
 } from '@/types/curso';
 
 export const coursesService = {
@@ -150,8 +151,8 @@ export const coursesService = {
   /**
    * Obtener contenido de un curso-ciclo (PROFESSOR/ADMIN/SUPER_ADMIN)
    */
-  async getCourseContent(courseCycleId: string): Promise<CurrentCycleResponse> {
-    const response = await apiClient.get<CurrentCycleResponse>(
+  async getCourseContent(courseCycleId: string): Promise<StaffCourseContentResponse> {
+    const response = await apiClient.get<StaffCourseContentResponse>(
       `/courses/cycle/${courseCycleId}/content`
     );
     return response.data;

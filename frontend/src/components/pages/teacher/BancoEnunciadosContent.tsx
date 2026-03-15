@@ -1,74 +1,61 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
-import { coursesService } from "@/services/courses.service";
-import { materialsService } from "@/services/materials.service";
-import { enrollmentService } from "@/services/enrollment.service";
-import type { Enrollment } from "@/types/enrollment";
-import type { CycleEvaluation } from "@/types/curso";
-import type { FolderMaterial } from "@/types/material";
-import Icon from "@/components/ui/Icon";
-import ExpandableFolderList from "@/components/shared/ExpandableFolderList";
-import MaterialPreviewModal from "@/components/materials/MaterialPreviewModal";
+import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
+import { coursesService } from '@/services/courses.service';
+import { materialsService } from '@/services/materials.service';
+import type { CourseCycle } from '@/types/api';
+import type { StaffCourseEvaluation } from '@/types/curso';
+import type { FolderMaterial } from '@/types/material';
+import Icon from '@/components/ui/Icon';
+import ExpandableFolderList from '@/components/shared/ExpandableFolderList';
+import MaterialPreviewModal from '@/components/materials/MaterialPreviewModal';
 import type {
   ExpandableFolder,
   FolderIconConfig,
-} from "@/components/shared/ExpandableFolderList";
-
-// ============================================
-// Icon config per evaluation type code
-// ============================================
+} from '@/components/shared/ExpandableFolderList';
 
 const typeIconConfigs: Record<string, FolderIconConfig> = {
   PD: {
-    name: "folder",
-    variant: "rounded",
-    bgClosed: "bg-bg-info-primary-light",
-    colorClosed: "text-icon-info-primary",
-    bgOpen: "bg-bg-info-primary-solid",
-    colorOpen: "text-icon-white",
+    name: 'folder',
+    variant: 'rounded',
+    bgClosed: 'bg-bg-info-primary-light',
+    colorClosed: 'text-icon-info-primary',
+    bgOpen: 'bg-bg-info-primary-solid',
+    colorOpen: 'text-icon-white',
   },
   PC: {
-    name: "folder",
-    variant: "rounded",
-    bgClosed: "bg-bg-info-secondary-light",
-    colorClosed: "text-icon-info-secondary",
-    bgOpen: "bg-info-secondary-solid",
-    colorOpen: "text-icon-white",
+    name: 'folder',
+    variant: 'rounded',
+    bgClosed: 'bg-bg-info-secondary-light',
+    colorClosed: 'text-icon-info-secondary',
+    bgOpen: 'bg-info-secondary-solid',
+    colorOpen: 'text-icon-white',
   },
   EX: {
-    name: "folder",
-    variant: "rounded",
-    bgClosed: "bg-bg-success-light",
-    colorClosed: "text-icon-success-primary",
-    bgOpen: "bg-bg-success-solid",
-    colorOpen: "text-icon-white",
+    name: 'folder',
+    variant: 'rounded',
+    bgClosed: 'bg-bg-success-light',
+    colorClosed: 'text-icon-success-primary',
+    bgOpen: 'bg-bg-success-solid',
+    colorOpen: 'text-icon-white',
   },
 };
 
 const defaultTypeIconConfig: FolderIconConfig = {
-  name: "folder",
-  variant: "rounded",
-  bgClosed: "bg-bg-quartiary",
-  colorClosed: "text-icon-secondary",
-  bgOpen: "bg-gray-700",
-  colorOpen: "text-icon-white",
+  name: 'folder',
+  variant: 'rounded',
+  bgClosed: 'bg-bg-quartiary',
+  colorClosed: 'text-icon-secondary',
+  bgOpen: 'bg-gray-700',
+  colorOpen: 'text-icon-white',
 };
-
-// ============================================
-// Props
-// ============================================
 
 interface BancoEnunciadosContentProps {
   cursoId: string;
   typeCode: string;
 }
-
-// ============================================
-// Component
-// ============================================
 
 export default function BancoEnunciadosContent({
   cursoId,
@@ -76,48 +63,41 @@ export default function BancoEnunciadosContent({
 }: BancoEnunciadosContentProps) {
   const { setBreadcrumbItems } = useBreadcrumb();
 
-  const [courseName, setCourseName] = useState("");
-  const [typeName, setTypeName] = useState("");
+  const [courseName, setCourseName] = useState('');
+  const [typeName, setTypeName] = useState('');
   const [folders, setFolders] = useState<ExpandableFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [previewMaterials, setPreviewMaterials] = useState<FolderMaterial[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  // Mapping: folder id (evaluation id) → enunciados folder id (for loading materials)
   const [enunciadosFolderMap, setEnunciadosFolderMap] = useState<
     Record<string, string>
   >({});
 
-  // Load course name
   useEffect(() => {
     async function loadCourseName() {
       try {
-        const response = await enrollmentService.getMyCourses();
-        const enrollments = Array.isArray(response)
-          ? response
-          : response.data || [];
-        const found = enrollments.find(
-          (e: Enrollment) => e.courseCycle.id === cursoId,
+        const courses = await coursesService.getMyCourseCycles();
+        const found = (Array.isArray(courses) ? courses : []).find(
+          (cc: CourseCycle) => cc.id === cursoId,
         );
         if (found) {
-          setCourseName(found.courseCycle.course.name);
+          setCourseName(found.course?.name || '');
         }
       } catch (err) {
-        console.error("Error al cargar nombre del curso:", err);
+        console.error('Error al cargar nombre del curso:', err);
       }
     }
 
     if (cursoId) loadCourseName();
   }, [cursoId]);
 
-  // Load evaluations of the selected type + resolve their enunciados folders
   useEffect(() => {
     async function loadBancoData() {
       setLoading(true);
       setError(null);
       try {
-        // Get bank structure for the type name
         const bankStructure = await coursesService.getBankStructure(cursoId);
         const typeItem = bankStructure.items.find(
           (item) => item.evaluationTypeCode === typeCode,
@@ -126,10 +106,21 @@ export default function BancoEnunciadosContent({
           setTypeName(typeItem.evaluationTypeName);
         }
 
-        // Get evaluations from current cycle, filter by typeCode
-        const cycleData = await coursesService.getCurrentCycleContent(cursoId);
-        const typeEvaluations = cycleData.evaluations.filter(
-          (e: CycleEvaluation) => e.evaluationTypeCode === typeCode,
+        const staffContent = await coursesService.getCourseContent(cursoId);
+        const typeEvaluations = staffContent.evaluations.filter(
+          (e: StaffCourseEvaluation) => {
+            const evalTypeName = e.evaluationType?.toLowerCase() || '';
+            const codeMap: Record<string, string[]> = {
+              PD: ['práctica dirigida', 'practica dirigida'],
+              PC: ['práctica calificada', 'practica calificada'],
+              EX: ['examen'],
+            };
+            const keywords = codeMap[typeCode];
+            if (keywords) {
+              return keywords.some((kw) => evalTypeName.includes(kw));
+            }
+            return false;
+          },
         );
 
         if (typeEvaluations.length === 0) {
@@ -138,7 +129,6 @@ export default function BancoEnunciadosContent({
           return;
         }
 
-        // For each evaluation, resolve its "Enunciados" folder
         const folderResults = await Promise.all(
           typeEvaluations.map(async (evaluation) => {
             try {
@@ -146,12 +136,12 @@ export default function BancoEnunciadosContent({
                 evaluation.id,
               );
               const matAdicional = rootFolders.find((f) =>
-                f.name.toLowerCase().includes("adicional"),
+                f.name.toLowerCase().includes('adicional'),
               );
               if (!matAdicional) {
                 return {
                   evalId: evaluation.id,
-                  shortName: evaluation.shortName,
+                  shortName: evaluation.name || evaluation.evaluationType,
                   enunciadosFolderId: null,
                   materialCount: 0,
                 };
@@ -161,12 +151,12 @@ export default function BancoEnunciadosContent({
                 matAdicional.id,
               );
               const enunciadosFolder = contents.folders.find((f) =>
-                f.name.toLowerCase().includes("enunciados"),
+                f.name.toLowerCase().includes('enunciados'),
               );
               if (!enunciadosFolder) {
                 return {
                   evalId: evaluation.id,
-                  shortName: evaluation.shortName,
+                  shortName: evaluation.name || evaluation.evaluationType,
                   enunciadosFolderId: null,
                   materialCount: 0,
                 };
@@ -174,7 +164,7 @@ export default function BancoEnunciadosContent({
 
               return {
                 evalId: evaluation.id,
-                shortName: evaluation.shortName,
+                shortName: evaluation.name || evaluation.evaluationType,
                 enunciadosFolderId: enunciadosFolder.id,
                 materialCount:
                   contents.subfolderMaterialCount?.[enunciadosFolder.id] ?? 0,
@@ -182,7 +172,7 @@ export default function BancoEnunciadosContent({
             } catch {
               return {
                 evalId: evaluation.id,
-                shortName: evaluation.shortName,
+                shortName: evaluation.name || evaluation.evaluationType,
                 enunciadosFolderId: null,
                 materialCount: 0,
               };
@@ -190,7 +180,6 @@ export default function BancoEnunciadosContent({
           }),
         );
 
-        // Build folder list and folder mapping
         const expandableFolders: ExpandableFolder[] = [];
         const folderMap: Record<string, string> = {};
 
@@ -208,8 +197,8 @@ export default function BancoEnunciadosContent({
         setFolders(expandableFolders);
         setEnunciadosFolderMap(folderMap);
       } catch (err) {
-        console.error("Error al cargar banco de enunciados:", err);
-        setError("Error al cargar el banco de enunciados");
+        console.error('Error al cargar banco de enunciados:', err);
+        setError('Error al cargar el banco de enunciados');
       } finally {
         setLoading(false);
       }
@@ -218,18 +207,16 @@ export default function BancoEnunciadosContent({
     if (cursoId && typeCode) loadBancoData();
   }, [cursoId, typeCode]);
 
-  // Breadcrumb
   useEffect(() => {
     if (!courseName) return;
     setBreadcrumbItems([
-      { label: "Cursos" },
+      { label: 'Cursos' },
       { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: "Banco de Enunciados", href: `/plataforma/curso/${cursoId}` },
+      { label: 'Banco de Enunciados', href: `/plataforma/curso/${cursoId}` },
       { label: typeName || typeCode },
     ]);
   }, [setBreadcrumbItems, courseName, typeName, typeCode, cursoId]);
 
-  // Load materials for a folder (uses the enunciados folder id mapping)
   const loadFolderMaterials = useCallback(
     async (evalId: string): Promise<FolderMaterial[]> => {
       const enunciadosFolderId = enunciadosFolderMap[evalId];
@@ -241,15 +228,14 @@ export default function BancoEnunciadosContent({
     [enunciadosFolderMap],
   );
 
-  // Download handler
   const handleDownloadMaterial = useCallback(async (mat: FolderMaterial) => {
     try {
-      const data = await materialsService.getAuthorizedLink(mat.id, "download");
-      const a = document.createElement("a");
+      const data = await materialsService.getAuthorizedLink(mat.id, 'download');
+      const a = document.createElement('a');
       a.href = data.url;
       a.download = mat.displayName;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -262,15 +248,11 @@ export default function BancoEnunciadosContent({
   const displayTitle =
     typeName ||
     {
-      PD: "Prácticas Dirigidas",
-      PC: "Prácticas Calificadas",
-      EX: "Exámenes",
+      PD: 'Prácticas Dirigidas',
+      PC: 'Prácticas Calificadas',
+      EX: 'Exámenes',
     }[typeCode] ||
     typeCode;
-
-  // ============================================
-  // Loading state
-  // ============================================
 
   if (loading) {
     return (
@@ -291,10 +273,6 @@ export default function BancoEnunciadosContent({
     );
   }
 
-  // ============================================
-  // Error state
-  // ============================================
-
   if (error) {
     return (
       <div className="bg-white rounded-2xl border border-stroke-primary p-12 text-center">
@@ -313,7 +291,6 @@ export default function BancoEnunciadosContent({
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden gap-8">
-      {/* Back Link */}
       <Link
         href={`/plataforma/curso/${cursoId}`}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2"
@@ -327,7 +304,7 @@ export default function BancoEnunciadosContent({
           Volver al Banco de Enunciados
         </span>
       </Link>
-      {/* Folder list with title + expand/collapse */}
+
       {folders.length > 0 ? (
         <ExpandableFolderList
           title={displayTitle}
@@ -363,7 +340,6 @@ export default function BancoEnunciadosContent({
         </>
       )}
 
-      {/* Material Preview Modal */}
       {previewMaterials && (
         <MaterialPreviewModal
           materials={previewMaterials}

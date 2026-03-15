@@ -115,7 +115,7 @@ export function getFileIconPath(mimeType: string, fileName: string): string {
 // Tipo visual de la card de sesión
 // ============================================
 
-export type SessionCardType = "GRABADA" | "EN_VIVO_PRONTO" | "PROGRAMADA";
+export type SessionCardType = "GRABADA" | "EN_VIVO_PRONTO" | "PROGRAMADA" | "GRABACION_EN_PROCESO";
 
 export function getSessionCardType(event: ClassEvent): SessionCardType {
   if (event.sessionStatus === "EN_CURSO" && !event.isCancelled) {
@@ -128,6 +128,14 @@ export function getSessionCardType(event: ClassEvent): SessionCardType {
       return "EN_VIVO_PRONTO";
     }
     return "PROGRAMADA";
+  }
+
+  if (
+    event.sessionStatus === "FINALIZADA" &&
+    !event.isCancelled &&
+    (event.recordingStatus === "PROCESSING" || event.recordingStatus === "NOT_AVAILABLE" || event.recordingStatus === "FAILED")
+  ) {
+    return "GRABACION_EN_PROCESO";
   }
 
   return "GRABADA";
@@ -156,9 +164,18 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
   if (cardType === "EN_VIVO_PRONTO") {
     return (
       <div className="px-2 py-1 bg-error-light rounded-full flex justify-center items-center gap-1">
-        <Icon name="circle" size={12} className="text-red-600" variant="rounded" />
-        <span className="text-red-600 text-[10px] font-semibold leading-3">
-          EN VIVO PRONTO
+        <span className="text-text-error-primary text-[10px] font-semibold leading-3">
+          PRÓXIMA
+        </span>
+      </div>
+    );
+  }
+
+  if (cardType === "GRABACION_EN_PROCESO") {
+    return (
+      <div className="px-2 py-1 bg-bg-accent-light rounded-full flex justify-center items-center">
+        <span className="text-text-accent-primary text-[10px] font-semibold leading-3">
+          TERMINADA
         </span>
       </div>
     );
@@ -251,9 +268,9 @@ export function ClassSessionCard({
     return (
       <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary inline-flex justify-start items-start gap-6 cursor-pointer">
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-accent-light rounded-lg inline-flex flex-col justify-center items-center gap-2">
-          <Icon name="videocam" size={40} className="text-icon-accent-primary" variant="rounded" />
+          <Icon name="hourglass_top" size={40} className="text-icon-accent-primary" variant="rounded" />
           <span className="text-text-accent-primary text-sm font-semibold leading-4">
-            EN VIVO PRONTO
+            EMPIEZA EN {minutesLeft} MIN
           </span>
         </div>
 
@@ -364,6 +381,73 @@ export function ClassSessionCard({
               <Icon name="videocam" size={16} className="text-icon-disabled" variant="rounded" />
               <span className="text-text-disabled text-sm font-medium leading-4">
                 Unirme a la Clase
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── GRABACIÓN EN PROCESO card ──
+  if (cardType === "GRABACION_EN_PROCESO") {
+    return (
+      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+        <div className="h-32 aspect-video shrink-0 p-2 bg-bg-tertiary rounded-lg inline-flex flex-col justify-center items-center gap-2">
+          <Icon name="timelapse" size={40} className="text-icon-tertiary" variant="rounded" />
+          <span className="text-text-quartiary text-sm font-semibold leading-4">
+            GRABACIÓN EN PROCESO
+          </span>
+        </div>
+
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
+          <div className="self-stretch flex flex-col justify-start items-start gap-2">
+            <div className="self-stretch inline-flex justify-start items-start gap-4">
+              <div className="flex-1 flex justify-start items-start gap-1">
+                <span className="text-text-primary text-lg font-semibold leading-5">
+                  Clase {event.sessionNumber}:
+                </span>
+                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
+                  {event.topic}
+                </span>
+              </div>
+              <SessionBadge event={event} cardType={cardType} />
+            </div>
+
+            <div className="self-stretch flex flex-col justify-start items-start gap-1">
+              <div className="self-stretch inline-flex justify-start items-center gap-1">
+                <Icon name="calendar_today" size={14} className="text-icon-secondary" />
+                <span className="text-text-tertiary text-xs font-normal leading-4">
+                  {formatDate(event.startDatetime)}
+                </span>
+              </div>
+              <div className="self-stretch inline-flex justify-start items-center gap-1">
+                <Icon name="schedule" size={14} className="text-icon-secondary" />
+                <span className="text-text-secondary text-xs font-normal leading-3">
+                  {formatTimeRange(event.startDatetime, event.endDatetime)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
+            <button
+              onClick={handleOpenMaterials}
+              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+            >
+              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Materiales de Clase
+              </span>
+            </button>
+            <button
+              disabled
+              onClick={(e) => e.stopPropagation()}
+              className="px-6 py-3 bg-bg-disabled rounded-lg flex justify-center items-center gap-1.5 cursor-not-allowed"
+            >
+              <Icon name="play_arrow" size={16} className="text-icon-disabled" />
+              <span className="text-text-disabled text-sm font-medium leading-4">
+                Ver Grabación
               </span>
             </button>
           </div>

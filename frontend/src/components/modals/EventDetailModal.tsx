@@ -41,7 +41,15 @@ export default function EventDetailModal({
 }: EventDetailModalProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const router = useRouter();
+
+  // Tick every 30s for join-button reactivity
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [isOpen]);
 
   useLayoutEffect(() => {
     if (!isOpen || !event || !anchorPosition || !tooltipRef.current) return;
@@ -362,26 +370,35 @@ export default function EventDetailModal({
         )}
 
         {/* Join / Recording action button */}
-        {!event.isCancelled && event.sessionStatus !== 'FINALIZADA' && (
-          <div className="flex justify-end w-full">
-            <button
-              onClick={() => {
-                if (event.canJoinLive && event.liveMeetingUrl) {
-                  window.open(event.liveMeetingUrl, '_blank', 'noopener,noreferrer');
-                }
-              }}
-              disabled={!event.canJoinLive}
-              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-medium font-['Poppins'] transition-colors ${
-                event.canJoinLive
-                  ? 'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-primary-solid/90 cursor-pointer'
-                  : 'bg-bg-disabled text-icon-disabled cursor-not-allowed '
-              }`}
-            >
-              <Icon name="videocam" size={20} className="text-icon-disabled" />
-              Unirse a la Clase
-            </button>
-          </div>
-        )}
+        {!event.isCancelled && event.sessionStatus !== 'FINALIZADA' && (() => {
+          const startMs = new Date(event.startDatetime).getTime();
+          const isLiveSoon = event.sessionStatus === 'EN_CURSO' ||
+            (event.sessionStatus === 'PROGRAMADA' &&
+              startMs - now <= 60 * 60 * 1000 &&
+              startMs - now > 0);
+          const canJoin = isLiveSoon && !!event.liveMeetingUrl;
+
+          return (
+            <div className="flex justify-end w-full">
+              <button
+                onClick={() => {
+                  if (canJoin) {
+                    window.open(event.liveMeetingUrl!, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                disabled={!canJoin}
+                className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-medium font-['Poppins'] transition-colors ${
+                  canJoin
+                    ? 'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-primary-solid/90 cursor-pointer'
+                    : 'bg-bg-disabled text-text-disabled cursor-not-allowed'
+                }`}
+              >
+                <Icon name="videocam" size={20} className={canJoin ? 'text-icon-white' : 'text-icon-disabled'} />
+                Unirse a la Clase
+              </button>
+            </div>
+          );
+        })()}
 
         {!event.isCancelled && event.sessionStatus === 'FINALIZADA' && (
           <div className="flex justify-end w-full">

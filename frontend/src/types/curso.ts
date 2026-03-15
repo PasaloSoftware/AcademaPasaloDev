@@ -79,6 +79,36 @@ export interface CurrentCycleResponse {
 }
 
 // ============================================
+// CONTENIDO CURSO (PROFESSOR) - GET /courses/cycle/:id/content
+// ============================================
+
+export interface StaffEvaluationStatus {
+  status: 'LOCKED' | 'UPCOMING' | 'IN_PROGRESS' | 'COMPLETED';
+  hasAccess: boolean;
+  accessStart: string | null;
+  accessEnd: string | null;
+}
+
+export interface StaffCourseEvaluation {
+  id: string;
+  name: string;
+  description: string | null;
+  evaluationType: string;
+  startDate: string;
+  endDate: string;
+  userStatus: StaffEvaluationStatus;
+}
+
+export interface StaffCourseContentResponse {
+  courseCycleId: string;
+  courseName: string;
+  courseCode: string;
+  cycleCode: string;
+  isCurrentCycle: boolean;
+  evaluations: StaffCourseEvaluation[];
+}
+
+// ============================================
 // CICLOS ANTERIORES - GET /courses/cycle/:id/previous-cycles
 // ============================================
 

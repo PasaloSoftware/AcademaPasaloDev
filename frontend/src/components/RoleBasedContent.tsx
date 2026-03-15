@@ -16,10 +16,17 @@ import StudentEvaluationContent from '@/components/pages/student/EvaluationConte
 import StudentPreviousCycleContent from '@/components/pages/student/PreviousCycleContent';
 import StudentPreviousCycleEvaluationContent from '@/components/pages/student/PreviousCycleEvaluationContent';
 import StudentBancoEnunciadosContent from '@/components/pages/student/BancoEnunciadosContent';
+import StudentVideoPageContent from '@/components/pages/student/VideoPageContent';
 
 // Importar componentes de docente
 import TeacherInicioContent from '@/components/pages/teacher/InicioContent';
 import TeacherCalendarioContent from '@/components/pages/teacher/CalendarioContent';
+import TeacherCursoContent from '@/components/pages/teacher/CursoContent';
+import TeacherEvaluationContent from '@/components/pages/teacher/EvaluationContent';
+import TeacherVideoPageContent from '@/components/pages/teacher/VideoPageContent';
+import TeacherPreviousCycleContent from '@/components/pages/teacher/PreviousCycleContent';
+import TeacherPreviousCycleEvaluationContent from '@/components/pages/teacher/PreviousCycleEvaluationContent';
+import TeacherBancoEnunciadosContent from '@/components/pages/teacher/BancoEnunciadosContent';
 
 // Importar componentes de admin
 import AdminInicioContent from '@/components/pages/admin/InicioContent';
@@ -39,10 +46,17 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   'student/PreviousCycleContent': StudentPreviousCycleContent,
   'student/PreviousCycleEvaluationContent': StudentPreviousCycleEvaluationContent,
   'student/BancoEnunciadosContent': StudentBancoEnunciadosContent,
+  'student/VideoPageContent': StudentVideoPageContent,
   
   // Docente
   'teacher/InicioContent': TeacherInicioContent,
   'teacher/CalendarioContent': TeacherCalendarioContent,
+  'teacher/CursoContent': TeacherCursoContent,
+  'teacher/EvaluationContent': TeacherEvaluationContent,
+  'teacher/VideoPageContent': TeacherVideoPageContent,
+  'teacher/PreviousCycleContent': TeacherPreviousCycleContent,
+  'teacher/PreviousCycleEvaluationContent': TeacherPreviousCycleEvaluationContent,
+  'teacher/BancoEnunciadosContent': TeacherBancoEnunciadosContent,
   
   // Admin
   'admin/InicioContent': AdminInicioContent,

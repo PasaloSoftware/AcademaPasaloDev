@@ -102,7 +102,7 @@ export class CoursesController {
   }
 
   @Get('cycle/:id/previous-cycles')
-  @Roles(ROLE_CODES.STUDENT)
+  @Roles(ROLE_CODES.STUDENT, ROLE_CODES.PROFESSOR)
   @ResponseMessage('Ciclos anteriores del curso obtenidos exitosamente')
   async getPreviousCyclesForStudent(
     @Param('id') courseCycleId: string,
@@ -111,6 +111,7 @@ export class CoursesController {
     const cycles = await this.coursesService.getStudentPreviousCycles(
       courseCycleId,
       user.id,
+      (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentPreviousCycleListResponseDto, cycles, {
       excludeExtraneousValues: true,
@@ -118,7 +119,7 @@ export class CoursesController {
   }
 
   @Get('cycle/:id/previous-cycles/:cycleCode/content')
-  @Roles(ROLE_CODES.STUDENT)
+  @Roles(ROLE_CODES.STUDENT, ROLE_CODES.PROFESSOR)
   @ResponseMessage(
     'Contenido del ciclo anterior del curso obtenido exitosamente',
   )
@@ -131,6 +132,7 @@ export class CoursesController {
       courseCycleId,
       cycleCode,
       user.id,
+      (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentPreviousCycleContentResponseDto, content, {
       excludeExtraneousValues: true,
@@ -138,7 +140,7 @@ export class CoursesController {
   }
 
   @Get('cycle/:id/bank-structure')
-  @Roles(ROLE_CODES.STUDENT)
+  @Roles(ROLE_CODES.STUDENT, ROLE_CODES.PROFESSOR)
   @ResponseMessage(
     'Estructura del banco de enunciados del curso obtenida exitosamente',
   )
@@ -149,6 +151,7 @@ export class CoursesController {
     const structure = await this.coursesService.getStudentBankStructure(
       courseCycleId,
       user.id,
+      (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentBankStructureResponseDto, structure, {
       excludeExtraneousValues: true,
