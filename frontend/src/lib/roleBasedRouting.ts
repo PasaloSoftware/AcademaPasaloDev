@@ -41,6 +41,11 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     component: 'PreviousCycleEvaluationContent',
     redirectOnDenied: '/plataforma/inicio'
   },
+  '/plataforma/curso/[id]/banco/[id]': {
+    allowedRoles: ['STUDENT'],
+    component: 'BancoEnunciadosContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
   '/plataforma/calendario': {
     allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN'],
     component: 'CalendarioContent',
@@ -99,6 +104,9 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
   },
   '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
     STUDENT: 'student/PreviousCycleEvaluationContent'
+  },
+  '/plataforma/curso/[id]/banco/[id]': {
+    STUDENT: 'student/BancoEnunciadosContent'
   },
   '/plataforma/calendario': {
     STUDENT: 'student/CalendarioContent',
@@ -171,5 +179,7 @@ export function sanitizeRouteParam(param: string): string {
  * Ejemplo: /plataforma/curso/123 -> /plataforma/curso/[id]
  */
 export function normalizeRoute(route: string): string {
-  return route.replace(/\/[0-9a-f-]+(?=\/|$)/gi, '/[id]');
+  return route
+    .replace(/\/[0-9a-f-]+(?=\/|$)/gi, '/[id]')
+    .replace(/\/banco\/[^/]+(?=\/|$)/i, '/banco/[id]');
 }

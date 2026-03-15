@@ -10,6 +10,7 @@ import {
   CycleEvaluation,
   EvaluationLabel,
   PreviousCyclesResponse,
+  BankStructureResponse,
 } from "@/types/curso";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
@@ -299,65 +300,54 @@ function PreviousCycleCard({
 }
 
 // ============================================
-// Card de categoría para Banco de Enunciados
+// Helpers para Banco de Enunciados
 // ============================================
 
-const bancoCategories = [
-  {
-    key: "PD",
-    title: "Prácticas Dirigidas",
-    description: "Material de práctica y ejercicios dirigidos del curso",
-    icon: "description",
-    iconBg: "bg-bg-info-primary-light",
-    iconColor: "text-icon-info-primary",
-  },
-  {
-    key: "PC",
-    title: "Prácticas Calificadas",
-    description: "Enunciados de prácticas calificadas de ciclos anteriores",
-    icon: "quiz",
-    iconBg: "bg-bg-info-secondary-light",
-    iconColor: "text-icon-info-secondary",
-  },
-  {
-    key: "EX",
-    title: "Exámenes",
-    description:
-      "Enunciados de exámenes parciales y finales de ciclos anteriores",
-    icon: "school",
-    iconBg: "bg-bg-success-light",
-    iconColor: "text-icon-success-primary",
-  },
-];
+const typeIconStyles: Record<string, { iconBg: string; iconColor: string }> = {
+  PD: { iconBg: "bg-bg-info-primary-light", iconColor: "text-icon-info-primary" },
+  PC: { iconBg: "bg-bg-info-secondary-light", iconColor: "text-icon-info-secondary" },
+  EX: { iconBg: "bg-bg-success-light", iconColor: "text-icon-success-primary" },
+};
+
+const defaultIconStyle = { iconBg: "bg-bg-quartiary", iconColor: "text-icon-secondary" };
 
 function BancoCategoryCard({
-  category,
+  typeCode,
+  typeName,
+  onSelect,
 }: {
-  category: (typeof bancoCategories)[number];
+  typeCode: string;
+  typeName: string;
+  onSelect: () => void;
 }) {
+  const style = typeIconStyles[typeCode] || defaultIconStyle;
+
   return (
     <div className="self-stretch p-6 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-start items-end gap-4">
       {/* Icon */}
       <div className="self-stretch inline-flex justify-start items-start">
         <div
-          className={`p-3 ${category.iconBg} rounded-xl flex justify-start items-center`}
+          className={`p-3 ${style.iconBg} rounded-xl flex justify-start items-center`}
         >
-          <Icon name="folder" size={24} className={category.iconColor} />
+          <Icon name="folder" size={24} className={style.iconColor} />
         </div>
       </div>
 
       {/* Title + Description */}
       <div className="self-stretch flex flex-col justify-start items-start gap-1">
         <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-          {category.title}
+          {typeName}
         </div>
         <div className="self-stretch text-text-secondary text-xs font-normal leading-4">
-          {category.description}
+          Enunciados de {typeName.toLowerCase()} del curso
         </div>
       </div>
 
       {/* Ver Enunciados Link */}
-      <button className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors">
+      <button
+        onClick={onSelect}
+        className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+      >
         <span className="text-text-accent-primary text-sm font-medium leading-4">
           Ver Enunciados
         </span>
@@ -396,6 +386,11 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [previousCycles, setPreviousCycles] =
     useState<PreviousCyclesResponse | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
+
+  // Datos del banco de enunciados
+  const [bankStructure, setBankStructure] =
+    useState<BankStructureResponse | null>(null);
+  const [loadingBank, setLoadingBank] = useState(false);
   // Loading general (enrollment)
   const [loadingEnrollment, setLoadingEnrollment] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -469,6 +464,23 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
 
     loadPreviousCycles();
   }, [cursoId, currentCycle?.canViewPreviousCycles]);
+
+  // Cargar estructura del banco de enunciados
+  useEffect(() => {
+    async function loadBankStructure() {
+      setLoadingBank(true);
+      try {
+        const data = await coursesService.getBankStructure(cursoId);
+        setBankStructure(data);
+      } catch (err) {
+        console.error("Error al cargar banco de enunciados:", err);
+      } finally {
+        setLoadingBank(false);
+      }
+    }
+
+    if (cursoId) loadBankStructure();
+  }, [cursoId]);
 
   // Helpers
   const getInitials = (firstName: string, lastName1: string) => {
@@ -781,12 +793,42 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </span>
             </div>
 
-            {/* Category Cards */}
-            <div className="self-stretch grid grid-cols-3 gap-8">
-              {bancoCategories.map((category) => (
-                <BancoCategoryCard key={category.key} category={category} />
-              ))}
-            </div>
+            {loadingBank ? (
+              <div className="self-stretch flex justify-center py-12">
+                <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : bankStructure && bankStructure.items.length > 0 ? (
+              <div className="self-stretch grid grid-cols-3 gap-8">
+                {bankStructure.items.map((item) => (
+                  <BancoCategoryCard
+                    key={item.evaluationTypeCode}
+                    typeCode={item.evaluationTypeCode}
+                    typeName={item.evaluationTypeName}
+                    onSelect={() =>
+                      router.push(
+                        `/plataforma/curso/${cursoId}/banco/${item.evaluationTypeCode}`,
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="self-stretch p-12 bg-bg-secondary rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
+                <Icon
+                  name="folder_open"
+                  size={64}
+                  className="text-icon-tertiary"
+                />
+                <div className="text-center">
+                  <p className="text-text-primary font-semibold mb-2">
+                    No hay banco de enunciados disponible
+                  </p>
+                  <p className="text-text-secondary text-sm">
+                    El banco de enunciados aparecerá aquí cuando sea configurado
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

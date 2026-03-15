@@ -108,3 +108,19 @@ export interface PreviousCycleContentResponse {
   cycleCode: string;
   evaluations: PreviousCycleEvaluation[];
 }
+
+// ============================================
+// BANCO DE ENUNCIADOS - GET /courses/cycle/:id/bank-structure
+// ============================================
+
+export interface BankStructureItem {
+  evaluationTypeId: string;
+  evaluationTypeCode: string;
+  evaluationTypeName: string;
+}
+
+export interface BankStructureResponse {
+  courseCycleId: string;
+  cycleCode: string;
+  items: BankStructureItem[];
+}

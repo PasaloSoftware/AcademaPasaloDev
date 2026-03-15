@@ -111,7 +111,8 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
   const [materials, setMaterials] = useState<ClassEventMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [previewMaterial, setPreviewMaterial] = useState<ClassEventMaterial | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Course + eval names for breadcrumb
   const [courseName, setCourseName] = useState('');
@@ -387,7 +388,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
               <p className="text-text-tertiary text-sm">No hay materiales disponibles</p>
             ) : (
               <div className="flex flex-col gap-2 overflow-hidden">
-                {materials.map((mat) => {
+                {materials.map((mat, matIdx) => {
                   const fileName = mat.displayName || mat.fileResource.originalName;
                   const ext = getFileExtension(fileName);
                   const nameOnly = getFileNameWithoutExt(fileName);
@@ -398,7 +399,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
                     <button
                       key={mat.id}
                       type="button"
-                      onClick={() => setPreviewMaterial(mat)}
+                      onClick={() => { setPreviewIndex(matIdx); setShowPreview(true); }}
                       className="p-3 bg-bg-secondary rounded-lg flex items-center gap-3 hover:bg-bg-tertiary transition-colors text-left w-full"
                     >
                       <div className="flex-1 flex items-center gap-1 min-w-0">
@@ -449,10 +450,11 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       </div>
 
       {/* Material Preview Modal */}
-      {previewMaterial && (
+      {showPreview && materials.length > 0 && (
         <MaterialPreviewModal
-          material={previewMaterial}
-          onClose={() => setPreviewMaterial(null)}
+          materials={materials}
+          initialIndex={previewIndex}
+          onClose={() => setShowPreview(false)}
         />
       )}
     </div>

@@ -14,6 +14,7 @@ import type {
   CurrentCycleResponse,
   PreviousCyclesResponse,
   PreviousCycleContentResponse,
+  BankStructureResponse,
 } from '@/types/curso';
 
 export const coursesService = {
@@ -132,6 +133,16 @@ export const coursesService = {
   ): Promise<PreviousCycleContentResponse> {
     const response = await apiClient.get<PreviousCycleContentResponse>(
       `/courses/cycle/${courseCycleId}/previous-cycles/${cycleCode}/content`
+    );
+    return response.data;
+  },
+
+  /**
+   * Obtener estructura del banco de enunciados (STUDENT)
+   */
+  async getBankStructure(courseCycleId: string): Promise<BankStructureResponse> {
+    const response = await apiClient.get<BankStructureResponse>(
+      `/courses/cycle/${courseCycleId}/bank-structure`
     );
     return response.data;
   },
