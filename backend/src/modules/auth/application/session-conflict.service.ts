@@ -87,8 +87,11 @@ export class SessionConflictService {
             ipAddress: params.ipAddress,
             userAgent: params.userAgent,
             decision: CONCURRENT_DECISIONS.KEEP_NEW,
+            outcome: 'NEW_SESSION_ACTIVATED',
             newSessionId: newSession.id,
+            newSessionStatus: SESSION_STATUS_CODES.ACTIVE,
             existingSessionId: null,
+            existingSessionStatus: null,
           },
           manager,
         );
@@ -131,8 +134,11 @@ export class SessionConflictService {
             ipAddress: params.ipAddress,
             userAgent: params.userAgent,
             decision: CONCURRENT_DECISIONS.KEEP_NEW,
+            outcome: 'NEW_SESSION_ACTIVATED',
             newSessionId: newSession.id,
+            newSessionStatus: SESSION_STATUS_CODES.ACTIVE,
             existingSessionId: lockedExisting.id,
+            existingSessionStatus: SESSION_STATUS_CODES.REVOKED,
           },
           manager,
         );
@@ -156,8 +162,11 @@ export class SessionConflictService {
           ipAddress: params.ipAddress,
           userAgent: params.userAgent,
           decision: CONCURRENT_DECISIONS.KEEP_EXISTING,
+          outcome: 'NEW_SESSION_REVOKED',
           newSessionId: newSession.id,
+          newSessionStatus: SESSION_STATUS_CODES.REVOKED,
           existingSessionId: lockedExisting.id,
+          existingSessionStatus: SESSION_STATUS_CODES.ACTIVE,
         },
         manager,
       );
@@ -201,16 +210,11 @@ export class SessionConflictService {
         technicalSettings.auth.security.maxPendingSessionsPerUser - 1,
       );
 
-      for (const session of sessionsToRevoke) {
-        await this.userSessionRepository.update(
-          session.id,
-          {
-            sessionStatusId: revokedStatusId,
-            isActive: false,
-          },
-          manager,
-        );
-      }
+      await this.userSessionRepository.deactivateSessionsByIds(
+        sessionsToRevoke.map((session) => session.id),
+        revokedStatusId,
+        manager,
+      );
     }
   }
 }

@@ -4,8 +4,12 @@ import { DataSource } from 'typeorm';
 import { technicalSettings } from '@config/technical-settings';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
-import { MEDIA_ACCESS_STAFF_GROUP_METADATA } from '@modules/media-access/domain/media-access.constants';
+import {
+  MEDIA_ACCESS_STAFF_GROUP_METADATA,
+  isGoogleGroupMemberRemovable,
+} from '@modules/media-access/domain/media-access.constants';
 import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 
 type ReconciliationSummary = {
   scopesProcessed: number;
@@ -92,7 +96,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     while (true) {
       processedBatches += 1;
       if (processedBatches > MAX_SCOPE_BATCHES) {
-        throw new Error(
+        throw new MediaAccessReconciliationSafetyStopError(
           `Safety stop en reconciliación: excedido máximo de lotes (${MAX_SCOPE_BATCHES})`,
         );
       }
@@ -155,7 +159,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
 
       const nextScopeId = String(scopes[scopes.length - 1].id);
       if (nextScopeId === lastScopeId) {
-        throw new Error(
+        throw new MediaAccessReconciliationSafetyStopError(
           `Safety stop en reconciliación: cursor no avanza (scopeId=${nextScopeId})`,
         );
       }
@@ -209,19 +213,35 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
   ): Promise<Set<string>> {
     const now = new Date();
     const rows = await this.dataSource.query<Array<{ email: string | null }>>(
-      `SELECT DISTINCT LOWER(TRIM(u.email)) AS email
-       FROM enrollment_evaluation ee
-       INNER JOIN enrollment e ON e.id = ee.enrollment_id
-       INNER JOIN user u ON u.id = e.user_id
-       WHERE ee.evaluation_id = ?
-         AND ee.is_active = 1
-         AND ee.access_start_date <= ?
-         AND ee.access_end_date >= ?
-         AND e.cancelled_at IS NULL
-         AND u.is_active = 1
-         AND u.email IS NOT NULL
-         AND TRIM(u.email) <> ''`,
-      [evaluationId, now, now],
+      `SELECT DISTINCT email
+       FROM (
+         SELECT LOWER(TRIM(u.email)) AS email
+         FROM enrollment_evaluation ee
+         INNER JOIN enrollment e ON e.id = ee.enrollment_id
+         INNER JOIN user u ON u.id = e.user_id
+         WHERE ee.evaluation_id = ?
+           AND ee.is_active = 1
+           AND ee.access_start_date <= ?
+           AND ee.access_end_date >= ?
+           AND e.cancelled_at IS NULL
+           AND u.is_active = 1
+           AND u.email IS NOT NULL
+           AND TRIM(u.email) <> ''
+
+         UNION
+
+         SELECT LOWER(TRIM(u.email)) AS email
+         FROM evaluation ev
+         INNER JOIN course_cycle_professor ccp
+           ON ccp.course_cycle_id = ev.course_cycle_id
+          AND ccp.revoked_at IS NULL
+         INNER JOIN user u ON u.id = ccp.professor_user_id
+         WHERE ev.id = ?
+           AND u.is_active = 1
+           AND u.email IS NOT NULL
+           AND TRIM(u.email) <> ''
+       ) expected_members`,
+      [evaluationId, now, now, evaluationId],
     );
 
     const expectedEmailSet = new Set<string>();
@@ -375,10 +395,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
   }
 
   private isRemovableMemberRole(role?: string): boolean {
-    const normalizedRole = String(role || 'MEMBER')
-      .trim()
-      .toUpperCase();
-    return normalizedRole === 'MEMBER';
+    return isGoogleGroupMemberRemovable(role);
   }
 
   private async sleep(ms: number): Promise<void> {
@@ -391,11 +408,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
   }
 
   private getConfiguredStaffGroupEmail(): string {
-    return String(
-      technicalSettings.mediaAccess.staffViewersGroupEmail ||
-        process.env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL ||
-        '',
-    )
+    return technicalSettings.mediaAccess.staffViewersGroupEmail
       .trim()
       .toLowerCase();
   }

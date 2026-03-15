@@ -1,15 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { getQueueToken } from '@nestjs/bullmq';
 import request from 'supertest';
 import { AppModule } from '@/app.module';
 import { DataSource } from 'typeorm';
+import { Queue } from 'bullmq';
 import { TestSeeder } from './test-utils';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
 import { User } from '@modules/users/domain/user.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.constants';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
@@ -18,6 +21,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
+  let notificationsQueue: Queue;
 
   let admin: { user: User; token: string };
   let professor: { user: User; token: string };
@@ -56,6 +60,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    notificationsQueue = app.get<Queue>(getQueueToken(QUEUES.NOTIFICATIONS));
     const cacheService = app.get(RedisCacheService);
 
     await cacheService.invalidateGroup('*');
@@ -200,6 +205,17 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  async function removeReminderJobIfExists(
+    classEventId: string,
+  ): Promise<void> {
+    const job = await notificationsQueue.getJob(
+      `class-reminder-${classEventId}`,
+    );
+    if (job) {
+      await job.remove();
+    }
+  }
 
   describe('POST /api/v1/class-events - Crear evento', () => {
     it('debe crear un evento exitosamente como docente asignado', async () => {
@@ -431,6 +447,108 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         .delete(`/api/v1/class-events/${createdEventId}/cancel`)
         .set('Authorization', `Bearer ${professor.token}`)
         .expect(204);
+    });
+  });
+
+  describe('REMINDERS DE CLASE', () => {
+    it('reemplaza el reminder existente cuando cambia la hora de inicio', async () => {
+      const originalStart = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const originalEnd = new Date(
+        originalStart.getTime() + 2 * 60 * 60 * 1000,
+      );
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 70,
+          title: 'Evento Reminder Reprogramable',
+          topic: 'Reminder',
+          startDatetime: originalStart.toISOString(),
+          endDatetime: originalEnd.toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/7070707070',
+        })
+        .expect(201);
+
+      const eventId = createRes.body.data.id as string;
+      const originalJobId = `class-reminder-${eventId}`;
+
+      try {
+        const originalJob = await notificationsQueue.getJob(originalJobId);
+        expect(originalJob).toBeDefined();
+        const originalTimestamp = Number(originalJob?.timestamp ?? 0);
+
+        const updatedStart = new Date(Date.now() + 72 * 60 * 60 * 1000);
+        const updatedEnd = new Date(
+          updatedStart.getTime() + 2 * 60 * 60 * 1000,
+        );
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/class-events/${eventId}`)
+          .set('Authorization', `Bearer ${professor.token}`)
+          .send({
+            startDatetime: updatedStart.toISOString(),
+            endDatetime: updatedEnd.toISOString(),
+          })
+          .expect(200);
+
+        const updatedJob = await notificationsQueue.getJob(originalJobId);
+        expect(updatedJob).toBeDefined();
+        expect(updatedJob?.id).toBe(originalJobId);
+        expect(Number(updatedJob?.timestamp ?? 0)).toBeGreaterThanOrEqual(
+          originalTimestamp,
+        );
+        expect(Number(updatedJob?.delay ?? 0)).toBeGreaterThan(0);
+      } finally {
+        await removeReminderJobIfExists(eventId);
+      }
+    });
+
+    it('elimina el reminder existente si el nuevo horario ya no permite reminder', async () => {
+      const originalStart = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const originalEnd = new Date(
+        originalStart.getTime() + 2 * 60 * 60 * 1000,
+      );
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 71,
+          title: 'Evento Reminder Eliminable',
+          topic: 'Reminder',
+          startDatetime: originalStart.toISOString(),
+          endDatetime: originalEnd.toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/7171717171',
+        })
+        .expect(201);
+
+      const eventId = createRes.body.data.id as string;
+      const jobId = `class-reminder-${eventId}`;
+
+      try {
+        const originalJob = await notificationsQueue.getJob(jobId);
+        expect(originalJob).toBeDefined();
+
+        const updatedStart = new Date(Date.now() + 5 * 60 * 1000);
+        const updatedEnd = new Date(updatedStart.getTime() + 60 * 60 * 1000);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/class-events/${eventId}`)
+          .set('Authorization', `Bearer ${professor.token}`)
+          .send({
+            startDatetime: updatedStart.toISOString(),
+            endDatetime: updatedEnd.toISOString(),
+          })
+          .expect(200);
+
+        const updatedJob = await notificationsQueue.getJob(jobId);
+        expect(updatedJob ?? null).toBeNull();
+      } finally {
+        await removeReminderJobIfExists(eventId);
+      }
     });
   });
 

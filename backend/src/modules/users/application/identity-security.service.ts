@@ -53,27 +53,19 @@ export class IdentitySecurityService {
         );
       }
 
-      for (const session of activeSessions) {
-        await this.userSessionRepository.update(
-          session.id,
-          {
-            sessionStatusId: revokedStatus.id,
-            isActive: false,
-          },
-          manager,
-        );
-      }
+      await this.userSessionRepository.deactivateActiveSessionsByUserId(
+        userId,
+        revokedStatus.id,
+        manager,
+      );
     }
 
-    for (const session of activeSessions) {
-      await this.cacheService.del(`cache:session:${session.id}:user`);
-    }
-
-    await this.cacheService.del(`cache:user:profile:${userId}`);
-
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-    );
+    await Promise.all([
+      this.cacheService.del(`cache:user:profile:${userId}`),
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
+      ),
+    ]);
 
     this.logger.log({
       level: 'info',

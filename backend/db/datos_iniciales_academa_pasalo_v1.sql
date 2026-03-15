@@ -110,6 +110,9 @@ INSERT INTO enrollment_type (code, name) VALUES
 ('PARTIAL', 'Por Evaluación');
 
 
+INSERT INTO notification_type (code, name) VALUES
+('AUDIT_EXPORT_READY', 'Reporte de Auditoria Listo');
+
 INSERT INTO system_setting (setting_key, setting_value, description, created_at) VALUES
 -- Umbrales por IP (detección gruesa, no distrital)
 ('GEO_IP_ANOMALY_TIME_WINDOW_MINUTES', '60', 'Ventana de tiempo (min) para evaluar anomalías de ubicación basadas en IP.', NOW()),
@@ -154,10 +157,12 @@ VALUES
 
 INSERT INTO notification_type (code, name) VALUES
 ('NEW_MATERIAL', 'Nuevo Material Disponible'),
+('MATERIAL_UPDATED', 'Material Actualizado'),
 ('CLASS_SCHEDULED', 'Nueva Clase Programada'),
 ('CLASS_UPDATED', 'Clase Actualizada'),
 ('CLASS_CANCELLED', 'Clase Cancelada'),
 ('CLASS_REMINDER', 'Recordatorio de Clase'),
+('CLASS_RECORDING_AVAILABLE', 'Grabación Disponible'),
 ('DELETION_REQUEST_APPROVED', 'Solicitud de Eliminación Aprobada'),
 ('DELETION_REQUEST_REJECTED', 'Solicitud de Eliminación Rechazada');
 

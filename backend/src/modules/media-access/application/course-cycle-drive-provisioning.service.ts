@@ -2,7 +2,6 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { GoogleAuth } from 'google-auth-library';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
 import {
@@ -10,25 +9,6 @@ import {
   MEDIA_ACCESS_STAFF_GROUP_METADATA,
 } from '@modules/media-access/domain/media-access.constants';
 import { technicalSettings } from '@config/technical-settings';
-
-type GoogleRequestMethod = 'GET' | 'POST';
-type GoogleRequest = {
-  url: string;
-  method: GoogleRequestMethod;
-  data?: unknown;
-  headers?: Record<string, string>;
-};
-type GoogleResponse<T> = { data: T };
-interface GoogleRequestClient {
-  request<T = unknown>(request: GoogleRequest): Promise<GoogleResponse<T>>;
-}
-
-type DriveFileListResponse = {
-  files?: Array<{ id: string }>;
-};
-type DriveCreateResponse = {
-  id?: string;
-};
 
 type EmailRow = {
   email: string | null;
@@ -57,6 +37,8 @@ const BANK_TYPE_FOLDER_LABELS: Record<string, string> = {
   TUTORING: 'Tutorías Especializadas',
 };
 
+const BANK_DOCUMENTS_FOLDER_NAME = 'bank_documents';
+
 @Injectable()
 export class CourseCycleDriveProvisioningService {
   constructor(
@@ -79,34 +61,34 @@ export class CourseCycleDriveProvisioningService {
     const courseCode = this.normalizeToken(input.courseCode, 'courseCode');
     const viewerGroupEmail = `cc-${courseCycleId}-viewers@${workspaceDomain}`;
 
-    const driveClient = await this.getDriveClient();
-    const rootFolderId = this.getDriveRootFolderId();
+    await this.driveScopeProvisioningService.validateRootFolder();
+    const rootFolderId = this.driveScopeProvisioningService.getRootFolderId();
 
-    const courseCyclesParent = await this.findOrCreateFolderUnderParent(
-      driveClient,
-      rootFolderId,
-      MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
-    );
-    const cycleFolderId = await this.findOrCreateFolderUnderParent(
-      driveClient,
-      courseCyclesParent,
-      cycleCode,
-    );
-    const scopeFolderId = await this.findOrCreateFolderUnderParent(
-      driveClient,
-      cycleFolderId,
-      `cc_${courseCycleId}_${courseCode}`,
-    );
-    const introFolderId = await this.findOrCreateFolderUnderParent(
-      driveClient,
-      scopeFolderId,
-      MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLE_INTRO_VIDEO,
-    );
-    const bankFolderId = await this.findOrCreateFolderUnderParent(
-      driveClient,
-      scopeFolderId,
-      'bank_documents',
-    );
+    const courseCyclesParent =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        rootFolderId,
+        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+      );
+    const cycleFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        courseCyclesParent,
+        cycleCode,
+      );
+    const scopeFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        cycleFolderId,
+        `cc_${courseCycleId}_${courseCode}`,
+      );
+    const introFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        scopeFolderId,
+        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLE_INTRO_VIDEO,
+      );
+    const bankFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        scopeFolderId,
+        BANK_DOCUMENTS_FOLDER_NAME,
+      );
 
     const group = await this.workspaceGroupsService.findOrCreateGroup({
       email: viewerGroupEmail,
@@ -119,10 +101,11 @@ export class CourseCycleDriveProvisioningService {
       group.email,
     );
 
-    const configuredStaffGroupEmail = this.getConfiguredStaffGroupEmail();
-    if (configuredStaffGroupEmail) {
+    const staffGroupEmail =
+      technicalSettings.mediaAccess.staffViewersGroupEmail;
+    if (staffGroupEmail) {
       const staffGroup = await this.workspaceGroupsService.findOrCreateGroup({
-        email: configuredStaffGroupEmail,
+        email: staffGroupEmail,
         name: MEDIA_ACCESS_STAFF_GROUP_METADATA.NAME,
         description: MEDIA_ACCESS_STAFF_GROUP_METADATA.DESCRIPTION,
       });
@@ -137,15 +120,14 @@ export class CourseCycleDriveProvisioningService {
     for (const [evaluationTypeCode, numbers] of grouped.entries()) {
       const typeFolderLabel =
         BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode;
-      const typeFolderId = await this.findOrCreateFolderUnderParent(
-        driveClient,
-        bankFolderId,
-        typeFolderLabel,
-      );
+      const typeFolderId =
+        await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+          bankFolderId,
+          typeFolderLabel,
+        );
 
       for (const number of numbers) {
-        await this.findOrCreateFolderUnderParent(
-          driveClient,
+        await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
           typeFolderId,
           `${evaluationTypeCode}${number}`,
         );
@@ -233,82 +215,6 @@ export class CourseCycleDriveProvisioningService {
     return normalized;
   }
 
-  private async getDriveClient(): Promise<GoogleRequestClient> {
-    const keyFile = String(
-      this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS', '') ||
-        '',
-    ).trim();
-    if (!keyFile) {
-      throw new InternalServerErrorException(
-        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuracion',
-      );
-    }
-    const auth = new GoogleAuth({
-      keyFile,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    const client = (await auth.getClient()) as unknown as GoogleRequestClient;
-    if (typeof client.request !== 'function') {
-      throw new InternalServerErrorException(
-        'Cliente de Google Drive invalido',
-      );
-    }
-    return client;
-  }
-
-  private getDriveRootFolderId(): string {
-    const rootFolderId = String(
-      this.configService.get<string>('GOOGLE_DRIVE_ROOT_FOLDER_ID', '') || '',
-    ).trim();
-    if (!rootFolderId) {
-      throw new InternalServerErrorException(
-        'Falta GOOGLE_DRIVE_ROOT_FOLDER_ID en configuracion',
-      );
-    }
-    return rootFolderId;
-  }
-
-  private async findOrCreateFolderUnderParent(
-    client: GoogleRequestClient,
-    parentFolderId: string,
-    folderName: string,
-  ): Promise<string> {
-    const query = `'${parentFolderId}' in parents and name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-    const listResponse = await client.request<DriveFileListResponse>({
-      url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=2&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      method: 'GET',
-    });
-    const files = listResponse.data.files || [];
-    if (files.length === 1) {
-      return files[0].id;
-    }
-    if (files.length > 1) {
-      throw new InternalServerErrorException(
-        `Nombre ambiguo de carpeta bajo el mismo padre: ${folderName}`,
-      );
-    }
-
-    const createResponse = await client.request<DriveCreateResponse>({
-      url: 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
-      method: 'POST',
-      data: {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentFolderId],
-      },
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    const id = String(createResponse.data.id || '').trim();
-    if (!id) {
-      throw new InternalServerErrorException(
-        `Google Drive no devolvio id para carpeta ${folderName}`,
-      );
-    }
-    return id;
-  }
-
   private normalizeToken(raw: string, fieldName: string): string {
     const normalized = String(raw || '').trim();
     if (!normalized) {
@@ -344,15 +250,5 @@ export class CourseCycleDriveProvisioningService {
       );
     }
     return domain;
-  }
-
-  private getConfiguredStaffGroupEmail(): string {
-    return String(
-      technicalSettings.mediaAccess.staffViewersGroupEmail ||
-        process.env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL ||
-        '',
-    )
-      .trim()
-      .toLowerCase();
   }
 }

@@ -62,6 +62,21 @@ describe('IAM (e2e)', () => {
     roles: [{ id: '1', code: 'ADMIN', name: 'Administrador' }],
   };
 
+  const superAdminUser = {
+    id: '3',
+    email: 'superadmin@test.com',
+    firstName: 'Super',
+    lastName1: null as string | null,
+    lastName2: null as string | null,
+    phone: null as string | null,
+    career: null as string | null,
+    profilePhotoUrl: null as string | null,
+    photoSource: PhotoSource.NONE,
+    isActive: true,
+    createdAt: new Date(),
+    roles: [{ id: '3', code: 'SUPER_ADMIN', name: 'Super Admin' }],
+  };
+
   const studentUser = {
     id: '2',
     email: 'student@test.com',
@@ -86,9 +101,36 @@ describe('IAM (e2e)', () => {
     findOne: jest.fn((id) => {
       if (id === '1') return Promise.resolve(adminUser);
       if (id === '2') return Promise.resolve(studentUser);
+      if (id === '3') return Promise.resolve(superAdminUser);
       return Promise.resolve(null);
     }),
+    createWithRole: jest.fn((dto, roleCode) =>
+      Promise.resolve({
+        id: '99',
+        ...dto,
+        roles: [{ id: '9', code: roleCode, name: roleCode }],
+        photoSource: PhotoSource.NONE,
+        profilePhotoUrl: null,
+        isActive: true,
+        createdAt: new Date(),
+      }),
+    ),
     findAll: jest.fn().mockResolvedValue([adminUser, studentUser]),
+    update: jest.fn((id, dto) => {
+      if (id === '1') {
+        return Promise.resolve({
+          ...adminUser,
+          ...dto,
+        });
+      }
+      if (id === '2') {
+        return Promise.resolve({
+          ...studentUser,
+          ...dto,
+        });
+      }
+      return Promise.resolve(null);
+    }),
   };
 
   const userSessionRepositoryMock = {
@@ -113,9 +155,20 @@ describe('IAM (e2e)', () => {
           deviceId: 'device-1',
           userId: studentUser.id,
         });
+      if (id === 'session-superadmin')
+        return Promise.resolve({
+          id,
+          isActive: true,
+          expiresAt: new Date(Date.now() + 100000),
+          user: superAdminUser,
+          sessionStatusId: '1',
+          deviceId: 'device-1',
+          userId: superAdminUser.id,
+        });
       return Promise.resolve(null);
     }),
     update: jest.fn(),
+    updateLastActivity: jest.fn().mockResolvedValue(undefined),
     findActiveById: jest.fn((id) => {
       if (id === 'session-admin')
         return Promise.resolve({
@@ -129,6 +182,13 @@ describe('IAM (e2e)', () => {
           id,
           isActive: true,
           userId: studentUser.id,
+          deviceId: 'device-1',
+        });
+      if (id === 'session-superadmin')
+        return Promise.resolve({
+          id,
+          isActive: true,
+          userId: superAdminUser.id,
           deviceId: 'device-1',
         });
       return Promise.resolve(null);
@@ -252,6 +312,16 @@ describe('IAM (e2e)', () => {
       deviceId: 'device-1',
     });
 
+  const getSuperAdminToken = () =>
+    jwtService.sign({
+      sub: '3',
+      email: superAdminUser.email,
+      roles: ['SUPER_ADMIN'],
+      activeRole: 'SUPER_ADMIN',
+      sessionId: 'session-superadmin',
+      deviceId: 'device-1',
+    });
+
   describe('POST /api/v1/auth/google', () => {
     it('retorna tokens dentro de data', async () => {
       authServiceMock.loginWithGoogle.mockResolvedValue({
@@ -281,9 +351,19 @@ describe('IAM (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/logout')
         .set('Authorization', `Bearer ${token}`)
+        .set('User-Agent', 'iam-e2e-agent')
         .expect(200);
 
-      expect(authServiceMock.logout).toHaveBeenCalled();
+      expect(authServiceMock.logout).toHaveBeenCalledWith(
+        'session-admin',
+        '1',
+        {
+          ipAddress: '127.0.0.1',
+          userAgent: 'iam-e2e-agent',
+          deviceId: 'device-1',
+        },
+        'ADMIN',
+      );
     });
   });
 
@@ -320,6 +400,99 @@ describe('IAM (e2e)', () => {
         .get('/api/v1/users/2')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
+    });
+  });
+
+  describe('PATCH /api/v1/users/:id', () => {
+    it('con token sin rol ADMIN/SUPER_ADMIN -> 403', async () => {
+      const token = getStudentToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'Nuevo Nombre' })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 200', async () => {
+      const token = getAdminToken();
+
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/users/2')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'Nuevo Nombre' })
+        .expect(200);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(200);
+      expect(usersServiceMock.update).toHaveBeenCalledWith('2', {
+        firstName: 'Nuevo Nombre',
+      });
+      expect(body.data).toMatchObject({
+        id: '2',
+        firstName: 'Nuevo Nombre',
+      });
+    });
+  });
+
+  describe('POST /api/v1/users/admins', () => {
+    it('con token ADMIN -> 403', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/users/admins')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'newadmin@test.com', firstName: 'Nuevo' })
+        .expect(403);
+    });
+
+    it('con token SUPER_ADMIN -> 201', async () => {
+      const token = getSuperAdminToken();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/users/admins')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'newadmin@test.com', firstName: 'Nuevo' })
+        .expect(201);
+
+      expect(usersServiceMock.createWithRole).toHaveBeenCalledWith(
+        { email: 'newadmin@test.com', firstName: 'Nuevo' },
+        'ADMIN',
+      );
+    });
+  });
+
+  describe('POST /api/v1/users/students', () => {
+    it('con token ADMIN -> 201', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/users/students')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'student2@test.com', firstName: 'Student' })
+        .expect(201);
+
+      expect(usersServiceMock.createWithRole).toHaveBeenCalledWith(
+        { email: 'student2@test.com', firstName: 'Student' },
+        'STUDENT',
+      );
+    });
+  });
+
+  describe('POST /api/v1/users/professors', () => {
+    it('con token ADMIN -> 201', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/users/professors')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'prof2@test.com', firstName: 'Professor' })
+        .expect(201);
+
+      expect(usersServiceMock.createWithRole).toHaveBeenCalledWith(
+        { email: 'prof2@test.com', firstName: 'Professor' },
+        'PROFESSOR',
+      );
     });
   });
 });

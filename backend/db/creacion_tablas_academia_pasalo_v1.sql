@@ -322,24 +322,12 @@ CREATE TABLE file_resource (
   )
 );
 
-CREATE TABLE file_version (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  file_resource_id BIGINT NOT NULL,
-  version_number INT NOT NULL,
-  storage_url VARCHAR(500) NULL,
-  created_at DATETIME NOT NULL,
-  created_by BIGINT NOT NULL,
-  CONSTRAINT uq_resource_version UNIQUE (file_resource_id, version_number),
-  FOREIGN KEY (file_resource_id) REFERENCES file_resource(id),
-  FOREIGN KEY (created_by) REFERENCES user(id)
-);
-
 CREATE TABLE material (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   material_folder_id BIGINT NOT NULL,
   class_event_id BIGINT NULL,
   file_resource_id BIGINT NOT NULL,
-  file_version_id BIGINT NOT NULL,
+  current_version_id BIGINT NULL,
   material_status_id BIGINT NOT NULL,
   display_name VARCHAR(255) NOT NULL,
   visible_from DATETIME,
@@ -350,10 +338,28 @@ CREATE TABLE material (
   FOREIGN KEY (material_folder_id) REFERENCES material_folder(id),
   FOREIGN KEY (class_event_id) REFERENCES class_event(id),
   FOREIGN KEY (file_resource_id) REFERENCES file_resource(id),
-  FOREIGN KEY (file_version_id) REFERENCES file_version(id),
   FOREIGN KEY (material_status_id) REFERENCES material_status(id),
   FOREIGN KEY (created_by) REFERENCES user(id)
 );
+
+CREATE TABLE material_version (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  material_id BIGINT NOT NULL,
+  file_resource_id BIGINT NOT NULL,
+  version_number INT NOT NULL,
+  restored_from_material_version_id BIGINT NULL,
+  created_at DATETIME NOT NULL,
+  created_by BIGINT NOT NULL,
+  CONSTRAINT uq_material_version UNIQUE (material_id, version_number),
+  FOREIGN KEY (material_id) REFERENCES material(id),
+  FOREIGN KEY (file_resource_id) REFERENCES file_resource(id),
+  FOREIGN KEY (restored_from_material_version_id) REFERENCES material_version(id),
+  FOREIGN KEY (created_by) REFERENCES user(id)
+);
+
+ALTER TABLE material
+ADD CONSTRAINT fk_material_current_version
+FOREIGN KEY (current_version_id) REFERENCES material_version(id);
 
 CREATE TABLE deletion_request (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -385,7 +391,7 @@ CREATE TABLE notification (
   title                VARCHAR(255) NOT NULL,
   message              VARCHAR(500) NOT NULL,
   entity_type          VARCHAR(50)  NULL,
-  entity_id            BIGINT       NULL,
+  entity_id            VARCHAR(64)  NULL,
   created_at           DATETIME     NOT NULL,
   CONSTRAINT fk_notification_type
     FOREIGN KEY (notification_type_id) REFERENCES notification_type(id)
@@ -408,8 +414,6 @@ CREATE TABLE audit_log (
   user_id BIGINT NOT NULL,
   audit_action_id BIGINT NOT NULL,
   event_datetime DATETIME NOT NULL,
-  entity_type VARCHAR(50),
-  entity_id BIGINT,
   FOREIGN KEY (user_id) REFERENCES user(id),
   FOREIGN KEY (audit_action_id) REFERENCES audit_action(id)
 );
@@ -487,6 +491,9 @@ ON user_session(user_id, created_at);
 CREATE INDEX idx_security_event_user_date
 ON security_event(user_id, event_datetime);
 
+CREATE INDEX idx_security_event_date_id
+ON security_event(event_datetime, id);
+
 CREATE INDEX idx_enrollment_user_course_cycle
 ON enrollment(user_id, course_cycle_id);
 
@@ -547,17 +554,23 @@ ON file_resource(checksum_hash, size_bytes);
 CREATE UNIQUE INDEX uq_file_resource_provider_key
 ON file_resource(storage_provider, storage_key);
 
-CREATE INDEX idx_file_version_resource
-ON file_version(file_resource_id);
-
 CREATE INDEX idx_material_file_resource
 ON material(file_resource_id);
 
-CREATE INDEX idx_material_file_version
-ON material(file_version_id);
+CREATE INDEX idx_material_current_version
+ON material(current_version_id);
+
+CREATE INDEX idx_material_version_material
+ON material_version(material_id);
+
+CREATE INDEX idx_material_version_file_resource
+ON material_version(file_resource_id);
 
 CREATE INDEX idx_audit_log_user_date
 ON audit_log(user_id, event_datetime);
+
+CREATE INDEX idx_audit_log_date_id
+ON audit_log(event_datetime, id);
 
 CREATE INDEX idx_notification_created_at ON notification(created_at);
 

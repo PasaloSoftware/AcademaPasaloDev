@@ -5,10 +5,11 @@ import { NotFoundException } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
 import { UserNotification } from '@modules/notifications/domain/user-notification.entity';
-import { Notification } from '@modules/notifications/domain/notification.entity';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { NOTIFICATION_JOB_NAMES } from '@modules/notifications/domain/notification.constants';
 import { technicalSettings } from '@config/technical-settings';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
 
 const mockUserNotifRepo = {
   findByUserPaginated: jest.fn(),
@@ -24,6 +25,14 @@ const mockQueue: Partial<Queue> = {
   removeJobScheduler: jest.fn(),
 };
 
+const mockMaterialRepo = {
+  findNotificationTargetsByIds: jest.fn(),
+};
+
+const mockClassEventRepo = {
+  findNotificationTargetsByIds: jest.fn(),
+};
+
 describe('NotificationsService', () => {
   let service: NotificationsService;
 
@@ -32,11 +41,15 @@ describe('NotificationsService', () => {
 
     (mockQueue.getJobSchedulers as jest.Mock).mockResolvedValue([]);
     (mockQueue.add as jest.Mock).mockResolvedValue({});
+    mockMaterialRepo.findNotificationTargetsByIds.mockResolvedValue([]);
+    mockClassEventRepo.findNotificationTargetsByIds.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsService,
         { provide: UserNotificationRepository, useValue: mockUserNotifRepo },
+        { provide: MaterialRepository, useValue: mockMaterialRepo },
+        { provide: ClassEventRepository, useValue: mockClassEventRepo },
         { provide: getQueueToken(QUEUES.NOTIFICATIONS), useValue: mockQueue },
       ],
     }).compile();
@@ -45,8 +58,8 @@ describe('NotificationsService', () => {
     await service.onApplicationBootstrap();
   });
 
-  describe('onApplicationBootstrap — setupCleanupScheduler', () => {
-    it('registra el job de cleanup cuando no existe aún', () => {
+  describe('onApplicationBootstrap - setupCleanupScheduler', () => {
+    it('registra el job de cleanup cuando no existe aun', () => {
       expect(mockQueue.add).toHaveBeenCalledWith(
         NOTIFICATION_JOB_NAMES.CLEANUP,
         {},
@@ -59,7 +72,7 @@ describe('NotificationsService', () => {
       expect(mockQueue.removeJobScheduler).not.toHaveBeenCalled();
     });
 
-    it('no re-registra si el scheduler ya existe con el mismo patrón', async () => {
+    it('no re-registra si el scheduler ya existe con el mismo patron', async () => {
       jest.clearAllMocks();
       (mockQueue.getJobSchedulers as jest.Mock).mockResolvedValue([
         {
@@ -74,7 +87,7 @@ describe('NotificationsService', () => {
       expect(mockQueue.removeJobScheduler).not.toHaveBeenCalled();
     });
 
-    it('elimina y re-registra el scheduler si el patrón cron cambió', async () => {
+    it('elimina y re-registra el scheduler si el patron cron cambio', async () => {
       jest.clearAllMocks();
       (mockQueue.getJobSchedulers as jest.Mock).mockResolvedValue([
         { name: NOTIFICATION_JOB_NAMES.CLEANUP, cron: '0 0 * * *' },
@@ -98,7 +111,7 @@ describe('NotificationsService', () => {
       );
     });
 
-    it('usa la propiedad "pattern" como fallback si "cron" no existe en el scheduler', async () => {
+    it('usa la propiedad pattern como fallback si cron no existe en el scheduler', async () => {
       jest.clearAllMocks();
       (mockQueue.getJobSchedulers as jest.Mock).mockResolvedValue([
         {
@@ -113,8 +126,8 @@ describe('NotificationsService', () => {
     });
   });
 
-  describe('onApplicationBootstrap — validateReminderSettings', () => {
-    it('no loguea error cuando reminderDefaultMinutes está en rango', () => {
+  describe('onApplicationBootstrap - validateReminderSettings', () => {
+    it('no loguea error cuando reminderDefaultMinutes esta en rango', () => {
       const errorSpy = jest
         .spyOn((service as any).logger, 'error')
         .mockImplementation(() => undefined);
@@ -127,7 +140,7 @@ describe('NotificationsService', () => {
   });
 
   describe('getMyNotifications', () => {
-    it('delega al repositorio con los parámetros correctos', async () => {
+    it('delega al repositorio con los parametros correctos', async () => {
       const items: UserNotification[] = [];
       mockUserNotifRepo.findByUserPaginated.mockResolvedValue(items);
 
@@ -143,6 +156,95 @@ describe('NotificationsService', () => {
     });
   });
 
+  describe('getMyNotificationResponses', () => {
+    it('enriquece notificaciones de material con target de navegacion', async () => {
+      const items = [
+        {
+          notificationId: 'n1',
+          notification: {
+            id: 'n1',
+            entityType: 'material',
+            entityId: 'mat-1',
+            title: 'Material actualizado',
+            message: 'msg',
+            createdAt: new Date('2026-03-01T00:00:00Z'),
+            notificationType: { code: 'MATERIAL_UPDATED', name: 'Material' },
+          },
+          isRead: false,
+          readAt: null,
+        } as unknown as UserNotification,
+      ];
+      mockUserNotifRepo.findByUserPaginated.mockResolvedValue(items);
+      mockMaterialRepo.findNotificationTargetsByIds.mockResolvedValue([
+        {
+          materialId: 'mat-1',
+          classEventId: 'evt-1',
+          evaluationId: 'eval-1',
+          courseCycleId: 'cycle-1',
+          folderId: 'folder-1',
+          sessionNumber: 1,
+          evaluationTypeCode: 'PC',
+          evaluationNumber: 1,
+        },
+      ]);
+
+      const result = await service.getMyNotificationResponses(
+        'u1',
+        false,
+        20,
+        0,
+      );
+
+      expect(result[0].target).toEqual({
+        materialId: 'mat-1',
+        classEventId: 'evt-1',
+        evaluationId: 'eval-1',
+        courseCycleId: 'cycle-1',
+        folderId: 'folder-1',
+        auditExportJobId: null,
+      });
+    });
+
+    it('expone target directo para notificaciones de exportacion de auditoria', async () => {
+      const items = [
+        {
+          notificationId: 'n-audit-export',
+          notification: {
+            id: 'n-audit-export',
+            entityType: 'audit_export',
+            entityId: 'audit-export-job-1',
+            title: 'Reporte de auditoria listo',
+            message: 'Tu reporte ya esta listo.',
+            createdAt: new Date('2026-03-01T00:00:00Z'),
+            notificationType: {
+              code: 'AUDIT_EXPORT_READY',
+              name: 'Reporte de auditoria listo',
+            },
+          },
+          isRead: false,
+          readAt: null,
+        } as unknown as UserNotification,
+      ];
+      mockUserNotifRepo.findByUserPaginated.mockResolvedValue(items);
+
+      const result = await service.getMyNotificationResponses(
+        'u1',
+        false,
+        20,
+        0,
+      );
+
+      expect(result[0].target).toEqual({
+        materialId: null,
+        classEventId: null,
+        evaluationId: null,
+        courseCycleId: null,
+        folderId: null,
+        auditExportJobId: 'audit-export-job-1',
+      });
+    });
+  });
+
   describe('getUnreadCount', () => {
     it('delega al repositorio', async () => {
       mockUserNotifRepo.countUnread.mockResolvedValue(7);
@@ -154,7 +256,7 @@ describe('NotificationsService', () => {
   });
 
   describe('markAsRead', () => {
-    it('lanza NotFoundException si la notificación no pertenece al usuario', async () => {
+    it('lanza NotFoundException si la notificacion no pertenece al usuario', async () => {
       mockUserNotifRepo.findOne.mockResolvedValue(null);
 
       await expect(service.markAsRead('u1', 'n99')).rejects.toBeInstanceOf(
@@ -163,7 +265,7 @@ describe('NotificationsService', () => {
       expect(mockUserNotifRepo.markAsRead).not.toHaveBeenCalled();
     });
 
-    it('llama a markAsRead del repositorio cuando la notificación existe', async () => {
+    it('llama a markAsRead del repositorio cuando la notificacion existe', async () => {
       const un = {
         userId: 'u1',
         notificationId: 'n1',
@@ -177,7 +279,7 @@ describe('NotificationsService', () => {
       expect(mockUserNotifRepo.markAsRead).toHaveBeenCalledWith('u1', 'n1');
     });
 
-    it('no llama a markAsRead del repositorio si la notificación ya está leída', async () => {
+    it('no llama a markAsRead del repositorio si la notificacion ya esta leida', async () => {
       const un = {
         userId: 'u1',
         notificationId: 'n1',

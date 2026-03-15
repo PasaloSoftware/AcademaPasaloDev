@@ -32,6 +32,7 @@ describe('ClassEventsService', () => {
   let cacheModuleService: jest.Mocked<ClassEventsCacheService>;
   let driveAccessScopeService: jest.Mocked<DriveAccessScopeService>;
   let storageService: jest.Mocked<StorageService>;
+  let notificationsDispatchService: jest.Mocked<NotificationsDispatchService>;
 
   const mockProfessor: UserWithSession = {
     id: 'prof-1',
@@ -160,6 +161,9 @@ describe('ClassEventsService', () => {
             dispatchClassScheduled: jest.fn().mockResolvedValue(undefined),
             dispatchClassUpdated: jest.fn().mockResolvedValue(undefined),
             dispatchClassCancelled: jest.fn().mockResolvedValue(undefined),
+            dispatchClassRecordingAvailable: jest
+              .fn()
+              .mockResolvedValue(undefined),
             scheduleClassReminder: jest.fn().mockResolvedValue(undefined),
             cancelClassReminder: jest.fn().mockResolvedValue(undefined),
           },
@@ -187,6 +191,7 @@ describe('ClassEventsService', () => {
     cacheModuleService = module.get(ClassEventsCacheService);
     driveAccessScopeService = module.get(DriveAccessScopeService);
     storageService = module.get(StorageService);
+    notificationsDispatchService = module.get(NotificationsDispatchService);
 
     // Default mocks behavior
     permissionService.checkUserAuthorization.mockResolvedValue(true);
@@ -294,6 +299,116 @@ describe('ClassEventsService', () => {
       expect(classEventRepository.update).toHaveBeenCalled();
       expect(permissionService.validateEventOwnership).toHaveBeenCalled();
       expect(cacheModuleService.invalidateForEvaluation).toHaveBeenCalled();
+    });
+
+    it('debe notificar clase actualizada cuando cambia el horario', async () => {
+      classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.update.mockResolvedValue({
+        ...mockEvent,
+        startDatetime: new Date('2026-02-01T09:00:00Z'),
+        endDatetime: new Date('2026-02-01T11:00:00Z'),
+      });
+
+      await service.updateEvent(
+        'event-1',
+        mockProfessor,
+        undefined,
+        undefined,
+        new Date('2026-02-01T09:00:00Z'),
+        new Date('2026-02-01T11:00:00Z'),
+      );
+
+      expect(
+        notificationsDispatchService.dispatchClassUpdated,
+      ).toHaveBeenCalledWith('event-1');
+      expect(
+        notificationsDispatchService.scheduleClassReminder,
+      ).toHaveBeenCalledWith('event-1', new Date('2026-02-01T09:00:00Z'));
+      expect(
+        notificationsDispatchService.dispatchClassRecordingAvailable,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('no debe notificar clase actualizada cuando solo cambia el titulo', async () => {
+      classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.update.mockResolvedValue({
+        ...mockEvent,
+        title: 'Clase 1 actualizada',
+      });
+
+      await service.updateEvent(
+        'event-1',
+        mockProfessor,
+        'Clase 1 actualizada',
+      );
+
+      expect(
+        notificationsDispatchService.dispatchClassUpdated,
+      ).not.toHaveBeenCalled();
+      expect(
+        notificationsDispatchService.scheduleClassReminder,
+      ).not.toHaveBeenCalled();
+      expect(
+        notificationsDispatchService.dispatchClassRecordingAvailable,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('debe notificar cambio de horario si solo cambia la hora de fin, sin reprogramar reminder', async () => {
+      classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.update.mockResolvedValue({
+        ...mockEvent,
+        endDatetime: new Date('2026-02-01T11:00:00Z'),
+      });
+
+      await service.updateEvent(
+        'event-1',
+        mockProfessor,
+        undefined,
+        undefined,
+        undefined,
+        new Date('2026-02-01T11:00:00Z'),
+      );
+
+      expect(
+        notificationsDispatchService.dispatchClassUpdated,
+      ).toHaveBeenCalledWith('event-1');
+      expect(
+        notificationsDispatchService.scheduleClassReminder,
+      ).not.toHaveBeenCalled();
+      expect(
+        notificationsDispatchService.dispatchClassRecordingAvailable,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('debe notificar grabacion disponible cuando recordingUrl cambia', async () => {
+      classEventRepository.findByIdSimple.mockResolvedValue(mockEvent);
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.update.mockResolvedValue({
+        ...mockEvent,
+        recordingUrl: 'https://drive.google.com/file/d/drive-abc-1/view',
+        recordingFileId: 'drive-abc-1',
+      });
+
+      await service.updateEvent(
+        'event-1',
+        mockProfessor,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'https://drive.google.com/file/d/drive-abc-1/view',
+      );
+
+      expect(
+        notificationsDispatchService.dispatchClassRecordingAvailable,
+      ).toHaveBeenCalledWith('event-1');
+      expect(
+        notificationsDispatchService.dispatchClassUpdated,
+      ).not.toHaveBeenCalled();
     });
   });
 

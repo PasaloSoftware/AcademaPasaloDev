@@ -30,6 +30,7 @@ export class AuditLogRepository {
       startDate?: Date;
       endDate?: Date;
       userId?: string;
+      actionCode?: string;
     },
     limit: number,
   ): Promise<AuditLog[]> {
@@ -56,7 +57,48 @@ export class AuditLogRepository {
       query.andWhere('l.userId = :userId', { userId: filters.userId });
     }
 
+    if (filters.actionCode) {
+      query.andWhere('a.code = :actionCode', {
+        actionCode: filters.actionCode,
+      });
+    }
+
     return await query.orderBy('l.eventDatetime', 'DESC').take(limit).getMany();
+  }
+
+  async countAll(filters: {
+    startDate?: Date;
+    endDate?: Date;
+    userId?: string;
+    actionCode?: string;
+  }): Promise<number> {
+    const query = this.repository
+      .createQueryBuilder('l')
+      .leftJoin('l.auditAction', 'a');
+
+    if (filters.startDate) {
+      query.andWhere('l.eventDatetime >= :startDate', {
+        startDate: filters.startDate,
+      });
+    }
+
+    if (filters.endDate) {
+      query.andWhere('l.eventDatetime <= :endDate', {
+        endDate: filters.endDate,
+      });
+    }
+
+    if (filters.userId) {
+      query.andWhere('l.userId = :userId', { userId: filters.userId });
+    }
+
+    if (filters.actionCode) {
+      query.andWhere('a.code = :actionCode', {
+        actionCode: filters.actionCode,
+      });
+    }
+
+    return await query.getCount();
   }
 
   async deleteOlderThan(

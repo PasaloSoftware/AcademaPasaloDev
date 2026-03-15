@@ -23,6 +23,7 @@ describe('CoursesService student views', () => {
   let service: CoursesService;
   let dataSource: jest.Mocked<DataSource>;
   let cacheService: jest.Mocked<RedisCacheService>;
+  let courseRepository: jest.Mocked<CourseRepository>;
   let courseCycleRepository: jest.Mocked<CourseCycleRepository>;
   let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
   let courseCycleAllowedEvaluationTypeRepository: jest.Mocked<CourseCycleAllowedEvaluationTypeRepository>;
@@ -51,7 +52,14 @@ describe('CoursesService student views', () => {
             transaction: jest.fn(),
           },
         },
-        { provide: CourseRepository, useValue: {} },
+        {
+          provide: CourseRepository,
+          useValue: {
+            findById: jest.fn(),
+            findByCode: jest.fn(),
+            updateAndReturn: jest.fn(),
+          },
+        },
         { provide: CourseTypeRepository, useValue: {} },
         { provide: CycleLevelRepository, useValue: {} },
         {
@@ -113,6 +121,7 @@ describe('CoursesService student views', () => {
     service = module.get(CoursesService);
     dataSource = module.get(DataSource);
     cacheService = module.get(RedisCacheService);
+    courseRepository = module.get(CourseRepository);
     courseCycleRepository = module.get(CourseCycleRepository);
     courseCycleProfessorRepository = module.get(CourseCycleProfessorRepository);
     courseCycleAllowedEvaluationTypeRepository = module.get(
@@ -644,6 +653,42 @@ describe('CoursesService student views', () => {
       expect.stringContaining('UPDATE course_cycle'),
       ['https://drive.google.com/file/d/abcDEF_123/view', 'abcDEF_123', '100'],
     );
+  });
+
+  it('should update course through repository contract and return updated entity', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+    });
+    (courseRepository.findByCode as jest.Mock).mockResolvedValue(null);
+    (courseRepository.updateAndReturn as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT102',
+      name: 'Matematica avanzada',
+    });
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
+      return await cb({} as any);
+    });
+
+    const result = await service.update('c1', {
+      code: 'MAT102',
+      name: 'Matematica avanzada',
+    });
+
+    expect(courseRepository.updateAndReturn).toHaveBeenCalledWith(
+      'c1',
+      {
+        code: 'MAT102',
+        name: 'Matematica avanzada',
+      },
+      expect.anything(),
+    );
+    expect(result).toEqual({
+      id: 'c1',
+      code: 'MAT102',
+      name: 'Matematica avanzada',
+    });
   });
 
   it('should return authorized intro video link for student with active enrollment', async () => {

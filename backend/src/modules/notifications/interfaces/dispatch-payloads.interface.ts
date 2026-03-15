@@ -2,12 +2,15 @@ export interface DispatchClassPayload {
   type:
     | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_SCHEDULED']
     | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_UPDATED']
-    | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_CANCELLED'];
+    | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_CANCELLED']
+    | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_RECORDING_AVAILABLE'];
   classEventId: string;
 }
 
 export interface DispatchMaterialPayload {
-  type: (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['NEW_MATERIAL'];
+  type:
+    | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['NEW_MATERIAL']
+    | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['MATERIAL_UPDATED'];
   materialId: string;
   folderId: string;
 }
@@ -20,10 +23,20 @@ export interface DispatchDeletionReviewPayload {
   adminComment?: string;
 }
 
+export interface DispatchAuditExportReadyPayload {
+  type: (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['AUDIT_EXPORT_READY'];
+  requestedByUserId: string;
+  exportJobId: string;
+  artifactName: string;
+  artifactExpiresAt: string;
+  estimatedFileCount: number;
+}
+
 export type DispatchPayload =
   | DispatchClassPayload
   | DispatchMaterialPayload
-  | DispatchDeletionReviewPayload;
+  | DispatchDeletionReviewPayload
+  | DispatchAuditExportReadyPayload;
 
 export interface ClassReminderPayload {
   classEventId: string;

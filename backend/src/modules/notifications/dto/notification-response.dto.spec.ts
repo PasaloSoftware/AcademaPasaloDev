@@ -17,7 +17,7 @@ function makeUserNotification(
     notificationTypeId: '10',
     notificationType: notifType,
     title: 'Nueva clase programada',
-    message: "La clase 'Álgebra' ha sido programada para el 01/03/2026.",
+    message: 'La clase 1 de la PC1 del curso Algebra ha sido programada.',
     entityType: 'class_event',
     entityId: 'evt-1',
     createdAt: new Date('2026-02-28T10:00:00Z'),
@@ -37,7 +37,7 @@ function makeUserNotification(
 
 describe('NotificationResponseDto', () => {
   describe('fromEntity', () => {
-    it('mapea todos los campos correctamente para notificación no leída', () => {
+    it('mapea todos los campos correctamente para notificacion no leida', () => {
       const un = makeUserNotification();
       const dto = NotificationResponseDto.fromEntity(un);
 
@@ -46,16 +46,17 @@ describe('NotificationResponseDto', () => {
       expect(dto.typeName).toBe('Nueva clase programada');
       expect(dto.title).toBe('Nueva clase programada');
       expect(dto.message).toBe(
-        "La clase 'Álgebra' ha sido programada para el 01/03/2026.",
+        'La clase 1 de la PC1 del curso Algebra ha sido programada.',
       );
       expect(dto.entityType).toBe('class_event');
       expect(dto.entityId).toBe('evt-1');
+      expect(dto.target).toBeNull();
       expect(dto.isRead).toBe(false);
       expect(dto.readAt).toBeNull();
       expect(dto.createdAt).toEqual(new Date('2026-02-28T10:00:00Z'));
     });
 
-    it('mapea correctamente una notificación ya leída', () => {
+    it('mapea correctamente una notificacion ya leida', () => {
       const readAt = new Date('2026-02-28T12:00:00Z');
       const un = makeUserNotification({ isRead: true, readAt });
       const dto = NotificationResponseDto.fromEntity(un);
@@ -73,9 +74,31 @@ describe('NotificationResponseDto', () => {
 
       expect(dto.entityType).toBeNull();
       expect(dto.entityId).toBeNull();
+      expect(dto.target).toBeNull();
     });
 
-    it('mapea el código y nombre del tipo de notificación correctamente', () => {
+    it('incluye target cuando se provee metadata de navegacion', () => {
+      const un = makeUserNotification();
+      const dto = NotificationResponseDto.fromEntity(un, {
+        materialId: null,
+        classEventId: 'evt-1',
+        evaluationId: 'eval-1',
+        courseCycleId: 'cycle-1',
+        folderId: null,
+        auditExportJobId: null,
+      });
+
+      expect(dto.target).toEqual({
+        materialId: null,
+        classEventId: 'evt-1',
+        evaluationId: 'eval-1',
+        courseCycleId: 'cycle-1',
+        folderId: null,
+        auditExportJobId: null,
+      });
+    });
+
+    it('mapea el codigo y nombre del tipo de notificacion correctamente', () => {
       const un = makeUserNotification();
       un.notification.notificationType.code = 'NEW_MATERIAL';
       un.notification.notificationType.name = 'Nuevo material disponible';
@@ -94,21 +117,21 @@ describe('NotificationResponseDto', () => {
       expect(dto).not.toBeInstanceOf(NotificationResponseDto);
     });
 
-    it('lanza InternalServerErrorException si notification no está cargada', () => {
+    it('lanza InternalServerErrorException si notification no esta cargada', () => {
       const un = makeUserNotification();
       (un as any).notification = undefined;
 
       expect(() => NotificationResponseDto.fromEntity(un)).toThrow(
-        'fromEntity requiere que las relaciones notification y notificationType estén cargadas',
+        'fromEntity requiere que las relaciones notification y notificationType esten cargadas',
       );
     });
 
-    it('lanza InternalServerErrorException si notificationType no está cargada', () => {
+    it('lanza InternalServerErrorException si notificationType no esta cargada', () => {
       const un = makeUserNotification();
       (un.notification as any).notificationType = undefined;
 
       expect(() => NotificationResponseDto.fromEntity(un)).toThrow(
-        'fromEntity requiere que las relaciones notification y notificationType estén cargadas',
+        'fromEntity requiere que las relaciones notification y notificationType esten cargadas',
       );
     });
   });

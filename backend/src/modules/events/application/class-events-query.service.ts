@@ -108,12 +108,17 @@ export class ClassEventsQueryService {
         activeCycleId,
       );
 
-    await this.cacheService.set(cacheKey, layers, this.EVENT_CACHE_TTL);
-    await this.cacheService.addToIndex(
-      CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(courseTypeId, activeCycleId),
-      cacheKey,
-      this.EVENT_CACHE_TTL,
-    );
+    await Promise.all([
+      this.cacheService.set(cacheKey, layers, this.EVENT_CACHE_TTL),
+      this.cacheService.addToIndex(
+        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+          courseTypeId,
+          activeCycleId,
+        ),
+        cacheKey,
+        this.EVENT_CACHE_TTL,
+      ),
+    ]);
     return layers;
   }
 
@@ -195,19 +200,17 @@ export class ClassEventsQueryService {
     }
 
     const groupedSessions = [...grouped.values()];
-    await this.cacheService.set(
-      cacheKey,
-      groupedSessions,
-      this.EVENT_CACHE_TTL,
-    );
-    await this.cacheService.addToIndex(
-      CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
-        courseTypeId,
-        academicCycleId,
+    await Promise.all([
+      this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL),
+      this.cacheService.addToIndex(
+        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+          courseTypeId,
+          academicCycleId,
+        ),
+        cacheKey,
+        this.EVENT_CACHE_TTL,
       ),
-      cacheKey,
-      this.EVENT_CACHE_TTL,
-    );
+    ]);
     return groupedSessions;
   }
 

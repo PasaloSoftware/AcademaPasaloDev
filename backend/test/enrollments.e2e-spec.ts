@@ -34,6 +34,7 @@ import { EnrollmentEvaluationRepository } from './../src/modules/enrollments/inf
 import { EnrollmentTypeRepository } from './../src/modules/enrollments/infrastructure/enrollment-type.repository';
 import { MediaAccessMembershipDispatchService } from './../src/modules/media-access/application/media-access-membership-dispatch.service';
 import { PhotoSource } from './../src/modules/users/domain/user.entity';
+import { User } from './../src/modules/users/domain/user.entity';
 
 const JWT_SECRET = 'test-jwt-secret';
 
@@ -138,6 +139,7 @@ describe('Enrollments E2E', () => {
   };
 
   const mockManager = {
+    query: jest.fn().mockResolvedValue([{ isActiveStudent: 1 }]),
     getRepository: jest.fn().mockImplementation((entity) => {
       // Manejar tanto clases como strings
       const name = typeof entity === 'function' ? entity.name : entity;
@@ -155,6 +157,13 @@ describe('Enrollments E2E', () => {
           return mockCourseCycleRepo;
         case 'Evaluation':
           return evaluationRepositoryMock;
+        case 'User':
+          return {
+            findOne: jest.fn().mockResolvedValue({
+              ...studentUser,
+              roles: [{ id: '4', code: 'STUDENT', name: 'Student' }],
+            } as User),
+          };
         default:
           return {};
       }
@@ -214,6 +223,7 @@ describe('Enrollments E2E', () => {
       return Promise.resolve(null);
     }),
     update: jest.fn(),
+    updateLastActivity: jest.fn().mockResolvedValue(undefined),
   };
 
   class MockJwtAuthGuard extends JwtAuthGuard {

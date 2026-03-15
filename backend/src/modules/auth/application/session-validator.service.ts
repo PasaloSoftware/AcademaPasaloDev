@@ -9,10 +9,13 @@ import {
 } from '@modules/auth/interfaces/security.constants';
 import { createHash } from 'crypto';
 import { getEpoch } from '@common/utils/date.util';
+import { technicalSettings } from '@config/technical-settings';
 
 @Injectable()
 export class SessionValidatorService {
   private readonly logger = new Logger(SessionValidatorService.name);
+  private static readonly LAST_ACTIVITY_UPDATE_WINDOW_MS =
+    technicalSettings.auth.session.lastActivityUpdateWindowMinutes * 60 * 1000;
 
   constructor(
     private readonly userSessionRepository: UserSessionRepository,
@@ -70,9 +73,7 @@ export class SessionValidatorService {
       throw new UnauthorizedException(SECURITY_MESSAGES.INVALID_SESSION);
     }
 
-    await this.userSessionRepository.update(session.id, {
-      lastActivityAt: new Date(),
-    });
+    await this.touchLastActivityIfNeeded(session);
 
     return session;
   }
@@ -113,10 +114,25 @@ export class SessionValidatorService {
       throw new UnauthorizedException(SECURITY_MESSAGES.UNAUTHORIZED_DEVICE);
     }
 
-    await this.userSessionRepository.update(session.id, {
-      lastActivityAt: new Date(),
-    });
+    await this.touchLastActivityIfNeeded(session);
     return session;
+  }
+
+  private async touchLastActivityIfNeeded(session: UserSession): Promise<void> {
+    const now = new Date();
+    const lastActivityAt = session.lastActivityAt;
+
+    if (lastActivityAt instanceof Date) {
+      if (
+        now.getTime() - lastActivityAt.getTime() <
+        SessionValidatorService.LAST_ACTIVITY_UPDATE_WINDOW_MS
+      ) {
+        return;
+      }
+    }
+
+    await this.userSessionRepository.updateLastActivity(session.id, now);
+    session.lastActivityAt = now;
   }
 
   hashRefreshToken(token: string): string {
