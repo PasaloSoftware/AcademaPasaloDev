@@ -213,9 +213,9 @@ describe('AuditService', () => {
 
   describe('countUnifiedHistory', () => {
     it('should delegate the count to the unified repository', async () => {
-      (auditExportRepository.countUnifiedHistory as jest.Mock).mockResolvedValue(
-        12,
-      );
+      (
+        auditExportRepository.countUnifiedHistory as jest.Mock
+      ).mockResolvedValue(12);
 
       const result = await service.countUnifiedHistory({});
 
@@ -226,9 +226,9 @@ describe('AuditService', () => {
 
   describe('getExportPlan', () => {
     it('should build the export plan from the unified count', async () => {
-      (auditExportRepository.countUnifiedHistory as jest.Mock).mockResolvedValue(
-        110000,
-      );
+      (
+        auditExportRepository.countUnifiedHistory as jest.Mock
+      ).mockResolvedValue(110000);
 
       const result = await service.getExportPlan({});
 
@@ -271,12 +271,7 @@ describe('AuditService', () => {
       expect(result.fileName).toBe('reporte-auditoria.xlsx');
       expect(
         auditExportRepository.findUnifiedHistoryChunk,
-      ).toHaveBeenNthCalledWith(
-        1,
-        expect.any(Object),
-        5000,
-        undefined,
-      );
+      ).toHaveBeenNthCalledWith(1, expect.any(Object), 5000, undefined);
       expect(
         auditExportRepository.findUnifiedHistoryChunk,
       ).toHaveBeenNthCalledWith(
@@ -291,9 +286,9 @@ describe('AuditService', () => {
     });
 
     it('should delete the sync temp file if workbook generation fails', async () => {
-      (auditExportRepository.findUnifiedHistoryChunk as jest.Mock).mockRejectedValue(
-        new Error('db-failure'),
-      );
+      (
+        auditExportRepository.findUnifiedHistoryChunk as jest.Mock
+      ).mockRejectedValue(new Error('db-failure'));
 
       await expect(service.prepareSyncExport({})).rejects.toThrow('db-failure');
       expect(auditExportArtifacts.deleteFileIfExists).toHaveBeenCalledWith(
@@ -312,9 +307,9 @@ describe('AuditService', () => {
       (auditExportArtifacts.createWorkspace as jest.Mock).mockResolvedValue(
         workspace,
       );
-      (auditExportArtifacts.buildAsyncPartFileName as jest.Mock).mockReturnValue(
-        'reporte-auditoria_parte-001_de-001.xlsx',
-      );
+      (
+        auditExportArtifacts.buildAsyncPartFileName as jest.Mock
+      ).mockReturnValue('reporte-auditoria_parte-001_de-001.xlsx');
       (auditExportArtifacts.buildAsyncZipName as jest.Mock).mockReturnValue(
         'reporte-auditoria-masivo_2026-03-14_15-42-10.zip',
       );
@@ -326,9 +321,9 @@ describe('AuditService', () => {
       (auditExportArtifacts.zipFiles as jest.Mock).mockRejectedValue(
         new Error('zip-failure'),
       );
-      (auditExportRepository.findUnifiedHistoryChunk as jest.Mock).mockResolvedValue(
-        [],
-      );
+      (
+        auditExportRepository.findUnifiedHistoryChunk as jest.Mock
+      ).mockResolvedValue([]);
 
       await expect(
         service.generateAsyncExportArtifact({}, 0, 100000, 'job-1'),

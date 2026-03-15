@@ -28,6 +28,16 @@ export class AuditExportCoordinatorService {
     @InjectQueue(QUEUES.AUDIT) private readonly auditQueue: Queue,
   ) {}
 
+  private formatUnknownError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    return 'Error no identificado';
+  }
+
   async acquireExportLock(lockToken: string): Promise<void> {
     let lockAcquired = false;
 
@@ -141,8 +151,7 @@ export class AuditExportCoordinatorService {
             'No se pudo liberar el lock global del export de auditoria; se acorto su TTL como fallback',
           lockToken,
           fallbackTtlSeconds: this.releaseFailureFallbackTtlSeconds,
-          error:
-            lastError instanceof Error ? lastError.message : String(lastError),
+          error: this.formatUnknownError(lastError),
         });
         return false;
       }
@@ -155,7 +164,7 @@ export class AuditExportCoordinatorService {
       message:
         'No se pudo liberar ni acortar el TTL del lock global del export de auditoria',
       lockToken,
-      error: lastError instanceof Error ? lastError.message : String(lastError),
+      error: this.formatUnknownError(lastError),
     });
     return false;
   }

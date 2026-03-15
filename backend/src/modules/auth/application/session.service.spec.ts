@@ -115,12 +115,20 @@ describe('SessionService', () => {
         'token',
         'jti-1',
         new Date(),
+        'role-1',
+        undefined,
+        'ADMIN',
       );
 
       expect(result.sessionStatus).toBe(SESSION_STATUS_CODES.ACTIVE);
       expect(
         sessionSecurityService.logSessionCreationEvents,
-      ).toHaveBeenCalled();
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activeRoleCode: 'ADMIN',
+          sessionStatus: SESSION_STATUS_CODES.ACTIVE,
+        }),
+      );
     });
 
     it('debe dar prioridad a Concurrencia sobre Anomalia', async () => {
@@ -153,6 +161,9 @@ describe('SessionService', () => {
         'token',
         'jti-2',
         new Date(),
+        'role-1',
+        undefined,
+        'ADMIN',
       );
 
       expect(result.sessionStatus).toBe(
@@ -161,7 +172,12 @@ describe('SessionService', () => {
       expect(result.concurrentSessionId).toBe('existing');
       expect(
         sessionSecurityService.logSessionCreationEvents,
-      ).toHaveBeenCalled();
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activeRoleCode: 'ADMIN',
+          sessionStatus: SESSION_STATUS_CODES.PENDING_CONCURRENT_RESOLUTION,
+        }),
+      );
     });
 
     it('debe limpiar sesiones pendientes antiguas al alcanzar el limite', async () => {

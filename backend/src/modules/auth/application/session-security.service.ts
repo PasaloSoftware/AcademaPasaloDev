@@ -8,6 +8,7 @@ import {
   AnomalyType,
   LocationSource,
   SECURITY_EVENT_CODES,
+  SessionStatusCodeValue,
 } from '@modules/auth/interfaces/security.constants';
 
 @Injectable()
@@ -30,6 +31,8 @@ export class SessionSecurityService {
       timeDifferenceMinutes: number | null;
     };
     isConcurrent: boolean;
+    activeRoleCode?: string;
+    sessionStatus: SessionStatusCodeValue;
     existingSession?: UserSession | null;
     manager: EntityManager;
   }): Promise<void> {
@@ -42,15 +45,22 @@ export class SessionSecurityService {
       existingSession,
       manager,
     } = params;
+    const baseContext = {
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      deviceId: metadata.deviceId,
+      ...(params.activeRoleCode
+        ? { activeRoleCode: params.activeRoleCode }
+        : {}),
+      sessionStatus: params.sessionStatus,
+    };
 
     if (isConcurrent && existingSession) {
       await this.securityEventService.logEvent(
         userId,
         SECURITY_EVENT_CODES.CONCURRENT_SESSION_DETECTED,
         {
-          ipAddress: metadata.ipAddress,
-          userAgent: metadata.userAgent,
-          deviceId: metadata.deviceId,
+          ...baseContext,
           locationSource: params.locationSource,
           city: metadata.city,
           country: metadata.country,
@@ -67,9 +77,7 @@ export class SessionSecurityService {
         userId,
         SECURITY_EVENT_CODES.ANOMALOUS_LOGIN_DETECTED,
         {
-          ipAddress: metadata.ipAddress,
-          userAgent: metadata.userAgent,
-          deviceId: metadata.deviceId,
+          ...baseContext,
           locationSource: params.locationSource,
           city: metadata.city,
           country: metadata.country,
@@ -91,9 +99,7 @@ export class SessionSecurityService {
           userId,
           SECURITY_EVENT_CODES.NEW_DEVICE_DETECTED,
           {
-            ipAddress: metadata.ipAddress,
-            userAgent: metadata.userAgent,
-            deviceId: metadata.deviceId,
+            ...baseContext,
             locationSource: params.locationSource,
             city: metadata.city,
             country: metadata.country,
@@ -107,9 +113,10 @@ export class SessionSecurityService {
         userId,
         SECURITY_EVENT_CODES.LOGIN_SUCCESS,
         {
-          ipAddress: metadata.ipAddress,
-          userAgent: metadata.userAgent,
-          deviceId: metadata.deviceId,
+          ...baseContext,
+          locationSource: params.locationSource,
+          city: metadata.city,
+          country: metadata.country,
           sessionId: session.id,
         },
         manager,

@@ -82,7 +82,9 @@ describe('AuditExportRepository (e2e)', () => {
       where: { code: 'ADMIN' },
     });
     const expectedFallbackRole =
-      Number(adminRole.id) < Number(superAdminRole.id) ? adminRole : superAdminRole;
+      Number(adminRole.id) < Number(superAdminRole.id)
+        ? adminRole
+        : superAdminRole;
 
     await userRepo.update(userWithActiveRole.id, {
       lastActiveRoleId: superAdminRole.id,
@@ -222,22 +224,27 @@ describe('AuditExportRepository (e2e)', () => {
 
   it('should paginate export chunks with a stable cursor instead of offset scanning', async () => {
     const seed = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-    const firstUserEmail = TestSeeder.generateUniqueEmail('audit-export-cursor-a');
-    const secondUserEmail = TestSeeder.generateUniqueEmail('audit-export-cursor-b');
+    const firstUserEmail = TestSeeder.generateUniqueEmail(
+      'audit-export-cursor-a',
+    );
+    const secondUserEmail = TestSeeder.generateUniqueEmail(
+      'audit-export-cursor-b',
+    );
     const securityCode = `SEC_CURSOR_${seed}`;
     const auditCode = `AUD_CURSOR_${seed}`;
-    const { user: firstUser } = await seeder.createAuthenticatedUser(firstUserEmail, [
-      'ADMIN',
-    ]);
+    const { user: firstUser } = await seeder.createAuthenticatedUser(
+      firstUserEmail,
+      ['ADMIN'],
+    );
     const { user: secondUser } = await seeder.createAuthenticatedUser(
       secondUserEmail,
       ['ADMIN'],
     );
 
-    await dataSource.query('INSERT INTO audit_action (code, name) VALUES (?, ?)', [
-      auditCode,
-      `Audit Cursor ${seed}`,
-    ]);
+    await dataSource.query(
+      'INSERT INTO audit_action (code, name) VALUES (?, ?)',
+      [auditCode, `Audit Cursor ${seed}`],
+    );
     await dataSource.query(
       'INSERT INTO security_event_type (code, name) VALUES (?, ?)',
       [securityCode, `Security Cursor ${seed}`],
@@ -254,7 +261,11 @@ describe('AuditExportRepository (e2e)', () => {
 
     await dataSource.query(
       `INSERT INTO security_event (user_id, security_event_type_id, event_datetime) VALUES (?, ?, ?)`,
-      [firstUser.id, securityEventTypeRow.id, new Date('2026-03-14T14:00:00.000Z')],
+      [
+        firstUser.id,
+        securityEventTypeRow.id,
+        new Date('2026-03-14T14:00:00.000Z'),
+      ],
     );
     await dataSource.query(
       `INSERT INTO audit_log (user_id, audit_action_id, event_datetime) VALUES (?, ?, ?)`,

@@ -180,10 +180,7 @@ describe('AuditExportJobsService', () => {
       },
     } as unknown as Job);
 
-    const result = await service.getExportJobStatus(
-      'job-123',
-      'user-1',
-    );
+    const result = await service.getExportJobStatus('job-123', 'user-1');
 
     expect(result.status).toBe(AUDIT_EXPORT_STATUS.READY);
     expect(result.readyForDownload).toBe(true);
@@ -233,10 +230,7 @@ describe('AuditExportJobsService', () => {
       getState: jest.fn().mockResolvedValue('completed'),
     } as unknown as Job);
 
-    const result = await service.downloadExportJob(
-      'job-123',
-      'user-1',
-    );
+    const result = await service.downloadExportJob('job-123', 'user-1');
 
     expect(result.fileName).toBe('audit.zip');
     await result.onAbort?.();
@@ -263,16 +257,16 @@ describe('AuditExportJobsService', () => {
         artifactStorageKey: null,
       }),
     );
-    expect(auditExportArtifacts.deleteArtifactByStorageKey).toHaveBeenCalledWith(
-      'audit-key.zip',
-    );
+    expect(
+      auditExportArtifacts.deleteArtifactByStorageKey,
+    ).toHaveBeenCalledWith('audit-key.zip');
   });
 
   it('should still mark the job as expired if artifact deletion fails after download', async () => {
     const updateProgress = jest.fn().mockResolvedValue(undefined);
-    (auditExportArtifacts.deleteArtifactByStorageKey as jest.Mock).mockRejectedValue(
-      new Error('fs-failure'),
-    );
+    (
+      auditExportArtifacts.deleteArtifactByStorageKey as jest.Mock
+    ).mockRejectedValue(new Error('fs-failure'));
     (auditQueue.getJob as jest.Mock).mockResolvedValue({
       id: 'job-123',
       name: AUDIT_JOB_NAMES.GENERATE_EXPORT,
@@ -329,9 +323,9 @@ describe('AuditExportJobsService', () => {
     const result = await service.getExportJobStatus('job-123', 'user-1');
 
     expect(result.status).toBe(AUDIT_EXPORT_STATUS.EXPIRED);
-    expect(auditExportArtifacts.deleteArtifactByStorageKey).toHaveBeenCalledWith(
-      'audit-key.zip',
-    );
+    expect(
+      auditExportArtifacts.deleteArtifactByStorageKey,
+    ).toHaveBeenCalledWith('audit-key.zip');
     expect(updateProgress).toHaveBeenCalledWith(
       expect.objectContaining({
         stage: AUDIT_EXPORT_STATUS.EXPIRED,
@@ -360,9 +354,9 @@ describe('AuditExportJobsService', () => {
       getState: jest.fn().mockResolvedValue('completed'),
     } as unknown as Job);
 
-    await expect(service.downloadExportJob('job-123', 'user-1')).rejects.toThrow(
-      GoneException,
-    );
+    await expect(
+      service.downloadExportJob('job-123', 'user-1'),
+    ).rejects.toThrow(GoneException);
   });
 
   it('should mark the job as expired when the artifact file is missing', async () => {
@@ -390,9 +384,9 @@ describe('AuditExportJobsService', () => {
       getState: jest.fn().mockResolvedValue('completed'),
     } as unknown as Job);
 
-    await expect(service.downloadExportJob('job-123', 'user-1')).rejects.toThrow(
-      GoneException,
-    );
+    await expect(
+      service.downloadExportJob('job-123', 'user-1'),
+    ).rejects.toThrow(GoneException);
     expect(updateProgress).toHaveBeenCalledWith(
       expect.objectContaining({
         stage: AUDIT_EXPORT_STATUS.EXPIRED,

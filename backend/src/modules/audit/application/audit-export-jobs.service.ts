@@ -34,6 +34,16 @@ import { technicalSettings } from '@config/technical-settings';
 export class AuditExportJobsService {
   private readonly logger = new Logger(AuditExportJobsService.name);
 
+  private formatUnknownError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    return 'Error no identificado';
+  }
+
   constructor(
     private readonly auditService: AuditService,
     private readonly auditExportArtifacts: AuditExportArtifactsService,
@@ -76,7 +86,9 @@ export class AuditExportJobsService {
             .refreshExportLock(lockToken)
             .catch((error: unknown) => {
               syncLockRefreshError =
-                error instanceof Error ? error : new Error(String(error));
+                error instanceof Error
+                  ? error
+                  : new Error(this.formatUnknownError(error));
             });
         }, technicalSettings.audit.exportLockRefreshIntervalMs);
         syncRefreshTimer.unref?.();
@@ -270,7 +282,7 @@ export class AuditExportJobsService {
           artifactStorageKey: null,
         });
       },
-      onAbort: async () => undefined,
+      onAbort: () => Promise.resolve(),
     };
   }
 

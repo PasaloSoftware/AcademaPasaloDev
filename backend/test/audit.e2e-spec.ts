@@ -313,7 +313,12 @@ describe('AuditController (e2e)', () => {
     expect(status).toBe(AUDIT_EXPORT_STATUS.READY);
 
     let persistedNotifications:
-      | Array<{ code: string; entity_type: string; entity_id: string; user_id: string }>
+      | Array<{
+          code: string;
+          entity_type: string;
+          entity_id: string;
+          user_id: string;
+        }>
       | undefined;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       persistedNotifications = await dataSource.query(
@@ -386,7 +391,9 @@ describe('AuditController (e2e)', () => {
 
     expect(
       (
-        secondAdminNotificationsResponse.body.data as Array<Record<string, unknown>>
+        secondAdminNotificationsResponse.body.data as Array<
+          Record<string, unknown>
+        >
       ).some((notification) => notification.entityId === jobId),
     ).toBe(false);
   });
@@ -490,7 +497,9 @@ describe('AuditController (e2e)', () => {
       })
       .expect(200);
 
-    expect(downloadResponse.header['content-type']).toContain('application/zip');
+    expect(downloadResponse.header['content-type']).toContain(
+      'application/zip',
+    );
     expect(downloadResponse.header['content-disposition']).toContain(
       'attachment; filename="reporte-auditoria-masivo_',
     );

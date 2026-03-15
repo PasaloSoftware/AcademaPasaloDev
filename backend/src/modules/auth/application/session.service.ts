@@ -39,6 +39,7 @@ export class SessionService {
     expiresAt: Date,
     activeRoleId?: string,
     externalManager?: EntityManager,
+    activeRoleCode?: string,
   ): Promise<{
     session: UserSession;
     sessionStatus: SessionStatusCode;
@@ -121,6 +122,10 @@ export class SessionService {
         isNewDevice,
         anomaly,
         isConcurrent: !!concurrentSession,
+        activeRoleCode,
+        sessionStatus: concurrentSession
+          ? SESSION_STATUS_CODES.PENDING_CONCURRENT_RESOLUTION
+          : SESSION_STATUS_CODES.ACTIVE,
         existingSession: concurrentSession,
         manager,
       });

@@ -351,9 +351,19 @@ describe('IAM (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/logout')
         .set('Authorization', `Bearer ${token}`)
+        .set('User-Agent', 'iam-e2e-agent')
         .expect(200);
 
-      expect(authServiceMock.logout).toHaveBeenCalled();
+      expect(authServiceMock.logout).toHaveBeenCalledWith(
+        'session-admin',
+        '1',
+        {
+          ipAddress: '127.0.0.1',
+          userAgent: 'iam-e2e-agent',
+          deviceId: 'device-1',
+        },
+        'ADMIN',
+      );
     });
   });
 

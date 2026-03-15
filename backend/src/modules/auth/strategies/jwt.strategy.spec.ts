@@ -86,6 +86,7 @@ describe('JwtStrategy', () => {
     expect(result).toBe(activeUser);
     expect(result.sessionId).toBe(payload.sessionId);
     expect(result.activeRole).toBe(payload.activeRole);
+    expect(result.deviceId).toBe(payload.deviceId);
   });
 
   it('bloquea inmediatamente cuando el usuario esta inactivo', async () => {
@@ -110,6 +111,7 @@ describe('JwtStrategy', () => {
     expect(result.id).toBe(activeUser.id);
     expect(result.sessionId).toBe(payload.sessionId);
     expect(result.activeRole).toBe(payload.activeRole);
+    expect(result.deviceId).toBe(payload.deviceId);
   });
 
   it('si la sesion no tiene usuario asociado, deniega el acceso', async () => {

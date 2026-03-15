@@ -84,8 +84,9 @@ describe('AuditExportReadyNotificationService', () => {
       Notification,
       expect.objectContaining({
         notificationTypeId: '10',
-        title: NOTIFICATION_MESSAGES[NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY]
-          .title,
+        title:
+          NOTIFICATION_MESSAGES[NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY]
+            .title,
         message: expect.stringContaining('ya esta listo para descarga'),
         entityType: NOTIFICATION_ENTITY_TYPES.AUDIT_EXPORT,
         entityId: '9cb8c510-696d-4eff-9226-05de3d1936fa',

@@ -123,9 +123,11 @@ describe('AuditExportProcessor', () => {
       updateProgress,
     };
 
-    await expect(processor.process(job as never)).rejects.toThrow('progress-down');
+    await expect(processor.process(job as never)).rejects.toThrow(
+      'progress-down',
+    );
     expect(
-      (auditExportArtifacts.deleteArtifactByStorageKey as jest.Mock),
+      auditExportArtifacts.deleteArtifactByStorageKey as jest.Mock,
     ).toHaveBeenCalledWith('audit-key.zip');
     expect(
       auditExportCoordinator.releaseExportLock as jest.Mock,
@@ -142,7 +144,9 @@ describe('AuditExportProcessor', () => {
       }),
     } as unknown as AuditService;
     const auditExportArtifacts = {
-      deleteArtifactByStorageKey: jest.fn().mockRejectedValue(new Error('cleanup-down')),
+      deleteArtifactByStorageKey: jest
+        .fn()
+        .mockRejectedValue(new Error('cleanup-down')),
     } as unknown as AuditExportArtifactsService;
     const auditExportCoordinator = {
       refreshExportLock: jest.fn().mockResolvedValue(undefined),
@@ -180,7 +184,9 @@ describe('AuditExportProcessor', () => {
       updateProgress,
     };
 
-    await expect(processor.process(job as never)).rejects.toThrow('progress-down');
+    await expect(processor.process(job as never)).rejects.toThrow(
+      'progress-down',
+    );
     expect(
       auditExportCoordinator.releaseExportLock as jest.Mock,
     ).toHaveBeenCalledWith('lock-3');

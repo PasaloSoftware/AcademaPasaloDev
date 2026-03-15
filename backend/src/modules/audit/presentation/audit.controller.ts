@@ -30,6 +30,16 @@ import { AuditService } from '@modules/audit/application/audit.service';
 export class AuditController {
   private readonly logger = new Logger(AuditController.name);
 
+  private formatUnknownError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    return 'Error no identificado';
+  }
+
   constructor(
     private readonly auditService: AuditService,
     private readonly auditExportJobsService: AuditExportJobsService,
@@ -157,7 +167,7 @@ export class AuditController {
           context: AuditController.name,
           message: failureMessage,
           ...logContext,
-          error: error instanceof Error ? error.message : String(error),
+          error: this.formatUnknownError(error),
         });
       });
     };
@@ -185,7 +195,7 @@ export class AuditController {
         context: AuditController.name,
         message: 'Fallo el stream del export de auditoria',
         ...logContext,
-        error: error instanceof Error ? error.message : String(error),
+        error: this.formatUnknownError(error),
       });
       void runCleanup(
         onAbort,
@@ -204,7 +214,11 @@ export class AuditController {
         return;
       }
 
-      res.destroy(error instanceof Error ? error : new Error(String(error)));
+      res.destroy(
+        error instanceof Error
+          ? error
+          : new Error(this.formatUnknownError(error)),
+      );
     });
   }
 }

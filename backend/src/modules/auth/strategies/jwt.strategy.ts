@@ -12,7 +12,11 @@ import { User } from '@modules/users/domain/user.entity';
 import { SessionValidatorService } from '@modules/auth/application/session-validator.service';
 import { SECURITY_MESSAGES } from '@modules/auth/interfaces/security.constants';
 
-export type UserWithSession = User & { sessionId: string; activeRole: string };
+export type UserWithSession = User & {
+  sessionId: string;
+  activeRole: string;
+  deviceId: string;
+};
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -50,6 +54,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const userWithSession = session.user as UserWithSession;
     userWithSession.sessionId = payload.sessionId;
     userWithSession.activeRole = payload.activeRole;
+    userWithSession.deviceId = payload.deviceId;
 
     return userWithSession;
   }

@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { technicalSettings } from '@config/technical-settings';
 import { AUDIT_EXCEL_CONFIG } from '@modules/audit/interfaces/audit.constants';
+import archiver, { Archiver, ArchiverOptions } from 'archiver';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -132,19 +133,13 @@ export class AuditExportArtifactsService implements OnModuleInit {
       );
     }
 
-    const archiverFactory = require('archiver') as (
-      format: string,
-      options?: Record<string, unknown>,
-    ) => {
-      file: (source: string, data: { name: string }) => void;
-      pipe: (stream: NodeJS.WritableStream) => void;
-      finalize: () => Promise<void>;
-      on: (event: 'error', listener: (error: Error) => void) => void;
-    };
-
     await new Promise<void>((resolve, reject) => {
       const output = fs.createWriteStream(destinationPath);
-      const archive = archiverFactory('zip', {
+      const createArchiver = archiver as unknown as (
+        format: string,
+        options?: ArchiverOptions,
+      ) => Archiver;
+      const archive = createArchiver('zip', {
         zlib: { level: 9 },
       });
 

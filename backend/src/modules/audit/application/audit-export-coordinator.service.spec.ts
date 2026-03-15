@@ -45,7 +45,9 @@ describe('AuditExportCoordinatorService', () => {
 
   describe('export lock', () => {
     it('should acquire the export lock when it is free', async () => {
-      await expect(service.acquireExportLock('lock-1')).resolves.toBeUndefined();
+      await expect(
+        service.acquireExportLock('lock-1'),
+      ).resolves.toBeUndefined();
       expect(cacheService.setIfNotExists).toHaveBeenCalledWith(
         AUDIT_JOB_IDS.EXPORT_LOCK_KEY,
         'lock-1',
@@ -94,7 +96,9 @@ describe('AuditExportCoordinatorService', () => {
         } as Job,
       ]);
 
-      await expect(service.acquireExportLock('lock-1')).resolves.toBeUndefined();
+      await expect(
+        service.acquireExportLock('lock-1'),
+      ).resolves.toBeUndefined();
     });
 
     it('should translate Redis acquisition failures into service unavailable', async () => {
@@ -108,7 +112,9 @@ describe('AuditExportCoordinatorService', () => {
     });
 
     it('should release the lock if queue inspection fails after acquiring it', async () => {
-      (auditQueue.getJobs as jest.Mock).mockRejectedValue(new Error('queue-down'));
+      (auditQueue.getJobs as jest.Mock).mockRejectedValue(
+        new Error('queue-down'),
+      );
 
       await expect(service.acquireExportLock('lock-1')).rejects.toThrow(
         ServiceUnavailableException,
@@ -120,7 +126,9 @@ describe('AuditExportCoordinatorService', () => {
     });
 
     it('should refresh the export lock ttl for the same owner', async () => {
-      await expect(service.refreshExportLock('lock-1')).resolves.toBeUndefined();
+      await expect(
+        service.refreshExportLock('lock-1'),
+      ).resolves.toBeUndefined();
       expect(cacheService.expireIfValueMatches).toHaveBeenCalledWith(
         AUDIT_JOB_IDS.EXPORT_LOCK_KEY,
         'lock-1',

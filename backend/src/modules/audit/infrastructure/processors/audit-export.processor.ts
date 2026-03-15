@@ -28,6 +28,16 @@ import { AuditExportReadyNotificationService } from '@modules/notifications/appl
 export class AuditExportProcessor extends WorkerHost {
   private readonly logger = new Logger(AuditExportProcessor.name);
 
+  private formatUnknownError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    return 'Error no identificado';
+  }
+
   constructor(
     private readonly auditService: AuditService,
     private readonly auditExportArtifacts: AuditExportArtifactsService,
@@ -107,7 +117,9 @@ export class AuditExportProcessor extends WorkerHost {
           .refreshExportLock(job.data.lockToken)
           .catch((error: unknown) => {
             refreshFailure =
-              error instanceof Error ? error : new Error(String(error));
+              error instanceof Error
+                ? error
+                : new Error(this.formatUnknownError(error));
           });
       }, technicalSettings.audit.exportLockRefreshIntervalMs);
       refreshTimer.unref?.();

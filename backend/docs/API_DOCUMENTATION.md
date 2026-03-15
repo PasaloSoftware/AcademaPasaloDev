@@ -711,6 +711,40 @@ _Requiere Authorization: Bearer <accessToken>._
 ]
 ```
 
+#### Regla importante sobre `metadata`
+
+- `metadata` solo aplica a registros con `source = "SECURITY"`.
+- En registros con `source = "AUDIT"`, `metadata` normalmente sera `null` o no estara presente.
+- `ipAddress` y `userAgent` no deben buscarse dentro de `metadata`; llegan como campos propios del registro.
+- Las claves de `metadata` dependen del `actionCode`.
+
+#### Metadata esperada por evento de seguridad
+
+Los siguientes son los campos funcionales que frontend puede esperar hoy en `metadata` para los eventos principales de seguridad:
+
+| `actionCode` | Campos de `metadata` esperados |
+| --- | --- |
+| `LOGIN_SUCCESS` | `deviceId`, `locationSource`, `city`, `country`, `activeRoleCode`, `sessionStatus`, `sessionId` |
+| `LOGOUT_SUCCESS` | `deviceId`, `activeRoleCode`, `sessionStatus`, `sessionId` |
+| `PROFILE_SWITCH` | `deviceId`, `sessionId`, `roleCode`, `roleName` |
+| `NEW_DEVICE_DETECTED` | `deviceId`, `locationSource`, `city`, `country`, `activeRoleCode`, `sessionStatus`, `sessionId` |
+| `CONCURRENT_SESSION_DETECTED` | `deviceId`, `locationSource`, `city`, `country`, `activeRoleCode`, `sessionStatus`, `newSessionId`, `existingSessionId`, `existingDeviceId` |
+| `CONCURRENT_SESSION_RESOLVED` | `decision`, `outcome`, `newSessionId`, `newSessionStatus`, `existingSessionId`, `existingSessionStatus` |
+| `ANOMALOUS_LOGIN_DETECTED` | `deviceId`, `locationSource`, `city`, `country`, `activeRoleCode`, `sessionStatus`, `anomalyType`, `previousSessionId`, `distanceKm`, `timeDifferenceMinutes`, `newSessionId` |
+| `ANOMALOUS_LOGIN_REAUTH_FAILED` | `deviceId`, `activeRoleCode`, `sessionStatus`, `sessionId`, `googleEmail` |
+| `ANOMALOUS_LOGIN_REAUTH_SUCCESS` | `deviceId`, `activeRoleCode`, `sessionStatus`, `sessionId` |
+| `ACCESS_DENIED` | `deviceId`, `sourceFlow`, `reason` |
+
+#### Reglas de interpretacion
+
+- `sessionStatus` y campos como `newSessionStatus` o `existingSessionStatus` usan codigos funcionales como `ACTIVE`, `REVOKED` o `PENDING_CONCURRENT_RESOLUTION`.
+- `activeRoleCode` representa el rol activo del usuario en el momento del evento cuando ese dato estaba disponible en el flujo.
+- `outcome` en `CONCURRENT_SESSION_RESOLVED` resume el efecto final de la decision:
+  - `NEW_SESSION_ACTIVATED`
+  - `NEW_SESSION_REVOKED`
+- `distanceKm` y `timeDifferenceMinutes` ya llegan en unidades legibles; frontend no necesita convertirlos.
+- No se debe asumir que todos los eventos tendran todas las claves de la tabla; el shape depende del `actionCode`.
+
 ---
 
 ### 2. Exportar Historial a Excel
