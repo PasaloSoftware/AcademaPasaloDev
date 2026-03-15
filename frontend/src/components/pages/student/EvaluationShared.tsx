@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { classEventService } from "@/services/classEvent.service";
 import { materialsService } from "@/services/materials.service";
 import type { ClassEvent } from "@/types/classEvent";
-import type { ClassEventMaterial, MaterialFolder, FolderMaterial, FolderContentsResponse } from "@/types/material";
+import type { ClassEventMaterial, FolderMaterial } from "@/types/material";
 import Icon from "@/components/ui/Icon";
 import ClassMaterialsModal from "@/components/modals/ClassMaterialsModal";
+import MaterialPreviewModal from "@/components/materials/MaterialPreviewModal";
+import ExpandableFolderList from "@/components/shared/ExpandableFolderList";
+import type { ExpandableFolder } from "@/components/shared/ExpandableFolderList";
 
 // ============================================
 // Helpers de formato
@@ -112,7 +115,7 @@ export function getFileIconPath(mimeType: string, fileName: string): string {
 // Tipo visual de la card de sesión
 // ============================================
 
-export type SessionCardType = "GRABADA" | "EN_VIVO_PRONTO" | "PROGRAMADA";
+export type SessionCardType = "GRABADA" | "EN_VIVO_PRONTO" | "PROGRAMADA" | "GRABACION_EN_PROCESO";
 
 export function getSessionCardType(event: ClassEvent): SessionCardType {
   if (event.sessionStatus === "EN_CURSO" && !event.isCancelled) {
@@ -125,6 +128,14 @@ export function getSessionCardType(event: ClassEvent): SessionCardType {
       return "EN_VIVO_PRONTO";
     }
     return "PROGRAMADA";
+  }
+
+  if (
+    event.sessionStatus === "FINALIZADA" &&
+    !event.isCancelled &&
+    (event.recordingStatus === "PROCESSING" || event.recordingStatus === "NOT_AVAILABLE" || event.recordingStatus === "FAILED")
+  ) {
+    return "GRABACION_EN_PROCESO";
   }
 
   return "GRABADA";
@@ -153,9 +164,18 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
   if (cardType === "EN_VIVO_PRONTO") {
     return (
       <div className="px-2 py-1 bg-error-light rounded-full flex justify-center items-center gap-1">
-        <Icon name="circle" size={12} className="text-red-600" variant="rounded" />
-        <span className="text-red-600 text-[10px] font-semibold leading-3">
-          EN VIVO PRONTO
+        <span className="text-text-error-primary text-[10px] font-semibold leading-3">
+          PRÓXIMA
+        </span>
+      </div>
+    );
+  }
+
+  if (cardType === "GRABACION_EN_PROCESO") {
+    return (
+      <div className="px-2 py-1 bg-bg-accent-light rounded-full flex justify-center items-center">
+        <span className="text-text-accent-primary text-[10px] font-semibold leading-3">
+          TERMINADA
         </span>
       </div>
     );
@@ -248,9 +268,9 @@ export function ClassSessionCard({
     return (
       <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary inline-flex justify-start items-start gap-6 cursor-pointer">
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-accent-light rounded-lg inline-flex flex-col justify-center items-center gap-2">
-          <Icon name="videocam" size={40} className="text-icon-accent-primary" variant="rounded" />
+          <Icon name="hourglass_top" size={40} className="text-icon-accent-primary" variant="rounded" />
           <span className="text-text-accent-primary text-sm font-semibold leading-4">
-            EN VIVO PRONTO
+            EMPIEZA EN {minutesLeft} MIN
           </span>
         </div>
 
@@ -361,6 +381,73 @@ export function ClassSessionCard({
               <Icon name="videocam" size={16} className="text-icon-disabled" variant="rounded" />
               <span className="text-text-disabled text-sm font-medium leading-4">
                 Unirme a la Clase
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── GRABACIÓN EN PROCESO card ──
+  if (cardType === "GRABACION_EN_PROCESO") {
+    return (
+      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+        <div className="h-32 aspect-video shrink-0 p-2 bg-bg-tertiary rounded-lg inline-flex flex-col justify-center items-center gap-2">
+          <Icon name="timelapse" size={40} className="text-icon-tertiary" variant="rounded" />
+          <span className="text-text-quartiary text-sm font-semibold leading-4">
+            GRABACIÓN EN PROCESO
+          </span>
+        </div>
+
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
+          <div className="self-stretch flex flex-col justify-start items-start gap-2">
+            <div className="self-stretch inline-flex justify-start items-start gap-4">
+              <div className="flex-1 flex justify-start items-start gap-1">
+                <span className="text-text-primary text-lg font-semibold leading-5">
+                  Clase {event.sessionNumber}:
+                </span>
+                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
+                  {event.topic}
+                </span>
+              </div>
+              <SessionBadge event={event} cardType={cardType} />
+            </div>
+
+            <div className="self-stretch flex flex-col justify-start items-start gap-1">
+              <div className="self-stretch inline-flex justify-start items-center gap-1">
+                <Icon name="calendar_today" size={14} className="text-icon-secondary" />
+                <span className="text-text-tertiary text-xs font-normal leading-4">
+                  {formatDate(event.startDatetime)}
+                </span>
+              </div>
+              <div className="self-stretch inline-flex justify-start items-center gap-1">
+                <Icon name="schedule" size={14} className="text-icon-secondary" />
+                <span className="text-text-secondary text-xs font-normal leading-3">
+                  {formatTimeRange(event.startDatetime, event.endDatetime)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
+            <button
+              onClick={handleOpenMaterials}
+              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+            >
+              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Materiales de Clase
+              </span>
+            </button>
+            <button
+              disabled
+              onClick={(e) => e.stopPropagation()}
+              className="px-6 py-3 bg-bg-disabled rounded-lg flex justify-center items-center gap-1.5 cursor-not-allowed"
+            >
+              <Icon name="play_arrow" size={16} className="text-icon-disabled" />
+              <span className="text-text-disabled text-sm font-medium leading-4">
+                Ver Grabación
               </span>
             </button>
           </div>
@@ -487,8 +574,7 @@ export function EvaluationPageContent({
   >({});
 
   // Material Adicional tab state
-  const [additionalFolders, setAdditionalFolders] = useState<MaterialFolder[]>([]);
-  const [folderContents, setFolderContents] = useState<FolderContentsResponse | null>(null);
+  const [additionalFolders, setAdditionalFolders] = useState<ExpandableFolder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
 
@@ -539,6 +625,8 @@ export function EvaluationPageContent({
   // Materials modal state
   const [materialsModalOpen, setMaterialsModalOpen] = useState(false);
   const [materialsModalEventId, setMaterialsModalEventId] = useState<string | undefined>();
+  const [previewMaterials, setPreviewMaterials] = useState<FolderMaterial[] | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const handleOpenMaterials = (eventId: string) => {
     setMaterialsModalEventId(eventId);
@@ -565,8 +653,13 @@ export function EvaluationPageContent({
         }
         const contents = await materialsService.getFolderContents(matAdicional.id);
         if (!cancelled) {
-          setAdditionalFolders(contents.folders);
-          setFolderContents(contents);
+          setAdditionalFolders(
+            contents.folders.map((f) => ({
+              id: f.id,
+              name: f.name,
+              materialCount: contents.subfolderMaterialCount?.[f.id] ?? 0,
+            })),
+          );
         }
       } catch {
         if (!cancelled) setFolderError("Error al cargar los materiales");
@@ -579,59 +672,12 @@ export function EvaluationPageContent({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, evalId]);
 
-  // Expanded folders + their loaded materials
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [folderMaterials, setFolderMaterials] = useState<Record<string, FolderMaterial[]>>({});
-  const [loadingFolderMaterials, setLoadingFolderMaterials] = useState<Record<string, boolean>>({});
+  const loadFolderMaterials = useCallback(async (folderId: string): Promise<FolderMaterial[]> => {
+    const contents = await materialsService.getFolderContents(folderId);
+    return contents.materials;
+  }, []);
 
-  const toggleFolder = async (folderId: string) => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderId)) {
-        next.delete(folderId);
-      } else {
-        next.add(folderId);
-      }
-      return next;
-    });
-
-    if (!folderMaterials[folderId] && !loadingFolderMaterials[folderId]) {
-      setLoadingFolderMaterials((prev) => ({ ...prev, [folderId]: true }));
-      try {
-        const contents = await materialsService.getFolderContents(folderId);
-        setFolderMaterials((prev) => ({ ...prev, [folderId]: contents.materials }));
-      } catch {
-        setFolderMaterials((prev) => ({ ...prev, [folderId]: [] }));
-      } finally {
-        setLoadingFolderMaterials((prev) => ({ ...prev, [folderId]: false }));
-      }
-    }
-  };
-
-  const expandAll = () => {
-    const allIds = new Set(additionalFolders.map((f) => f.id));
-    setExpandedFolders(allIds);
-    additionalFolders.forEach((f) => {
-      if (!folderMaterials[f.id] && !loadingFolderMaterials[f.id]) {
-        setLoadingFolderMaterials((prev) => ({ ...prev, [f.id]: true }));
-        materialsService.getFolderContents(f.id).then((contents) => {
-          setFolderMaterials((prev) => ({ ...prev, [f.id]: contents.materials }));
-        }).catch(() => {
-          setFolderMaterials((prev) => ({ ...prev, [f.id]: [] }));
-        }).finally(() => {
-          setLoadingFolderMaterials((prev) => ({ ...prev, [f.id]: false }));
-        });
-      }
-    });
-  };
-
-  const collapseAll = () => {
-    setExpandedFolders(new Set());
-  };
-
-  const allExpanded = additionalFolders.length > 0 && additionalFolders.every((f) => expandedFolders.has(f.id));
-
-  const handleDownloadMaterial = async (mat: FolderMaterial) => {
+  const handleDownloadMaterial = useCallback(async (mat: FolderMaterial) => {
     try {
       const data = await materialsService.getAuthorizedLink(mat.id, "download");
       const a = document.createElement("a");
@@ -645,7 +691,7 @@ export function EvaluationPageContent({
     } catch {
       await materialsService.downloadMaterial(mat.id, mat.displayName);
     }
-  };
+  }, []);
 
   const evalTabs: { key: EvalTabOption; label: string }[] = [
     { key: "sesiones", label: "Sesiones de Clase" },
@@ -734,27 +780,6 @@ export function EvaluationPageContent({
       {/* TAB: Material Adicional */}
       {activeTab === "material" && (
         <div className="self-stretch inline-flex flex-col justify-start items-start gap-6 overflow-hidden">
-          <div className="self-stretch inline-flex justify-between items-center">
-            <span className="text-text-primary text-2xl font-semibold leading-7">
-              Material Adicional
-            </span>
-            {additionalFolders.length > 0 && (
-              <button
-                onClick={allExpanded ? collapseAll : expandAll}
-                className="p-1 rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
-              >
-                <Icon
-                  name={allExpanded ? "unfold_less" : "unfold_more"}
-                  size={16}
-                  className="text-icon-accent-primary"
-                />
-                <span className="text-text-accent-primary text-sm font-medium leading-4">
-                  {allExpanded ? "Colapsar Todo" : "Expandir Todo"}
-                </span>
-              </button>
-            )}
-          </div>
-
           {loadingFolders && (
             <div className="self-stretch flex justify-center py-12">
               <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
@@ -782,121 +807,13 @@ export function EvaluationPageContent({
           )}
 
           {!loadingFolders && !folderError && additionalFolders.length > 0 && (
-            <div className="self-stretch flex flex-col justify-start items-start gap-4">
-              {additionalFolders.map((folder) => {
-                const isOpen = expandedFolders.has(folder.id);
-                const materialCount = folderContents?.subfolderMaterialCount?.[folder.id] ?? 0;
-                const materials = folderMaterials[folder.id] || [];
-                const isLoadingMats = loadingFolderMaterials[folder.id] || false;
-
-                return (
-                  <div
-                    key={folder.id}
-                    className="self-stretch bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col justify-start items-start overflow-hidden"
-                  >
-                    <button
-                      onClick={() => toggleFolder(folder.id)}
-                      className="self-stretch p-4 inline-flex justify-start items-center gap-4 hover:bg-bg-secondary transition-colors w-full text-left"
-                    >
-                      <div className={`p-2 rounded-xl flex justify-start items-center ${isOpen ? "bg-gray-700" : "bg-bg-disabled"}`}>
-                        <Icon
-                          name="folder"
-                          size={24}
-                          className={isOpen ? "text-icon-white" : "text-icon-disabled"}
-                          variant="rounded"
-                        />
-                      </div>
-                      <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
-                        <span className="self-stretch text-text-primary text-lg font-semibold leading-5">
-                          {folder.name}
-                        </span>
-                        <div className="self-stretch inline-flex justify-start items-start gap-1">
-                          <span className="text-text-tertiary text-xs font-medium leading-4">
-                            {materialCount}
-                          </span>
-                          <span className="text-text-tertiary text-xs font-medium leading-4">
-                            {materialCount === 1 ? "archivo" : "archivos"}
-                          </span>
-                        </div>
-                      </div>
-                      <Icon
-                        name="expand_more"
-                        size={28}
-                        className={`text-icon-tertiary transition-transform ${isOpen ? "rotate-180" : ""}`}
-                      />
-                    </button>
-
-                    <div
-                      className={`w-full grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-                    >
-                      <div className="overflow-hidden">
-                      <div className={`self-stretch p-4 border-t border-stroke-primary flex flex-col justify-start items-start gap-2 ${!isOpen ? "opacity-0" : "opacity-100"} transition-opacity duration-300`}>
-                        {isLoadingMats && (
-                          <div className="self-stretch flex justify-center py-4">
-                            <div className="w-6 h-6 border-2 border-accent-solid border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
-
-                        {!isLoadingMats && materials.length === 0 && (
-                          <div className="self-stretch py-4 flex justify-center">
-                            <span className="text-text-tertiary text-sm">No hay archivos en esta carpeta</span>
-                          </div>
-                        )}
-
-                        {!isLoadingMats && materials.map((mat) => {
-                          const matName = mat.displayName;
-                          const matNameOnly = getFileNameWithoutExtension(matName);
-                          const matExt = getFileExtension(matName);
-                          const matIcon = getFileIconPath("", matName);
-                          const createdDate = new Date(mat.createdAt);
-                          const dateStr = `${createdDate.getDate()}/${(createdDate.getMonth() + 1).toString().padStart(2, "0")}/${createdDate.getFullYear()}`;
-                          const hours = createdDate.getHours();
-                          const ampm = hours >= 12 ? "pm" : "am";
-                          const hourNum = hours % 12 || 12;
-                          const mins = createdDate.getMinutes();
-                          const timeStr = mins === 0 ? `${hourNum}${ampm}` : `${hourNum}:${mins.toString().padStart(2, "0")}${ampm}`;
-
-                          return (
-                            <div
-                              key={mat.id}
-                              className="self-stretch p-3 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3"
-                            >
-                              <div className="flex-1 flex justify-start items-center gap-1">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={matIcon} alt="" className="w-8 h-8 shrink-0" />
-                                <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
-                                  <div className="self-stretch inline-flex justify-start items-start">
-                                    <span className="text-text-primary text-sm font-normal leading-4 line-clamp-1">
-                                      {matNameOnly}
-                                    </span>
-                                    <span className="text-text-primary text-sm font-normal leading-4">
-                                      {matExt}
-                                    </span>
-                                  </div>
-                                  <div className="self-stretch inline-flex justify-start items-center gap-0.5">
-                                    <span className="text-text-tertiary text-[10px] font-normal leading-3">
-                                      Última modificación: {dateStr} - {timeStr}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => handleDownloadMaterial(mat)}
-                                className="p-1 rounded-full flex justify-center items-center hover:bg-bg-primary transition-colors"
-                                title="Descargar"
-                              >
-                                <Icon name="download" size={20} className="text-icon-tertiary" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ExpandableFolderList
+              title="Material Adicional"
+              folders={additionalFolders}
+              loadFolderMaterials={loadFolderMaterials}
+              onDownloadMaterial={handleDownloadMaterial}
+              onPreviewMaterial={(mats, idx) => { setPreviewMaterials(mats); setPreviewIndex(idx); }}
+            />
           )}
         </div>
       )}
@@ -910,6 +827,15 @@ export function EvaluationPageContent({
         loadingMaterialsMap={loadingMaterialsMap}
         initialEventId={materialsModalEventId}
       />
+
+      {/* Material Preview Modal */}
+      {previewMaterials && (
+        <MaterialPreviewModal
+          materials={previewMaterials}
+          initialIndex={previewIndex}
+          onClose={() => setPreviewMaterials(null)}
+        />
+      )}
     </div>
   );
 }

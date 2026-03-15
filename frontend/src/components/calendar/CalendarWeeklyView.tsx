@@ -20,6 +20,7 @@ interface CalendarWeeklyViewProps {
   currentDate: Date;
   isToday: (date: Date) => boolean;
   onEventClick: (event: ClassEvent, e: React.MouseEvent) => void;
+  selectedEventId?: string | null;
 }
 
 export default function CalendarWeeklyView({
@@ -29,6 +30,7 @@ export default function CalendarWeeklyView({
   currentDate,
   isToday,
   onEventClick,
+  selectedEventId,
 }: CalendarWeeklyViewProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -148,10 +150,12 @@ export default function CalendarWeeklyView({
                     const layout = getEventLayout(event, dayEvents);
                     const colors = getCourseColor(event.courseCode);
 
+                    const isSelected = selectedEventId === event.id;
+
                     return (
                       <div
                         key={event.id}
-                        className="absolute rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                        className={`absolute rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-all ${isSelected ? 'shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10' : ''}`}
                         style={{
                           top: `${position.top}px`,
                           height: `${position.height}px`,

@@ -1,0 +1,122 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
+import { coursesService } from '@/services/courses.service';
+import type { CourseCycle } from '@/types/api';
+import Icon from '@/components/ui/Icon';
+import { EvaluationPageContent } from '../student/EvaluationShared';
+
+interface PreviousCycleEvaluationContentProps {
+  cursoId: string;
+  cycleCode: string;
+  evalId: string;
+}
+
+export default function PreviousCycleEvaluationContent({
+  cursoId,
+  cycleCode,
+  evalId,
+}: PreviousCycleEvaluationContentProps) {
+  const { setBreadcrumbItems } = useBreadcrumb();
+
+  const [courseName, setCourseName] = useState<string>('');
+  const [evalShortName, setEvalShortName] = useState<string>('');
+  const [evalFullName, setEvalFullName] = useState<string>('');
+
+  useEffect(() => {
+    async function loadCourseData() {
+      try {
+        const courses = await coursesService.getMyCourseCycles();
+        const found = (Array.isArray(courses) ? courses : []).find(
+          (cc: CourseCycle) => cc.id === cursoId,
+        );
+        if (found) {
+          setCourseName(found.course?.name || '');
+        }
+      } catch (err) {
+        console.error('Error al cargar nombre del curso:', err);
+      }
+    }
+
+    async function loadEvalNames() {
+      try {
+        const data = await coursesService.getPreviousCycleContent(cursoId, cycleCode);
+        const eval_ = data.evaluations.find((e) => e.id === evalId);
+        if (eval_) {
+          setEvalShortName(eval_.shortName);
+          setEvalFullName(eval_.fullName);
+        }
+      } catch (err) {
+        console.error('Error al cargar datos de evaluación:', err);
+      }
+    }
+
+    loadCourseData();
+    loadEvalNames();
+  }, [cursoId, cycleCode, evalId]);
+
+  useEffect(() => {
+    if (!courseName) return;
+    setBreadcrumbItems([
+      { label: 'Cursos' },
+      { label: courseName, href: `/plataforma/curso/${cursoId}` },
+      { label: 'Ciclos Anteriores', href: `/plataforma/curso/${cursoId}` },
+      { label: `Ciclo ${cycleCode}`, href: `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}` },
+      { label: evalShortName },
+    ]);
+  }, [setBreadcrumbItems, courseName, evalShortName, cursoId, cycleCode]);
+
+  const handleEvalNameDetected = useCallback((name: string) => {
+    if (!evalShortName) {
+      setEvalShortName(name);
+    }
+  }, [evalShortName]);
+
+  const getClassPageUrl = useCallback(
+    (eventId: string) =>
+      `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}/evaluacion/${evalId}/clase/${eventId}`,
+    [cursoId, cycleCode, evalId],
+  );
+
+  return (
+    <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
+      <Link
+        href={`/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}`}
+        className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
+      >
+        <Icon
+          name="arrow_back"
+          size={20}
+          className="text-icon-accent-primary"
+        />
+        <span className="text-text-accent-primary text-base font-medium leading-4">
+          Volver al Ciclo {cycleCode}
+        </span>
+      </Link>
+
+      <div className="self-stretch px-10 py-8 relative bg-gradient-to-r from-magenta-violet-800 via-magenta-violet-600 to-muted-indigo-200 rounded-xl inline-flex flex-col justify-center items-start gap-2 overflow-hidden mb-8">
+        <div className="w-40 h-40 absolute right-[-12] top-[-1.5] overflow-hidden">
+          <Icon name="inventory_2" size={200} className="text-icon-info-secondary" />
+        </div>
+        <div className="self-stretch flex flex-col justify-center items-start gap-0.5">
+          <span className="self-stretch text-text-white text-3xl font-semibold leading-10">
+            {evalShortName}
+          </span>
+          {evalFullName && (
+            <span className="self-stretch text-text-white text-sm font-normal leading-4">
+              {evalFullName.toUpperCase()}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <EvaluationPageContent
+        evalId={evalId}
+        getClassPageUrl={getClassPageUrl}
+        onEvalNameDetected={handleEvalNameDetected}
+      />
+    </div>
+  );
+}

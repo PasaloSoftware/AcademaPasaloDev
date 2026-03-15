@@ -108,4 +108,34 @@ export const materialsService = {
     a.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  /**
+   * Subir un material (multipart form-data)
+   */
+  async uploadMaterial(payload: {
+    file: File;
+    materialFolderId: string;
+    displayName: string;
+    classEventId?: string;
+  }): Promise<ClassEventMaterial> {
+    const formData = new FormData();
+    formData.append('file', payload.file);
+    formData.append('materialFolderId', payload.materialFolderId);
+    formData.append('displayName', payload.displayName);
+    if (payload.classEventId) {
+      formData.append('classEventId', payload.classEventId);
+    }
+    const token = getAccessToken();
+    const response = await fetch(`${API_BASE_URL}/materials`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Error al subir material: ${response.status} ${errorText}`);
+    }
+    const json = await response.json();
+    return json.data;
+  },
 };

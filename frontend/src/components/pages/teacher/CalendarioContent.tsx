@@ -102,7 +102,7 @@ export default function CalendarioContent() {
   const ownerOfSelected = selectedEvent ? isEventOwner(selectedEvent) : false;
 
   return (
-    <div className="flex flex-col gap-8 max-h-[calc(100vh-152px)] overflow-hidden">
+    <div className="flex flex-col gap-8 max-h-[calc(100vh-152px)]">
       <CalendarHeader
         title="Calendario de Clases"
         currentMonthYear={getCurrentMonthYear()}
@@ -136,6 +136,7 @@ export default function CalendarioContent() {
           currentDate={currentDate}
           isToday={isToday}
           onEventClick={handleEventClick}
+          selectedEventId={isDetailOpen ? selectedEvent?.id : null}
         />
       ) : (
         <CalendarMonthlyView
@@ -143,6 +144,7 @@ export default function CalendarioContent() {
           events={events}
           isToday={isToday}
           onEventClick={handleEventClick}
+          selectedEventId={isDetailOpen ? selectedEvent?.id : null}
         />
       )}
 
@@ -151,6 +153,7 @@ export default function CalendarioContent() {
         event={selectedEvent}
         isOpen={isDetailOpen}
         anchorPosition={anchorPosition}
+        calendarView={view === 'monthly' ? 'monthly' : 'weekly'}
         canEdit={ownerOfSelected}
         canCancel={ownerOfSelected}
         onEdit={handleEdit}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/Icon';
+import MaterialPreviewModal from '@/components/materials/MaterialPreviewModal';
 import type { ClassEvent } from '@/types/classEvent';
 import type { ClassEventMaterial } from '@/types/material';
 import { materialsService } from '@/services/materials.service';
@@ -77,7 +78,7 @@ function formatLastModified(iso: string): string {
 // Material Row
 // ============================================
 
-function MaterialRow({ material }: { material: ClassEventMaterial }) {
+function MaterialRow({ material, onPreview }: { material: ClassEventMaterial; onPreview?: () => void }) {
   const [downloading, setDownloading] = useState(false);
   const fileName = material.displayName || material.fileResource.originalName;
   const nameWithoutExt = getFileNameWithoutExtension(fileName);
@@ -96,7 +97,11 @@ function MaterialRow({ material }: { material: ClassEventMaterial }) {
   };
 
   return (
-    <div className="self-stretch p-3 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3">
+    <button
+      type="button"
+      onClick={() => onPreview?.()}
+      className="self-stretch p-3 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3 hover:bg-bg-tertiary transition-colors text-left w-full"
+    >
       {/* File type icon */}
       <img
         src={getFileIconPath(material.fileResource.mimeType, fileName)}
@@ -120,10 +125,20 @@ function MaterialRow({ material }: { material: ClassEventMaterial }) {
       </div>
 
       {/* Download button */}
-      <button
-        onClick={handleDownload}
-        disabled={downloading}
-        className="p-1 rounded-full flex justify-center items-center hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDownload();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.stopPropagation();
+            handleDownload();
+          }
+        }}
+        className={`p-1 rounded-full flex justify-center items-center hover:bg-bg-primary transition-colors ${downloading ? 'opacity-50' : ''}`}
         title="Descargar"
       >
         <Icon
@@ -131,8 +146,8 @@ function MaterialRow({ material }: { material: ClassEventMaterial }) {
           size={20}
           className="text-icon-tertiary"
         />
-      </button>
-    </div>
+      </div>
+    </button>
   );
 }
 
@@ -159,6 +174,8 @@ export default function ClassMaterialsModal({
 }: ClassMaterialsModalProps) {
   const [activeEventId, setActiveEventId] = useState<string>('');
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Set initial tab
   useEffect(() => {
@@ -283,8 +300,12 @@ export default function ClassMaterialsModal({
                 <span className="self-stretch text-center text-text-disabled text-xs font-normal leading-4">No hay materiales disponibles para esta clase</span>
               </div>
             ) : (
-              activeMaterials.map((material) => (
-                <MaterialRow key={material.id} material={material} />
+              activeMaterials.map((material, idx) => (
+                <MaterialRow
+                  key={material.id}
+                  material={material}
+                  onPreview={() => { setPreviewIndex(idx); setShowPreview(true); }}
+                />
               ))
             )}
           </div>
@@ -312,6 +333,15 @@ export default function ClassMaterialsModal({
           </button>
         </div>
       </div>
+
+      {/* Material Preview Modal */}
+      {showPreview && activeMaterials.length > 0 && (
+        <MaterialPreviewModal
+          materials={activeMaterials}
+          initialIndex={previewIndex}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }

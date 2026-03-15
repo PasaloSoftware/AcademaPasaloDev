@@ -823,10 +823,12 @@ export class CoursesService {
   async getStudentPreviousCycles(
     courseCycleId: string,
     userId: string,
+    activeRole?: string,
   ): Promise<StudentPreviousCycleListResponseDto> {
     const accessContext = await this.getStudentCourseAccessContext(
       courseCycleId,
       userId,
+      activeRole,
     );
     if (!accessContext.canViewPreviousCycles) {
       throw new ForbiddenException(
@@ -851,10 +853,12 @@ export class CoursesService {
     courseCycleId: string,
     previousCycleCode: string,
     userId: string,
+    activeRole?: string,
   ): Promise<StudentPreviousCycleContentResponseDto> {
     const accessContext = await this.getStudentCourseAccessContext(
       courseCycleId,
       userId,
+      activeRole,
     );
     if (!accessContext.canViewPreviousCycles) {
       throw new ForbiddenException(
@@ -907,10 +911,12 @@ export class CoursesService {
   async getStudentBankStructure(
     courseCycleId: string,
     userId: string,
+    activeRole?: string,
   ): Promise<StudentBankStructureResponseDto> {
     const accessContext = await this.getStudentCourseAccessContext(
       courseCycleId,
       userId,
+      activeRole,
     );
 
     const cacheKey = COURSE_CACHE_KEYS.BANK_STRUCTURE(courseCycleId);
@@ -954,10 +960,29 @@ export class CoursesService {
   private async getStudentCourseAccessContext(
     courseCycleId: string,
     userId: string,
+    activeRole?: string,
   ): Promise<StudentCourseAccessContext> {
     const cycle = await this.courseCycleRepository.findFullById(courseCycleId);
     if (!cycle) {
       throw new NotFoundException('Ciclo del curso no encontrado');
+    }
+
+    if (activeRole === ROLE_CODES.PROFESSOR) {
+      const isAssigned =
+        await this.courseCycleProfessorRepository.isProfessorAssigned(
+          courseCycleId,
+          userId,
+        );
+      if (!isAssigned) {
+        throw new ForbiddenException(
+          'No estás asignado como docente en este curso.',
+        );
+      }
+      return {
+        cycle,
+        enrollmentTypeCode: ENROLLMENT_TYPE_CODES.FULL,
+        canViewPreviousCycles: true,
+      };
     }
 
     const enrollmentTypeCode = await this.getActiveEnrollmentTypeCode(

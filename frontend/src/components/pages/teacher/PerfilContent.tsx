@@ -7,31 +7,27 @@ import CourseCard from '@/components/courses/CourseCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { getRoleFriendlyName } from '@/components/dashboard/RoleSwitcher';
-import { enrollmentService } from '@/services/enrollment.service';
+import { coursesService } from '@/services/courses.service';
 import { getCourseColor } from '@/lib/courseColors';
-import type { Enrollment } from '@/types/enrollment';
+import type { CourseCycle } from '@/types/api';
 
 export default function PerfilContent() {
   const { user } = useAuth();
   const { setBreadcrumbItems } = useBreadcrumb();
   const router = useRouter();
 
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [courseCycles, setCourseCycles] = useState<CourseCycle[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
 
   useEffect(() => {
     setBreadcrumbItems([{ label: 'Mi Perfil' }]);
   }, [setBreadcrumbItems]);
 
-  // Load enrolled courses
   useEffect(() => {
     async function loadCourses() {
       try {
-        const response = await enrollmentService.getMyCourses();
-        const data: Enrollment[] = Array.isArray(response)
-          ? response
-          : response.data || [];
-        setEnrollments(data);
+        const data = await coursesService.getMyCourseCycles();
+        setCourseCycles(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error al cargar cursos:', err);
       } finally {
@@ -49,26 +45,21 @@ export default function PerfilContent() {
 
   const initials = `${user.firstName?.[0] ?? ''}${user.lastName1?.[0] ?? ''}`.toUpperCase();
 
-  const getTeachers = (enrollment: Enrollment) => {
-    const courseCode = enrollment.courseCycle.course.code;
-    const courseColor = getCourseColor(courseCode);
-    return enrollment.courseCycle.professors.map((prof) => ({
-      initials: `${prof.firstName[0]}${prof.lastName1[0]}`.toUpperCase(),
-      name: `${prof.firstName} ${prof.lastName1}`,
-      avatarColor: courseColor.primary,
-      photoUrl: prof.profilePhotoUrl || undefined,
-    }));
+  const getTeacherInitials = () => {
+    return `${user.firstName?.[0] ?? ''}${user.lastName1?.[0] ?? ''}`.toUpperCase();
+  };
+
+  const getTeacherName = () => {
+    return `${user.firstName} ${user.lastName1}`;
   };
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start gap-8 overflow-hidden">
       {/* ====== Header Card ====== */}
       <div className="self-stretch p-6 relative bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-center gap-8 overflow-hidden">
-        {/* Decorative circles */}
         <div className="w-24 h-24 left-[-50px] top-[128px] absolute bg-fuchsia-800/20 rounded-full" />
         <div className="w-32 h-32 right-[-56px] top-[-66px] absolute bg-purple-900/20 rounded-full" />
 
-        {/* Photo */}
         <div className="relative inline-flex flex-col justify-start items-start">
           {user.profilePhotoUrl ? (
             <img
@@ -83,7 +74,6 @@ export default function PerfilContent() {
           )}
         </div>
 
-        {/* Name + Email + Badges */}
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-4">
           <div className="self-stretch flex flex-col justify-start items-start">
             <span className="self-stretch text-text-primary text-2xl font-bold leading-7">
@@ -123,17 +113,14 @@ export default function PerfilContent() {
         </div>
 
         <div className="self-stretch flex flex-col justify-start items-start gap-6">
-          {/* Row 1: Nombres + Primer Apellido */}
           <div className="self-stretch inline-flex justify-start items-start gap-6 flex-wrap content-start">
             <InfoField label="Nombres" value={user.firstName} />
             <InfoField label="Primer Apellido" value={user.lastName1} />
           </div>
-          {/* Row 2: Segundo Apellido + Correo */}
           <div className="self-stretch inline-flex justify-start items-start gap-6 flex-wrap content-start">
             <InfoField label="Segundo Apellido" value={user.lastName2} />
             <InfoField label="Correo Electrónico" value={user.email} />
           </div>
-          {/* Row 3: Teléfono + Carrera */}
           <div className="self-stretch inline-flex justify-start items-start gap-6 flex-wrap content-start">
             <InfoField label="Teléfono" value={user.phone} />
             <InfoField label="Carrera" value={user.career} />
@@ -141,18 +128,18 @@ export default function PerfilContent() {
         </div>
       </div>
 
-      {/* ====== Cursos Inscritos ====== */}
+      {/* ====== Cursos a Cargo ====== */}
       <div className="self-stretch p-6 bg-white rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-slate-100 flex flex-col justify-start items-start gap-6">
         <div className="self-stretch inline-flex justify-start items-center gap-5">
           <div className="flex-1 flex justify-start items-start gap-2">
             <Icon name="school" size={20} className="text-icon-info-secondary" />
             <span className="text-text-primary text-lg font-semibold leading-5">
-              Cursos Inscritos
+              Cursos a Cargo
             </span>
           </div>
           {!loadingCourses && (
             <span className="text-gray-600 text-base font-medium leading-4">
-              {enrollments.length} {enrollments.length === 1 ? 'Curso' : 'Cursos'} en total
+              {courseCycles.length} {courseCycles.length === 1 ? 'Curso' : 'Cursos'} en total
             </span>
           )}
         </div>
@@ -163,23 +150,29 @@ export default function PerfilContent() {
               <div key={i} className="w-[240px] h-80 bg-bg-secondary rounded-xl flex-shrink-0" />
             ))}
           </div>
-        ) : enrollments.length > 0 ? (
+        ) : courseCycles.length > 0 ? (
           <div className="self-stretch overflow-x-auto">
             <div className="inline-flex gap-6">
-              {enrollments.map((enrollment) => {
-                const courseCode = enrollment.courseCycle.course.code;
+              {courseCycles.map((cc) => {
+                const courseCode = cc.course?.code || '';
                 const courseColor = getCourseColor(courseCode);
-                const teachers = getTeachers(enrollment);
 
                 return (
-                  <div key={enrollment.id} className="w-[394px] flex-shrink-0">
+                  <div key={cc.id} className="w-[394px] flex-shrink-0">
                     <CourseCard
                       headerColor={courseColor.primary}
                       category="CIENCIAS"
-                      cycle={enrollment.courseCycle.course.cycleLevel.name}
-                      title={enrollment.courseCycle.course.name}
-                      teachers={teachers}
-                      onViewCourse={() => router.push(`/plataforma/curso/${enrollment.courseCycle.id}`)}
+                      cycle={cc.academicCycle?.code || ''}
+                      title={cc.course?.name || ''}
+                      teachers={[
+                        {
+                          initials: getTeacherInitials(),
+                          name: getTeacherName(),
+                          avatarColor: courseColor.primary,
+                          photoUrl: user.profilePhotoUrl || undefined,
+                        },
+                      ]}
+                      onViewCourse={() => router.push(`/plataforma/curso/${cc.id}`)}
                       variant="grid"
                     />
                   </div>
@@ -190,7 +183,7 @@ export default function PerfilContent() {
         ) : (
           <div className="self-stretch p-8 flex flex-col items-center justify-center gap-3">
             <Icon name="school" size={48} className="text-icon-tertiary" />
-            <span className="text-text-secondary text-sm">No estás inscrito en ningún curso</span>
+            <span className="text-text-secondary text-sm">No tienes cursos a cargo</span>
           </div>
         )}
       </div>
