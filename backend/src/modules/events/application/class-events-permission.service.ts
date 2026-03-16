@@ -6,43 +6,23 @@ import {
 } from '@nestjs/common';
 import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
-import { UserRepository } from '@modules/users/infrastructure/user.repository';
-import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
 import { User } from '@modules/users/domain/user.entity';
 import {
   ADMIN_ROLE_CODES,
   ROLE_CODES,
 } from '@common/constants/role-codes.constants';
-import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
-import { technicalSettings } from '@config/technical-settings';
 
 @Injectable()
 export class ClassEventsPermissionService {
-  private readonly PROFESSOR_ASSIGNMENT_CACHE_TTL =
-    technicalSettings.cache.events.professorAssignmentCacheTtlSeconds;
-
   constructor(
-    private readonly userRepository: UserRepository,
     private readonly enrollmentEvaluationRepository: EnrollmentEvaluationRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
     private readonly authSettingsService: AuthSettingsService,
-    private readonly cacheService: RedisCacheService,
   ) {}
 
   isAdminUser(user: User): boolean {
-    const roles = (user.roles || []).map((r) => r.code);
-    return ADMIN_ROLE_CODES.some((roleCode) => roles.includes(roleCode));
-  }
-
-  async checkUserAuthorization(
-    userId: string,
-    evaluationId: string,
-  ): Promise<boolean> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) return false;
-
-    return await this.checkUserAuthorizationWithUser(user, evaluationId);
+    return this.hasAdminAccess(user);
   }
 
   async checkUserAuthorizationForUser(
@@ -56,34 +36,15 @@ export class ClassEventsPermissionService {
     user: User,
     evaluationId: string,
   ): Promise<boolean> {
-    const roleCodes = (user.roles || []).map((r) => r.code);
-
-    if (roleCodes.some((r) => ADMIN_ROLE_CODES.includes(r))) {
+    if (this.hasAdminAccess(user)) {
       return true;
     }
 
-    if (roleCodes.includes(ROLE_CODES.PROFESSOR)) {
-      const cacheKey = COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT(
+    if (this.hasProfessorAccess(user)) {
+      return await this.courseCycleProfessorRepository.canProfessorReadEvaluation(
         evaluationId,
         user.id,
       );
-      const cached = await this.cacheService.get<boolean>(cacheKey);
-      if (cached !== null) {
-        return cached;
-      }
-
-      const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
-          evaluationId,
-          user.id,
-        );
-
-      await this.cacheService.set(
-        cacheKey,
-        isAssigned,
-        this.PROFESSOR_ASSIGNMENT_CACHE_TTL,
-      );
-      return isAssigned;
     }
 
     return await this.enrollmentEvaluationRepository.checkAccess(
@@ -137,5 +98,19 @@ export class ClassEventsPermissionService {
         'Solo el creador o un administrador puede realizar esta acción',
       );
     }
+  }
+
+  private normalizeRole(user: User): string {
+    return String((user as User & { activeRole?: string }).activeRole || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private hasAdminAccess(user: User): boolean {
+    return ADMIN_ROLE_CODES.includes(this.normalizeRole(user));
+  }
+
+  private hasProfessorAccess(user: User): boolean {
+    return this.normalizeRole(user) === ROLE_CODES.PROFESSOR;
   }
 }

@@ -54,7 +54,10 @@ import {
   STUDENT_EVALUATION_LABELS,
   StudentEvaluationLabel,
 } from '@modules/courses/domain/student-course.constants';
-import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import {
+  ADMIN_ROLE_CODES,
+  ROLE_CODES,
+} from '@common/constants/role-codes.constants';
 import { ACCESS_MESSAGES } from '@common/constants/access-messages.constants';
 import {
   MEDIA_ACCESS_MODES,
@@ -69,10 +72,15 @@ import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.const
 import { AuthorizedCourseIntroVideoLinkDto } from '@modules/courses/dto/authorized-course-intro-video-link.dto';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
+import {
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
+import { MyEnrollmentsResponseDto } from '@modules/enrollments/dto/my-enrollments-response.dto';
+import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
 
 type EvaluationWithAccess = Evaluation & {
   enrollmentEvaluations?: EnrollmentEvaluation[];
-  name?: string;
 };
 
 type StudentCourseAccessContext = {
@@ -129,8 +137,8 @@ export class CoursesService {
 
     return {
       items: rows.map((row) => {
-        const startDate = new Date(row.academicCycleStartDate);
-        const endDate = new Date(row.academicCycleEndDate);
+        const startDate = toBusinessDayStartUtc(row.academicCycleStartDate);
+        const endDate = toBusinessDayEndUtc(row.academicCycleEndDate);
         return {
           courseCycleId: row.courseCycleId,
           course: {
@@ -284,8 +292,8 @@ export class CoursesService {
           courseCycleId: courseCycle.id,
           evaluationTypeId: bancoType.id,
           number: 0,
-          startDate: cycle.startDate,
-          endDate: cycle.endDate,
+          startDate: toBusinessDayStartUtc(cycle.startDate),
+          endDate: toBusinessDayEndUtc(cycle.endDate),
         },
         manager,
       );
@@ -327,17 +335,13 @@ export class CoursesService {
       );
     });
 
-    await Promise.all([
-      this.cacheService.invalidateGroup(
-        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_ASSIGNMENT_GROUP,
-      ),
-      this.cacheService.invalidateGroup(
-        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-      ),
-    ]);
-
     const evaluationIds =
       await this.listEvaluationIdsByCourseCycle(courseCycleId);
+    await this.invalidateProfessorAccessCache(
+      professorUserId,
+      [courseCycleId],
+      evaluationIds,
+    );
     await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
       professorUserId,
       [courseCycleId],
@@ -367,17 +371,13 @@ export class CoursesService {
       );
     });
 
-    await Promise.all([
-      this.cacheService.invalidateGroup(
-        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_ASSIGNMENT_GROUP,
-      ),
-      this.cacheService.invalidateGroup(
-        COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-      ),
-    ]);
-
     const evaluationIds =
       await this.listEvaluationIdsByCourseCycle(courseCycleId);
+    await this.invalidateProfessorAccessCache(
+      professorUserId,
+      [courseCycleId],
+      evaluationIds,
+    );
     await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
       professorUserId,
       [courseCycleId],
@@ -406,7 +406,21 @@ export class CoursesService {
       .filter((id) => id.length > 0);
   }
 
-  async getProfessorsByCourseCycle(courseCycleId: string): Promise<User[]> {
+  async getProfessorsByCourseCycle(
+    courseCycleId: string,
+    requesterUserId?: string,
+    requesterActiveRole?: string,
+  ): Promise<User[]> {
+    if (
+      this.isProfessorRole(requesterActiveRole) &&
+      requesterUserId !== undefined
+    ) {
+      await this.assertProfessorCanReadCourseCycle(
+        courseCycleId,
+        requesterUserId,
+      );
+    }
+
     const cacheKey = COURSE_CACHE_KEYS.PROFESSORS_LIST(courseCycleId);
     const cached = await this.cacheService.get<User[]>(cacheKey);
     if (cached) return cached;
@@ -430,12 +444,16 @@ export class CoursesService {
     return professors;
   }
 
-  async getMyCourseCycles(professorUserId: string): Promise<CourseCycle[]> {
+  async getMyCourseCycles(
+    professorUserId: string,
+  ): Promise<MyEnrollmentsResponseDto[]> {
     const assignments =
       await this.courseCycleProfessorRepository.findByProfessorUserId(
         professorUserId,
       );
-    return assignments.map((a) => a.courseCycle);
+    return assignments.map((assignment) =>
+      this.mapProfessorDashboardAssignment(assignment),
+    );
   }
 
   async findAllTypes(): Promise<CourseType[]> {
@@ -512,8 +530,8 @@ export class CoursesService {
     });
 
     await Promise.all([
-      this.cacheService.invalidateGroup(
-        COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
+      this.cacheService.invalidateIndex(
+        COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(courseCycleId),
       ),
       this.cacheService.del(COURSE_CACHE_KEYS.BANK_STRUCTURE(courseCycleId)),
     ]);
@@ -529,7 +547,15 @@ export class CoursesService {
     userId: string,
     requesterActiveRole?: string,
   ): Promise<CourseContentResponseDto> {
-    const cacheKey = COURSE_CACHE_KEYS.COURSE_CONTENT(courseCycleId, userId);
+    const hasFullEvaluationAccess =
+      this.hasFullEvaluationAccess(requesterActiveRole);
+    const cacheKey = hasFullEvaluationAccess
+      ? COURSE_CACHE_KEYS.COURSE_CONTENT_FULL_ACCESS(courseCycleId)
+      : COURSE_CACHE_KEYS.COURSE_CONTENT_USER(courseCycleId, userId);
+
+    if (this.isProfessorRole(requesterActiveRole)) {
+      await this.assertProfessorCanReadCourseCycle(courseCycleId, userId);
+    }
 
     let rawData = await this.cacheService.get<{
       cycle: CourseCycle;
@@ -537,108 +563,32 @@ export class CoursesService {
     }>(cacheKey);
 
     if (!rawData) {
-      await this.assertCourseCycleExists(courseCycleId);
-
       const fullCycle =
         await this.courseCycleRepository.findFullById(courseCycleId);
       if (!fullCycle) throw new NotFoundException('Curso no encontrado');
 
-      const evaluations = await this.evaluationRepository.findAllWithUserAccess(
-        courseCycleId,
-        userId,
-      );
+      const evaluations = hasFullEvaluationAccess
+        ? await this.evaluationRepository.findByCourseCycle(courseCycleId)
+        : await this.evaluationRepository.findAllWithUserAccess(
+            courseCycleId,
+            userId,
+          );
 
       rawData = {
         cycle: fullCycle,
         evaluations: evaluations as EvaluationWithAccess[],
       };
-      await this.cacheService.set(cacheKey, rawData, this.CONTENT_CACHE_TTL);
+      await Promise.all([
+        this.cacheService.set(cacheKey, rawData, this.CONTENT_CACHE_TTL),
+        this.cacheService.addToIndex(
+          COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(courseCycleId),
+          cacheKey,
+          this.CONTENT_CACHE_TTL,
+        ),
+      ]);
     }
 
-    if (requesterActiveRole === ROLE_CODES.PROFESSOR) {
-      const assignmentCacheKey =
-        COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT_COURSE_CYCLE(
-          courseCycleId,
-          userId,
-        );
-      const cachedIsAssigned =
-        await this.cacheService.get<boolean>(assignmentCacheKey);
-
-      const isAssigned =
-        cachedIsAssigned !== null
-          ? cachedIsAssigned
-          : await this.courseCycleProfessorRepository.isProfessorAssigned(
-              courseCycleId,
-              userId,
-            );
-      if (cachedIsAssigned === null) {
-        await this.cacheService.set(
-          assignmentCacheKey,
-          isAssigned,
-          this.PROFESSOR_ASSIGNMENT_CACHE_TTL,
-        );
-      }
-
-      if (!isAssigned) {
-        throw new ForbiddenException(ACCESS_MESSAGES.COURSE_CONTENT_FORBIDDEN);
-      }
-    }
-
-    const now = new Date();
-    const cycleEndDate = new Date(rawData.cycle.academicCycle.endDate);
-    const isCurrent =
-      now >= new Date(rawData.cycle.academicCycle.startDate) &&
-      now <= cycleEndDate;
-
-    return {
-      courseCycleId: rawData.cycle.id,
-      courseName: rawData.cycle.course.name,
-      courseCode: rawData.cycle.course.code,
-      cycleCode: rawData.cycle.academicCycle.code,
-      isCurrentCycle: isCurrent,
-      evaluations: this.filterOutBankEvaluations(rawData.evaluations).map(
-        (ev) => {
-          const evStartDate = new Date(ev.startDate);
-          const evEndDate = new Date(ev.endDate);
-
-          const access =
-            ev.enrollmentEvaluations && ev.enrollmentEvaluations.length > 0
-              ? ev.enrollmentEvaluations[0]
-              : null;
-
-          const statusDto = new EvaluationStatusDto();
-
-          if (!access || !access.isActive) {
-            statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
-            statusDto.hasAccess = false;
-            statusDto.accessStart = null;
-            statusDto.accessEnd = null;
-          } else {
-            statusDto.hasAccess = true;
-            statusDto.accessStart = new Date(access.accessStartDate);
-            statusDto.accessEnd = new Date(access.accessEndDate);
-
-            if (now > statusDto.accessEnd) {
-              statusDto.status = EVALUATION_ACCESS_STATUS_CODES.COMPLETED;
-            } else if (now < statusDto.accessStart) {
-              statusDto.status = EVALUATION_ACCESS_STATUS_CODES.UPCOMING;
-            } else {
-              statusDto.status = EVALUATION_ACCESS_STATUS_CODES.IN_PROGRESS;
-            }
-          }
-
-          return {
-            id: ev.id,
-            name: ev.name ?? '',
-            description: null as string | null,
-            evaluationType: ev.evaluationType.name,
-            startDate: evStartDate,
-            endDate: evEndDate,
-            userStatus: statusDto,
-          };
-        },
-      ),
-    };
+    return this.buildCourseContentResponse(rawData, hasFullEvaluationAccess);
   }
 
   async updateCourseCycleIntroVideo(
@@ -661,8 +611,8 @@ export class CoursesService {
         `,
         [courseCycleId],
       );
-      await this.cacheService.invalidateGroup(
-        COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
+      await this.cacheService.invalidateIndex(
+        COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(courseCycleId),
       );
       return;
     }
@@ -684,8 +634,8 @@ export class CoursesService {
       [normalizedUrl, introVideoFileId, courseCycleId],
     );
 
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(courseCycleId),
+    await this.cacheService.invalidateIndex(
+      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(courseCycleId),
     );
   }
 
@@ -767,6 +717,149 @@ export class CoursesService {
     }
   }
 
+  private async assertProfessorCanReadCourseCycle(
+    courseCycleId: string,
+    userId: string,
+  ): Promise<void> {
+    const isAssigned =
+      await this.courseCycleProfessorRepository.canProfessorReadCourseCycle(
+        courseCycleId,
+        userId,
+      );
+
+    if (!isAssigned) {
+      await this.assertCourseCycleExists(courseCycleId);
+      throw new ForbiddenException(ACCESS_MESSAGES.COURSE_CONTENT_FORBIDDEN);
+    }
+  }
+
+  private hasFullEvaluationAccess(requesterActiveRole?: string): boolean {
+    return (
+      this.isProfessorRole(requesterActiveRole) ||
+      this.isAdminRole(requesterActiveRole)
+    );
+  }
+
+  private async invalidateProfessorAccessCache(
+    professorUserId: string,
+    courseCycleIds: string[],
+    evaluationIds: string[],
+  ): Promise<void> {
+    const keys = [
+      ...courseCycleIds.map((courseCycleId) =>
+        COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT_COURSE_CYCLE(
+          courseCycleId,
+          professorUserId,
+        ),
+      ),
+      ...courseCycleIds.map((courseCycleId) =>
+        COURSE_CACHE_KEYS.PROFESSORS_LIST(courseCycleId),
+      ),
+      ...evaluationIds.map((evaluationId) =>
+        COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT(evaluationId, professorUserId),
+      ),
+    ];
+
+    const uniqueKeys = [...new Set(keys)];
+    if (uniqueKeys.length === 0) {
+      return;
+    }
+
+    await this.cacheService.delMany(uniqueKeys);
+  }
+
+  private buildCourseContentResponse(
+    rawData: {
+      cycle: CourseCycle;
+      evaluations: EvaluationWithAccess[];
+    },
+    hasFullEvaluationAccess: boolean,
+  ): CourseContentResponseDto {
+    const now = new Date();
+    const cycleStartDate = toBusinessDayStartUtc(
+      rawData.cycle.academicCycle.startDate,
+    );
+    const cycleEndDate = toBusinessDayEndUtc(
+      rawData.cycle.academicCycle.endDate,
+    );
+    const isCurrent = now >= cycleStartDate && now <= cycleEndDate;
+
+    return {
+      courseCycleId: rawData.cycle.id,
+      courseName: rawData.cycle.course.name,
+      courseCode: rawData.cycle.course.code,
+      cycleCode: rawData.cycle.academicCycle.code,
+      isCurrentCycle: isCurrent,
+      evaluations: this.filterOutBankEvaluations(rawData.evaluations).map(
+        (evaluation) => {
+          const startDate = new Date(evaluation.startDate);
+          const endDate = new Date(evaluation.endDate);
+
+          return {
+            id: evaluation.id,
+            name: this.buildEvaluationFullName(evaluation),
+            evaluationType: evaluation.evaluationType.name,
+            startDate,
+            endDate,
+            userStatus: this.buildCourseContentStatus(
+              evaluation,
+              hasFullEvaluationAccess,
+              startDate,
+              endDate,
+              now,
+            ),
+          };
+        },
+      ),
+    };
+  }
+
+  private buildCourseContentStatus(
+    evaluation: EvaluationWithAccess,
+    hasFullEvaluationAccess: boolean,
+    evaluationStartDate: Date,
+    evaluationEndDate: Date,
+    now: Date,
+  ): EvaluationStatusDto {
+    const statusDto = new EvaluationStatusDto();
+
+    if (hasFullEvaluationAccess) {
+      statusDto.hasAccess = true;
+      statusDto.accessStart = evaluationStartDate;
+      statusDto.accessEnd = evaluationEndDate;
+    } else {
+      const access =
+        evaluation.enrollmentEvaluations &&
+        evaluation.enrollmentEvaluations.length > 0
+          ? evaluation.enrollmentEvaluations[0]
+          : null;
+
+      if (!access || !access.isActive) {
+        statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
+        statusDto.hasAccess = false;
+        statusDto.accessStart = null;
+        statusDto.accessEnd = null;
+        return statusDto;
+      }
+
+      statusDto.hasAccess = true;
+      statusDto.accessStart = new Date(access.accessStartDate);
+      statusDto.accessEnd = new Date(access.accessEndDate);
+    }
+
+    if (!statusDto.accessStart || !statusDto.accessEnd) {
+      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
+    } else if (now > statusDto.accessEnd) {
+      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.COMPLETED;
+    } else if (now < statusDto.accessStart) {
+      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.UPCOMING;
+    } else {
+      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.IN_PROGRESS;
+    }
+
+    return statusDto;
+  }
+
   async getStudentCurrentCycleContent(
     courseCycleId: string,
     userId: string,
@@ -839,7 +932,7 @@ export class CoursesService {
     const previousCycles =
       await this.courseCycleRepository.findPreviousByCourseId(
         accessContext.cycle.courseId,
-        new Date(accessContext.cycle.academicCycle.startDate),
+        accessContext.cycle.academicCycle.startDate,
       );
 
     return {
@@ -875,16 +968,19 @@ export class CoursesService {
       throw new NotFoundException('Ciclo anterior no encontrado');
     }
     if (
-      new Date(targetCycle.academicCycle.startDate) >=
-      new Date(accessContext.cycle.academicCycle.startDate)
+      new Date(targetCycle.academicCycle.startDate).getTime() >=
+      new Date(accessContext.cycle.academicCycle.startDate).getTime()
     ) {
       throw new NotFoundException('Ciclo anterior no encontrado');
     }
 
-    const evaluations = await this.evaluationRepository.findAllWithUserAccess(
-      targetCycle.id,
-      userId,
-    );
+    const hasFullHistoricalAccess = this.hasFullEvaluationAccess(activeRole);
+    const evaluations = hasFullHistoricalAccess
+      ? await this.evaluationRepository.findByCourseCycle(targetCycle.id)
+      : await this.evaluationRepository.findAllWithUserAccess(
+          targetCycle.id,
+          userId,
+        );
 
     const visibleEvaluations = this.filterOutBankEvaluations(
       evaluations as EvaluationWithAccess[],
@@ -893,7 +989,9 @@ export class CoursesService {
     return {
       cycleCode: previousCycleCode,
       evaluations: visibleEvaluations.map((evaluation) => {
-        const hasAccess = this.hasActiveAccess(evaluation);
+        const hasAccess = hasFullHistoricalAccess
+          ? true
+          : this.hasActiveAccess(evaluation);
         return {
           id: evaluation.id,
           evaluationTypeCode: evaluation.evaluationType.code,
@@ -967,17 +1065,15 @@ export class CoursesService {
       throw new NotFoundException('Ciclo del curso no encontrado');
     }
 
-    if (activeRole === ROLE_CODES.PROFESSOR) {
-      const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssigned(
-          courseCycleId,
-          userId,
-        );
-      if (!isAssigned) {
-        throw new ForbiddenException(
-          'No estás asignado como docente en este curso.',
-        );
-      }
+    if (this.isProfessorRole(activeRole)) {
+      await this.assertProfessorCanReadCourseCycle(courseCycleId, userId);
+      return {
+        cycle,
+        enrollmentTypeCode: ENROLLMENT_TYPE_CODES.FULL,
+        canViewPreviousCycles: true,
+      };
+    }
+    if (this.isAdminRole(activeRole)) {
       return {
         cycle,
         enrollmentTypeCode: ENROLLMENT_TYPE_CODES.FULL,
@@ -998,7 +1094,7 @@ export class CoursesService {
         ? true
         : await this.courseCycleRepository.hasAccessiblePreviousByCourseIdAndUserId(
             cycle.courseId,
-            new Date(cycle.academicCycle.startDate),
+            cycle.academicCycle.startDate,
             userId,
           );
 
@@ -1035,22 +1131,12 @@ export class CoursesService {
     courseCycleId: string,
     requesterActiveRole: string | undefined,
   ): Promise<void> {
-    if (
-      requesterActiveRole === ROLE_CODES.ADMIN ||
-      requesterActiveRole === ROLE_CODES.SUPER_ADMIN
-    ) {
+    if (this.isAdminRole(requesterActiveRole)) {
       return;
     }
 
-    if (requesterActiveRole === ROLE_CODES.PROFESSOR) {
-      const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssigned(
-          courseCycleId,
-          userId,
-        );
-      if (!isAssigned) {
-        throw new ForbiddenException(ACCESS_MESSAGES.COURSE_CONTENT_FORBIDDEN);
-      }
+    if (this.isProfessorRole(requesterActiveRole)) {
+      await this.assertProfessorCanReadCourseCycle(courseCycleId, userId);
       return;
     }
 
@@ -1071,6 +1157,20 @@ export class CoursesService {
     return !!access && access.isActive;
   }
 
+  private normalizeRole(activeRole?: string): string {
+    return String(activeRole || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private isProfessorRole(activeRole?: string): boolean {
+    return this.normalizeRole(activeRole) === ROLE_CODES.PROFESSOR;
+  }
+
+  private isAdminRole(activeRole?: string): boolean {
+    return ADMIN_ROLE_CODES.includes(this.normalizeRole(activeRole));
+  }
+
   private filterOutBankEvaluations(
     evaluations: EvaluationWithAccess[],
   ): EvaluationWithAccess[] {
@@ -1089,6 +1189,49 @@ export class CoursesService {
   private buildEvaluationFullName(evaluation: Evaluation): string {
     const typeName = this.toTitleCase(evaluation.evaluationType.name);
     return `${typeName} ${evaluation.number}`;
+  }
+
+  private mapProfessorDashboardAssignment(
+    assignment: CourseCycleProfessor,
+  ): MyEnrollmentsResponseDto {
+    const academicCycle = assignment.courseCycle.academicCycle;
+    const cycleStartDate = toBusinessDayStartUtc(academicCycle.startDate);
+    const cycleEndDate = toBusinessDayEndUtc(academicCycle.endDate);
+    const now = new Date();
+
+    return {
+      id: assignment.courseCycle.id,
+      enrolledAt: assignment.assignedAt,
+      courseCycle: {
+        id: assignment.courseCycle.id,
+        course: {
+          id: assignment.courseCycle.course.id,
+          code: assignment.courseCycle.course.code,
+          name: assignment.courseCycle.course.name,
+          courseType: {
+            code: assignment.courseCycle.course.courseType.code,
+            name: assignment.courseCycle.course.courseType.name,
+          },
+          cycleLevel: {
+            name: `${assignment.courseCycle.course.cycleLevel.levelNumber} Ciclo`,
+          },
+        },
+        academicCycle: {
+          id: academicCycle.id,
+          code: academicCycle.code,
+          startDate: academicCycle.startDate,
+          endDate: academicCycle.endDate,
+          isCurrent: now >= cycleStartDate && now <= cycleEndDate,
+        },
+        professors: (assignment.courseCycle.professors || []).map((link) => ({
+          id: link.professor.id,
+          firstName: link.professor.firstName,
+          lastName1: link.professor.lastName1 || '',
+          lastName2: link.professor.lastName2 || '',
+          profilePhotoUrl: link.professor.profilePhotoUrl || null,
+        })),
+      },
+    };
   }
 
   private toTitleCase(value: string): string {

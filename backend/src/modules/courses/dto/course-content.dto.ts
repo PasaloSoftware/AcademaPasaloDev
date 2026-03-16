@@ -22,9 +22,6 @@ export class CourseEvaluationDto {
   name: string;
 
   @Expose()
-  description: string | null;
-
-  @Expose()
   evaluationType: string;
 
   @Expose()

@@ -15,6 +15,7 @@ describe('EvaluationsService create', () => {
   let service: EvaluationsService;
   let evaluationRepository: jest.Mocked<EvaluationRepository>;
   let courseCycleRepository: jest.Mocked<CourseCycleRepository>;
+  let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
   let courseCycleAllowedEvaluationTypeRepository: jest.Mocked<CourseCycleAllowedEvaluationTypeRepository>;
   let academicCycleRepository: jest.Mocked<AcademicCycleRepository>;
   let dataSource: jest.Mocked<DataSource>;
@@ -47,6 +48,7 @@ describe('EvaluationsService create', () => {
           provide: CourseCycleProfessorRepository,
           useValue: {
             isProfessorAssigned: jest.fn(),
+            canProfessorReadCourseCycle: jest.fn(),
           },
         },
         {
@@ -66,7 +68,7 @@ describe('EvaluationsService create', () => {
           useValue: {
             get: jest.fn(),
             set: jest.fn(),
-            invalidateGroup: jest.fn(),
+            invalidateIndex: jest.fn(),
           },
         },
       ],
@@ -75,6 +77,7 @@ describe('EvaluationsService create', () => {
     service = module.get(EvaluationsService);
     evaluationRepository = module.get(EvaluationRepository);
     courseCycleRepository = module.get(CourseCycleRepository);
+    courseCycleProfessorRepository = module.get(CourseCycleProfessorRepository);
     dataSource = module.get(DataSource);
     courseCycleAllowedEvaluationTypeRepository = module.get(
       CourseCycleAllowedEvaluationTypeRepository,
@@ -122,7 +125,7 @@ describe('EvaluationsService create', () => {
       }),
       expect.anything(),
     );
-    expect(cacheService.invalidateGroup).toHaveBeenCalled();
+    expect(cacheService.invalidateIndex).toHaveBeenCalled();
   });
 
   it('should reject create when structure is empty for course-cycle', async () => {
@@ -207,6 +210,9 @@ describe('EvaluationsService create', () => {
 
   it('should hide BANCO_ENUNCIADOS in visible course-cycle evaluations list', async () => {
     (cacheService.get as jest.Mock).mockResolvedValue(true);
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
     (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
       {
         id: '1',

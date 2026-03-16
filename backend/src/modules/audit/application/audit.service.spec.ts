@@ -139,6 +139,21 @@ describe('AuditService', () => {
   });
 
   describe('getUnifiedHistory', () => {
+    it('should parse date-only filters using Peru business boundaries', async () => {
+      await service.getUnifiedHistory({
+        startDate: '2026-03-15',
+        endDate: '2026-03-15',
+      });
+
+      expect(auditExportRepository.findUnifiedHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          startDate: new Date('2026-03-15T05:00:00.000Z'),
+          endDate: new Date('2026-03-16T04:59:59.999Z'),
+        }),
+        50,
+      );
+    });
+
     it('should merge and sort events from both sources', async () => {
       const now = new Date();
       const past = new Date(now.getTime() - 1000);

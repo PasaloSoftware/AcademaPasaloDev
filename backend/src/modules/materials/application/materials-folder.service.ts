@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { getEpoch } from '@common/utils/date.util';
 import { technicalSettings } from '@config/technical-settings';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { CreateMaterialFolderDto } from '@modules/materials/dto/create-material-folder.dto';
@@ -18,6 +17,7 @@ import {
 import { ACCESS_MESSAGES } from '@common/constants/access-messages.constants';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
+import { parseVisibilityRangeToUtc } from '@common/utils/peru-time.util';
 
 @Injectable()
 export class MaterialsFolderService {
@@ -150,19 +150,7 @@ export class MaterialsFolderService {
     visibleFrom?: string,
     visibleUntil?: string,
   ): { visibleFrom: Date | null; visibleUntil: Date | null } {
-    const startDate = visibleFrom ? new Date(visibleFrom) : null;
-    const endDate = visibleUntil ? new Date(visibleUntil) : null;
-
-    if (startDate && endDate && getEpoch(startDate) > getEpoch(endDate)) {
-      throw new BadRequestException(
-        'Rango de visibilidad invalido: visibleFrom no puede ser mayor que visibleUntil',
-      );
-    }
-
-    return {
-      visibleFrom: startDate,
-      visibleUntil: endDate,
-    };
+    return parseVisibilityRangeToUtc(visibleFrom, visibleUntil);
   }
 
   private async getActiveFolderStatus() {

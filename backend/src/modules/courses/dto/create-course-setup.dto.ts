@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsDefined,
   IsInt,
   IsNotEmpty,
@@ -24,13 +25,11 @@ export class CourseSetupEvaluationDto {
   @Type(() => Number)
   number: number;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString()
   @IsDefined()
   startDate: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString()
   @IsDefined()
   endDate: string;
 }

@@ -17,11 +17,7 @@ import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MyEnrollmentsResponseDto } from '@modules/enrollments/dto/my-enrollments-response.dto';
 import { technicalSettings } from '@config/technical-settings';
-import {
-  getEpoch,
-  toUtcEndOfDay,
-  toUtcStartOfDay,
-} from '@common/utils/date.util';
+import { getEpoch } from '@common/utils/date.util';
 import {
   ENROLLMENT_CACHE_KEYS,
   ENROLLMENT_STATUS_CODES,
@@ -33,6 +29,10 @@ import { MediaAccessMembershipDispatchService } from '@modules/media-access/appl
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { User } from '@modules/users/domain/user.entity';
+import {
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -61,16 +61,14 @@ export class EnrollmentsService {
       await this.enrollmentRepository.findMyEnrollments(userId);
 
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
 
     const result = enrollments.map((enrollment) => {
-      const startDate = new Date(
+      const startDate = toBusinessDayStartUtc(
         enrollment.courseCycle.academicCycle.startDate,
       );
-      startDate.setHours(0, 0, 0, 0);
-
-      const endDate = new Date(enrollment.courseCycle.academicCycle.endDate);
-      endDate.setHours(0, 0, 0, 0);
+      const endDate = toBusinessDayEndUtc(
+        enrollment.courseCycle.academicCycle.endDate,
+      );
 
       const isCurrent = now >= startDate && now <= endDate;
 
@@ -171,7 +169,9 @@ export class EnrollmentsService {
         }
 
         const now = new Date();
-        const cycleEndDate = toUtcEndOfDay(courseCycle.academicCycle.endDate);
+        const cycleEndDate = toBusinessDayEndUtc(
+          courseCycle.academicCycle.endDate,
+        );
 
         if (getEpoch(cycleEndDate) < getEpoch(now)) {
           this.logger.warn({
@@ -263,10 +263,10 @@ export class EnrollmentsService {
             }
           }
 
-          const unifiedAccessStartDate = toUtcStartOfDay(
+          const unifiedAccessStartDate = toBusinessDayStartUtc(
             courseCycle.academicCycle.startDate,
           );
-          const unifiedAccessEndDate = toUtcEndOfDay(
+          const unifiedAccessEndDate = toBusinessDayEndUtc(
             courseCycle.academicCycle.endDate,
           );
           const accessEntries = evaluationsToGrant.map((evaluation) => {

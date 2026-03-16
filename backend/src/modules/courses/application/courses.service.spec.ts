@@ -79,6 +79,8 @@ describe('CoursesService student views', () => {
             upsertAssign: jest.fn(),
             revoke: jest.fn(),
             isProfessorAssigned: jest.fn(),
+            canProfessorReadCourseCycle: jest.fn(),
+            findByProfessorUserId: jest.fn(),
           },
         },
         {
@@ -93,6 +95,7 @@ describe('CoursesService student views', () => {
           provide: EvaluationRepository,
           useValue: {
             findAllWithUserAccess: jest.fn(),
+            findByCourseCycle: jest.fn(),
             findTypesByIds: jest.fn(),
           },
         },
@@ -111,8 +114,11 @@ describe('CoursesService student views', () => {
           useValue: {
             get: jest.fn(),
             set: jest.fn(),
+            addToIndex: jest.fn(),
             del: jest.fn(),
+            delMany: jest.fn(),
             invalidateGroup: jest.fn(),
+            invalidateIndex: jest.fn(),
           },
         },
       ],
@@ -228,6 +234,85 @@ describe('CoursesService student views', () => {
     expect(result.evaluations[3].evaluationTypeCode).toBe('EX');
   });
 
+  it('should return full access content for assigned professor', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-15T12:00:00.000Z'));
+
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'e1',
+        number: 1,
+        startDate: new Date('2026-03-01'),
+        endDate: new Date('2026-03-02'),
+        evaluationType: { code: 'PC', name: 'PRACTICA CALIFICADA' },
+      },
+      {
+        id: 'e2',
+        number: 2,
+        startDate: new Date('2026-05-10'),
+        endDate: new Date('2026-05-20'),
+        evaluationType: { code: 'EX', name: 'EXAMEN' },
+      },
+    ]);
+
+    const result = await service.getCourseContent(
+      '100',
+      '501',
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(result.evaluations).toHaveLength(2);
+    expect(result.evaluations[0].name).toBe('Practica Calificada 1');
+    expect(result.evaluations[0].userStatus.hasAccess).toBe(true);
+    expect(result.evaluations[0].userStatus.status).toBe('COMPLETED');
+    expect(result.evaluations[1].name).toBe('Examen 2');
+    expect(result.evaluations[1].userStatus.hasAccess).toBe(true);
+    expect(result.evaluations[1].userStatus.status).toBe('UPCOMING');
+    expect(
+      courseCycleProfessorRepository.canProfessorReadCourseCycle,
+    ).toHaveBeenCalledWith('100', '501');
+    expect(evaluationRepository.findByCourseCycle).toHaveBeenCalledWith('100');
+    expect(evaluationRepository.findAllWithUserAccess).not.toHaveBeenCalled();
+  });
+
+  it('should return full access content for admin users', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-15T12:00:00.000Z'));
+
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'e1',
+        number: 1,
+        startDate: new Date('2026-03-01'),
+        endDate: new Date('2026-03-02'),
+        evaluationType: { code: 'PC', name: 'PRACTICA CALIFICADA' },
+      },
+    ]);
+
+    const result = await service.getCourseContent(
+      '100',
+      '900',
+      ROLE_CODES.ADMIN,
+    );
+
+    expect(result.evaluations).toHaveLength(1);
+    expect(result.evaluations[0].name).toBe('Practica Calificada 1');
+    expect(result.evaluations[0].userStatus.hasAccess).toBe(true);
+    expect(result.evaluations[0].userStatus.status).toBe('COMPLETED');
+    expect(
+      courseCycleProfessorRepository.canProfessorReadCourseCycle,
+    ).not.toHaveBeenCalled();
+    expect(evaluationRepository.findByCourseCycle).toHaveBeenCalledWith('100');
+    expect(evaluationRepository.findAllWithUserAccess).not.toHaveBeenCalled();
+  });
+
   it('should hide previous-cycles tab for PARTIAL without previous access', async () => {
     (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
       currentCycle,
@@ -272,6 +357,30 @@ describe('CoursesService student views', () => {
       { cycleCode: '2025-2' },
       { cycleCode: '2025-1' },
     ]);
+  });
+
+  it('should allow admin to list previous cycles without enrollment', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleRepository.findPreviousByCourseId as jest.Mock
+    ).mockResolvedValue([
+      { academicCycle: { code: '2025-2' } },
+      { academicCycle: { code: '2025-1' } },
+    ]);
+
+    const result = await service.getStudentPreviousCycles(
+      '100',
+      '900',
+      ROLE_CODES.ADMIN,
+    );
+
+    expect(result.cycles).toEqual([
+      { cycleCode: '2025-2' },
+      { cycleCode: '2025-1' },
+    ]);
+    expect(dataSource.query).not.toHaveBeenCalled();
   });
 
   it('should return archived/locked labels on previous cycle content', async () => {
@@ -320,6 +429,96 @@ describe('CoursesService student views', () => {
     expect(result.evaluations[1].label).toBe(STUDENT_EVALUATION_LABELS.LOCKED);
     expect(result.evaluations[0].evaluationTypeCode).toBe('PC');
     expect(result.evaluations[1].evaluationTypeCode).toBe('PC');
+  });
+
+  it('should return archived labels for admin on previous cycle content', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleRepository.findByCourseIdAndCycleCode as jest.Mock
+    ).mockResolvedValue({
+      id: '55',
+      academicCycle: { code: '2025-2', startDate: new Date('2025-01-01') },
+    });
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'p1',
+        number: 1,
+        evaluationType: { code: 'PC', name: 'PRACTICA CALIFICADA' },
+      },
+      {
+        id: 'p2',
+        number: 1,
+        evaluationType: { code: 'EX', name: 'EXAMEN' },
+      },
+    ]);
+
+    const result = await service.getStudentPreviousCycleContent(
+      '100',
+      '2025-2',
+      '900',
+      ROLE_CODES.ADMIN,
+    );
+
+    expect(result.evaluations[0].hasAccess).toBe(true);
+    expect(result.evaluations[0].label).toBe(
+      STUDENT_EVALUATION_LABELS.ARCHIVED,
+    );
+    expect(result.evaluations[1].hasAccess).toBe(true);
+    expect(result.evaluations[1].label).toBe(
+      STUDENT_EVALUATION_LABELS.ARCHIVED,
+    );
+    expect(evaluationRepository.findByCourseCycle).toHaveBeenCalledWith('55');
+    expect(evaluationRepository.findAllWithUserAccess).not.toHaveBeenCalled();
+  });
+
+  it('should return archived labels for professor assigned to current course cycle on previous cycle content', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleRepository.findByCourseIdAndCycleCode as jest.Mock
+    ).mockResolvedValue({
+      id: '55',
+      academicCycle: { code: '2025-2', startDate: new Date('2025-01-01') },
+    });
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'p1',
+        number: 1,
+        evaluationType: { code: 'PC', name: 'PRACTICA CALIFICADA' },
+      },
+      {
+        id: 'p2',
+        number: 1,
+        evaluationType: { code: 'EX', name: 'EXAMEN' },
+      },
+    ]);
+
+    const result = await service.getStudentPreviousCycleContent(
+      '100',
+      '2025-2',
+      '700',
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(result.evaluations[0].hasAccess).toBe(true);
+    expect(result.evaluations[0].label).toBe(
+      STUDENT_EVALUATION_LABELS.ARCHIVED,
+    );
+    expect(result.evaluations[1].hasAccess).toBe(true);
+    expect(result.evaluations[1].label).toBe(
+      STUDENT_EVALUATION_LABELS.ARCHIVED,
+    );
+    expect(
+      courseCycleProfessorRepository.canProfessorReadCourseCycle,
+    ).toHaveBeenCalledWith('100', '700');
+    expect(evaluationRepository.findByCourseCycle).toHaveBeenCalledWith('55');
+    expect(evaluationRepository.findAllWithUserAccess).not.toHaveBeenCalled();
   });
 
   it('should throw ForbiddenException when user has no active enrollment', async () => {
@@ -713,5 +912,79 @@ describe('CoursesService student views', () => {
     expect(result.courseCycleId).toBe('100');
     expect(result.driveFileId).toBe('abcDEF_123');
     expect(result.url).toContain('/preview');
+  });
+
+  it('should return professor dashboard with the same shape as student dashboard', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-15T12:00:00.000Z'));
+
+    (
+      courseCycleProfessorRepository.findByProfessorUserId as jest.Mock
+    ).mockResolvedValue([
+      {
+        assignedAt: new Date('2026-02-01T15:00:00.000Z'),
+        courseCycle: {
+          id: '100',
+          course: {
+            id: '10',
+            code: 'MAT',
+            name: 'Matematica',
+            courseType: { code: 'CIENCIAS', name: 'Ciencias' },
+            cycleLevel: { levelNumber: 1 },
+          },
+          academicCycle: {
+            id: '200',
+            code: '2026-1',
+            startDate: new Date('2026-01-01T00:00:00.000Z'),
+            endDate: new Date('2026-06-30T00:00:00.000Z'),
+          },
+          professors: [
+            {
+              professor: {
+                id: '77',
+                firstName: 'Ana',
+                lastName1: 'Perez',
+                lastName2: 'Lopez',
+                profilePhotoUrl: null,
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const result = await service.getMyCourseCycles('77');
+
+    expect(result).toEqual([
+      {
+        id: '100',
+        enrolledAt: new Date('2026-02-01T15:00:00.000Z'),
+        courseCycle: {
+          id: '100',
+          course: {
+            id: '10',
+            code: 'MAT',
+            name: 'Matematica',
+            courseType: { code: 'CIENCIAS', name: 'Ciencias' },
+            cycleLevel: { name: '1 Ciclo' },
+          },
+          academicCycle: {
+            id: '200',
+            code: '2026-1',
+            startDate: new Date('2026-01-01T00:00:00.000Z'),
+            endDate: new Date('2026-06-30T00:00:00.000Z'),
+            isCurrent: true,
+          },
+          professors: [
+            {
+              id: '77',
+              firstName: 'Ana',
+              lastName1: 'Perez',
+              lastName2: 'Lopez',
+              profilePhotoUrl: null,
+            },
+          ],
+        },
+      },
+    ]);
   });
 });

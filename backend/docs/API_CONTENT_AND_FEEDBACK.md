@@ -47,6 +47,11 @@ Obtiene todas las sesiones programadas para el usuario (alumno o profesor) dentr
 - **Endpoint:** `GET /class-events/my-schedule`
 - **Query Params (Obligatorios):** `start` (ISO), `end` (ISO).
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- **Reglas de fecha/hora:**
+  - El backend usa zona de negocio fija `America/Lima`.
+  - Si `start` o `end` llegan como `YYYY-MM-DD`, se interpretan como rango diario en hora Lima.
+  - `end` en formato solo fecha se trata como limite superior exclusivo del dia siguiente en hora Lima.
+  - La respuesta siempre retorna instantes UTC en formato ISO-8601 (`...Z`).
 - **Data (Response):** 
     ```json
     [
@@ -110,6 +115,7 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
   - Todos los `courseCycleIds` deben pertenecer al mismo `course_type` y `academic_cycle`.
   - Si mezcla categoría/ciclo, backend responde `400`.
   - No devuelve eventos cancelados.
+  - `startDate` y `endDate` siguen la misma semantica horaria de `my-schedule`.
 - **Data (Response):**
     ```json
     [
@@ -156,10 +162,61 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
 
 #### Dashboard: Mis Cursos Matriculados
 Obtiene el listado de cursos donde el alumno tiene una matrícula activa.
-- **Endpoint:** `GET /enrollments/my-courses`
+- **Endpoints:** `GET /enrollments/my-courses` y `GET /courses/my-courses`
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - **Caché:** 1 hora.
-- **Data (Response):** (Ver estructura actual en Dashboard Alumno)
+- **Data (Response):** ambos endpoints usan el mismo shape JSON.
+
+Notas de dashboard:
+- `GET /enrollments/my-courses` es el endpoint del dashboard para `STUDENT`.
+- `GET /courses/my-courses` es el endpoint del dashboard para `PROFESSOR`.
+- Ambos endpoints deben responder el mismo shape JSON del dashboard.
+- Para `STUDENT`, la fuente de verdad es la matricula activa.
+- Para `PROFESSOR`, la fuente de verdad es la asignacion activa a `course_cycle`.
+- En la respuesta de profesor:
+  - `id` corresponde a `courseCycle.id`.
+  - `enrolledAt` corresponde a `assignedAt`.
+
+Shape del dashboard:
+```json
+[
+  {
+    "id": "string",
+    "enrolledAt": "ISO-8601",
+    "courseCycle": {
+      "id": "string",
+      "course": {
+        "id": "string",
+        "code": "MAT-101",
+        "name": "Algebra I",
+        "courseType": {
+          "code": "CIENCIAS",
+          "name": "Ciencias"
+        },
+        "cycleLevel": {
+          "name": "1 Ciclo"
+        }
+      },
+      "academicCycle": {
+        "id": "string",
+        "code": "2026-1",
+        "startDate": "ISO-8601",
+        "endDate": "ISO-8601",
+        "isCurrent": true
+      },
+      "professors": [
+        {
+          "id": "string",
+          "firstName": "Ana",
+          "lastName1": "Perez",
+          "lastName2": "Lopez",
+          "profilePhotoUrl": null
+        }
+      ]
+    }
+  }
+]
+```
 
 #### Detalle de Curso para Alumno (2 tabs y bandera)
 Flujo recomendado para frontend cuando el alumno abre un curso:
@@ -711,5 +768,25 @@ Se agrega soporte para video introductorio a nivel `course_cycle` (no por evalua
 }
 ```
 
+## UPDATE FRONTEND CONTRACT - FECHAS Y HORAS DE CLASS EVENTS (2026-03-15)
 
+### Regla general
 
+1. La zona de negocio fija es `America/Lima`.
+2. El backend persiste `class_event.start_datetime` y `class_event.end_datetime` en UTC.
+3. Las respuestas del API retornan datetimes en UTC (`...Z`).
+4. No se debe depender de la zona horaria del servidor, del EC2 ni de la configuracion regional de MySQL.
+
+### Escritura de eventos
+
+1. `POST /class-events` y `PATCH /class-events/:id` aceptan `startDatetime` y `endDatetime` en ISO-8601.
+2. Si el frontend envia offset explicito o `Z`, backend respeta ese instante exacto.
+3. Si el frontend envia un ISO sin zona horaria, backend lo interpreta como hora local de `America/Lima`.
+4. Fecha-only (`YYYY-MM-DD`) no es valida para crear o actualizar sesiones porque falta la hora.
+
+### Filtros de calendario
+
+1. `GET /class-events/my-schedule` y `GET /class-events/global/sessions` aceptan `start/end` o `startDate/endDate` en ISO-8601.
+2. Si el frontend envia solo fecha (`YYYY-MM-DD`), backend la interpreta como limite diario en `America/Lima`.
+3. El limite final con fecha-only se trata como exclusivo del dia siguiente en `America/Lima`.
+4. Con esto, pedir `start=2026-03-15&end=2026-03-21` significa todo el rango calendario de Lima desde el 15 hasta el cierre del 21.

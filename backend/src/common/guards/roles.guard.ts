@@ -27,6 +27,13 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
+    const activeRoleStillAssigned = Array.isArray(user.roles)
+      ? user.roles.some((role) => role.code === user.activeRole)
+      : false;
+    if (!activeRoleStillAssigned) {
+      return false;
+    }
+
     return requiredRoles.includes(user.activeRole);
   }
 }

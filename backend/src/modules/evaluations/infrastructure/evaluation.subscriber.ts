@@ -18,10 +18,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.constants';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
-import { toUtcEndOfDay, toUtcStartOfDay } from '@common/utils/date.util';
 import { technicalSettings } from '@config/technical-settings';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
+import {
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
 
 @EventSubscriber()
 @Injectable()
@@ -91,10 +94,10 @@ export class EvaluationSubscriber implements EntitySubscriberInterface<Evaluatio
       );
     }
 
-    const unifiedAccessStartDate = toUtcStartOfDay(
+    const unifiedAccessStartDate = toBusinessDayStartUtc(
       courseCycle.academicCycle.startDate,
     );
-    const unifiedAccessEndDate = toUtcEndOfDay(
+    const unifiedAccessEndDate = toBusinessDayEndUtc(
       courseCycle.academicCycle.endDate,
     );
 

@@ -18,6 +18,7 @@ import {
   MEDIA_ACCESS_JOB_NAMES,
   MEDIA_ACCESS_SYNC_SOURCES,
 } from '@modules/media-access/domain/media-access.constants';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 
 describe('UsersService', () => {
   let usersService: UsersService;
@@ -53,6 +54,11 @@ describe('UsersService', () => {
     addBulk: jest.fn(),
   };
 
+  const mediaAccessMembershipDispatchServiceMock = {
+    enqueueRevokeForUserCourseCycles: jest.fn(),
+    enqueueRevokeForUserEvaluations: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -69,6 +75,10 @@ describe('UsersService', () => {
         {
           provide: getQueueToken(QUEUES.MEDIA_ACCESS),
           useValue: mediaAccessQueueMock,
+        },
+        {
+          provide: MediaAccessMembershipDispatchService,
+          useValue: mediaAccessMembershipDispatchServiceMock,
         },
       ],
     }).compile();
@@ -435,6 +445,69 @@ describe('UsersService', () => {
       expect.objectContaining({
         removeOnComplete: true,
       }),
+    );
+  });
+
+  it('removeRole: PROFESSOR revoca asignaciones y media access asociado', async () => {
+    const role = { id: '3', code: ROLE_CODES.PROFESSOR, name: 'Professor' };
+    const user = {
+      id: '1',
+      email: 'prof@test.com',
+      firstName: 'Prof',
+      lastName1: null,
+      lastName2: null,
+      phone: null,
+      career: null,
+      profilePhotoUrl: null,
+      photoSource: PhotoSource.NONE,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: null,
+      roles: [role],
+    };
+
+    userRepositoryMock.findById.mockResolvedValue(user);
+    userRepositoryMock.save.mockResolvedValue({
+      ...user,
+      roles: [],
+    });
+    dataSourceMock.transaction.mockImplementation(
+      async (cb: (manager: EntityManager) => unknown) =>
+        await cb({
+          query: jest
+            .fn()
+            .mockResolvedValueOnce([{ courseCycleId: 'cc-1' }])
+            .mockResolvedValueOnce([{ evaluationId: 'ev-1' }])
+            .mockResolvedValueOnce(undefined),
+        } as unknown as EntityManager),
+    );
+
+    await usersService.removeRole('1', ROLE_CODES.PROFESSOR);
+
+    expect(
+      identitySecurityServiceMock.invalidateUserIdentity,
+    ).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({
+        professorCacheContext: {
+          courseCycleIds: ['cc-1'],
+          evaluationIds: ['ev-1'],
+        },
+      }),
+    );
+    expect(
+      mediaAccessMembershipDispatchServiceMock.enqueueRevokeForUserCourseCycles,
+    ).toHaveBeenCalledWith(
+      '1',
+      ['cc-1'],
+      MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+    );
+    expect(
+      mediaAccessMembershipDispatchServiceMock.enqueueRevokeForUserEvaluations,
+    ).toHaveBeenCalledWith(
+      '1',
+      ['ev-1'],
+      MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
     );
   });
 

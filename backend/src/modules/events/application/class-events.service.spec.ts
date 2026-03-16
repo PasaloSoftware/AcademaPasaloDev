@@ -124,7 +124,6 @@ describe('ClassEventsService', () => {
         {
           provide: ClassEventsPermissionService,
           useValue: {
-            checkUserAuthorization: jest.fn(),
             checkUserAuthorizationForUser: jest.fn(),
             assertMutationAllowedForEvaluation: jest.fn(),
             validateEventOwnership: jest.fn(),
@@ -194,7 +193,6 @@ describe('ClassEventsService', () => {
     notificationsDispatchService = module.get(NotificationsDispatchService);
 
     // Default mocks behavior
-    permissionService.checkUserAuthorization.mockResolvedValue(true);
     permissionService.checkUserAuthorizationForUser.mockResolvedValue(true);
     permissionService.assertMutationAllowedForEvaluation.mockResolvedValue(
       undefined,
@@ -239,23 +237,25 @@ describe('ClassEventsService', () => {
 
   describe('getEventsByEvaluation', () => {
     it('debe retornar eventos si el usuario tiene autorización', async () => {
-      permissionService.checkUserAuthorization.mockResolvedValue(true);
+      permissionService.checkUserAuthorizationForUser.mockResolvedValue(true);
       classEventRepository.findByEvaluationId.mockResolvedValue([mockEvent]);
 
-      const result = await service.getEventsByEvaluation('eval-1', 'user-1');
+      const result = await service.getEventsByEvaluation(
+        'eval-1',
+        mockProfessor,
+      );
 
       expect(result).toEqual([mockEvent]);
-      expect(permissionService.checkUserAuthorization).toHaveBeenCalledWith(
-        'user-1',
-        'eval-1',
-      );
+      expect(
+        permissionService.checkUserAuthorizationForUser,
+      ).toHaveBeenCalledWith(mockProfessor, 'eval-1');
     });
 
     it('debe lanzar ForbiddenException si no hay acceso', async () => {
-      permissionService.checkUserAuthorization.mockResolvedValue(false);
+      permissionService.checkUserAuthorizationForUser.mockResolvedValue(false);
 
       await expect(
-        service.getEventsByEvaluation('eval-1', 'user-1'),
+        service.getEventsByEvaluation('eval-1', mockProfessor),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -471,7 +471,7 @@ describe('ClassEventsService', () => {
     });
 
     it('debe lanzar ForbiddenException cuando el usuario no tiene acceso vigente', async () => {
-      permissionService.checkUserAuthorization.mockResolvedValue(false);
+      permissionService.checkUserAuthorizationForUser.mockResolvedValue(false);
       classEventRepository.findById.mockResolvedValue({
         ...mockEvent,
         recordingUrl: 'https://drive.google.com/file/d/drive-abc-1/view',
