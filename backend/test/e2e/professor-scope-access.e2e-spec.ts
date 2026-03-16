@@ -25,6 +25,7 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
 
   let courseCycleAId: string;
   let courseCycleBId: string;
+  let historicalCourseCycleAId: string;
 
   const formatDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -110,6 +111,17 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
     courseCycleAId = courseCycleA.id;
     courseCycleBId = courseCycleB.id;
 
+    const historicalCycle = await seeder.createCycle(
+      `SCOPE-HIST-${Date.now()}`,
+      formatDate(new Date(startDate.getTime() - 180 * 24 * 60 * 60 * 1000)),
+      formatDate(new Date(startDate.getTime() - 120 * 24 * 60 * 60 * 1000)),
+    );
+    const historicalCourseCycleA = await seeder.linkCourseCycle(
+      courseA.id,
+      historicalCycle.id,
+    );
+    historicalCourseCycleAId = historicalCourseCycleA.id;
+
     await seeder.createEvaluation(
       courseCycleAId,
       EVALUATION_TYPE_CODES.PC,
@@ -123,6 +135,13 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       1,
       formatDate(startDate),
       formatDate(endDate),
+    );
+    await seeder.createEvaluation(
+      historicalCourseCycleAId,
+      EVALUATION_TYPE_CODES.PC,
+      1,
+      formatDate(new Date(startDate.getTime() - 170 * 24 * 60 * 60 * 1000)),
+      formatDate(new Date(startDate.getTime() - 160 * 24 * 60 * 60 * 1000)),
     );
 
     await dataSource.query(
@@ -145,6 +164,9 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(200);
 
     expect(res.body.data.courseCycleId).toBe(courseCycleAId);
+    expect(res.body.data.evaluations[0].name).toBe('Práctica Calificada 1');
+    expect(res.body.data.evaluations[0].userStatus.hasAccess).toBe(true);
+    expect(res.body.data.evaluations[0].userStatus.status).toBe('IN_PROGRESS');
   });
 
   it('assigned professor cannot read course content on non-assigned courseCycle', async () => {
@@ -168,6 +190,8 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(200);
 
     expect(res.body.data.courseCycleId).toBe(courseCycleBId);
+    expect(res.body.data.evaluations[0].userStatus.hasAccess).toBe(true);
+    expect(res.body.data.evaluations[0].userStatus.status).toBe('IN_PROGRESS');
   });
 
   it('superadmin can read course content on any courseCycle', async () => {
@@ -177,6 +201,8 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(200);
 
     expect(res.body.data.courseCycleId).toBe(courseCycleBId);
+    expect(res.body.data.evaluations[0].userStatus.hasAccess).toBe(true);
+    expect(res.body.data.evaluations[0].userStatus.status).toBe('IN_PROGRESS');
   });
 
   it('professor gets 404 when courseCycle does not exist', async () => {
@@ -189,6 +215,16 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
   it('assigned professor can list evaluations on assigned courseCycle', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/v1/evaluations/course-cycle/${courseCycleAId}`)
+      .set('Authorization', `Bearer ${assignedProfessor.token}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('assigned professor can list evaluations on a previous cycle of the same course', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/evaluations/course-cycle/${historicalCourseCycleAId}`)
       .set('Authorization', `Bearer ${assignedProfessor.token}`)
       .expect(200);
 

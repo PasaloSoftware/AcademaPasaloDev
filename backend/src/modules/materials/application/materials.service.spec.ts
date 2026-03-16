@@ -67,6 +67,12 @@ const mockProfessor: UserWithSession = {
   roles: [{ code: ROLE_CODES.PROFESSOR }],
 } as UserWithSession;
 
+const mockStudentWithAdminRole: UserWithSession = {
+  id: 'user-admin-switch',
+  activeRole: ROLE_CODES.STUDENT,
+  roles: [{ code: ROLE_CODES.STUDENT }, { code: ROLE_CODES.ADMIN }],
+} as UserWithSession;
+
 describe('MaterialsService', () => {
   let service: MaterialsService;
   let dataSource: jest.Mocked<DataSource>;
@@ -172,6 +178,7 @@ describe('MaterialsService', () => {
           useValue: {
             isProfessorAssigned: jest.fn(),
             isProfessorAssignedToEvaluation: jest.fn(),
+            canProfessorReadEvaluation: jest.fn(),
           },
         },
         {
@@ -214,6 +221,9 @@ describe('MaterialsService', () => {
     driveAccessScopeService = module.get(DriveAccessScopeService);
     notificationsDispatchService = module.get(NotificationsDispatchService);
     materialVersionHistoryRepo = module.get(MaterialVersionHistoryRepository);
+    (
+      courseCycleProfessorRepo.canProfessorReadEvaluation as jest.Mock
+    ).mockResolvedValue(true);
     (
       courseCycleProfessorRepo.isProfessorAssignedToEvaluation as jest.Mock
     ).mockResolvedValue(true);
@@ -325,6 +335,17 @@ describe('MaterialsService', () => {
           name: 'Depth 4 Folder',
         }),
       ).rejects.toThrow('profundidad maxima');
+    });
+
+    it('should not grant management access when admin exists only in roles list but activeRole is student', async () => {
+      await expect(
+        service.createFolder(mockStudentWithAdminRole, {
+          evaluationId: '100',
+          name: 'Denied by active role',
+        }),
+      ).rejects.toThrow(
+        'No tienes permiso para gestionar materiales de este curso',
+      );
     });
   });
 
@@ -786,7 +807,7 @@ describe('MaterialsService', () => {
     it('should deny access to professor if assignment is revoked', async () => {
       folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
       (
-        courseCycleProfessorRepo.isProfessorAssignedToEvaluation as jest.Mock
+        courseCycleProfessorRepo.canProfessorReadEvaluation as jest.Mock
       ).mockResolvedValue(false);
 
       await expect(
@@ -794,7 +815,7 @@ describe('MaterialsService', () => {
       ).rejects.toThrow('No tienes permiso para ver materiales de este curso');
 
       expect(
-        courseCycleProfessorRepo.isProfessorAssignedToEvaluation,
+        courseCycleProfessorRepo.canProfessorReadEvaluation,
       ).toHaveBeenCalledWith('100', 'prof-1');
     });
 
@@ -810,7 +831,7 @@ describe('MaterialsService', () => {
       materialRepo.findByFolderId.mockResolvedValue([]);
 
       (
-        courseCycleProfessorRepo.isProfessorAssignedToEvaluation as jest.Mock
+        courseCycleProfessorRepo.canProfessorReadEvaluation as jest.Mock
       ).mockResolvedValue(true);
 
       const result = await service.getFolderContents(mockProfessor, 'folder-1');
@@ -836,7 +857,7 @@ describe('MaterialsService', () => {
         'child-a': 2,
       });
       (
-        courseCycleProfessorRepo.isProfessorAssignedToEvaluation as jest.Mock
+        courseCycleProfessorRepo.canProfessorReadEvaluation as jest.Mock
       ).mockResolvedValue(true);
 
       const result = await service.getFolderContents(mockProfessor, 'folder-1');

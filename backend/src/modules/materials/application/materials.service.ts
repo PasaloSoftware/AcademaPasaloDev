@@ -27,7 +27,6 @@ import { FileResource } from '@modules/materials/domain/file-resource.entity';
 import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
 import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { AUDIT_ENTITY_TYPES } from '@modules/audit/interfaces/audit.constants';
-import { getEpoch } from '@common/utils/date.util';
 import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
 import { technicalSettings } from '@config/technical-settings';
 import {
@@ -50,6 +49,7 @@ import { MaterialsReadService } from '@modules/materials/application/materials-r
 import { MaterialsFolderService } from '@modules/materials/application/materials-folder.service';
 import { MaterialsExplorerService } from '@modules/materials/application/materials-explorer.service';
 import { MaterialsDeletionService } from '@modules/materials/application/materials-deletion.service';
+import { parseVisibilityRangeToUtc } from '@common/utils/peru-time.util';
 
 @Injectable()
 export class MaterialsService {
@@ -671,19 +671,7 @@ export class MaterialsService {
     visibleFrom?: string,
     visibleUntil?: string,
   ): { visibleFrom: Date | null; visibleUntil: Date | null } {
-    const startDate = visibleFrom ? new Date(visibleFrom) : null;
-    const endDate = visibleUntil ? new Date(visibleUntil) : null;
-
-    if (startDate && endDate && getEpoch(startDate) > getEpoch(endDate)) {
-      throw new BadRequestException(
-        'Rango de visibilidad inválido: visibleFrom no puede ser mayor que visibleUntil',
-      );
-    }
-
-    return {
-      visibleFrom: startDate,
-      visibleUntil: endDate,
-    };
+    return parseVisibilityRangeToUtc(visibleFrom, visibleUntil);
   }
 
   private async assertCanManageEvaluation(
@@ -692,16 +680,12 @@ export class MaterialsService {
     manager?: EntityManager,
   ): Promise<void> {
     const activeRole = user.activeRole;
-    const roleCodes = (user.roles || []).map((r) => r.code);
 
-    if (
-      activeRole === ROLE_CODES.ADMIN ||
-      roleCodes.some((r) => ADMIN_ROLE_CODES.includes(r))
-    ) {
+    if (this.hasAdminAccess(activeRole)) {
       return;
     }
 
-    if (activeRole !== ROLE_CODES.PROFESSOR) {
+    if (!this.hasProfessorAccess(activeRole)) {
       throw new ForbiddenException(
         'No tienes permiso para gestionar materiales de este curso',
       );
@@ -719,6 +703,20 @@ export class MaterialsService {
         'No tienes permiso para gestionar materiales de este curso',
       );
     }
+  }
+
+  private normalizeRole(activeRole?: string): string {
+    return String(activeRole || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private hasAdminAccess(activeRole?: string): boolean {
+    return ADMIN_ROLE_CODES.includes(this.normalizeRole(activeRole));
+  }
+
+  private hasProfessorAccess(activeRole?: string): boolean {
+    return this.normalizeRole(activeRole) === ROLE_CODES.PROFESSOR;
   }
 
   private async getActiveMaterialStatus() {

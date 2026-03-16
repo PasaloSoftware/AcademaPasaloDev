@@ -193,12 +193,13 @@ export class ClassEventsService {
 
   async getEventsByEvaluation(
     evaluationId: string,
-    userId: string,
+    user: User,
   ): Promise<ClassEvent[]> {
-    const isAuthorized = await this.permissionService.checkUserAuthorization(
-      userId,
-      evaluationId,
-    );
+    const isAuthorized =
+      await this.permissionService.checkUserAuthorizationForUser(
+        user,
+        evaluationId,
+      );
     if (!isAuthorized) {
       throw new ForbiddenException('No tienes acceso a esta evaluación');
     }
@@ -217,17 +218,18 @@ export class ClassEventsService {
     return events;
   }
 
-  async getEventDetail(eventId: string, userId: string): Promise<ClassEvent> {
+  async getEventDetail(eventId: string, user: User): Promise<ClassEvent> {
     const event = await this.classEventRepository.findById(eventId);
 
     if (!event) {
       throw new NotFoundException('Evento de clase no encontrado');
     }
 
-    const isAuthorized = await this.permissionService.checkUserAuthorization(
-      userId,
-      event.evaluationId,
-    );
+    const isAuthorized =
+      await this.permissionService.checkUserAuthorizationForUser(
+        user,
+        event.evaluationId,
+      );
     if (!isAuthorized) {
       throw new ForbiddenException('No tienes acceso a este evento');
     }
@@ -239,7 +241,7 @@ export class ClassEventsService {
     user: User,
     eventId: string,
   ): Promise<AuthorizedMediaLinkDto> {
-    const event = await this.getEventDetail(eventId, user.id);
+    const event = await this.getEventDetail(eventId, user);
     if (!event.recordingUrl && !event.recordingFileId) {
       throw new NotFoundException(
         'Grabacion no disponible para este evento de clase',
@@ -571,26 +573,6 @@ export class ClassEventsService {
 
   canAccessMeetingLink(): Promise<boolean> {
     return Promise.resolve(false);
-  }
-
-  async checkUserAuthorizationForUser(
-    user: User,
-    evaluationId: string,
-  ): Promise<boolean> {
-    return await this.permissionService.checkUserAuthorizationForUser(
-      user,
-      evaluationId,
-    );
-  }
-
-  async checkUserAuthorization(
-    userId: string,
-    evaluationId: string,
-  ): Promise<boolean> {
-    return await this.permissionService.checkUserAuthorization(
-      userId,
-      evaluationId,
-    );
   }
 
   private async getRecordingStatusIdByCode(

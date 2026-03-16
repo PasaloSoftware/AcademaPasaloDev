@@ -7,7 +7,9 @@ import { useMemo, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { enrollmentService } from '@/services/enrollment.service';
+import { coursesService } from '@/services/courses.service';
 import { Enrollment } from '@/types/enrollment';
+import type { CourseCycle } from '@/types/api';
 import {
   getNavigationForRole,
   setActiveNavItem,
@@ -71,12 +73,10 @@ export function useNavigation(): NavigationData | null {
       try {
         const baseNavItems = getNavigationForRole(primaryRole);
 
-        // Solo cargar cursos para STUDENT (otros roles no tienen "Mis Cursos")
         if (primaryRole === 'STUDENT') {
           const response = await enrollmentService.getMyCourses();
           const enrollments: Enrollment[] = Array.isArray(response) ? response : response.data || [];
 
-          // Actualizar el item "Mis Cursos" con los cursos reales
           const updatedNavItems = baseNavItems.map(item => {
             if (item.label === 'Mis Cursos' && item.expandable) {
               return {
@@ -85,6 +85,25 @@ export function useNavigation(): NavigationData | null {
                   icon: 'circle',
                   label: enrollment.courseCycle.course.name,
                   href: `/plataforma/curso/${enrollment.courseCycle.id}`
+                }))
+              };
+            }
+            return item;
+          });
+
+          setDynamicNavItems(updatedNavItems);
+        } else if (primaryRole === 'TEACHER') {
+          const data = await coursesService.getMyCourseCycles();
+          const cycles: CourseCycle[] = Array.isArray(data) ? data : [];
+
+          const updatedNavItems = baseNavItems.map(item => {
+            if (item.label === 'Mis Cursos' && item.expandable) {
+              return {
+                ...item,
+                subItems: cycles.map(cc => ({
+                  icon: 'circle',
+                  label: cc.course?.name || '',
+                  href: `/plataforma/curso/${cc.id}`
                 }))
               };
             }

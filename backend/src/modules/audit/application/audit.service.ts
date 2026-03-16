@@ -31,6 +31,10 @@ import { AuditExportArtifactsService } from './audit-export-artifacts.service';
 import type { EntityManager } from 'typeorm';
 import { AuditExportCoordinatorService } from './audit-export-coordinator.service';
 import * as path from 'path';
+import {
+  parseBusinessWindowEndToUtc,
+  parseBusinessWindowStartToUtc,
+} from '@common/utils/peru-time.util';
 
 @Injectable()
 export class AuditService implements OnApplicationBootstrap {
@@ -57,8 +61,12 @@ export class AuditService implements OnApplicationBootstrap {
     filters: AuditHistoryFilters,
   ): ParsedAuditHistoryFilters {
     return {
-      startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-      endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+      startDate: filters.startDate
+        ? parseBusinessWindowStartToUtc(filters.startDate, 'startDate')
+        : undefined,
+      endDate: filters.endDate
+        ? parseBusinessWindowEndToUtc(filters.endDate, 'endDate')
+        : undefined,
       userId: filters.userId,
       source: filters.source,
       actionCode: filters.actionCode,

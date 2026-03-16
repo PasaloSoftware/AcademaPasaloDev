@@ -1,13 +1,56 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Icon from '@/components/ui/Icon';
 import { materialsService } from '@/services/materials.service';
-import type { ClassEventMaterial } from '@/types/material';
+import type { ClassEventMaterial, FolderMaterial } from '@/types/material';
+
+// ============================================
+// Types
+// ============================================
+
+export type PreviewableMaterial = ClassEventMaterial | FolderMaterial;
 
 // ============================================
 // Helpers
 // ============================================
+
+function getMimeTypeFromExtension(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    mp3: 'audio/mpeg',
+    zip: 'application/zip',
+    rar: 'application/x-rar-compressed',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+}
+
+function resolveMaterialInfo(material: PreviewableMaterial) {
+  const isClassEvent = 'fileResource' in material;
+  const fileName = isClassEvent
+    ? (material as ClassEventMaterial).displayName || (material as ClassEventMaterial).fileResource.originalName
+    : material.displayName;
+  const mimeType = isClassEvent
+    ? (material as ClassEventMaterial).fileResource.mimeType
+    : getMimeTypeFromExtension(material.displayName);
+  return { fileName, mimeType };
+}
 
 function getFileIconPath(mimeType: string, fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
@@ -45,11 +88,20 @@ function getFileNameWithoutExt(fileName: string): string {
   return lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
 }
 
-function canPreviewMime(mimeType: string): boolean {
-  return (
-    mimeType.includes('pdf') ||
-    mimeType.startsWith('image/')
-  );
+type PreviewType = 'pdf' | 'image' | 'office' | false;
+
+function getPreviewType(mimeType: string): PreviewType {
+  if (mimeType.includes('pdf')) return 'pdf';
+  if (mimeType.startsWith('image/')) return 'image';
+  if (
+    mimeType.includes('word') || mimeType.includes('document') ||
+    mimeType.includes('sheet') || mimeType.includes('excel') ||
+    mimeType.includes('presentation') || mimeType.includes('powerpoint') ||
+    mimeType === 'application/msword' ||
+    mimeType === 'application/vnd.ms-excel' ||
+    mimeType === 'application/vnd.ms-powerpoint'
+  ) return 'office';
+  return false;
 }
 
 // ============================================
@@ -57,48 +109,85 @@ function canPreviewMime(mimeType: string): boolean {
 // ============================================
 
 interface MaterialPreviewModalProps {
-  material: ClassEventMaterial;
+  materials: PreviewableMaterial[];
+  initialIndex: number;
   onClose: () => void;
 }
 
 export default function MaterialPreviewModal({
-  material,
+  materials,
+  initialIndex,
   onClose,
 }: MaterialPreviewModalProps) {
-  const fileName = material.displayName || material.fileResource.originalName;
-  const mimeType = material.fileResource.mimeType;
-  const canPreview = canPreviewMime(mimeType);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(canPreview);
-  const [error, setError] = useState(false);
+  // Preview fetch state keyed by materialId to avoid synchronous setState resets
+  const [preview, setPreview] = useState<{
+    materialId: string;
+    url: string | null;
+    loading: boolean;
+    error: boolean;
+  }>({ materialId: '', url: null, loading: false, error: false });
+
+  const material = materials[currentIndex];
+  const { fileName, mimeType } = resolveMaterialInfo(material);
+  const previewType = getPreviewType(mimeType);
+
+  // Derive display state: if preview belongs to a different material, show loading/reset
+  const isCurrentPreview = preview.materialId === material.id;
+  const previewUrl = isCurrentPreview ? preview.url : null;
+  const loading = isCurrentPreview ? preview.loading : !!previewType;
+  const error = isCurrentPreview ? preview.error : false;
 
   const nameOnly = getFileNameWithoutExt(fileName);
   const ext = getFileExtension(fileName);
   const iconPath = getFileIconPath(mimeType, fileName);
-  const isImage = mimeType.startsWith('image/');
 
-  // Load authorized preview link
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < materials.length - 1;
+
+  const goToPrev = useCallback(() => {
+    if (currentIndex > 0) setCurrentIndex((i) => i - 1);
+  }, [currentIndex]);
+
+  const goToNext = useCallback(() => {
+    if (currentIndex < materials.length - 1) setCurrentIndex((i) => i + 1);
+  }, [currentIndex, materials.length]);
+
+  // Load authorized preview link when material changes
   useEffect(() => {
-    if (!canPreview) return;
+    if (!previewType) return;
+
+    let stale = false;
+    const mode = previewType === 'office' ? 'download' : 'view';
 
     materialsService
-      .getAuthorizedLink(material.id, 'view')
+      .getAuthorizedLink(material.id, mode)
       .then((data) => {
-        setPreviewUrl(data.url);
+        if (stale) return;
+        const url = previewType === 'office'
+          ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(data.url)}`
+          : data.url;
+        setPreview({ materialId: material.id, url, loading: false, error: false });
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [material.id, canPreview]);
+      .catch(() => {
+        if (stale) return;
+        setPreview({ materialId: material.id, url: null, loading: false, error: true });
+      });
 
-  // Close on Escape
+    return () => { stale = true; };
+  }, [material.id, previewType]);
+
+  // Keyboard: Escape to close, arrow keys to navigate
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') goToPrev();
+      if (e.key === 'ArrowRight') goToNext();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  }, [onClose, goToPrev, goToNext]);
 
   const handleDownload = async () => {
     try {
@@ -140,6 +229,11 @@ export default function MaterialPreviewModal({
               {ext}
             </span>
           </div>
+          {materials.length > 1 && (
+            <span className="text-white/50 text-sm font-normal leading-4 ml-2">
+              {currentIndex + 1} / {materials.length}
+            </span>
+          )}
         </div>
 
         {/* Download button */}
@@ -173,7 +267,7 @@ export default function MaterialPreviewModal({
           </div>
         )}
 
-        {!loading && !error && !canPreview && (
+        {!loading && !error && !previewType && (
           <div className="flex flex-col items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={iconPath} alt={ext || 'file'} className="w-16 h-16 opacity-50" />
@@ -182,14 +276,14 @@ export default function MaterialPreviewModal({
             </p>
             <button
               onClick={handleDownload}
-              className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg text-text-white text-sm font-medium hover:opacity-90 "
+              className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg text-text-white text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Descargar archivo
             </button>
           </div>
         )}
 
-        {previewUrl && !isImage && (
+        {previewUrl && (previewType === 'pdf' || previewType === 'office') && (
           <iframe
             src={previewUrl}
             className="absolute inset-0 w-full h-full"
@@ -197,7 +291,7 @@ export default function MaterialPreviewModal({
           />
         )}
 
-        {previewUrl && isImage && (
+        {previewUrl && previewType === 'image' && (
           <div className="py-4 px-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -208,6 +302,32 @@ export default function MaterialPreviewModal({
           </div>
         )}
 
+        {/* Navigation buttons */}
+        {materials.length > 1 && (
+          <>
+            {/* Previous */}
+            <button
+              onClick={goToPrev}
+              disabled={!hasPrev}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-gray-800 rounded-full inline-flex justify-center items-center transition-opacity ${
+                hasPrev ? 'opacity-100 hover:bg-gray-700 cursor-pointer' : 'opacity-30 cursor-default'
+              }`}
+            >
+              <Icon name="chevron_left" size={20} className="text-white" variant="rounded" />
+            </button>
+
+            {/* Next */}
+            <button
+              onClick={goToNext}
+              disabled={!hasNext}
+              className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gray-800 rounded-full inline-flex justify-center items-center transition-opacity ${
+                hasNext ? 'opacity-100 hover:bg-gray-700 cursor-pointer' : 'opacity-30 cursor-default'
+              }`}
+            >
+              <Icon name="chevron_right" size={20} className="text-white" variant="rounded" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

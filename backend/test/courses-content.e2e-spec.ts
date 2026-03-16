@@ -36,18 +36,18 @@ describe('Courses Content Logic (Integration)', () => {
   const mockEvaluations = [
     {
       id: 'ev-1',
-      name: 'Parcial 1',
+      number: 1,
       startDate: new Date('2026-03-01'),
       endDate: new Date('2026-03-02'),
-      evaluationType: { name: 'PARCIAL' },
+      evaluationType: { code: 'PC', name: 'PRACTICA CALIFICADA' },
       enrollmentEvaluations: [],
     },
     {
       id: 'ev-2',
-      name: 'Final',
+      number: 2,
       startDate: new Date('2026-06-01'),
       endDate: new Date('2026-06-02'),
-      evaluationType: { name: 'FINAL' },
+      evaluationType: { code: 'EX', name: 'EXAMEN' },
       enrollmentEvaluations: [
         {
           isActive: true,
@@ -99,6 +99,7 @@ describe('Courses Content Logic (Integration)', () => {
           provide: CourseCycleProfessorRepository,
           useValue: {
             findByCourseCycleId: jest.fn().mockResolvedValue(mockAssignments),
+            isProfessorAssigned: jest.fn().mockResolvedValue(true),
           },
         },
         {
@@ -113,6 +114,7 @@ describe('Courses Content Logic (Integration)', () => {
           provide: EvaluationRepository,
           useValue: {
             findAllWithUserAccess: jest.fn().mockResolvedValue(mockEvaluations),
+            findByCourseCycle: jest.fn().mockResolvedValue(mockEvaluations),
             findTypeByCode: jest.fn(),
             create: jest.fn(),
           },
@@ -198,8 +200,34 @@ describe('Courses Content Logic (Integration)', () => {
       const parcial = result.evaluations.find((e) => e.id === 'ev-1');
 
       expect(parcial).toBeDefined();
+      expect(parcial.name).toBe('Practica Calificada 1');
       expect(parcial.userStatus.status).toBe('LOCKED');
       expect(parcial.userStatus.hasAccess).toBe(false);
+    });
+
+    it('should grant professors full access on assigned course cycle', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-01T00:00:00.000Z'));
+
+      const result = await coursesService.getCourseContent(
+        mockCycleId,
+        mockUserId,
+        'PROFESSOR',
+      );
+      const parcial = result.evaluations.find((e) => e.id === 'ev-1');
+      const finalExam = result.evaluations.find((e) => e.id === 'ev-2');
+
+      expect(parcial?.name).toBe('Practica Calificada 1');
+      expect(parcial?.userStatus.hasAccess).toBe(true);
+      expect(parcial?.userStatus.status).toBe('COMPLETED');
+      expect(finalExam?.userStatus.hasAccess).toBe(true);
+      expect(finalExam?.userStatus.status).toBe('UPCOMING');
+      expect(
+        courseCycleProfessorRepository.isProfessorAssigned,
+      ).toHaveBeenCalledWith(mockCycleId, mockUserId);
+      expect(evaluationRepository.findByCourseCycle).toHaveBeenCalledWith(
+        mockCycleId,
+      );
+      expect(evaluationRepository.findAllWithUserAccess).not.toHaveBeenCalled();
     });
 
     it('should calculate STATUS based on current time vs access dates', async () => {

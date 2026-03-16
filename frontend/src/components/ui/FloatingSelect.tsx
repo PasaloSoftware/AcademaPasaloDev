@@ -1,0 +1,138 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import Icon from '@/components/ui/Icon';
+
+export interface FloatingSelectOption {
+  value: string;
+  label: string;
+}
+
+interface FloatingSelectProps {
+  label: string;
+  value: string | null;
+  options: FloatingSelectOption[];
+  onChange: (value: string | null) => void;
+  allLabel?: string;
+  disabled?: boolean;
+  className?: string;
+}
+
+export default function FloatingSelect({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = 'Todos',
+  disabled = false,
+  className = 'w-64',
+}: FloatingSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedLabel = value
+    ? options.find((o) => o.value === value)?.label ?? allLabel
+    : allLabel;
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setIsOpen(false);
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className={`${className} relative inline-flex flex-col justify-start items-start gap-1`}>
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        disabled={disabled}
+        className={`self-stretch h-10 px-2.5 py-3 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${
+          isOpen ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'
+        } inline-flex justify-start items-center gap-2 transition-colors`}
+      >
+        <span className="flex-1 text-left text-text-primary text-sm font-normal leading-4 line-clamp-1">
+          {selectedLabel}
+        </span>
+        <Icon
+          name="expand_more"
+          size={20}
+          className={`transition-transform ${isOpen ? 'rotate-180' : ''} ${
+            isOpen ? 'text-icon-accent-primary' : 'text-icon-tertiary'
+          }`}
+        />
+      </button>
+
+      {/* Floating label */}
+      <div className="px-1 left-[6px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
+        <span className={`text-xs font-normal leading-4 ${
+          isOpen ? 'text-text-accent-primary' : 'text-text-tertiary'
+        }`}>
+          {label}
+        </span>
+      </div>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div className="self-stretch p-1 top-[calc(100%)] left-0 right-0 absolute bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start z-20 max-h-80 overflow-y-auto">
+          {/* "Todos" option */}
+          <button
+            type="button"
+            onClick={() => {
+              onChange(null);
+              setIsOpen(false);
+            }}
+            className="self-stretch px-3 py-4 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+          >
+            <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
+              {allLabel}
+            </span>
+            {value === null && (
+              <Icon name="check" size={16} className="text-icon-accent-primary" />
+            )}
+          </button>
+
+          {/* Course options */}
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className="self-stretch px-3 py-4 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+            >
+              <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
+                {option.label}
+              </span>
+              {value === option.value && (
+                <Icon name="check" size={16} className="text-icon-accent-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -56,6 +56,13 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: '/plataforma/inicio'
     },
     {
+      icon: 'class',
+      label: 'Mis Cursos',
+      href: '#',
+      expandable: true,
+      subItems: []
+    },
+    {
       icon: 'event',
       label: 'Calendario',
       href: '/plataforma/calendario'

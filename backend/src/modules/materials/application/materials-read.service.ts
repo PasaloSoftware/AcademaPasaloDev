@@ -261,18 +261,14 @@ export class MaterialsReadService {
     material?: Material,
   ): Promise<void> {
     const activeRole = user.activeRole;
-    const roleCodes = (user.roles || []).map((r) => r.code);
 
-    if (
-      activeRole === ROLE_CODES.ADMIN ||
-      roleCodes.some((r) => ADMIN_ROLE_CODES.includes(r))
-    ) {
+    if (this.hasAdminAccess(activeRole)) {
       return;
     }
 
-    if (activeRole === ROLE_CODES.PROFESSOR) {
+    if (this.hasProfessorAccess(activeRole)) {
       const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
+        await this.courseCycleProfessorRepository.canProfessorReadEvaluation(
           evaluationId,
           user.id,
         );
@@ -314,5 +310,19 @@ export class MaterialsReadService {
         throw new ForbiddenException('Este material ya no esta disponible');
       }
     }
+  }
+
+  private normalizeRole(activeRole?: string): string {
+    return String(activeRole || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private hasAdminAccess(activeRole?: string): boolean {
+    return ADMIN_ROLE_CODES.includes(this.normalizeRole(activeRole));
+  }
+
+  private hasProfessorAccess(activeRole?: string): boolean {
+    return this.normalizeRole(activeRole) === ROLE_CODES.PROFESSOR;
   }
 }

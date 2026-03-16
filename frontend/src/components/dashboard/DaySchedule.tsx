@@ -21,6 +21,7 @@ export default function DaySchedule() {
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   // Calcular inicio y fin de la semana
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Domingo
@@ -28,6 +29,12 @@ export default function DaySchedule() {
 
   // Generar array de días de la semana
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Tick every 30s so join-button reactivity stays fresh
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     loadSchedule();
@@ -242,8 +249,16 @@ export default function DaySchedule() {
             const colors = getCourseColor(event.courseCode);
             const isNow = event.sessionStatus === "EN_CURSO";
 
+            const startMs = new Date(event.startDatetime).getTime();
+            const isLive = event.sessionStatus === "EN_CURSO";
+            const isLiveSoon =
+              event.sessionStatus === "PROGRAMADA" &&
+              startMs - now <= 60 * 60 * 1000 &&
+              startMs - now > 0;
             const canJoinNow =
-              !!event.liveMeetingUrl && !event.isCancelled;
+              (isLive || isLiveSoon) &&
+              !!event.liveMeetingUrl &&
+              !event.isCancelled;
 
             return (
               <div
@@ -260,11 +275,11 @@ export default function DaySchedule() {
                       <span className="text-[10px] font-medium text-primary">
                         {event.title}
                       </span>
-                      {isNow && (
+                      {/*isNow && (
                         <span className="px-1.5 py-0.5 bg-error-solid text-white text-[8px] font-bold rounded">
                           EN VIVO
                         </span>
-                      )}
+                      )*/}
                     </div>
                     <div className="flex items-center">
                       <span className="text-xs font-medium text-primary truncate">
@@ -282,7 +297,13 @@ export default function DaySchedule() {
                   </div>
                   {canJoinNow && (
                     <button
-                      onClick={() => classEventService.joinMeeting(event)}
+                      onClick={() =>
+                        window.open(
+                          event.liveMeetingUrl!,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
                       className="px-3 py-1.5 rounded-lg hover:bg-white/70 transition-colors"
                     >
                       <span className="text-sm font-medium text-accent-primary">

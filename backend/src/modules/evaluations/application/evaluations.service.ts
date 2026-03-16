@@ -19,12 +19,16 @@ import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import { technicalSettings } from '@config/technical-settings';
 import { DataSource } from 'typeorm';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import {
+  parseBusinessWindowEndToUtc,
+  parseBusinessWindowStartToUtc,
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
 
 @Injectable()
 export class EvaluationsService {
   private readonly logger = new Logger(EvaluationsService.name);
-  private readonly PROFESSOR_ASSIGNMENT_CACHE_TTL =
-    technicalSettings.cache.courses.professorAssignmentCacheTtlSeconds;
   private readonly COURSE_CYCLE_EXISTS_CACHE_TTL =
     technicalSettings.cache.courses.courseCycleExistsCacheTtlSeconds;
 
@@ -61,10 +65,13 @@ export class EvaluationsService {
         throw new NotFoundException('El ciclo academico vinculado no existe.');
       }
 
-      const evalStart = new Date(dto.startDate);
-      const evalEnd = new Date(dto.endDate);
-      const cycleStart = new Date(academicCycle.startDate);
-      const cycleEnd = new Date(academicCycle.endDate);
+      const evalStart = parseBusinessWindowStartToUtc(
+        dto.startDate,
+        'startDate',
+      );
+      const evalEnd = parseBusinessWindowEndToUtc(dto.endDate, 'endDate');
+      const cycleStart = toBusinessDayStartUtc(academicCycle.startDate);
+      const cycleEnd = toBusinessDayEndUtc(academicCycle.endDate);
 
       if (evalStart < cycleStart || evalEnd > cycleEnd) {
         throw new BadRequestException(
@@ -112,8 +119,8 @@ export class EvaluationsService {
       );
     });
 
-    await this.cacheService.invalidateGroup(
-      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_GROUP(dto.courseCycleId),
+    await this.cacheService.invalidateIndex(
+      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(dto.courseCycleId),
     );
 
     this.logger.log({
@@ -136,27 +143,11 @@ export class EvaluationsService {
       requesterActiveRole === ROLE_CODES.PROFESSOR &&
       requesterUserId !== undefined
     ) {
-      const assignmentCacheKey =
-        COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT_COURSE_CYCLE(
+      const isAssigned =
+        await this.courseCycleProfessorRepository.canProfessorReadCourseCycle(
           courseCycleId,
           requesterUserId,
         );
-      const cachedIsAssigned =
-        await this.cacheService.get<boolean>(assignmentCacheKey);
-      const isAssigned =
-        cachedIsAssigned !== null
-          ? cachedIsAssigned
-          : await this.courseCycleProfessorRepository.isProfessorAssigned(
-              courseCycleId,
-              requesterUserId,
-            );
-      if (cachedIsAssigned === null) {
-        await this.cacheService.set(
-          assignmentCacheKey,
-          isAssigned,
-          this.PROFESSOR_ASSIGNMENT_CACHE_TTL,
-        );
-      }
 
       if (!isAssigned) {
         await this.assertCourseCycleExists(courseCycleId);

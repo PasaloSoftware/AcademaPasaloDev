@@ -8,6 +8,7 @@ import { ROLE_CODES } from '@common/constants/role-codes.constants';
 const mockClassEventsService = {
   getAuthorizedRecordingLink: jest.fn(),
   getEventsByEvaluation: jest.fn(),
+  getEventDetail: jest.fn(),
   calculateEventStatus: jest.fn(),
   getEventAccess: jest.fn(),
 };

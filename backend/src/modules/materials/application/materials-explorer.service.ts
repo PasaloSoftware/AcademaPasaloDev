@@ -162,12 +162,8 @@ export class MaterialsExplorerService {
     materials: Material[],
   ): { folders: MaterialFolder[]; materials: Material[] } {
     const activeRole = (user as UserWithSession).activeRole;
-    const roleCodes = (user.roles || []).map((role) => role.code);
-
-    const isStaff =
-      activeRole === ROLE_CODES.ADMIN ||
-      roleCodes.some((role) => ADMIN_ROLE_CODES.includes(role));
-    const isProfessor = activeRole === ROLE_CODES.PROFESSOR;
+    const isStaff = this.hasAdminAccess(activeRole);
+    const isProfessor = this.hasProfessorAccess(activeRole);
 
     if (isStaff || isProfessor) {
       return { folders, materials };
@@ -201,18 +197,14 @@ export class MaterialsExplorerService {
     material?: Material,
   ): Promise<void> {
     const activeRole = user.activeRole;
-    const roleCodes = (user.roles || []).map((role) => role.code);
 
-    if (
-      activeRole === ROLE_CODES.ADMIN ||
-      roleCodes.some((role) => ADMIN_ROLE_CODES.includes(role))
-    ) {
+    if (this.hasAdminAccess(activeRole)) {
       return;
     }
 
-    if (activeRole === ROLE_CODES.PROFESSOR) {
+    if (this.hasProfessorAccess(activeRole)) {
       const isAssigned =
-        await this.courseCycleProfessorRepository.isProfessorAssignedToEvaluation(
+        await this.courseCycleProfessorRepository.canProfessorReadEvaluation(
           evaluationId,
           user.id,
         );
@@ -278,5 +270,19 @@ export class MaterialsExplorerService {
       );
     }
     return status;
+  }
+
+  private normalizeRole(activeRole?: string): string {
+    return String(activeRole || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private hasAdminAccess(activeRole?: string): boolean {
+    return ADMIN_ROLE_CODES.includes(this.normalizeRole(activeRole));
+  }
+
+  private hasProfessorAccess(activeRole?: string): boolean {
+    return this.normalizeRole(activeRole) === ROLE_CODES.PROFESSOR;
   }
 }

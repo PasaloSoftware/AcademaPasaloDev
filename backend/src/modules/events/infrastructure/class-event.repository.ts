@@ -267,10 +267,8 @@ export class ClassEventRepository {
       .leftJoinAndSelect('professors.professor', 'professor');
 
     return await qb
-      .where('classEvent.startDatetime BETWEEN :startDate AND :endDate', {
-        startDate,
-        endDate,
-      })
+      .where(':startDate < classEvent.endDatetime', { startDate })
+      .andWhere(':endDate > classEvent.startDatetime', { endDate })
       .andWhere('classEvent.isCancelled = :isCancelled', {
         isCancelled: false,
       })

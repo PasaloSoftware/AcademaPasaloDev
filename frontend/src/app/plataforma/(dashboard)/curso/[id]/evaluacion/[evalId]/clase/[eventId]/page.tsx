@@ -1,13 +1,25 @@
-'use client';
+import { Metadata } from 'next';
+import RoleBasedContent from '@/components/RoleBasedContent';
 
-import { useParams } from 'next/navigation';
-import VideoPageContent from '@/components/pages/student/VideoPageContent';
+interface ClasePageProps {
+  params: Promise<{
+    id: string;
+    evalId: string;
+    eventId: string;
+  }>;
+}
 
-export default function ClasePage() {
-  const params = useParams();
-  const cursoId = params.id as string;
-  const evalId = params.evalId as string;
-  const eventId = params.eventId as string;
+export const metadata: Metadata = {
+  title: 'Clase | Pásalo a la Primera',
+  description: 'Video y materiales de la clase',
+};
 
-  return <VideoPageContent cursoId={cursoId} evalId={evalId} eventId={eventId} />;
+export default async function ClasePage({ params }: ClasePageProps) {
+  const { id, evalId, eventId } = await params;
+
+  return (
+    <RoleBasedContent
+      componentProps={{ cursoId: id, evalId, eventId }}
+    />
+  );
 }

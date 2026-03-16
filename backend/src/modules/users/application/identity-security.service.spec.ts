@@ -9,6 +9,7 @@ import {
 } from '@modules/auth/interfaces/security.constants';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
+import { DataSource } from 'typeorm';
 
 describe('IdentitySecurityService', () => {
   let service: IdentitySecurityService;
@@ -24,7 +25,11 @@ describe('IdentitySecurityService', () => {
 
   const cacheServiceMock = {
     del: jest.fn(),
-    invalidateGroup: jest.fn(),
+    delMany: jest.fn(),
+  };
+
+  const dataSourceMock = {
+    query: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -41,6 +46,7 @@ describe('IdentitySecurityService', () => {
           provide: SessionStatusRepository,
           useValue: sessionStatusRepositoryMock,
         },
+        { provide: DataSource, useValue: dataSourceMock },
         { provide: RedisCacheService, useValue: cacheServiceMock },
       ],
     }).compile();
@@ -53,6 +59,9 @@ describe('IdentitySecurityService', () => {
       { id: 's1' },
       { id: 's2' },
     ]);
+    dataSourceMock.query
+      .mockResolvedValueOnce([{ courseCycleId: 'cc-1' }])
+      .mockResolvedValueOnce([{ evaluationId: 'ev-1' }]);
 
     await service.invalidateUserIdentity('10', {
       revokeSessions: false,
@@ -64,9 +73,11 @@ describe('IdentitySecurityService', () => {
     ).not.toHaveBeenCalled();
     expect(cacheServiceMock.del).toHaveBeenCalledTimes(1);
     expect(cacheServiceMock.del).toHaveBeenCalledWith('cache:user:profile:10');
-    expect(cacheServiceMock.invalidateGroup).toHaveBeenCalledWith(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-    );
+    expect(cacheServiceMock.delMany).toHaveBeenCalledWith([
+      COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT_COURSE_CYCLE('cc-1', '10'),
+      COURSE_CACHE_KEYS.PROFESSORS_LIST('cc-1'),
+      COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT('ev-1', '10'),
+    ]);
   });
 
   it('baneo revoca sesiones activas y limpia cache de perfil', async () => {
@@ -75,6 +86,9 @@ describe('IdentitySecurityService', () => {
       { id: 's1' },
     ]);
     sessionStatusRepositoryMock.findByCode.mockResolvedValue({ id: revokedId });
+    dataSourceMock.query
+      .mockResolvedValueOnce([{ courseCycleId: 'cc-1' }])
+      .mockResolvedValueOnce([{ evaluationId: 'ev-1' }]);
 
     await service.invalidateUserIdentity('10', {
       revokeSessions: true,
@@ -89,9 +103,11 @@ describe('IdentitySecurityService', () => {
       userSessionRepositoryMock.deactivateActiveSessionsByUserId,
     ).toHaveBeenCalledWith('10', revokedId, undefined);
     expect(cacheServiceMock.del).toHaveBeenCalledWith('cache:user:profile:10');
-    expect(cacheServiceMock.invalidateGroup).toHaveBeenCalledWith(
-      COURSE_CACHE_KEYS.GLOBAL_PROFESSOR_LIST_GROUP,
-    );
+    expect(cacheServiceMock.delMany).toHaveBeenCalledWith([
+      COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT_COURSE_CYCLE('cc-1', '10'),
+      COURSE_CACHE_KEYS.PROFESSORS_LIST('cc-1'),
+      COURSE_CACHE_KEYS.PROFESSOR_ASSIGNMENT('ev-1', '10'),
+    ]);
   });
 
   it('si no existe estado REVOKED lanza error de configuracion', async () => {
@@ -99,6 +115,7 @@ describe('IdentitySecurityService', () => {
       { id: 's1' },
     ]);
     sessionStatusRepositoryMock.findByCode.mockResolvedValue(null);
+    dataSourceMock.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     await expect(
       service.invalidateUserIdentity('10', { revokeSessions: true }),

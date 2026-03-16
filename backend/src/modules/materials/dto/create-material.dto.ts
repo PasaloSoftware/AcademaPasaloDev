@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsNotEmpty,
   IsString,
   IsOptional,
@@ -20,11 +21,11 @@ export class CreateMaterialDto {
   @MaxLength(255)
   displayName: string;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
   visibleFrom?: string;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
   visibleUntil?: string;
 

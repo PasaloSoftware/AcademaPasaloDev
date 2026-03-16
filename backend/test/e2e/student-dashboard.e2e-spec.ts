@@ -33,6 +33,7 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
 
   let student: { user: User; token: string };
   let admin: { user: User; token: string };
+  let professor: { user: User; token: string };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -81,6 +82,7 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
       TestSeeder.generateUniqueEmail('p1'),
       [ROLE_CODES.PROFESSOR],
     );
+    professor = prof1;
     const prof2 = await seeder.createAuthenticatedUser(
       TestSeeder.generateUniqueEmail('p2'),
       [ROLE_CODES.PROFESSOR],
@@ -141,5 +143,42 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
     );
     if (!courseWith1Prof) throw new Error('Course C2 not found');
     expect(courseWith1Prof.courseCycle.professors).toHaveLength(1);
+  });
+
+  it('Debe retornar para profesor el mismo shape de dashboard que para alumno', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/courses/my-courses')
+      .set('Authorization', `Bearer ${professor.token}`)
+      .expect(200);
+
+    const data = res.body.data as Array<{
+      id: string;
+      enrolledAt: string;
+      courseCycle: {
+        course: {
+          code: string;
+          courseType: { code: string };
+          cycleLevel: { name: string };
+        };
+        professors: unknown[];
+        academicCycle: {
+          isCurrent: boolean;
+        };
+      };
+    }>;
+
+    expect(data).toHaveLength(2);
+    expect(typeof data[0].id).toBe('string');
+    expect(typeof data[0].enrolledAt).toBe('string');
+
+    const courseWith2Prof = data.find(
+      (e) => e.courseCycle.course.code === 'C1',
+    );
+    if (!courseWith2Prof) throw new Error('Course C1 not found');
+
+    expect(courseWith2Prof.courseCycle.professors).toHaveLength(2);
+    expect(courseWith2Prof.courseCycle.academicCycle.isCurrent).toBe(true);
+    expect(courseWith2Prof.courseCycle.course.courseType.code).toBeTruthy();
+    expect(courseWith2Prof.courseCycle.course.cycleLevel.name).toBe('1 Ciclo');
   });
 });

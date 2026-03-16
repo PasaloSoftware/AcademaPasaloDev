@@ -239,6 +239,12 @@ export const technicalSettings = {
     mockGeoDefaultLon: '0',
   },
 
+  datetime: {
+    businessTimezone: 'America/Lima',
+    // Peru opera en UTC-5 todo el ano, sin DST.
+    businessUtcOffsetMinutes: -300,
+  },
+
   responses: {
     // src/common/interceptors/transform.interceptor.ts
     defaultSuccessMessage: 'Operación exitosa',

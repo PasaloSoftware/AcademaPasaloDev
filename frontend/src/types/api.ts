@@ -116,6 +116,7 @@ export interface Course {
   name: string;
   courseTypeId: string;
   cycleLevelId: string;
+  cycleLevel?: { name: string };
   createdAt: string;
   updatedAt?: string;
 }

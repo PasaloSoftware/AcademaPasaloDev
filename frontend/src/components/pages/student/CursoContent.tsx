@@ -7,369 +7,23 @@ import { enrollmentService } from "@/services/enrollment.service";
 import { Enrollment } from "@/types/enrollment";
 import {
   CurrentCycleResponse,
-  CycleEvaluation,
-  EvaluationLabel,
   PreviousCyclesResponse,
+  BankStructureResponse,
 } from "@/types/curso";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
+import {
+  EvaluationCard,
+  PreviousCycleCard,
+  BancoCategoryCard,
+  sortEvaluations,
+} from "@/components/shared/evaluationHelpers";
 
 interface CursoContentProps {
-  cursoId: string; // Este es el courseCycleId
+  cursoId: string;
 }
 
 type TabOption = "vigente" | "anteriores" | "banco";
-
-// ============================================
-// Helpers de estado visual para evaluaciones
-// ============================================
-
-function getEvalIcon(label: EvaluationLabel): string {
-  switch (label) {
-    case "Completado":
-      return "check_circle";
-    case "En curso":
-      return "bookmark";
-    case "Próximamente":
-      return "watch_later";
-    case "Bloqueado":
-      return "lock";
-  }
-}
-
-function getEvalIconBg(label: EvaluationLabel): string {
-  switch (label) {
-    case "Completado":
-      return "bg-bg-success-light";
-    case "En curso":
-      return "bg-bg-accent-light";
-    case "Próximamente":
-      return "bg-bg-tertiary";
-    case "Bloqueado":
-      return "bg-bg-disabled";
-  }
-}
-
-function getEvalIconColor(label: EvaluationLabel): string {
-  switch (label) {
-    case "Completado":
-      return "text-icon-success-primary";
-    case "En curso":
-      return "text-icon-accent-primary";
-    case "Próximamente":
-      return "text-icon-tertiary";
-    case "Bloqueado":
-      return "text-icon-disabled";
-  }
-}
-
-function getEvalBadgeBg(label: EvaluationLabel): string {
-  switch (label) {
-    case "Completado":
-      return "bg-bg-success-light";
-    case "En curso":
-      return "bg-bg-accent-light";
-    case "Próximamente":
-      return "bg-bg-quartiary";
-    case "Bloqueado":
-      return "bg-bg-disabled";
-  }
-}
-
-function getEvalBadgeText(label: EvaluationLabel): string {
-  switch (label) {
-    case "Completado":
-      return "text-text-success-primary";
-    case "En curso":
-      return "text-text-accent-primary";
-    case "Próximamente":
-      return "text-text-secondary";
-    case "Bloqueado":
-      return "text-text-disabled";
-  }
-}
-
-function getEvalCardBg(label: EvaluationLabel): string {
-  return label === "Bloqueado" ? "bg-bg-tertiary" : "bg-bg-primary";
-}
-
-function isEvalDisabled(label: EvaluationLabel): boolean {
-  return label === "Próximamente" || label === "Bloqueado";
-}
-
-const evalLabelOrder: Record<EvaluationLabel, number> = {
-  "Completado": 0,
-  "En curso": 1,
-  "Próximamente": 2,
-  "Bloqueado": 3,
-};
-
-function sortEvaluations<T extends { label: EvaluationLabel }>(evaluations: T[]): T[] {
-  return [...evaluations].sort((a, b) => evalLabelOrder[a.label] - evalLabelOrder[b.label]);
-}
-
-// ============================================
-// Componente de card de evaluación (Ciclo Vigente)
-// ============================================
-
-function EvaluationCard({
-  evaluation,
-  onSelect,
-}: {
-  evaluation: CycleEvaluation;
-  onSelect?: (evaluation: CycleEvaluation) => void;
-}) {
-  const disabled = isEvalDisabled(evaluation.label);
-  const isEnCurso = evaluation.label === "En curso";
-
-  // La card de "En curso" tiene borde izquierdo accent y outline solo en top/right/bottom
-  if (isEnCurso) {
-    return (
-      <div className="self-stretch bg-bg-primary rounded-2xl border-l-[3px] border-stroke-accent-primary inline-flex flex-col justify-start items-end">
-        <div className="self-stretch p-6 rounded-2xl border-r border-t border-b border-stroke-primary flex flex-col justify-start items-end gap-4">
-          {/* Icon + Badge */}
-          <div className="self-stretch inline-flex justify-between items-start">
-            <div
-              className={`p-2 ${getEvalIconBg(evaluation.label)} rounded-full flex justify-start items-center`}
-            >
-              <Icon
-                name={getEvalIcon(evaluation.label)}
-                size={24}
-                className={getEvalIconColor(evaluation.label)}
-              />
-            </div>
-            <div className="flex justify-start items-start">
-              <div
-                className={`px-2.5 py-1.5 ${getEvalBadgeBg(evaluation.label)} rounded-full flex justify-center items-center gap-1`}
-              >
-                <span
-                  className={`text-xs font-medium leading-3 ${getEvalBadgeText(evaluation.label)}`}
-                >
-                  {evaluation.label}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Title + Description */}
-          <div className="self-stretch flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-              {evaluation.shortName}
-            </div>
-            <div className="self-stretch text-text-secondary text-xs font-normal leading-4">
-              {evaluation.fullName}
-            </div>
-          </div>
-
-          {/* Ver Clases Link */}
-          <button
-            onClick={() => onSelect?.(evaluation)}
-            className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-          >
-            <span className="text-text-accent-primary text-sm font-medium leading-4">
-              Ver Clases
-            </span>
-            <Icon
-              name="arrow_forward"
-              size={16}
-              className="text-icon-accent-primary"
-            />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Cards normales (Completado, Próximamente, Bloqueado)
-  return (
-    <div
-      className={`self-stretch p-6 ${getEvalCardBg(evaluation.label)} rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-start items-end gap-4`}
-    >
-      {/* Icon + Badge */}
-      <div className="self-stretch inline-flex justify-between items-start">
-        <div
-          className={`p-2 ${getEvalIconBg(evaluation.label)} rounded-full flex justify-start items-center`}
-        >
-          <Icon
-            name={getEvalIcon(evaluation.label)}
-            size={24}
-            className={getEvalIconColor(evaluation.label)}
-          />
-        </div>
-        <div className="flex justify-start items-start">
-          <div
-            className={`px-2.5 py-1.5 ${getEvalBadgeBg(evaluation.label)} rounded-full flex justify-center items-center gap-1`}
-          >
-            <span
-              className={`text-xs font-medium leading-3 ${getEvalBadgeText(evaluation.label)}`}
-            >
-              {evaluation.label}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Title + Description */}
-      <div className="self-stretch flex flex-col justify-start items-start gap-1">
-        <div
-          className={`self-stretch text-lg font-semibold leading-5 ${disabled ? "text-text-secondary" : "text-text-primary"}`}
-        >
-          {evaluation.shortName}
-        </div>
-        <div
-          className={`self-stretch text-xs font-normal leading-4 ${disabled ? "text-text-tertiary" : "text-text-secondary"}`}
-        >
-          {evaluation.fullName}
-        </div>
-      </div>
-
-      {/* Ver Clases Link */}
-      <button
-        disabled={disabled}
-        onClick={() => !disabled && onSelect?.(evaluation)}
-        className={`p-1 rounded-lg inline-flex justify-center items-center gap-1.5 ${disabled ? "cursor-not-allowed" : "hover:bg-bg-accent-light transition-colors"}`}
-      >
-        <span
-          className={`text-sm font-medium leading-4 ${disabled ? "text-text-disabled" : "text-text-accent-primary"}`}
-        >
-          Ver Clases
-        </span>
-        <Icon
-          name="arrow_forward"
-          size={16}
-          className={
-            disabled ? "text-icon-disabled" : "text-icon-accent-primary"
-          }
-        />
-      </button>
-    </div>
-  );
-}
-
-// ============================================
-// Card de ciclo anterior (lista de ciclos)
-// ============================================
-
-function PreviousCycleCard({
-  cycleCode,
-  onViewCycle,
-}: {
-  cycleCode: string;
-  onViewCycle: (code: string) => void;
-}) {
-  return (
-    <div className="self-stretch p-6 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-start items-end gap-4">
-      {/* Icon */}
-      <div className="self-stretch inline-flex justify-start items-start">
-        <div className="p-3 bg-bg-quartiary rounded-xl flex justify-start items-center">
-          <Icon
-            name="inventory_2"
-            size={24}
-            className="text-gray-700"
-          />
-        </div>
-      </div>
-
-      {/* Title + Description */}
-      <div className="self-stretch flex flex-col justify-start items-start gap-1">
-        <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-          Ciclo {cycleCode}
-        </div>
-        <div className="self-stretch text-text-secondary text-xs font-normal leading-4">
-          Contenido del ciclo {cycleCode}
-        </div>
-      </div>
-
-      {/* Ver Ciclo Link */}
-      <button
-        onClick={() => onViewCycle(cycleCode)}
-        className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-      >
-        <span className="text-text-accent-primary text-sm font-medium leading-4">
-          Ver Ciclo
-        </span>
-        <Icon
-          name="arrow_forward"
-          size={16}
-          className="text-icon-accent-primary"
-        />
-      </button>
-    </div>
-  );
-}
-
-// ============================================
-// Card de categoría para Banco de Enunciados
-// ============================================
-
-const bancoCategories = [
-  {
-    key: "PD",
-    title: "Prácticas Dirigidas",
-    description: "Material de práctica y ejercicios dirigidos del curso",
-    icon: "description",
-    iconBg: "bg-bg-info-primary-light",
-    iconColor: "text-icon-info-primary",
-  },
-  {
-    key: "PC",
-    title: "Prácticas Calificadas",
-    description: "Enunciados de prácticas calificadas de ciclos anteriores",
-    icon: "quiz",
-    iconBg: "bg-bg-info-secondary-light",
-    iconColor: "text-icon-info-secondary",
-  },
-  {
-    key: "EX",
-    title: "Exámenes",
-    description:
-      "Enunciados de exámenes parciales y finales de ciclos anteriores",
-    icon: "school",
-    iconBg: "bg-bg-success-light",
-    iconColor: "text-icon-success-primary",
-  },
-];
-
-function BancoCategoryCard({
-  category,
-}: {
-  category: (typeof bancoCategories)[number];
-}) {
-  return (
-    <div className="self-stretch p-6 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-start items-end gap-4">
-      {/* Icon */}
-      <div className="self-stretch inline-flex justify-start items-start">
-        <div
-          className={`p-3 ${category.iconBg} rounded-xl flex justify-start items-center`}
-        >
-          <Icon name="folder" size={24} className={category.iconColor} />
-        </div>
-      </div>
-
-      {/* Title + Description */}
-      <div className="self-stretch flex flex-col justify-start items-start gap-1">
-        <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-          {category.title}
-        </div>
-        <div className="self-stretch text-text-secondary text-xs font-normal leading-4">
-          {category.description}
-        </div>
-      </div>
-
-      {/* Ver Enunciados Link */}
-      <button className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors">
-        <span className="text-text-accent-primary text-sm font-medium leading-4">
-          Ver Enunciados
-        </span>
-        <Icon
-          name="arrow_forward"
-          size={16}
-          className="text-icon-accent-primary"
-        />
-      </button>
-    </div>
-  );
-}
 
 // ============================================
 // Componente principal
@@ -396,6 +50,11 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [previousCycles, setPreviousCycles] =
     useState<PreviousCyclesResponse | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
+
+  // Datos del banco de enunciados
+  const [bankStructure, setBankStructure] =
+    useState<BankStructureResponse | null>(null);
+  const [loadingBank, setLoadingBank] = useState(false);
   // Loading general (enrollment)
   const [loadingEnrollment, setLoadingEnrollment] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -469,6 +128,23 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
 
     loadPreviousCycles();
   }, [cursoId, currentCycle?.canViewPreviousCycles]);
+
+  // Cargar estructura del banco de enunciados
+  useEffect(() => {
+    async function loadBankStructure() {
+      setLoadingBank(true);
+      try {
+        const data = await coursesService.getBankStructure(cursoId);
+        setBankStructure(data);
+      } catch (err) {
+        console.error("Error al cargar banco de enunciados:", err);
+      } finally {
+        setLoadingBank(false);
+      }
+    }
+
+    if (cursoId) loadBankStructure();
+  }, [cursoId]);
 
   // Helpers
   const getInitials = (firstName: string, lastName1: string) => {
@@ -607,9 +283,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         </div>
 
         {/* Right: Video Placeholder */}
-        <div className="flex-1 px-5 py-14 bg-bg-tertiary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-center items-center gap-6 overflow-hidden">
-          <div className="p-3 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
-            <Icon name="play_arrow" size={32} className="text-icon-white" />
+        <div className="flex-1 h-[217px] py-14 px-5 bg-bg-tertiary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-center items-center gap-3 overflow-hidden">
+          <div className="p-2 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
+            <Icon name="play_arrow" size={24} className="text-icon-white" />
           </div>
           <div className="self-stretch flex flex-col justify-center items-center gap-1">
             <div className="self-stretch inline-flex justify-center items-center gap-1">
@@ -781,12 +457,42 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </span>
             </div>
 
-            {/* Category Cards */}
-            <div className="self-stretch grid grid-cols-3 gap-8">
-              {bancoCategories.map((category) => (
-                <BancoCategoryCard key={category.key} category={category} />
-              ))}
-            </div>
+            {loadingBank ? (
+              <div className="self-stretch flex justify-center py-12">
+                <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : bankStructure && bankStructure.items.length > 0 ? (
+              <div className="self-stretch grid grid-cols-3 gap-8">
+                {bankStructure.items.map((item) => (
+                  <BancoCategoryCard
+                    key={item.evaluationTypeCode}
+                    typeCode={item.evaluationTypeCode}
+                    typeName={item.evaluationTypeName}
+                    onSelect={() =>
+                      router.push(
+                        `/plataforma/curso/${cursoId}/banco/${item.evaluationTypeCode}`,
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="self-stretch p-12 bg-bg-secondary rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
+                <Icon
+                  name="folder_open"
+                  size={64}
+                  className="text-icon-tertiary"
+                />
+                <div className="text-center">
+                  <p className="text-text-primary font-semibold mb-2">
+                    No hay banco de enunciados disponible
+                  </p>
+                  <p className="text-text-secondary text-sm">
+                    El banco de enunciados aparecerá aquí cuando sea configurado
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
