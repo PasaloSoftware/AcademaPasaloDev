@@ -30,7 +30,6 @@ import {
 } from '@modules/courses/dto/admin-course-cycle-list.dto';
 import {
   CourseContentResponseDto,
-  EvaluationStatusDto,
 } from '@modules/courses/dto/course-content.dto';
 import {
   StudentCurrentCycleContentResponseDto,
@@ -41,7 +40,6 @@ import {
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { EnrollmentEvaluation } from '@modules/enrollments/domain/enrollment-evaluation.entity';
 import {
-  EVALUATION_ACCESS_STATUS_CODES,
   EVALUATION_TYPE_CODES,
 } from '@modules/evaluations/domain/evaluation.constants';
 import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
@@ -797,11 +795,10 @@ export class CoursesService {
 
           return {
             id: evaluation.id,
-            name: this.buildEvaluationFullName(evaluation),
-            evaluationType: evaluation.evaluationType.name,
-            startDate,
-            endDate,
-            userStatus: this.buildCourseContentStatus(
+            evaluationTypeCode: evaluation.evaluationType.code,
+            shortName: this.buildEvaluationShortName(evaluation),
+            fullName: this.buildEvaluationFullName(evaluation),
+            label: this.buildStaffCourseContentLabel(
               evaluation,
               hasFullEvaluationAccess,
               startDate,
@@ -814,50 +811,42 @@ export class CoursesService {
     };
   }
 
-  private buildCourseContentStatus(
+  private buildStaffCourseContentLabel(
     evaluation: EvaluationWithAccess,
     hasFullEvaluationAccess: boolean,
     evaluationStartDate: Date,
     evaluationEndDate: Date,
     now: Date,
-  ): EvaluationStatusDto {
-    const statusDto = new EvaluationStatusDto();
-
+  ): StudentEvaluationLabel {
     if (hasFullEvaluationAccess) {
-      statusDto.hasAccess = true;
-      statusDto.accessStart = evaluationStartDate;
-      statusDto.accessEnd = evaluationEndDate;
-    } else {
-      const access =
-        evaluation.enrollmentEvaluations &&
-        evaluation.enrollmentEvaluations.length > 0
-          ? evaluation.enrollmentEvaluations[0]
-          : null;
-
-      if (!access || !access.isActive) {
-        statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
-        statusDto.hasAccess = false;
-        statusDto.accessStart = null;
-        statusDto.accessEnd = null;
-        return statusDto;
+      if (now > evaluationEndDate) {
+        return STUDENT_EVALUATION_LABELS.COMPLETED;
       }
-
-      statusDto.hasAccess = true;
-      statusDto.accessStart = new Date(access.accessStartDate);
-      statusDto.accessEnd = new Date(access.accessEndDate);
+      if (now >= evaluationStartDate && now <= evaluationEndDate) {
+        return STUDENT_EVALUATION_LABELS.IN_PROGRESS;
+      }
+      return STUDENT_EVALUATION_LABELS.UPCOMING;
     }
 
-    if (!statusDto.accessStart || !statusDto.accessEnd) {
-      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.LOCKED;
-    } else if (now > statusDto.accessEnd) {
-      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.COMPLETED;
-    } else if (now < statusDto.accessStart) {
-      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.UPCOMING;
-    } else {
-      statusDto.status = EVALUATION_ACCESS_STATUS_CODES.IN_PROGRESS;
+    const access =
+      evaluation.enrollmentEvaluations && evaluation.enrollmentEvaluations[0]
+        ? evaluation.enrollmentEvaluations[0]
+        : null;
+
+    if (!access || !access.isActive) {
+      return STUDENT_EVALUATION_LABELS.LOCKED;
     }
 
-    return statusDto;
+    const accessStartDate = new Date(access.accessStartDate);
+    const accessEndDate = new Date(access.accessEndDate);
+
+    if (now > accessEndDate) {
+      return STUDENT_EVALUATION_LABELS.COMPLETED;
+    }
+    if (now < accessStartDate) {
+      return STUDENT_EVALUATION_LABELS.UPCOMING;
+    }
+    return STUDENT_EVALUATION_LABELS.IN_PROGRESS;
   }
 
   async getStudentCurrentCycleContent(

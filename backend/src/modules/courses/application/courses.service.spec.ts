@@ -267,12 +267,16 @@ describe('CoursesService student views', () => {
     );
 
     expect(result.evaluations).toHaveLength(2);
-    expect(result.evaluations[0].name).toBe('Practica Calificada 1');
-    expect(result.evaluations[0].userStatus.hasAccess).toBe(true);
-    expect(result.evaluations[0].userStatus.status).toBe('COMPLETED');
-    expect(result.evaluations[1].name).toBe('Examen 2');
-    expect(result.evaluations[1].userStatus.hasAccess).toBe(true);
-    expect(result.evaluations[1].userStatus.status).toBe('UPCOMING');
+    expect(result.evaluations[0].evaluationTypeCode).toBe('PC');
+    expect(result.evaluations[0].shortName).toBe('PC1');
+    expect(result.evaluations[0].fullName).toBe('Practica Calificada 1');
+    expect(result.evaluations[0].label).toBe('Completado');
+    expect(result.evaluations[1].evaluationTypeCode).toBe('EX');
+    expect(result.evaluations[1].shortName).toBe('EX2');
+    expect(result.evaluations[1].fullName).toBe('Examen 2');
+    expect(result.evaluations[1].label).toBe(
+      STUDENT_EVALUATION_LABELS.UPCOMING,
+    );
     expect(
       courseCycleProfessorRepository.canProfessorReadCourseCycle,
     ).toHaveBeenCalledWith('100', '501');
@@ -303,9 +307,10 @@ describe('CoursesService student views', () => {
     );
 
     expect(result.evaluations).toHaveLength(1);
-    expect(result.evaluations[0].name).toBe('Practica Calificada 1');
-    expect(result.evaluations[0].userStatus.hasAccess).toBe(true);
-    expect(result.evaluations[0].userStatus.status).toBe('COMPLETED');
+    expect(result.evaluations[0].evaluationTypeCode).toBe('PC');
+    expect(result.evaluations[0].shortName).toBe('PC1');
+    expect(result.evaluations[0].fullName).toBe('Practica Calificada 1');
+    expect(result.evaluations[0].label).toBe('Completado');
     expect(
       courseCycleProfessorRepository.canProfessorReadCourseCycle,
     ).not.toHaveBeenCalled();

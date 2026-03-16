@@ -161,7 +161,7 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
 ### 2. Cursos y Materias (`/courses`)
 
 #### Dashboard: Mis Cursos Matriculados
-Obtiene el listado de cursos donde el alumno tiene una matrícula activa.
+Obtiene el listado de cursos para el dashboard principal.
 - **Endpoints:** `GET /enrollments/my-courses` y `GET /courses/my-courses`
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - **Caché:** 1 hora.
@@ -307,6 +307,13 @@ Regla de `label` en ciclo anterior:
 El endpoint legado GET /courses/cycle/:courseCycleId/content queda para roles de staff (PROFESSOR, ADMIN, SUPER_ADMIN), no para STUDENT.
 - Si el courseCycleId no existe, responde 404.
 - Si el curso/ciclo existe pero el PROFESSOR no está asignado, responde 403.
+- `evaluations` usa el mismo shape visual de card que el flujo `current`:
+  - `id`
+  - `evaluationTypeCode`
+  - `shortName`
+  - `fullName`
+  - `label`
+- En staff no se retorna `hasAccess`; el acceso ya se resuelve a nivel de autorización del endpoint.
 
 
 #### Operaciones Administrativas (Admin/SuperAdmin)
@@ -790,3 +797,4 @@ Se agrega soporte para video introductorio a nivel `course_cycle` (no por evalua
 2. Si el frontend envia solo fecha (`YYYY-MM-DD`), backend la interpreta como limite diario en `America/Lima`.
 3. El limite final con fecha-only se trata como exclusivo del dia siguiente en `America/Lima`.
 4. Con esto, pedir `start=2026-03-15&end=2026-03-21` significa todo el rango calendario de Lima desde el 15 hasta el cierre del 21.
+

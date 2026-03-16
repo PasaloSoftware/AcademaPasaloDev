@@ -99,7 +99,7 @@ describe('Courses Content Logic (Integration)', () => {
           provide: CourseCycleProfessorRepository,
           useValue: {
             findByCourseCycleId: jest.fn().mockResolvedValue(mockAssignments),
-            isProfessorAssigned: jest.fn().mockResolvedValue(true),
+            canProfessorReadCourseCycle: jest.fn().mockResolvedValue(true),
           },
         },
         {
@@ -200,9 +200,10 @@ describe('Courses Content Logic (Integration)', () => {
       const parcial = result.evaluations.find((e) => e.id === 'ev-1');
 
       expect(parcial).toBeDefined();
-      expect(parcial.name).toBe('Practica Calificada 1');
-      expect(parcial.userStatus.status).toBe('LOCKED');
-      expect(parcial.userStatus.hasAccess).toBe(false);
+      expect(parcial.evaluationTypeCode).toBe('PC');
+      expect(parcial.shortName).toBe('PC1');
+      expect(parcial.fullName).toBe('Practica Calificada 1');
+      expect(parcial.label).toBe('Bloqueado');
     });
 
     it('should grant professors full access on assigned course cycle', async () => {
@@ -216,13 +217,12 @@ describe('Courses Content Logic (Integration)', () => {
       const parcial = result.evaluations.find((e) => e.id === 'ev-1');
       const finalExam = result.evaluations.find((e) => e.id === 'ev-2');
 
-      expect(parcial?.name).toBe('Practica Calificada 1');
-      expect(parcial?.userStatus.hasAccess).toBe(true);
-      expect(parcial?.userStatus.status).toBe('COMPLETED');
-      expect(finalExam?.userStatus.hasAccess).toBe(true);
-      expect(finalExam?.userStatus.status).toBe('UPCOMING');
+      expect(parcial?.fullName).toBe('Practica Calificada 1');
+      expect(parcial?.label).toBe('Completado');
+      expect(finalExam?.shortName).toBe('EX2');
+      expect(finalExam?.label).toBe('PrÃ³ximamente');
       expect(
-        courseCycleProfessorRepository.isProfessorAssigned,
+        courseCycleProfessorRepository.canProfessorReadCourseCycle,
       ).toHaveBeenCalledWith(mockCycleId, mockUserId);
       expect(evaluationRepository.findByCourseCycle).toHaveBeenCalledWith(
         mockCycleId,
@@ -239,8 +239,7 @@ describe('Courses Content Logic (Integration)', () => {
       );
       const finalExam = result.evaluations.find((e) => e.id === 'ev-2');
 
-      expect(finalExam.userStatus.hasAccess).toBe(true);
-      expect(finalExam.userStatus.status).toBe('UPCOMING');
+      expect(finalExam.label).toBe('PrÃ³ximamente');
 
       jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:00:00'));
       const resultInProgres = await coursesService.getCourseContent(
@@ -250,7 +249,7 @@ describe('Courses Content Logic (Integration)', () => {
       const finalInProgress = resultInProgres.evaluations.find(
         (e) => e.id === 'ev-2',
       );
-      expect(finalInProgress.userStatus.status).toBe('IN_PROGRESS');
+      expect(finalInProgress.label).toBe('En curso');
 
       jest.useFakeTimers().setSystemTime(new Date('2026-07-01'));
       const resultExpired = await coursesService.getCourseContent(
@@ -260,7 +259,7 @@ describe('Courses Content Logic (Integration)', () => {
       const finalExpired = resultExpired.evaluations.find(
         (e) => e.id === 'ev-2',
       );
-      expect(finalExpired.userStatus.status).toBe('COMPLETED');
+      expect(finalExpired.label).toBe('Completado');
 
       jest.useRealTimers();
     });
