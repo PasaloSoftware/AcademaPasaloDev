@@ -270,6 +270,3 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(404);
   });
 });
-
-
-

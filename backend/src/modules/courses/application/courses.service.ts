@@ -8,6 +8,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { randomUUID } from 'crypto';
+import * as path from 'path';
 import { CourseRepository } from '@modules/courses/infrastructure/course.repository';
 import { CourseTypeRepository } from '@modules/courses/infrastructure/course-type.repository';
 import { CycleLevelRepository } from '@modules/courses/infrastructure/cycle-level.repository';
@@ -28,9 +30,7 @@ import {
   AdminCourseCycleListQueryDto,
   AdminCourseCycleListResponseDto,
 } from '@modules/courses/dto/admin-course-cycle-list.dto';
-import {
-  CourseContentResponseDto,
-} from '@modules/courses/dto/course-content.dto';
+import { CourseContentResponseDto } from '@modules/courses/dto/course-content.dto';
 import {
   StudentCurrentCycleContentResponseDto,
   StudentBankStructureResponseDto,
@@ -39,9 +39,7 @@ import {
 } from '@modules/courses/dto/student-course-view.dto';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { EnrollmentEvaluation } from '@modules/enrollments/domain/enrollment-evaluation.entity';
-import {
-  EVALUATION_TYPE_CODES,
-} from '@modules/evaluations/domain/evaluation.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import { ENROLLMENT_CACHE_KEYS } from '@modules/enrollments/domain/enrollment.constants';
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
@@ -66,16 +64,36 @@ import {
   buildDrivePreviewUrl,
   extractDriveFileIdFromUrl,
 } from '@modules/media-access/domain/media-access-url.util';
-import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
+import {
+  FOLDER_STATUS_CODES,
+  MATERIAL_STATUS_CODES,
+  STORAGE_PROVIDER_CODES,
+} from '@modules/materials/domain/material.constants';
 import { AuthorizedCourseIntroVideoLinkDto } from '@modules/courses/dto/authorized-course-intro-video-link.dto';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MEDIA_ACCESS_SYNC_SOURCES } from '@modules/media-access/domain/media-access.constants';
+import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
 import {
   toBusinessDayEndUtc,
   toBusinessDayStartUtc,
 } from '@common/utils/peru-time.util';
 import { MyEnrollmentsResponseDto } from '@modules/enrollments/dto/my-enrollments-response.dto';
 import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
+import { StorageService } from '@infrastructure/storage/storage.service';
+import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { FileResourceRepository } from '@modules/materials/infrastructure/file-resource.repository';
+import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
+import { MaterialFolder } from '@modules/materials/domain/material-folder.entity';
+import { Material } from '@modules/materials/domain/material.entity';
+import { FileResource } from '@modules/materials/domain/file-resource.entity';
+import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
+import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
+import { MySqlErrorCode } from '@common/interfaces/database-error.interface';
+import {
+  UploadBankDocumentDto,
+  UploadBankDocumentResponseDto,
+} from '@modules/courses/dto/bank-documents.dto';
 
 type EvaluationWithAccess = Evaluation & {
   enrollmentEvaluations?: EnrollmentEvaluation[];
@@ -85,6 +103,16 @@ type StudentCourseAccessContext = {
   cycle: CourseCycle;
   enrollmentTypeCode: string;
   canViewPreviousCycles: boolean;
+};
+
+type BankCardMeta = {
+  evaluationId: string;
+  evaluationTypeId: string;
+  evaluationTypeCode: string;
+  evaluationTypeName: string;
+  evaluationNumber: number;
+  groupFolderName: string;
+  leafFolderName: string;
 };
 
 @Injectable()
@@ -111,6 +139,12 @@ export class CoursesService {
     private readonly cyclesService: CyclesService,
     private readonly cacheService: RedisCacheService,
     private readonly mediaAccessMembershipDispatchService: MediaAccessMembershipDispatchService,
+    private readonly courseCycleDriveProvisioningService: CourseCycleDriveProvisioningService,
+    private readonly storageService: StorageService,
+    private readonly materialFolderRepository: MaterialFolderRepository,
+    private readonly materialRepository: MaterialRepository,
+    private readonly fileResourceRepository: FileResourceRepository,
+    private readonly materialCatalogRepository: MaterialCatalogRepository,
   ) {}
 
   async findAllCourses(): Promise<Course[]> {
@@ -1042,6 +1076,434 @@ export class CoursesService {
       cycleCode: accessContext.cycle.academicCycle.code,
       items,
     };
+  }
+
+  private async assertCanManageCourseCycleBank(
+    courseCycleId: string,
+    userId: string,
+    activeRole?: string,
+  ): Promise<void> {
+    if (this.isAdminRole(activeRole)) {
+      return;
+    }
+
+    if (this.isProfessorRole(activeRole)) {
+      await this.assertProfessorCanReadCourseCycle(courseCycleId, userId);
+      return;
+    }
+
+    throw new ForbiddenException(
+      'No tienes permiso para gestionar el banco de enunciados de este curso',
+    );
+  }
+
+  private async findBankEvaluationEntityForCourseCycle(
+    courseCycleId: string,
+  ): Promise<Evaluation> {
+    const evaluations =
+      await this.evaluationRepository.findByCourseCycle(courseCycleId);
+    const bankEvaluation =
+      evaluations.find(
+        (evaluation) =>
+          String(evaluation.evaluationType?.code || '')
+            .trim()
+            .toUpperCase() === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS &&
+          Number(evaluation.number) === 0,
+      ) || null;
+
+    if (!bankEvaluation) {
+      throw new NotFoundException(
+        'No existe la evaluacion tecnica del banco para este curso/ciclo',
+      );
+    }
+
+    return bankEvaluation;
+  }
+
+  private async getBankCardsForCourseCycle(
+    courseCycleId: string,
+  ): Promise<BankCardMeta[]> {
+    const evaluations =
+      await this.evaluationRepository.findByCourseCycle(courseCycleId);
+
+    return evaluations
+      .filter(
+        (evaluation) =>
+          String(evaluation.evaluationType?.code || '')
+            .trim()
+            .toUpperCase() !== EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+      )
+      .map((evaluation) => ({
+        evaluationId: evaluation.id,
+        evaluationTypeId: evaluation.evaluationTypeId,
+        evaluationTypeCode: String(evaluation.evaluationType?.code || '')
+          .trim()
+          .toUpperCase(),
+        evaluationTypeName: this.getBankEvaluationTypePluralName(
+          String(evaluation.evaluationType?.code || '')
+            .trim()
+            .toUpperCase(),
+          String(evaluation.evaluationType?.name || '').trim(),
+        ),
+        evaluationNumber: Number(evaluation.number),
+        groupFolderName: this.getBankEvaluationTypePluralName(
+          String(evaluation.evaluationType?.code || '')
+            .trim()
+            .toUpperCase(),
+          String(evaluation.evaluationType?.name || '').trim(),
+        ),
+        leafFolderName: `${String(evaluation.evaluationType?.code || '')
+          .trim()
+          .toUpperCase()}${Number(evaluation.number)}`,
+      }))
+      .sort((left, right) => {
+        if (left.evaluationTypeCode !== right.evaluationTypeCode) {
+          return left.evaluationTypeCode.localeCompare(
+            right.evaluationTypeCode,
+          );
+        }
+        return left.evaluationNumber - right.evaluationNumber;
+      });
+  }
+
+  private async ensureBankMaterialFolders(
+    bankEvaluationId: string,
+    card: BankCardMeta,
+    createdById: string,
+  ): Promise<MaterialFolder> {
+    const activeFolderStatus = await this.getActiveFolderStatus();
+    const roots = await this.materialFolderRepository.findRootsByEvaluation(
+      bankEvaluationId,
+      activeFolderStatus.id,
+    );
+    let rootFolder =
+      roots.find((item) => item.name === card.groupFolderName) || null;
+    const now = new Date();
+
+    if (!rootFolder) {
+      rootFolder = await this.materialFolderRepository.create({
+        evaluationId: bankEvaluationId,
+        parentFolderId: null,
+        folderStatusId: activeFolderStatus.id,
+        name: card.groupFolderName,
+        visibleFrom: null,
+        visibleUntil: null,
+        createdById,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const children = await this.materialFolderRepository.findSubFolders(
+      rootFolder.id,
+      activeFolderStatus.id,
+    );
+    const existingLeaf =
+      children.find((item) => item.name === card.leafFolderName) || null;
+    if (existingLeaf) {
+      return existingLeaf;
+    }
+
+    return await this.materialFolderRepository.create({
+      evaluationId: bankEvaluationId,
+      parentFolderId: rootFolder.id,
+      folderStatusId: activeFolderStatus.id,
+      name: card.leafFolderName,
+      visibleFrom: null,
+      visibleUntil: null,
+      createdById,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  private async getActiveFolderStatus() {
+    const status = await this.materialCatalogRepository.findFolderStatusByCode(
+      FOLDER_STATUS_CODES.ACTIVE,
+    );
+    if (!status) {
+      throw new InternalServerErrorException(
+        `Error de configuracion: Estado ${FOLDER_STATUS_CODES.ACTIVE} de carpeta faltante`,
+      );
+    }
+    return status;
+  }
+
+  private async getActiveMaterialStatus() {
+    const status =
+      await this.materialCatalogRepository.findMaterialStatusByCode(
+        MATERIAL_STATUS_CODES.ACTIVE,
+      );
+    if (!status) {
+      throw new InternalServerErrorException(
+        `Error de configuracion: Estado ${MATERIAL_STATUS_CODES.ACTIVE} de material faltante`,
+      );
+    }
+    return status;
+  }
+
+  private buildStorageObjectName(originalName: string): string {
+    const normalizedOriginalName = String(originalName || '')
+      .replace(/[\r\n\t]/g, ' ')
+      .trim();
+    if (!normalizedOriginalName) {
+      return randomUUID();
+    }
+
+    if (this.storageService.isGoogleDriveStorageEnabled()) {
+      return normalizedOriginalName;
+    }
+
+    const extension = path.extname(normalizedOriginalName).trim();
+    return extension ? `${randomUUID()}${extension}` : randomUUID();
+  }
+
+  private normalizeUploadedOriginalName(originalName: string): string {
+    const normalized = String(originalName || '').trim();
+    if (!normalized || !/[ÃÂâ]/.test(normalized)) {
+      return normalized;
+    }
+
+    try {
+      const candidate = Buffer.from(normalized, 'latin1')
+        .toString('utf8')
+        .trim();
+      if (!candidate || candidate.includes('\uFFFD')) {
+        return normalized;
+      }
+      const originalMojibakeCount = (normalized.match(/[ÃÂâ]/g) || []).length;
+      const candidateMojibakeCount = (candidate.match(/[ÃÂâ]/g) || []).length;
+      return candidateMojibakeCount < originalMojibakeCount
+        ? candidate
+        : normalized;
+    } catch {
+      return normalized;
+    }
+  }
+
+  private async rollbackFile(resource: {
+    storageProvider: (typeof STORAGE_PROVIDER_CODES)[keyof typeof STORAGE_PROVIDER_CODES];
+    storageKey: string;
+    storageUrl: string | null;
+  }) {
+    await this.storageService.deleteFile(
+      resource.storageKey,
+      resource.storageProvider,
+      resource.storageUrl,
+    );
+  }
+
+  async uploadBankDocument(
+    user: User,
+    courseCycleId: string,
+    dto: UploadBankDocumentDto,
+    file: Express.Multer.File,
+    activeRole?: string,
+  ): Promise<UploadBankDocumentResponseDto> {
+    if (!file) {
+      throw new BadRequestException('Archivo requerido');
+    }
+    await this.assertCanManageCourseCycleBank(
+      courseCycleId,
+      user.id,
+      activeRole,
+    );
+
+    const allowedMimeTypes: readonly string[] =
+      technicalSettings.uploads.materials.allowedMimeTypes;
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Tipo de archivo no permitido. Solo se aceptan documentos educativos (PDF, imagenes, Office).',
+      );
+    }
+
+    if (file.mimetype === 'application/pdf') {
+      const pdfMagic = file.buffer.subarray(0, 4).toString('hex');
+      if (pdfMagic !== technicalSettings.uploads.materials.pdfMagicHeaderHex) {
+        throw new BadRequestException('El archivo no es un PDF valido');
+      }
+    }
+
+    const cycle = await this.courseCycleRepository.findFullById(courseCycleId);
+    if (!cycle) {
+      throw new NotFoundException('Ciclo del curso no encontrado');
+    }
+
+    const bankEvaluation =
+      await this.findBankEvaluationEntityForCourseCycle(courseCycleId);
+    const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
+    const normalizedTypeCode = String(dto.evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+    const evaluationNumber = Number.parseInt(dto.evaluationNumber, 10);
+    const targetCard = bankCards.find(
+      (item) =>
+        item.evaluationTypeCode === normalizedTypeCode &&
+        item.evaluationNumber === evaluationNumber,
+    );
+    if (!targetCard) {
+      throw new NotFoundException(
+        'No existe una tarjeta del banco para el tipo y numero enviados',
+      );
+    }
+
+    const normalizedOriginalName = this.normalizeUploadedOriginalName(
+      file.originalname,
+    );
+    const now = new Date();
+    const targetFolder = await this.ensureBankMaterialFolders(
+      bankEvaluation.id,
+      targetCard,
+      user.id,
+    );
+    const hash = await this.storageService.calculateHash(file.buffer);
+    const duplicatedResource =
+      await this.fileResourceRepository.findByHashAndSizeWithinEvaluation(
+        hash,
+        String(file.size),
+        bankEvaluation.id,
+      );
+    if (duplicatedResource) {
+      throw new ConflictException(
+        'Ya existe un archivo identico en el banco de este curso',
+      );
+    }
+
+    const driveTarget =
+      await this.courseCycleDriveProvisioningService.ensureBankLeafFolder({
+        courseCycleId,
+        courseCode: cycle.course.code,
+        cycleCode: cycle.academicCycle.code,
+        bankCards: bankCards.map((item) => ({
+          evaluationTypeCode: item.evaluationTypeCode,
+          number: item.evaluationNumber,
+        })),
+        evaluationTypeCode: targetCard.evaluationTypeCode,
+        evaluationNumber: targetCard.evaluationNumber,
+      });
+
+    let savedResource: {
+      storageProvider: (typeof STORAGE_PROVIDER_CODES)[keyof typeof STORAGE_PROVIDER_CODES];
+      storageKey: string;
+      storageUrl: string | null;
+    } | null = null;
+    let isNewFile = false;
+    const activeMaterialStatus = await this.getActiveMaterialStatus();
+
+    try {
+      const result = await this.dataSource.transaction(async (manager) => {
+        const uniqueName = this.buildStorageObjectName(normalizedOriginalName);
+        savedResource = await this.storageService.saveFile(
+          uniqueName,
+          file.buffer,
+          file.mimetype,
+          { targetDriveFolderId: driveTarget.leafFolderId },
+        );
+        isNewFile = true;
+
+        const resourceEntity = manager.create(FileResource, {
+          checksumHash: hash,
+          originalName: normalizedOriginalName,
+          mimeType: file.mimetype,
+          sizeBytes: String(file.size),
+          storageProvider: savedResource.storageProvider,
+          storageKey: savedResource.storageKey,
+          storageUrl: savedResource.storageUrl,
+          createdAt: now,
+        });
+
+        let finalResource: FileResource;
+        try {
+          finalResource = await manager.save(resourceEntity);
+        } catch (error) {
+          const dbErrno = getErrnoFromDbError(error);
+          if (dbErrno !== MySqlErrorCode.DUPLICATE_ENTRY) {
+            throw error;
+          }
+
+          const dedupResource =
+            await this.fileResourceRepository.findByHashAndSizeWithinEvaluation(
+              hash,
+              String(file.size),
+              bankEvaluation.id,
+            );
+          if (!dedupResource) {
+            throw error;
+          }
+
+          if (savedResource) {
+            await this.rollbackFile(savedResource);
+            savedResource = null;
+            isNewFile = false;
+          }
+
+          throw new ConflictException(
+            'Ya existe un archivo identico en el banco de este curso',
+          );
+        }
+
+        const materialEntity = manager.create(Material, {
+          materialFolderId: targetFolder.id,
+          classEventId: null,
+          fileResourceId: finalResource.id,
+          fileVersionId: null,
+          materialStatusId: activeMaterialStatus.id,
+          displayName: dto.displayName,
+          visibleFrom: null,
+          visibleUntil: null,
+          createdById: String(user.id),
+          createdAt: now,
+          updatedAt: now,
+        });
+        const savedMaterial = await manager.save(materialEntity);
+        const versionEntity = manager.create(MaterialVersion, {
+          materialId: savedMaterial.id,
+          fileResourceId: finalResource.id,
+          versionNumber: 1,
+          restoredFromMaterialVersionId: null,
+          createdById: String(user.id),
+          createdAt: now,
+        });
+        const savedVersion = await manager.save(versionEntity);
+        savedMaterial.fileVersionId = savedVersion.id;
+        const updatedMaterial = await manager.save(savedMaterial);
+
+        return {
+          courseCycleId,
+          bankEvaluationId: bankEvaluation.id,
+          evaluationId: targetCard.evaluationId,
+          evaluationTypeId: targetCard.evaluationTypeId,
+          evaluationTypeCode: targetCard.evaluationTypeCode,
+          evaluationTypeName: targetCard.evaluationTypeName,
+          evaluationNumber: targetCard.evaluationNumber,
+          folderId: targetFolder.id,
+          folderName: targetFolder.name,
+          materialId: updatedMaterial.id,
+          fileResourceId: finalResource.id,
+          currentVersionId: savedVersion.id,
+          displayName: updatedMaterial.displayName,
+          originalName: finalResource.originalName,
+          mimeType: finalResource.mimeType,
+          sizeBytes: finalResource.sizeBytes,
+          storageProvider: finalResource.storageProvider,
+          driveFileId:
+            finalResource.storageProvider === STORAGE_PROVIDER_CODES.GDRIVE
+              ? finalResource.storageKey
+              : null,
+          downloadPath: `/materials/${encodeURIComponent(updatedMaterial.id)}/download`,
+          authorizedViewPath: `/materials/${encodeURIComponent(updatedMaterial.id)}/authorized-link?mode=view`,
+          lastModifiedAt:
+            updatedMaterial.updatedAt ?? updatedMaterial.createdAt,
+        };
+      });
+
+      return result;
+    } catch (error) {
+      if (isNewFile && savedResource) {
+        await this.rollbackFile(savedResource);
+      }
+      throw error;
+    }
   }
 
   private async getStudentCourseAccessContext(

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +19,12 @@ import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { STUDENT_EVALUATION_LABELS } from '@modules/courses/domain/student-course.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
+import { StorageService } from '@infrastructure/storage/storage.service';
+import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { FileResourceRepository } from '@modules/materials/infrastructure/file-resource.repository';
+import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
 
 describe('CoursesService student views', () => {
   let service: CoursesService;
@@ -28,6 +35,12 @@ describe('CoursesService student views', () => {
   let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
   let courseCycleAllowedEvaluationTypeRepository: jest.Mocked<CourseCycleAllowedEvaluationTypeRepository>;
   let evaluationRepository: jest.Mocked<EvaluationRepository>;
+  let courseCycleDriveProvisioningService: jest.Mocked<CourseCycleDriveProvisioningService>;
+  let storageService: jest.Mocked<StorageService>;
+  let materialFolderRepository: jest.Mocked<MaterialFolderRepository>;
+  let materialRepository: jest.Mocked<MaterialRepository>;
+  let fileResourceRepository: jest.Mocked<FileResourceRepository>;
+  let materialCatalogRepository: jest.Mocked<MaterialCatalogRepository>;
 
   const currentCycle = {
     id: '100',
@@ -110,6 +123,48 @@ describe('CoursesService student views', () => {
           },
         },
         {
+          provide: CourseCycleDriveProvisioningService,
+          useValue: {
+            ensureBankLeafFolder: jest.fn(),
+          },
+        },
+        {
+          provide: StorageService,
+          useValue: {
+            calculateHash: jest.fn(),
+            saveFile: jest.fn(),
+            deleteFile: jest.fn(),
+            isGoogleDriveStorageEnabled: jest.fn().mockReturnValue(true),
+          },
+        },
+        {
+          provide: MaterialFolderRepository,
+          useValue: {
+            findRootsByEvaluation: jest.fn(),
+            findSubFolders: jest.fn(),
+            create: jest.fn(),
+          },
+        },
+        {
+          provide: MaterialRepository,
+          useValue: {
+            findByFolderIds: jest.fn(),
+          },
+        },
+        {
+          provide: FileResourceRepository,
+          useValue: {
+            findByHashAndSizeWithinEvaluation: jest.fn(),
+          },
+        },
+        {
+          provide: MaterialCatalogRepository,
+          useValue: {
+            findFolderStatusByCode: jest.fn(),
+            findMaterialStatusByCode: jest.fn(),
+          },
+        },
+        {
           provide: RedisCacheService,
           useValue: {
             get: jest.fn(),
@@ -134,6 +189,14 @@ describe('CoursesService student views', () => {
       CourseCycleAllowedEvaluationTypeRepository,
     );
     evaluationRepository = module.get(EvaluationRepository);
+    courseCycleDriveProvisioningService = module.get(
+      CourseCycleDriveProvisioningService,
+    );
+    storageService = module.get(StorageService);
+    materialFolderRepository = module.get(MaterialFolderRepository);
+    materialRepository = module.get(MaterialRepository);
+    fileResourceRepository = module.get(FileResourceRepository);
+    materialCatalogRepository = module.get(MaterialCatalogRepository);
 
     (cacheService.get as jest.Mock).mockResolvedValue(null);
   });
@@ -841,6 +904,198 @@ describe('CoursesService student views', () => {
     await expect(service.getStudentBankStructure('100', '501')).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('should upload a bank document to the resolved Drive leaf folder', async () => {
+    const now = new Date('2026-03-16T05:10:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue({
+      ...currentCycle,
+      course: { ...currentCycle.course, code: 'MAT101' },
+      academicCycle: { ...currentCycle.academicCycle, code: '2026-1' },
+    });
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc1',
+        number: 1,
+        evaluationTypeId: 'pc-type',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'folder-active' });
+    (
+      materialCatalogRepository.findMaterialStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'material-active' });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([]);
+    (materialFolderRepository.create as jest.Mock)
+      .mockResolvedValueOnce({ id: 'root-pc', name: 'Practicas Calificadas' })
+      .mockResolvedValueOnce({ id: 'leaf-pc1', name: 'PC1' });
+    (materialFolderRepository.findSubFolders as jest.Mock).mockResolvedValue(
+      [],
+    );
+    (
+      fileResourceRepository.findByHashAndSizeWithinEvaluation as jest.Mock
+    ).mockResolvedValueOnce(null);
+    (storageService.calculateHash as jest.Mock).mockResolvedValue('hash-123');
+    (
+      courseCycleDriveProvisioningService.ensureBankLeafFolder as jest.Mock
+    ).mockResolvedValue({
+      scopeFolderId: 'scope-1',
+      bankFolderId: 'bank-folder-1',
+      typeFolderId: 'type-folder-1',
+      leafFolderId: 'leaf-drive-1',
+    });
+    (storageService.saveFile as jest.Mock).mockResolvedValue({
+      storageProvider: 'GDRIVE',
+      storageKey: 'drive-file-1',
+      storageUrl: 'https://drive.google.com/uc?id=drive-file-1&export=download',
+    });
+
+    const manager = {
+      create: jest.fn((_entity, payload) => ({ ...payload })),
+      save: jest.fn(async (payload) => {
+        if ('checksumHash' in payload) {
+          return { id: 'file-1', ...payload };
+        }
+        if ('versionNumber' in payload) {
+          return { id: 'version-1', ...payload };
+        }
+        if ('materialFolderId' in payload && !payload.id) {
+          return { id: 'material-1', ...payload };
+        }
+        return payload;
+      }),
+    };
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
+      return await cb(manager);
+    });
+
+    const result = await service.uploadBankDocument(
+      { id: 'prof-1' } as any,
+      '100',
+      {
+        evaluationTypeCode: 'PC',
+        evaluationNumber: '1',
+        displayName: 'Banco PC1',
+      },
+      {
+        originalname: 'Banco PC1.pdf',
+        mimetype: 'application/pdf',
+        size: 1200,
+        buffer: Buffer.from('%PDF test'),
+      } as Express.Multer.File,
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(storageService.saveFile).toHaveBeenCalledWith(
+      'Banco PC1.pdf',
+      expect.any(Buffer),
+      'application/pdf',
+      { targetDriveFolderId: 'leaf-drive-1' },
+    );
+    expect(result).toEqual({
+      courseCycleId: '100',
+      bankEvaluationId: 'bank-0',
+      evaluationId: 'pc1',
+      evaluationTypeId: 'pc-type',
+      evaluationTypeCode: 'PC',
+      evaluationTypeName: 'Practicas Calificadas',
+      evaluationNumber: 1,
+      folderId: 'leaf-pc1',
+      folderName: 'PC1',
+      materialId: 'material-1',
+      fileResourceId: 'file-1',
+      currentVersionId: 'version-1',
+      displayName: 'Banco PC1',
+      originalName: 'Banco PC1.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: '1200',
+      storageProvider: 'GDRIVE',
+      driveFileId: 'drive-file-1',
+      downloadPath: '/materials/material-1/download',
+      authorizedViewPath: '/materials/material-1/authorized-link?mode=view',
+      lastModifiedAt: now,
+    });
+  });
+
+  it('should reject duplicated bank document before uploading to Drive', async () => {
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc1',
+        number: 1,
+        evaluationTypeId: 'pc-type',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'folder-active' });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pc', name: 'Practicas Calificadas' }]);
+    (materialFolderRepository.findSubFolders as jest.Mock).mockResolvedValue([
+      { id: 'leaf-pc1', name: 'PC1' },
+    ]);
+    (storageService.calculateHash as jest.Mock).mockResolvedValue('hash-123');
+    (
+      fileResourceRepository.findByHashAndSizeWithinEvaluation as jest.Mock
+    ).mockResolvedValue({
+      id: 'file-1',
+    });
+
+    await expect(
+      service.uploadBankDocument(
+        { id: 'prof-1' } as any,
+        '100',
+        {
+          evaluationTypeCode: 'PC',
+          evaluationNumber: '1',
+          displayName: 'Banco PC1',
+        },
+        {
+          originalname: 'Banco PC1.pdf',
+          mimetype: 'application/pdf',
+          size: 1200,
+          buffer: Buffer.from('%PDF test'),
+        } as Express.Multer.File,
+        ROLE_CODES.PROFESSOR,
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(storageService.saveFile).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
   it('should store intro video url and extracted drive file id', async () => {

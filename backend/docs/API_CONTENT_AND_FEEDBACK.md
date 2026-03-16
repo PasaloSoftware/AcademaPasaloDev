@@ -705,14 +705,62 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 1. `400` tipo no permitido, estructura vacia, fechas invalidas, typeId vacio.
 2. `404` course_cycle no existe.
 
-### 4) Impacto esperado en frontend
+### 4) Banco - Subir documento al banco del course_cycle
+
+- Endpoint: `POST /courses/cycle/:courseCycleId/bank-documents`
+- Roles: `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- Content-Type: `multipart/form-data`
+- Body:
+  - `evaluationTypeCode`: string. Ejemplos: `PC`, `EX`, `PD`, `LAB`.
+  - `evaluationNumber`: string numerico. Ejemplos: `1`, `2`.
+  - `displayName`: string visible en frontend.
+  - `file`: binario del archivo.
+- Reglas:
+1. El archivo se guarda en la hoja correcta de Drive segun `course_cycle -> bank_documents -> tipo -> codigoNumero`.
+2. En BD se persiste usando la evaluacion tecnica `BANCO_ENUNCIADOS` del `course_cycle`.
+3. La carpeta logica en BD se crea o reutiliza con la estructura `<tipo plural> -> <codigoNumero>`.
+4. Si ya existe un archivo identico en el banco de ese mismo curso, responde `409` y no guarda nada ni en BD ni en Drive.
+5. La deteccion de duplicado se hace por `hash + size` dentro del banco del mismo `course_cycle`.
+- Respuesta 201:
+```json
+{
+  "courseCycleId": "4",
+  "bankEvaluationId": "88",
+  "evaluationId": "120",
+  "evaluationTypeId": "1",
+  "evaluationTypeCode": "PC",
+  "evaluationTypeName": "Practicas Calificadas",
+  "evaluationNumber": 1,
+  "folderId": "702",
+  "folderName": "PC1",
+  "materialId": "900",
+  "fileResourceId": "901",
+  "currentVersionId": "902",
+  "displayName": "Banco PC1 resuelto",
+  "originalName": "PC1-resuelto.pdf",
+  "mimeType": "application/pdf",
+  "sizeBytes": "1741913",
+  "storageProvider": "GDRIVE",
+  "driveFileId": "1abcXYZ",
+  "downloadPath": "/materials/900/download",
+  "authorizedViewPath": "/materials/900/authorized-link?mode=view",
+  "lastModifiedAt": "2026-03-16T05:10:00.000Z"
+}
+```
+- Errores esperados:
+1. `400` archivo faltante, mimetype invalido, PDF invalido, payload incompleto.
+2. `403` usuario sin permiso sobre ese `course_cycle`.
+3. `404` no existe la tarjeta objetivo (`evaluationTypeCode + evaluationNumber`) o falta la evaluacion tecnica del banco.
+4. `409` archivo duplicado dentro del banco de ese curso.
+
+### 5) Impacto esperado en frontend
 
 1. En admin, configurar estructura por ciclo antes de crear evaluaciones nuevas.
 2. En alumno, usar `bank-structure` para render del tab Banco.
 3. No inferir acceso por labels.
 4. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion.
 
-### 5) Cache y consistencia
+### 6) Cache y consistencia
 
 1. Cuando admin actualiza `evaluation-structure`, backend invalida:
    - cache de contenido por ciclo
@@ -720,7 +768,7 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 2. Cuando admin crea evaluacion (`POST /evaluations`), backend invalida cache de contenido por ciclo.
 3. Con esto, frontend debe ver cambios sin esperar TTL largo.
 
-### 6) SQL de desarrollo actualizado
+### 7) SQL de desarrollo actualizado
 
 Se actualizo `db/datos_prueba_cursos_y_matriculas.sql` para poblar `course_cycle_allowed_evaluation_type` en ciclos actual e historicos para los cursos de prueba.
 

@@ -8,6 +8,7 @@ import { GoogleAuth } from 'google-auth-library';
 
 type DriveFolderLookupResponse = {
   id?: string;
+  name?: string;
   mimeType?: string;
   trashed?: boolean;
 };
@@ -208,6 +209,31 @@ export class DriveScopeProvisioningService {
         `Conflicto al crear carpeta ${folderName} y no fue posible resolver estado final`,
       );
     }
+  }
+
+  async getDriveFolderMetadata(folderId: string): Promise<{
+    id: string;
+    name: string;
+    mimeType: string;
+    trashed: boolean;
+  }> {
+    const normalizedFolderId = String(folderId || '').trim();
+    if (!normalizedFolderId) {
+      throw new InternalServerErrorException('folderId invalido para Drive');
+    }
+
+    const client = await this.getDriveClient();
+    const response = await client.request<DriveFolderLookupResponse>({
+      url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFolderId)}?fields=id,name,mimeType,trashed&supportsAllDrives=true`,
+      method: 'GET',
+    });
+
+    return {
+      id: String(response.data.id || ''),
+      name: String(response.data.name || ''),
+      mimeType: String(response.data.mimeType || ''),
+      trashed: Boolean(response.data.trashed),
+    };
   }
 
   getRootFolderId(): string {

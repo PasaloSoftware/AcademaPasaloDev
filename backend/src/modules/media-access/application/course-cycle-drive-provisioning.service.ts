@@ -29,6 +29,11 @@ type CourseCycleDriveProvisionResult = {
   bankLeafFoldersCreated: number;
 };
 
+type BankLeafFolderResolutionInput = CourseCycleDriveProvisionInput & {
+  evaluationTypeCode: string;
+  evaluationNumber: number;
+};
+
 const BANK_TYPE_FOLDER_LABELS: Record<string, string> = {
   PC: 'Prácticas Calificadas',
   PD: 'Prácticas Dirigidas',
@@ -143,6 +148,42 @@ export class CourseCycleDriveProvisioningService {
       bankFolderId,
       viewerGroupEmail: group.email,
       bankLeafFoldersCreated,
+    };
+  }
+
+  async ensureBankLeafFolder(input: BankLeafFolderResolutionInput): Promise<{
+    scopeFolderId: string;
+    bankFolderId: string;
+    typeFolderId: string;
+    leafFolderId: string;
+  }> {
+    const provisioned = await this.provision(input);
+    const normalizedTypeCode = this.normalizeToken(
+      input.evaluationTypeCode,
+      'evaluationTypeCode',
+    ).toUpperCase();
+    const normalizedNumber = this.normalizePositiveInt(
+      input.evaluationNumber,
+      'evaluationNumber',
+    );
+    const typeFolderLabel =
+      BANK_TYPE_FOLDER_LABELS[normalizedTypeCode] || normalizedTypeCode;
+    const typeFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        provisioned.bankFolderId,
+        typeFolderLabel,
+      );
+    const leafFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        typeFolderId,
+        `${normalizedTypeCode}${normalizedNumber}`,
+      );
+
+    return {
+      scopeFolderId: provisioned.scopeFolderId,
+      bankFolderId: provisioned.bankFolderId,
+      typeFolderId,
+      leafFolderId,
     };
   }
 

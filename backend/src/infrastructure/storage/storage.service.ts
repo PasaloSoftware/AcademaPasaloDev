@@ -247,6 +247,13 @@ export class StorageService implements OnModuleInit {
     ).trim();
     const folderId =
       explicitTargetFolderId || (await this.getDriveObjectsFolderId());
+    this.logger.log({
+      message: 'Iniciando carga de archivo a Google Drive',
+      fileName,
+      mimeType,
+      sizeBytes: String(buffer.byteLength),
+      targetDriveFolderId: folderId,
+    });
 
     const metadata = {
       name: fileName,
@@ -261,24 +268,60 @@ export class StorageService implements OnModuleInit {
     const footer = Buffer.from(`\r\n--${boundary}--`, 'utf8');
     const body = Buffer.concat([header, buffer, footer]);
 
-    const response = await client.request<{
-      id: string;
-      webViewLink?: string;
-      webContentLink?: string;
-    }>({
-      url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink&supportsAllDrives=true',
-      method: 'POST',
-      headers: {
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
-      data: body,
-    });
+    let response: {
+      data: {
+        id: string;
+        webViewLink?: string;
+        webContentLink?: string;
+      };
+    };
+    try {
+      response = await client.request<{
+        id: string;
+        webViewLink?: string;
+        webContentLink?: string;
+      }>({
+        url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink&supportsAllDrives=true',
+        method: 'POST',
+        headers: {
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        data: body,
+      });
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      this.logger.error({
+        message: 'Fallo la carga de archivo a Google Drive',
+        fileName,
+        mimeType,
+        sizeBytes: String(buffer.byteLength),
+        targetDriveFolderId: folderId,
+        status: maybeError.response?.status ?? maybeError.code ?? null,
+        error: maybeError.message || String(error),
+      });
+      throw error;
+    }
 
     if (!response.data.id) {
       throw new InternalServerErrorException(
         'Google Drive no devolvió ID de archivo',
       );
     }
+
+    this.logger.log({
+      message: 'Archivo cargado exitosamente a Google Drive',
+      fileName,
+      mimeType,
+      sizeBytes: String(buffer.byteLength),
+      targetDriveFolderId: folderId,
+      driveFileId: response.data.id,
+      storageUrl:
+        response.data.webContentLink ?? response.data.webViewLink ?? null,
+    });
 
     return {
       storageProvider: STORAGE_PROVIDER_CODES.GDRIVE,

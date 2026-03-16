@@ -455,7 +455,7 @@ describe('MaterialsService', () => {
       );
     });
 
-    it('should deduplicate when resource already exists and avoid physical upload', async () => {
+    it('should reject upload when the same file already exists in the evaluation and avoid physical upload', async () => {
       const file = mockFile();
       catalogRepo.findMaterialStatusByCode.mockResolvedValue({
         id: '1',
@@ -469,10 +469,14 @@ describe('MaterialsService', () => {
         storageUrl: null,
       } as unknown as FileResource);
 
-      await service.uploadMaterial(
-        mockProfessor,
-        { materialFolderId: '1', displayName: 'Doc' },
-        file,
+      await expect(
+        service.uploadMaterial(
+          mockProfessor,
+          { materialFolderId: '1', displayName: 'Doc' },
+          file,
+        ),
+      ).rejects.toThrow(
+        'Ya existe un material con el mismo archivo en esta evaluacion',
       );
 
       expect(storageService.saveFile).not.toHaveBeenCalled();
@@ -519,7 +523,7 @@ describe('MaterialsService', () => {
       );
     });
 
-    it('should recover from concurrent dedup collision on file_resource and clean orphan physical file', async () => {
+    it('should reject upload on concurrent dedup collision and clean orphan physical file', async () => {
       const file = mockFile();
       catalogRepo.findMaterialStatusByCode.mockResolvedValue({
         id: '1',
@@ -555,13 +559,15 @@ describe('MaterialsService', () => {
         return await cb(manager);
       });
 
-      const result = await service.uploadMaterial(
-        mockProfessor,
-        { materialFolderId: '1', displayName: 'Doc' },
-        file,
+      await expect(
+        service.uploadMaterial(
+          mockProfessor,
+          { materialFolderId: '1', displayName: 'Doc' },
+          file,
+        ),
+      ).rejects.toThrow(
+        'Ya existe un material con el mismo archivo en esta evaluacion',
       );
-
-      expect(result).toBeDefined();
       expect(storageService.deleteFile).toHaveBeenCalledWith(
         'collision.pdf',
         'LOCAL',

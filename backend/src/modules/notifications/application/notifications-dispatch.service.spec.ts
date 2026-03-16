@@ -54,7 +54,7 @@ describe('NotificationsDispatchService', () => {
           folderId: 'folder-1',
         },
         {
-          jobId: 'new-material:mat-1',
+          jobId: 'new-material-mat-1',
           removeOnComplete: true,
         },
       );
@@ -99,7 +99,7 @@ describe('NotificationsDispatchService', () => {
           classEventId: 'event-1',
         },
         {
-          jobId: 'class-scheduled:event-1',
+          jobId: 'class-scheduled-event-1',
           removeOnComplete: true,
         },
       );
@@ -135,7 +135,7 @@ describe('NotificationsDispatchService', () => {
           classEventId: 'event-3',
         },
         {
-          jobId: 'class-cancelled:event-3',
+          jobId: 'class-cancelled-event-3',
           removeOnComplete: true,
         },
       );
@@ -171,7 +171,7 @@ describe('NotificationsDispatchService', () => {
           requestId: 'req-1',
         },
         {
-          jobId: 'deletion-approved:req-1',
+          jobId: 'deletion-approved-req-1',
           removeOnComplete: true,
         },
       );
@@ -190,7 +190,7 @@ describe('NotificationsDispatchService', () => {
           adminComment: 'motivo',
         },
         {
-          jobId: 'deletion-rejected:req-2',
+          jobId: 'deletion-rejected-req-2',
           removeOnComplete: true,
         },
       );
@@ -218,7 +218,7 @@ describe('NotificationsDispatchService', () => {
           estimatedFileCount: 3,
         },
         {
-          jobId: 'audit-export-ready:export-job-1',
+          jobId: 'audit-export-ready-export-job-1',
           removeOnComplete: true,
         },
       );
