@@ -699,9 +699,10 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   describe('RECORDING UPLOAD FLOW', () => {
     const createEventForRecording = async (sessionNumber: number) => {
       const slotIndex = sessionNumber - 300;
-      const start = new Date(nextWeek);
-      start.setHours(8 + slotIndex * 2, 0, 0, 0);
-      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const startDate = new Date(tomorrow);
+      startDate.setDate(tomorrow.getDate() + (slotIndex - 1));
+      const startDatetime = formatPeruLocalDatetime(startDate, 18);
+      const endDatetime = formatPeruLocalDatetime(startDate, 19);
       const response = await request(app.getHttpServer())
         .post('/api/v1/class-events')
         .set('Authorization', `Bearer ${professor.token}`)
@@ -710,8 +711,8 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           sessionNumber,
           title: `Clase Grabacion ${sessionNumber}`,
           topic: 'Grabacion',
-          startDatetime: start.toISOString(),
-          endDatetime: end.toISOString(),
+          startDatetime,
+          endDatetime,
           liveMeetingUrl: `https://zoom.us/j/${sessionNumber}`,
         })
         .expect(201);

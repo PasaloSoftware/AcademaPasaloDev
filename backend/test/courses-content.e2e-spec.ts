@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { CoursesService } from '../src/modules/courses/application/courses.service';
 import { RedisCacheService } from '../src/infrastructure/cache/redis-cache.service';
 import { CourseCycleRepository } from '../src/modules/courses/infrastructure/course-cycle.repository';
@@ -10,8 +12,12 @@ import { CourseTypeRepository } from '../src/modules/courses/infrastructure/cour
 import { CycleLevelRepository } from '../src/modules/courses/infrastructure/cycle-level.repository';
 import { CyclesService } from '../src/modules/cycles/application/cycles.service';
 import { MediaAccessMembershipDispatchService } from '../src/modules/media-access/application/media-access-membership-dispatch.service';
-import { DataSource } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { CourseCycleDriveProvisioningService } from '../src/modules/media-access/application/course-cycle-drive-provisioning.service';
+import { StorageService } from '../src/infrastructure/storage/storage.service';
+import { MaterialFolderRepository } from '../src/modules/materials/infrastructure/material-folder.repository';
+import { MaterialRepository } from '../src/modules/materials/infrastructure/material.repository';
+import { FileResourceRepository } from '../src/modules/materials/infrastructure/file-resource.repository';
+import { MaterialCatalogRepository } from '../src/modules/materials/infrastructure/material-catalog.repository';
 
 describe('Courses Content Logic (Integration)', () => {
   let coursesService: CoursesService;
@@ -25,7 +31,7 @@ describe('Courses Content Logic (Integration)', () => {
 
   const mockFullCycle = {
     id: mockCycleId,
-    course: { name: 'Física I', code: 'FIS101' },
+    course: { name: 'Fisica I', code: 'FIS101' },
     academicCycle: {
       code: '2026-1',
       startDate: new Date('2026-01-01'),
@@ -59,8 +65,8 @@ describe('Courses Content Logic (Integration)', () => {
   ];
 
   const mockProfessors = [
-    { id: 'prof-1', firstName: 'Juan', lastName1: 'Pérez' },
-    { id: 'prof-2', firstName: 'María', lastName1: 'García' },
+    { id: 'prof-1', firstName: 'Juan', lastName1: 'Perez' },
+    { id: 'prof-2', firstName: 'Maria', lastName1: 'Garcia' },
   ];
 
   const mockAssignments = [
@@ -130,6 +136,7 @@ describe('Courses Content Logic (Integration)', () => {
           useValue: {
             get: jest.fn().mockResolvedValue(null),
             set: jest.fn().mockResolvedValue(null),
+            addToIndex: jest.fn().mockResolvedValue(null),
           },
         },
         {
@@ -140,6 +147,30 @@ describe('Courses Content Logic (Integration)', () => {
             enqueueGrantForUserCourseCycles: jest.fn(),
             enqueueRevokeForUserCourseCycles: jest.fn(),
           },
+        },
+        {
+          provide: CourseCycleDriveProvisioningService,
+          useValue: {},
+        },
+        {
+          provide: StorageService,
+          useValue: {},
+        },
+        {
+          provide: MaterialFolderRepository,
+          useValue: {},
+        },
+        {
+          provide: MaterialRepository,
+          useValue: {},
+        },
+        {
+          provide: FileResourceRepository,
+          useValue: {},
+        },
+        {
+          provide: MaterialCatalogRepository,
+          useValue: {},
         },
       ],
     }).compile();
@@ -155,6 +186,10 @@ describe('Courses Content Logic (Integration)', () => {
       moduleRef.get<CourseCycleProfessorRepository>(
         CourseCycleProfessorRepository,
       );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('getProfessorsByCourseCycle', () => {
@@ -200,10 +235,10 @@ describe('Courses Content Logic (Integration)', () => {
       const parcial = result.evaluations.find((e) => e.id === 'ev-1');
 
       expect(parcial).toBeDefined();
-      expect(parcial.evaluationTypeCode).toBe('PC');
-      expect(parcial.shortName).toBe('PC1');
-      expect(parcial.fullName).toBe('Practica Calificada 1');
-      expect(parcial.label).toBe('Bloqueado');
+      expect(parcial?.evaluationTypeCode).toBe('PC');
+      expect(parcial?.shortName).toBe('PC1');
+      expect(parcial?.fullName).toBe('Practica Calificada 1');
+      expect(parcial?.label).toBe('Bloqueado');
     });
 
     it('should grant professors full access on assigned course cycle', async () => {
@@ -220,7 +255,7 @@ describe('Courses Content Logic (Integration)', () => {
       expect(parcial?.fullName).toBe('Practica Calificada 1');
       expect(parcial?.label).toBe('Completado');
       expect(finalExam?.shortName).toBe('EX2');
-      expect(finalExam?.label).toBe('PrÃ³ximamente');
+      expect(finalExam?.label).toBe('Próximamente');
       expect(
         courseCycleProfessorRepository.canProfessorReadCourseCycle,
       ).toHaveBeenCalledWith(mockCycleId, mockUserId);
@@ -231,7 +266,7 @@ describe('Courses Content Logic (Integration)', () => {
     });
 
     it('should calculate STATUS based on current time vs access dates', async () => {
-      jest.useFakeTimers().setSystemTime(new Date('2026-05-01'));
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-01T00:00:00.000Z'));
 
       const result = await coursesService.getCourseContent(
         mockCycleId,
@@ -239,29 +274,25 @@ describe('Courses Content Logic (Integration)', () => {
       );
       const finalExam = result.evaluations.find((e) => e.id === 'ev-2');
 
-      expect(finalExam.label).toBe('PrÃ³ximamente');
+      expect(finalExam?.label).toBe('Próximamente');
 
-      jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:00:00'));
-      const resultInProgres = await coursesService.getCourseContent(
+      jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:00:00.000Z'));
+      const resultInProgress = await coursesService.getCourseContent(
         mockCycleId,
         mockUserId,
       );
-      const finalInProgress = resultInProgres.evaluations.find(
+      const finalInProgress = resultInProgress.evaluations.find(
         (e) => e.id === 'ev-2',
       );
-      expect(finalInProgress.label).toBe('En curso');
+      expect(finalInProgress?.label).toBe('En curso');
 
-      jest.useFakeTimers().setSystemTime(new Date('2026-07-01'));
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-01T00:00:00.000Z'));
       const resultExpired = await coursesService.getCourseContent(
         mockCycleId,
         mockUserId,
       );
-      const finalExpired = resultExpired.evaluations.find(
-        (e) => e.id === 'ev-2',
-      );
-      expect(finalExpired.label).toBe('Completado');
-
-      jest.useRealTimers();
+      const finalExpired = resultExpired.evaluations.find((e) => e.id === 'ev-2');
+      expect(finalExpired?.label).toBe('Completado');
     });
 
     it('should use CACHE if available and skip DB calls', async () => {
@@ -278,7 +309,8 @@ describe('Courses Content Logic (Integration)', () => {
     });
 
     it('should throw NotFoundException if cycle does not exist', async () => {
-      (courseCycleRepository.findById as jest.Mock).mockResolvedValue(null);
+      (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(null);
+
       await expect(
         coursesService.getCourseContent('invalid-id', mockUserId),
       ).rejects.toThrow(NotFoundException);

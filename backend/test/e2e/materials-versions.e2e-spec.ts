@@ -43,7 +43,6 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
 
   let folderId: string;
   let materialId: string;
-  let duplicateMaterialId: string;
   let originalFileResourceId: string;
   let restorableMaterialId: string;
   let restorableOriginalFileResourceId: string;
@@ -194,19 +193,15 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       expect(originalFileResourceId).toBeDefined();
     });
 
-    it('uploads duplicate material and reuses same FileResource', async () => {
+    it('rejects duplicate material inside the same evaluation', async () => {
       const buffer = Buffer.from('%PDF-1.4 duplicate');
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .post('/api/v1/materials')
         .set('Authorization', `Bearer ${professor.token}`)
         .attach('file', buffer, 'copy.pdf')
         .field('materialFolderId', folderId)
         .field('displayName', 'Copy')
-        .expect(201);
-
-      const body = res.body as MaterialDataResponse;
-      duplicateMaterialId = body.data.id;
-      expect(body.data.fileResourceId).toBe(originalFileResourceId);
+        .expect(409);
     });
   });
 
@@ -366,7 +361,7 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
         .expect(400);
     });
 
-    it('hard deleting original does not remove shared FileResource', async () => {
+    it('hard deleting archived material with previous versions rolls back to the prior version', async () => {
       const reqRepo = dataSource.getRepository(DeletionRequest);
       const statusRepo = dataSource.getRepository(DeletionRequestStatus);
       const pending = await statusRepo.findOneOrFail({
@@ -403,47 +398,6 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       expect(original).not.toBeNull();
       expect(original?.fileResourceId).toBe(originalFileResourceId);
       expect(original?.fileVersion?.versionNumber).toBe(1);
-
-      const duplicate = await dataSource
-        .getRepository(Material)
-        .findOne({ where: { id: duplicateMaterialId } });
-      expect(duplicate).not.toBeNull();
-
-      const sharedResource = await dataSource
-        .getRepository(FileResource)
-        .findOne({ where: { id: originalFileResourceId } });
-      expect(sharedResource).not.toBeNull();
-    });
-
-    it('hard deleting duplicate keeps shared FileResource while original still references it', async () => {
-      const reqRepo = dataSource.getRepository(DeletionRequest);
-      const statusRepo = dataSource.getRepository(DeletionRequestStatus);
-      const pending = await statusRepo.findOneOrFail({
-        where: { code: 'PENDING' },
-      });
-
-      const req = await reqRepo.save(
-        reqRepo.create({
-          requestedById: professor.user.id,
-          deletionRequestStatusId: pending.id,
-          entityType: 'material',
-          entityId: duplicateMaterialId,
-          reason: 'Archive duplicate',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }),
-      );
-
-      await request(app.getHttpServer())
-        .post(`/api/v1/admin/materials/requests/${req.id}/review`)
-        .set('Authorization', `Bearer ${admin.token}`)
-        .send({ action: 'APPROVE' })
-        .expect(200);
-
-      await request(app.getHttpServer())
-        .delete(`/api/v1/admin/materials/${duplicateMaterialId}/hard-delete`)
-        .set('Authorization', `Bearer ${superAdmin.token}`)
-        .expect(200);
 
       const sharedResource = await dataSource
         .getRepository(FileResource)
