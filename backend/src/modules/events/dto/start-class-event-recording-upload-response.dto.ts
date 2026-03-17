@@ -5,5 +5,4 @@ export class StartClassEventRecordingUploadResponseDto extends ClassEventRecordi
   fileName: string;
   mimeType: string;
   sizeBytes: number;
-  resumableSessionUrl: string;
 }

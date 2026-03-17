@@ -23,7 +23,8 @@ const mockClassEventsQueryService = {
 const mockRecordingUploadsService = {
   startUpload: jest.fn(),
   getUploadStatus: jest.fn(),
-  validateFinalizeContract: jest.fn(),
+  heartbeatUpload: jest.fn(),
+  finalizeUpload: jest.fn(),
 };
 
 describe('ClassEventsController RBAC', () => {
@@ -84,6 +85,16 @@ describe('ClassEventsController RBAC', () => {
     const roles = Reflect.getMetadata(
       'roles',
       controller.finalizeRecordingUpload,
+    );
+    expect(roles).toContain(ROLE_CODES.PROFESSOR);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "heartbeatRecordingUpload" should allow PROFESSOR/ADMIN/SUPER_ADMIN roles', () => {
+    const roles = Reflect.getMetadata(
+      'roles',
+      controller.heartbeatRecordingUpload,
     );
     expect(roles).toContain(ROLE_CODES.PROFESSOR);
     expect(roles).toContain(ROLE_CODES.ADMIN);

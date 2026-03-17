@@ -76,6 +76,20 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async getString(key: string): Promise<string | null> {
+    try {
+      return await this.redisClient.get(key);
+    } catch (error) {
+      this.logger.error({
+        message: 'Error al obtener string de cache',
+        key,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString(),
+      });
+      return null;
+    }
+  }
+
   async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
     try {
       const serializedValue = JSON.stringify(value);

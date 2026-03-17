@@ -20,6 +20,7 @@ import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.
 import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
 import { StartClassEventRecordingUploadDto } from '@modules/events/dto/start-class-event-recording-upload.dto';
 import { FinalizeClassEventRecordingUploadDto } from '@modules/events/dto/finalize-class-event-recording-upload.dto';
+import { HeartbeatClassEventRecordingUploadDto } from '@modules/events/dto/heartbeat-class-event-recording-upload.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -227,19 +228,32 @@ export class ClassEventsController {
     return await this.recordingUploadsService.getUploadStatus(id, user);
   }
 
+  @Post(':id/recording-upload/heartbeat')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Heartbeat de upload de grabacion actualizado exitosamente')
+  async heartbeatRecordingUpload(
+    @Param('id') id: string,
+    @Body() dto: HeartbeatClassEventRecordingUploadDto,
+    @CurrentUser() user: User,
+  ) {
+    return await this.recordingUploadsService.heartbeatUpload(
+      id,
+      user,
+      dto.uploadToken,
+    );
+  }
+
   @Post(':id/recording-upload/finalize')
   @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
-  @ResponseMessage('Contrato de finalize de grabacion validado exitosamente')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Grabacion publicada exitosamente')
   async finalizeRecordingUpload(
     @Param('id') id: string,
     @Body() dto: FinalizeClassEventRecordingUploadDto,
     @CurrentUser() user: User,
   ) {
-    return await this.recordingUploadsService.validateFinalizeContract(
-      id,
-      user,
-      dto.uploadToken,
-    );
+    return await this.recordingUploadsService.finalizeUpload(id, user, dto);
   }
 
   @Patch(':id')

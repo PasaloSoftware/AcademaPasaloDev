@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleAuth } from 'google-auth-library';
@@ -25,6 +26,16 @@ interface GoogleRequestClient {
   request<T = unknown>(request: GoogleRequest): Promise<GoogleResponse<T>>;
 }
 
+export type DriveUploadedFileMetadata = {
+  fileId: string;
+  name: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  parents: string[];
+  webViewLink: string | null;
+  trashed: boolean;
+};
+
 @Injectable()
 export class ClassEventRecordingDriveService {
   private readonly logger = new Logger(ClassEventRecordingDriveService.name);
@@ -39,7 +50,7 @@ export class ClassEventRecordingDriveService {
     fileName: string;
     mimeType: string;
     sizeBytes: number;
-  }): Promise<{ resumableSessionUrl: string }> {
+  }): Promise<{ resumableSessionUrl: string; fileId: string | null }> {
     const client = await this.getDriveClient();
 
     try {
@@ -68,7 +79,7 @@ export class ClassEventRecordingDriveService {
 
       if (!resumableSessionUrl) {
         throw new BadGatewayException(
-          'Google Drive no devolvió una sesión resumable válida',
+          'Google Drive no devolvio una sesion resumable valida',
         );
       }
 
@@ -82,7 +93,17 @@ export class ClassEventRecordingDriveService {
         sizeBytes: String(input.sizeBytes),
       });
 
-      return { resumableSessionUrl };
+      const driveFileId = String(response.data?.id || '').trim() || null;
+      if (!driveFileId) {
+        throw new BadGatewayException(
+          'Google Drive no devolvio un fileId valido para la sesion resumable',
+        );
+      }
+
+      return {
+        resumableSessionUrl,
+        fileId: driveFileId,
+      };
     } catch (error) {
       const maybeError = error as {
         code?: number | string;
@@ -104,7 +125,108 @@ export class ClassEventRecordingDriveService {
         throw error;
       }
       throw new BadGatewayException(
-        'No se pudo crear la sesión resumable en Google Drive',
+        'No se pudo crear la sesion resumable en Google Drive',
+      );
+    }
+  }
+
+  async getUploadedFileMetadata(fileId: string): Promise<DriveUploadedFileMetadata> {
+    const normalizedFileId = String(fileId || '').trim();
+    if (!normalizedFileId) {
+      throw new NotFoundException('FileId de Drive invalido');
+    }
+
+    const client = await this.getDriveClient();
+
+    try {
+      const response = await client.request<{
+        id?: string;
+        name?: string;
+        mimeType?: string;
+        size?: string;
+        parents?: string[];
+        webViewLink?: string;
+        trashed?: boolean;
+      }>({
+        url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?fields=id,name,mimeType,size,parents,webViewLink,trashed&supportsAllDrives=true`,
+        method: 'GET',
+      });
+
+      const file = response.data || {};
+      return {
+        fileId: String(file.id || normalizedFileId).trim(),
+        name: String(file.name || '').trim() || null,
+        mimeType: String(file.mimeType || '').trim() || null,
+        sizeBytes: this.parseSizeBytes(file.size),
+        parents: Array.isArray(file.parents)
+          ? file.parents
+              .map((parentId) => String(parentId || '').trim())
+              .filter(Boolean)
+          : [],
+        webViewLink: String(file.webViewLink || '').trim() || null,
+        trashed: Boolean(file.trashed),
+      };
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      const status = maybeError.response?.status ?? maybeError.code ?? null;
+      this.logger.error({
+        message: 'Fallo la verificacion de metadata del archivo en Google Drive',
+        fileId: normalizedFileId,
+        status,
+        error: maybeError.message || String(error),
+      });
+      if (status === 404) {
+        throw new NotFoundException('Archivo de grabacion no encontrado en Drive');
+      }
+      throw new BadGatewayException(
+        'No se pudo verificar el archivo subido en Google Drive',
+      );
+    }
+  }
+
+  async deleteUploadedFile(fileId: string): Promise<void> {
+    const normalizedFileId = String(fileId || '').trim();
+    if (!normalizedFileId) {
+      return;
+    }
+
+    const client = await this.getDriveClient();
+    try {
+      await client.request({
+        url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true`,
+        method: 'DELETE',
+      });
+      this.logger.log({
+        message: 'Archivo de grabacion eliminado de Google Drive',
+        fileId: normalizedFileId,
+      });
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      const status = maybeError.response?.status ?? maybeError.code ?? null;
+      if (status === 404) {
+        this.logger.warn({
+          message:
+            'Archivo de grabacion no encontrado al intentar cleanup en Drive; se considera eliminado',
+          fileId: normalizedFileId,
+        });
+        return;
+      }
+      this.logger.error({
+        message: 'Fallo el cleanup del archivo de grabacion en Google Drive',
+        fileId: normalizedFileId,
+        status,
+        error: maybeError.message || String(error),
+      });
+      throw new BadGatewayException(
+        'No se pudo eliminar el archivo de grabacion en Google Drive',
       );
     }
   }
@@ -123,7 +245,7 @@ export class ClassEventRecordingDriveService {
     );
     if (!keyFile) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuración',
+        'Falta GOOGLE_APPLICATION_CREDENTIALS en configuracion',
       );
     }
 
@@ -134,8 +256,17 @@ export class ClassEventRecordingDriveService {
     const client = await auth.getClient();
     const requestClient = client as unknown as GoogleRequestClient;
     if (typeof requestClient.request !== 'function') {
-      throw new InternalServerErrorException('Cliente de Google Drive inválido');
+      throw new InternalServerErrorException('Cliente de Google Drive invalido');
     }
     return requestClient;
+  }
+
+  private parseSizeBytes(sizeRaw: string | undefined): number | null {
+    const normalized = String(sizeRaw || '').trim();
+    if (!normalized) {
+      return null;
+    }
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 }

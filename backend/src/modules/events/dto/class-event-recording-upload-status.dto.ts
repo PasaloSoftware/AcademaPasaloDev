@@ -11,6 +11,7 @@ export class ClassEventRecordingUploadStatusDto {
   hasActiveRecordingUpload: boolean;
   activeUploadMode: ClassEventRecordingUploadMode | null;
   uploadExpiresAt: string | null;
+  resumableSessionUrl: string | null;
 
   static idle(input: {
     classEventId: string;
@@ -23,6 +24,7 @@ export class ClassEventRecordingUploadStatusDto {
       hasActiveRecordingUpload: false,
       activeUploadMode: null,
       uploadExpiresAt: null,
+      resumableSessionUrl: null,
     };
   }
 }

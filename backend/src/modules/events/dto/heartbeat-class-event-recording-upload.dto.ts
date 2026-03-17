@@ -1,7 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
-export class FinalizeClassEventRecordingUploadDto {
+export class HeartbeatClassEventRecordingUploadDto {
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim() : value,
   )
@@ -9,12 +9,4 @@ export class FinalizeClassEventRecordingUploadDto {
   @IsNotEmpty()
   @MaxLength(255)
   uploadToken: string;
-
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(128)
-  fileId: string;
 }

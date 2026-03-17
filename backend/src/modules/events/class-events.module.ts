@@ -23,6 +23,7 @@ import { RedisCacheModule } from '@infrastructure/cache/redis-cache.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { MediaAccessModule } from '@modules/media-access/media-access.module';
 import { StorageModule } from '@infrastructure/storage/storage.module';
+import { AuditModule } from '@modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { StorageModule } from '@infrastructure/storage/storage.module';
     NotificationsModule,
     MediaAccessModule,
     StorageModule,
+    AuditModule,
   ],
   providers: [
     ClassEventRepository,
