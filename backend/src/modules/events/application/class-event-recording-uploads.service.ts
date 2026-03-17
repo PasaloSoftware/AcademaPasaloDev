@@ -337,6 +337,7 @@ export class ClassEventRecordingUploadsService {
         'El token de upload no corresponde al intento activo',
       );
     }
+    this.assertUploadActorAllowed(context, user);
 
     const lockRenewed = await this.cacheService.expireIfValueMatches(
       lockKey,
@@ -373,7 +374,12 @@ export class ClassEventRecordingUploadsService {
       hasActiveRecordingUpload: true,
       activeUploadMode: refreshedContext.uploadMode,
       uploadExpiresAt: refreshedContext.expiresAt,
-      resumableSessionUrl: refreshedContext.resumableSessionUrl,
+      resumableSessionUrl: this.canRevealResumableSessionUrl(
+        refreshedContext,
+        user,
+      )
+        ? refreshedContext.resumableSessionUrl
+        : null,
     };
   }
 

@@ -478,6 +478,7 @@ describe('ClassEventRecordingUploadsService', () => {
       recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
     } as any);
     cacheService.get.mockResolvedValueOnce({
+      userId: 'prof-1',
       uploadToken: 'token-activo',
       uploadMode: 'initial',
       expiresAt: '2026-03-16T10:00:00.000Z',
@@ -500,6 +501,28 @@ describe('ClassEventRecordingUploadsService', () => {
     expect(result.resumableSessionUrl).toBe(
       'https://upload-session.example/resumable-1',
     );
+  });
+
+  it('rechaza heartbeat de un profesor autorizado distinto del duenio del intento', async () => {
+    classEventRepository.findById.mockResolvedValue({
+      id: 'event-1',
+      evaluationId: 'eval-1',
+      isCancelled: false,
+      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+    } as any);
+    cacheService.get.mockResolvedValueOnce({
+      userId: 'otro-profesor',
+      uploadToken: 'token-activo',
+      uploadMode: 'initial',
+      expiresAt: '2026-03-16T10:00:00.000Z',
+      resumableSessionUrl: 'https://upload-session.example/resumable-1',
+    } as any);
+
+    await expect(
+      service.heartbeatUpload('event-1', user, 'token-activo'),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(cacheService.expireIfValueMatches).not.toHaveBeenCalled();
   });
 
   it('rechaza status cuando el usuario no tiene permiso de mutacion sobre la evaluacion', async () => {
@@ -544,6 +567,7 @@ describe('ClassEventRecordingUploadsService', () => {
       recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
     } as any);
     cacheService.get.mockResolvedValueOnce({
+      userId: 'prof-1',
       uploadToken: 'token-activo',
       uploadMode: 'initial',
       expiresAt: '2026-03-16T10:00:00.000Z',
