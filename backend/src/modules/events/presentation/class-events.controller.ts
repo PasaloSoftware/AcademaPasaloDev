@@ -12,11 +12,14 @@ import {
 } from '@nestjs/common';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
 import { ClassEventsQueryService } from '@modules/events/application/class-events-query.service';
+import { ClassEventRecordingUploadsService } from '@modules/events/application/class-event-recording-uploads.service';
 import { CreateClassEventDto } from '@modules/events/dto/create-class-event.dto';
 import { UpdateClassEventDto } from '@modules/events/dto/update-class-event.dto';
 import { AssignProfessorDto } from '@modules/events/dto/assign-professor.dto';
 import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.dto';
 import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
+import { StartClassEventRecordingUploadDto } from '@modules/events/dto/start-class-event-recording-upload.dto';
+import { FinalizeClassEventRecordingUploadDto } from '@modules/events/dto/finalize-class-event-recording-upload.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -38,6 +41,7 @@ export class ClassEventsController {
   constructor(
     private readonly classEventsService: ClassEventsService,
     private readonly classEventsQueryService: ClassEventsQueryService,
+    private readonly recordingUploadsService: ClassEventRecordingUploadsService,
   ) {}
 
   private mapEventsToResponse(
@@ -199,6 +203,43 @@ export class ClassEventsController {
     @CurrentUser() user: User,
   ) {
     return await this.classEventsService.getAuthorizedRecordingLink(user, id);
+  }
+
+  @Post(':id/recording-upload/start')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Upload de grabacion iniciado exitosamente')
+  async startRecordingUpload(
+    @Param('id') id: string,
+    @Body() dto: StartClassEventRecordingUploadDto,
+    @CurrentUser() user: User,
+  ) {
+    return await this.recordingUploadsService.startUpload(id, user, dto);
+  }
+
+  @Get(':id/recording-upload/status')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Estado de upload de grabacion obtenido exitosamente')
+  async getRecordingUploadStatus(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
+    return await this.recordingUploadsService.getUploadStatus(id, user);
+  }
+
+  @Post(':id/recording-upload/finalize')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Contrato de finalize de grabacion validado exitosamente')
+  async finalizeRecordingUpload(
+    @Param('id') id: string,
+    @Body() dto: FinalizeClassEventRecordingUploadDto,
+    @CurrentUser() user: User,
+  ) {
+    return await this.recordingUploadsService.validateFinalizeContract(
+      id,
+      user,
+      dto.uploadToken,
+    );
   }
 
   @Patch(':id')

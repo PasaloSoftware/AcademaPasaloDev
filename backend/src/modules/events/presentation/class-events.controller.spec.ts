@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { ClassEventsController } from '@modules/events/presentation/class-events.controller';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
 import { ClassEventsQueryService } from '@modules/events/application/class-events-query.service';
+import { ClassEventRecordingUploadsService } from '@modules/events/application/class-event-recording-uploads.service';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 
 const mockClassEventsService = {
@@ -17,6 +18,12 @@ const mockClassEventsQueryService = {
   getMySchedule: jest.fn(),
   getDiscoveryLayers: jest.fn(),
   getGlobalSessions: jest.fn(),
+};
+
+const mockRecordingUploadsService = {
+  startUpload: jest.fn(),
+  getUploadStatus: jest.fn(),
+  validateFinalizeContract: jest.fn(),
 };
 
 describe('ClassEventsController RBAC', () => {
@@ -34,6 +41,10 @@ describe('ClassEventsController RBAC', () => {
           provide: ClassEventsQueryService,
           useValue: mockClassEventsQueryService,
         },
+        {
+          provide: ClassEventRecordingUploadsService,
+          useValue: mockRecordingUploadsService,
+        },
         Reflector,
       ],
     }).compile();
@@ -47,6 +58,33 @@ describe('ClassEventsController RBAC', () => {
       controller.getAuthorizedRecordingLink,
     );
     expect(roles).toContain(ROLE_CODES.STUDENT);
+    expect(roles).toContain(ROLE_CODES.PROFESSOR);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "startRecordingUpload" should allow PROFESSOR/ADMIN/SUPER_ADMIN roles', () => {
+    const roles = Reflect.getMetadata('roles', controller.startRecordingUpload);
+    expect(roles).toContain(ROLE_CODES.PROFESSOR);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "getRecordingUploadStatus" should allow PROFESSOR/ADMIN/SUPER_ADMIN roles', () => {
+    const roles = Reflect.getMetadata(
+      'roles',
+      controller.getRecordingUploadStatus,
+    );
+    expect(roles).toContain(ROLE_CODES.PROFESSOR);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "finalizeRecordingUpload" should allow PROFESSOR/ADMIN/SUPER_ADMIN roles', () => {
+    const roles = Reflect.getMetadata(
+      'roles',
+      controller.finalizeRecordingUpload,
+    );
     expect(roles).toContain(ROLE_CODES.PROFESSOR);
     expect(roles).toContain(ROLE_CODES.ADMIN);
     expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
