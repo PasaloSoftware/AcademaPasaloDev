@@ -6,16 +6,12 @@ import { CourseTestimony } from '@modules/feedback/domain/course-testimony.entit
 import { FeaturedTestimony } from '@modules/feedback/domain/featured-testimony.entity';
 import { CourseTestimonyRepository } from '@modules/feedback/infrastructure/course-testimony.repository';
 import { FeaturedTestimonyRepository } from '@modules/feedback/infrastructure/featured-testimony.repository';
-import { StorageModule } from '@infrastructure/storage/storage.module';
 import { EnrollmentsModule } from '@modules/enrollments/enrollments.module';
-import { UsersModule } from '@modules/users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([CourseTestimony, FeaturedTestimony]),
-    StorageModule,
     EnrollmentsModule,
-    UsersModule,
   ],
   controllers: [FeedbackController],
   providers: [

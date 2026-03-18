@@ -700,9 +700,9 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     const createEventForRecording = async (sessionNumber: number) => {
       const slotIndex = sessionNumber - 300;
       const startDate = new Date(tomorrow);
-      startDate.setDate(tomorrow.getDate() + (slotIndex - 1));
-      const startDatetime = formatPeruLocalDatetime(startDate, 18);
-      const endDatetime = formatPeruLocalDatetime(startDate, 19);
+      startDate.setDate(tomorrow.getDate() + (slotIndex + 2));
+      const startDatetime = formatPeruLocalDatetime(startDate, 6);
+      const endDatetime = formatPeruLocalDatetime(startDate, 7);
       const response = await request(app.getHttpServer())
         .post('/api/v1/class-events')
         .set('Authorization', `Bearer ${professor.token}`)
@@ -779,9 +779,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       expect(startResponse.body.data.recordingStatus).toBe('PROCESSING');
       expect(startResponse.body.data.activeUploadMode).toBe('initial');
       expect(startResponse.body.data.uploadToken).toBeDefined();
-      expect(startResponse.body.data.resumableSessionUrl).toBe(
-        'https://upload-session.example/resumable-301',
-      );
+      expect(startResponse.body.data.resumableSessionUrl).toBeNull();
 
       const statusResponse = await request(app.getHttpServer())
         .get(`/api/v1/class-events/${classEventId}/recording-upload/status`)
@@ -789,9 +787,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         .expect(200);
 
       expect(statusResponse.body.data.hasActiveRecordingUpload).toBe(true);
-      expect(statusResponse.body.data.resumableSessionUrl).toBe(
-        'https://upload-session.example/resumable-301',
-      );
+      expect(statusResponse.body.data.resumableSessionUrl).toBeNull();
 
       const previousExpiresAt = new Date(
         statusResponse.body.data.uploadExpiresAt,
@@ -1001,6 +997,8 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     it('debe invalidar el cachÃ© del calendario cuando se actualiza un evento', async () => {
       const start = formatDate(yesterday);
       const end = formatDate(nextWeek);
+      const cacheEventDate = new Date(tomorrow);
+      cacheEventDate.setDate(tomorrow.getDate() + 5);
 
       const createRes = await request(app.getHttpServer())
         .post('/api/v1/class-events')
@@ -1010,8 +1008,8 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           sessionNumber: 99,
           title: 'Evento Cache',
           topic: 'Cache',
-          startDatetime: tomorrow.toISOString(),
-          endDatetime: new Date(tomorrow.getTime() + 3600000).toISOString(),
+          startDatetime: formatPeruLocalDatetime(cacheEventDate, 13),
+          endDatetime: formatPeruLocalDatetime(cacheEventDate, 14),
           liveMeetingUrl: 'https://zoom.us/cache',
         })
         .expect(201);
@@ -1100,3 +1098,4 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     });
   });
 });
+

@@ -1,9 +1,7 @@
 import {
   Injectable,
   Logger,
-  BadRequestException,
   NotFoundException,
-  ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import { CreateTestimonyDto } from '@modules/feedback/dto/create-testimony.dto';
@@ -16,8 +14,6 @@ import { FeaturedTestimony } from '@modules/feedback/domain/featured-testimony.e
 import { CourseTestimonyRepository } from '@modules/feedback/infrastructure/course-testimony.repository';
 import { FeaturedTestimonyRepository } from '@modules/feedback/infrastructure/featured-testimony.repository';
 import { EnrollmentRepository } from '@modules/enrollments/infrastructure/enrollment.repository';
-import { StorageService } from '@infrastructure/storage/storage.service';
-import { UsersService } from '@modules/users/application/users.service';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { technicalSettings } from '@config/technical-settings';
 
@@ -31,15 +27,12 @@ export class FeedbackService {
     private readonly testimonyRepo: CourseTestimonyRepository,
     private readonly featuredRepo: FeaturedTestimonyRepository,
     private readonly enrollmentRepo: EnrollmentRepository,
-    private readonly storageService: StorageService,
-    private readonly usersService: UsersService,
     private readonly cacheService: RedisCacheService,
   ) {}
 
   async createTestimony(
     userId: string,
     dto: CreateTestimonyDto,
-    file?: Express.Multer.File,
   ): Promise<CourseTestimony> {
     const enrollment = await this.enrollmentRepo.findActiveByUserAndCourseCycle(
       userId,
@@ -47,51 +40,18 @@ export class FeedbackService {
     );
     if (!enrollment) {
       throw new ForbiddenException(
-        'No puedes opinar sobre un curso en el que no estás matriculado actualmente.',
+        'No puedes opinar sobre un curso en el que no estas matriculado actualmente.',
       );
     }
 
-    const existing = await this.testimonyRepo.findByUserAndCycle(
-      userId,
-      dto.courseCycleId,
-    );
-    if (existing) {
-      throw new ConflictException(
-        'Ya has enviado un testimonio para este ciclo académico.',
-      );
-    }
-
-    let photoUrl: string | null = null;
     const now = new Date();
-
-    if (dto.photoSource === PhotoSource.UPLOADED) {
-      if (!file) {
-        throw new BadRequestException(
-          'Se seleccionó Fuente: Uploaded pero no se adjuntó archivo.',
-        );
-      }
-      const uniqueName = `feedback-${Date.now()}-${file.originalname}`;
-      const targetDriveFolderId =
-        await this.resolveFeedbackDriveTargetFolderId();
-      const storedPhoto = await this.storageService.saveFile(
-        uniqueName,
-        file.buffer,
-        file.mimetype,
-        targetDriveFolderId ? { targetDriveFolderId } : undefined,
-      );
-      photoUrl = storedPhoto.storageUrl ?? storedPhoto.storageKey;
-    } else if (dto.photoSource === PhotoSource.PROFILE) {
-      const user = await this.usersService.findOne(userId);
-      photoUrl = user?.profilePhotoUrl || null;
-    }
-
     const testimony = await this.testimonyRepo.create({
       userId,
       courseCycleId: dto.courseCycleId,
       rating: Number(dto.rating),
       comment: dto.comment,
-      photoSource: dto.photoSource,
-      photoUrl,
+      photoSource: PhotoSource.NONE,
+      photoUrl: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -175,15 +135,5 @@ export class FeedbackService {
   private async invalidatePublicCache(cycleId: string): Promise<void> {
     const key = this.getPublicCacheKey(cycleId);
     await this.cacheService.del(key);
-  }
-
-  private async resolveFeedbackDriveTargetFolderId(): Promise<string | null> {
-    if (!this.storageService.isGoogleDriveStorageEnabled()) {
-      return null;
-    }
-
-    return await this.storageService.getOrCreateDriveFolderUnderRoot(
-      technicalSettings.uploads.feedback.feedbackDriveFolderName,
-    );
   }
 }

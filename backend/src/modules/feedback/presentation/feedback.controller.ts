@@ -4,13 +4,9 @@ import {
   Body,
   Get,
   Param,
-  UploadedFile,
-  UseInterceptors,
   HttpStatus,
   HttpCode,
-  ParseFilePipeBuilder,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { FeedbackService } from '@modules/feedback/application/feedback.service';
 import { CreateTestimonyDto } from '@modules/feedback/dto/create-testimony.dto';
 import { FeatureTestimonyDto } from '@modules/feedback/dto/feature-testimony.dto';
@@ -33,25 +29,10 @@ export class FeedbackController {
   @Post()
   @Auth()
   @Roles(ROLE_CODES.STUDENT)
-  @UseInterceptors(FileInterceptor('photo'))
   @HttpCode(HttpStatus.CREATED)
-  @ResponseMessage('¡Gracias por tu opinión!')
-  async create(
-    @CurrentUser() user: User,
-    @Body() dto: CreateTestimonyDto,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: /(jpg|jpeg|png)$/ })
-        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
-        .build({ fileIsRequired: false }),
-    )
-    photo?: Express.Multer.File,
-  ) {
-    const testimony = await this.feedbackService.createTestimony(
-      user.id,
-      dto,
-      photo,
-    );
+  @ResponseMessage('Gracias por tu opinion!')
+  async create(@CurrentUser() user: User, @Body() dto: CreateTestimonyDto) {
+    const testimony = await this.feedbackService.createTestimony(user.id, dto);
     return plainToInstance(TestimonyResponseDto, testimony, {
       excludeExtraneousValues: true,
     });

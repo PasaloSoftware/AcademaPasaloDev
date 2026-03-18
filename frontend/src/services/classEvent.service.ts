@@ -29,6 +29,38 @@ export interface UpdateClassEventPayload {
   recordingUrl?: string;
 }
 
+export interface StartRecordingUploadPayload {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+export interface RecordingUploadStatus {
+  classEventId: string;
+  recordingStatus: string;
+  hasActiveRecordingUpload: boolean;
+  activeUploadMode: 'initial' | 'replacement' | null;
+  uploadExpiresAt: string | null;
+  resumableSessionUrl: string | null;
+}
+
+export interface StartRecordingUploadResponse extends RecordingUploadStatus {
+  uploadToken: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  driveVideosFolderId: string;
+}
+
+export interface FinalizeRecordingUploadPayload {
+  uploadToken: string;
+  fileId: string;
+}
+
+export interface HeartbeatRecordingUploadPayload {
+  uploadToken: string;
+}
+
 export const classEventService = {
   /**
    * Obtener el horario/calendario del usuario actual (Alumno o Profesor)
@@ -196,6 +228,53 @@ export const classEventService = {
 
   async updateEvent(id: string, payload: UpdateClassEventPayload): Promise<ClassEvent> {
     const response = await apiClient.patch<ClassEvent>(`/class-events/${id}`, payload);
+    return response.data;
+  },
+
+  async startRecordingUpload(
+    id: string,
+    payload: StartRecordingUploadPayload,
+  ): Promise<StartRecordingUploadResponse> {
+    const response = await apiClient.post<StartRecordingUploadResponse>(
+      `/class-events/${id}/recording-upload/start`,
+      payload,
+    );
+    return response.data;
+  },
+
+  async finalizeRecordingUpload(
+    id: string,
+    payload: FinalizeRecordingUploadPayload,
+  ): Promise<ClassEvent> {
+    const response = await apiClient.post<ClassEvent>(
+      `/class-events/${id}/recording-upload/finalize`,
+      payload,
+    );
+    return response.data;
+  },
+
+  async heartbeatRecordingUpload(
+    id: string,
+    payload: HeartbeatRecordingUploadPayload,
+  ): Promise<RecordingUploadStatus> {
+    const response = await apiClient.post<RecordingUploadStatus>(
+      `/class-events/${id}/recording-upload/heartbeat`,
+      payload,
+    );
+    return response.data;
+  },
+
+  async getRecordingUploadStatus(id: string): Promise<RecordingUploadStatus> {
+    const response = await apiClient.get<RecordingUploadStatus>(
+      `/class-events/${id}/recording-upload/status`,
+    );
+    return response.data;
+  },
+
+  async cancelRecordingUpload(id: string): Promise<RecordingUploadStatus> {
+    const response = await apiClient.post<RecordingUploadStatus>(
+      `/class-events/${id}/recording-upload/cancel`,
+    );
     return response.data;
   },
 

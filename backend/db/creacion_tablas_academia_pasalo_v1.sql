@@ -456,15 +456,14 @@ CREATE TABLE course_testimony (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT NOT NULL,
   course_cycle_id BIGINT NOT NULL,
-  rating TINYINT NOT NULL CHECK (rating BETWEEN 0 AND 5),
+  rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment TEXT NOT NULL,
   photo_url VARCHAR(500) NULL,
   photo_source ENUM('profile', 'uploaded', 'none') NOT NULL DEFAULT 'none',
   created_at DATETIME NOT NULL,
   updated_at DATETIME,
   FOREIGN KEY (user_id) REFERENCES user(id),
-  FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
-  CONSTRAINT uq_course_testimony_user_course_cycle UNIQUE (user_id, course_cycle_id)
+  FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id)
 );
 
 CREATE TABLE featured_testimony (

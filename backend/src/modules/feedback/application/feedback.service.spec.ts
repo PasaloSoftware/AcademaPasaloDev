@@ -1,16 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { FeedbackService } from '@modules/feedback/application/feedback.service';
 import { CourseTestimonyRepository } from '@modules/feedback/infrastructure/course-testimony.repository';
 import { FeaturedTestimonyRepository } from '@modules/feedback/infrastructure/featured-testimony.repository';
 import { EnrollmentRepository } from '@modules/enrollments/infrastructure/enrollment.repository';
-import { StorageService } from '@infrastructure/storage/storage.service';
-import { UsersService } from '@modules/users/application/users.service';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import {
   PhotoSource,
@@ -24,7 +17,6 @@ describe('FeedbackService', () => {
   let testimonyRepo: CourseTestimonyRepository;
   let featuredRepo: FeaturedTestimonyRepository;
   let enrollmentRepo: EnrollmentRepository;
-  let storageService: StorageService;
   let cacheService: RedisCacheService;
 
   beforeEach(async () => {
@@ -35,7 +27,6 @@ describe('FeedbackService', () => {
           provide: CourseTestimonyRepository,
           useValue: {
             create: jest.fn(),
-            findByUserAndCycle: jest.fn(),
             findById: jest.fn(),
             findByCycleId: jest.fn(),
           },
@@ -53,20 +44,6 @@ describe('FeedbackService', () => {
           provide: EnrollmentRepository,
           useValue: {
             findActiveByUserAndCourseCycle: jest.fn(),
-          },
-        },
-        {
-          provide: StorageService,
-          useValue: {
-            saveFile: jest.fn(),
-            isGoogleDriveStorageEnabled: jest.fn().mockReturnValue(false),
-            getOrCreateDriveFolderUnderRoot: jest.fn(),
-          },
-        },
-        {
-          provide: UsersService,
-          useValue: {
-            findOne: jest.fn(),
           },
         },
         {
@@ -88,7 +65,6 @@ describe('FeedbackService', () => {
       FeaturedTestimonyRepository,
     );
     enrollmentRepo = module.get<EnrollmentRepository>(EnrollmentRepository);
-    storageService = module.get<StorageService>(StorageService);
     cacheService = module.get<RedisCacheService>(RedisCacheService);
   });
 
@@ -96,15 +72,13 @@ describe('FeedbackService', () => {
     const mockDto = {
       courseCycleId: '100',
       rating: 5,
-      comment: 'Excellent!',
-      photoSource: PhotoSource.NONE,
+      comment: 'Excelente curso',
     };
 
     it('should create testimony successfully if enrolled', async () => {
       jest
         .spyOn(enrollmentRepo, 'findActiveByUserAndCourseCycle')
         .mockResolvedValue({ id: '1' } as Enrollment);
-      jest.spyOn(testimonyRepo, 'findByUserAndCycle').mockResolvedValue(null);
       jest
         .spyOn(testimonyRepo, 'create')
         .mockResolvedValue({ id: 'test1' } as CourseTestimony);
@@ -114,7 +88,16 @@ describe('FeedbackService', () => {
       expect(
         enrollmentRepo.findActiveByUserAndCourseCycle,
       ).toHaveBeenCalledWith('user1', '100');
-      expect(testimonyRepo.create).toHaveBeenCalled();
+      expect(testimonyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user1',
+          courseCycleId: '100',
+          rating: 5,
+          comment: 'Excelente curso',
+          photoSource: PhotoSource.NONE,
+          photoUrl: null,
+        }),
+      );
       expect(result).toBeDefined();
     });
 
@@ -126,57 +109,6 @@ describe('FeedbackService', () => {
       await expect(service.createTestimony('user1', mockDto)).rejects.toThrow(
         ForbiddenException,
       );
-    });
-
-    it('should throw ConflictException if user already has a testimony for this cycle', async () => {
-      jest
-        .spyOn(enrollmentRepo, 'findActiveByUserAndCourseCycle')
-        .mockResolvedValue({ id: '1' } as Enrollment);
-      jest
-        .spyOn(testimonyRepo, 'findByUserAndCycle')
-        .mockResolvedValue({ id: 'existing' } as CourseTestimony);
-
-      await expect(service.createTestimony('user1', mockDto)).rejects.toThrow(
-        ConflictException,
-      );
-    });
-
-    it('should upload photo if source is UPLOADED', async () => {
-      const uploadDto = { ...mockDto, photoSource: PhotoSource.UPLOADED };
-      const mockFile = {
-        originalname: 'pic.jpg',
-        buffer: Buffer.from('img'),
-      } as Express.Multer.File;
-
-      jest
-        .spyOn(enrollmentRepo, 'findActiveByUserAndCourseCycle')
-        .mockResolvedValue({ id: '1' } as Enrollment);
-      jest.spyOn(testimonyRepo, 'findByUserAndCycle').mockResolvedValue(null);
-      jest.spyOn(storageService, 'saveFile').mockResolvedValue({
-        storageProvider: 'LOCAL' as const,
-        storageKey: 'pic.jpg',
-        storageUrl: 'path/to/pic.jpg',
-      });
-      jest.spyOn(testimonyRepo, 'create').mockResolvedValue({
-        id: 'test1',
-        photoUrl: 'path/to/pic.jpg',
-      } as CourseTestimony);
-
-      await service.createTestimony('user1', uploadDto, mockFile);
-
-      expect(storageService.saveFile).toHaveBeenCalled();
-    });
-
-    it('should throw BadRequest if UPLOADED source but no file provided', async () => {
-      const uploadDto = { ...mockDto, photoSource: PhotoSource.UPLOADED };
-      jest
-        .spyOn(enrollmentRepo, 'findActiveByUserAndCourseCycle')
-        .mockResolvedValue({ id: '1' } as Enrollment);
-      jest.spyOn(testimonyRepo, 'findByUserAndCycle').mockResolvedValue(null);
-
-      await expect(
-        service.createTestimony('user1', uploadDto, undefined),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 

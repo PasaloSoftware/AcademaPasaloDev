@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { coursesService } from '@/services/courses.service';
 import { classEventService } from '@/services/classEvent.service';
 import type { CourseCycle } from '@/types/api';
@@ -27,27 +28,242 @@ function UpdateVideoModal({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const [recordingUrl, setRecordingUrl] = useState(event.recordingUrl || '');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [activeUpload, setActiveUpload] = useState<{
+    mode: 'initial' | 'replacement';
+    expiresAt: string | null;
+  } | null>(null);
+  const [canceling, setCanceling] = useState(false);
+  const pendingDriveTokenResolveRef = useRef<((token: string) => void) | null>(null);
+  const pendingDriveTokenRejectRef = useRef<((reason?: unknown) => void) | null>(null);
+
+  const loadUploadStatus = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const status = await classEventService.getRecordingUploadStatus(event.id);
+      if (status.hasActiveRecordingUpload && status.activeUploadMode) {
+        setActiveUpload({
+          mode: status.activeUploadMode,
+          expiresAt: status.uploadExpiresAt,
+        });
+      } else {
+        setActiveUpload(null);
+      }
+    } catch (statusError) {
+      console.warn('[recording-upload] status check failed', statusError);
+      setActiveUpload(null);
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [event.id]);
+
+  useEffect(() => {
+    void loadUploadStatus();
+  }, [loadUploadStatus]);
+
+  const requestDriveAccessToken = useGoogleLogin({
+    flow: 'implicit',
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    onSuccess: (tokenResponse) => {
+      const token = String(tokenResponse.access_token || '').trim();
+      if (!token) {
+        pendingDriveTokenRejectRef.current?.(
+          new Error('Google no devolvio access token para Drive'),
+        );
+      } else {
+        pendingDriveTokenResolveRef.current?.(token);
+      }
+      pendingDriveTokenResolveRef.current = null;
+      pendingDriveTokenRejectRef.current = null;
+    },
+    onError: () => {
+      pendingDriveTokenRejectRef.current?.(
+        new Error('No se pudo obtener autorizacion de Google Drive'),
+      );
+      pendingDriveTokenResolveRef.current = null;
+      pendingDriveTokenRejectRef.current = null;
+    },
+  });
+
+  const getDriveAccessToken = () =>
+    new Promise<string>((resolve, reject) => {
+      pendingDriveTokenResolveRef.current = resolve;
+      pendingDriveTokenRejectRef.current = reject;
+      requestDriveAccessToken();
+    });
+
+  const createBrowserResumableSession = async (input: {
+    accessToken: string;
+    driveVideosFolderId: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+  }) => {
+    const response = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,parents&supportsAllDrives=true',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${input.accessToken}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Upload-Content-Type': input.mimeType,
+          'X-Upload-Content-Length': String(input.sizeBytes),
+        },
+        body: JSON.stringify({
+          name: input.fileName,
+          parents: [input.driveVideosFolderId],
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(
+        `No se pudo crear sesion resumable en Drive (${response.status}) ${body}`.trim(),
+      );
+    }
+
+    const resumableSessionUrl = String(response.headers.get('location') || '').trim();
+    if (!resumableSessionUrl) {
+      throw new Error('Drive no devolvio Location para sesion resumable');
+    }
+    return resumableSessionUrl;
+  };
 
   const handleSave = async () => {
-    if (!recordingUrl.trim()) {
-      setError('Ingresa una URL de grabación válida');
+    if (activeUpload) {
+      setError(
+        'Ya existe una carga activa para este evento. Cancela la carga activa para iniciar una nueva.',
+      );
+      return;
+    }
+    if (!selectedFile) {
+      setError('Selecciona un video para subir');
       return;
     }
 
     setSaving(true);
     setError(null);
+
     try {
-      await classEventService.updateEvent(event.id, { recordingUrl: recordingUrl.trim() });
+      const fileMimeType = selectedFile.type || 'video/mp4';
+
+      console.log('[recording-upload] starting upload', {
+        classEventId: event.id,
+        fileName: selectedFile.name,
+        mimeType: fileMimeType,
+        sizeBytes: selectedFile.size,
+      });
+
+      const startResponse = await classEventService.startRecordingUpload(event.id, {
+        fileName: selectedFile.name,
+        mimeType: fileMimeType,
+        sizeBytes: selectedFile.size,
+      });
+
+      console.log('[recording-upload] start response', startResponse);
+
+      if (!startResponse.driveVideosFolderId) {
+        throw new Error('El backend no devolvio driveVideosFolderId');
+      }
+
+      const driveAccessToken = await getDriveAccessToken();
+
+      const resumableSessionUrl = await createBrowserResumableSession({
+        accessToken: driveAccessToken,
+        driveVideosFolderId: startResponse.driveVideosFolderId,
+        fileName: selectedFile.name,
+        mimeType: fileMimeType,
+        sizeBytes: selectedFile.size,
+      });
+
+      const heartbeatInterval = window.setInterval(() => {
+        void classEventService
+          .heartbeatRecordingUpload(event.id, {
+            uploadToken: startResponse.uploadToken,
+          })
+          .catch((heartbeatError) => {
+            console.warn('[recording-upload] heartbeat failed', heartbeatError);
+          });
+      }, 25_000);
+
+      let uploadResponse: Response;
+      try {
+        uploadResponse = await fetch(resumableSessionUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${driveAccessToken}`,
+            'Content-Type': fileMimeType,
+          },
+          body: selectedFile,
+        });
+      } finally {
+        window.clearInterval(heartbeatInterval);
+      }
+
+      const uploadResponseText = await uploadResponse.text();
+      console.log('[recording-upload] drive upload response', {
+        status: uploadResponse.status,
+        body: uploadResponseText,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Error subiendo archivo a Drive: ${uploadResponse.status}`);
+      }
+
+      const uploadResponseData = uploadResponseText ? JSON.parse(uploadResponseText) : null;
+      const fileId = String(uploadResponseData?.id || '').trim();
+
+      if (!fileId) {
+        throw new Error('Drive no devolvio el fileId final');
+      }
+
+      const finalizeResponse = await classEventService.finalizeRecordingUpload(event.id, {
+        uploadToken: startResponse.uploadToken,
+        fileId,
+      });
+
+      console.log('[recording-upload] finalize response', finalizeResponse);
+
       await onSaved();
       onClose();
     } catch (err) {
-      console.error('Error al actualizar video:', err);
-      setError('Error al actualizar la grabación');
+      console.error('Error al subir video:', err);
+      if (err instanceof Error && err.message.includes('Ya existe una carga activa')) {
+        await loadUploadStatus();
+      }
+      setError(err instanceof Error ? err.message : 'Error al subir la grabacion');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelActiveUpload = async () => {
+    setCanceling(true);
+    setError(null);
+    try {
+      const status = await classEventService.cancelRecordingUpload(event.id);
+      if (status.hasActiveRecordingUpload && status.activeUploadMode) {
+        setActiveUpload({
+          mode: status.activeUploadMode,
+          expiresAt: status.uploadExpiresAt,
+        });
+      } else {
+        setActiveUpload(null);
+      }
+      await onSaved();
+    } catch (cancelError) {
+      console.error('Error cancelando upload activo:', cancelError);
+      setError(
+        cancelError instanceof Error
+          ? cancelError.message
+          : 'No se pudo cancelar la carga activa',
+      );
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -57,7 +273,7 @@ function UpdateVideoModal({
       <div className="relative w-full max-w-lg bg-bg-primary rounded-2xl shadow-xl p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h2 className="text-text-primary text-xl font-semibold leading-6">
-            Actualizar Grabación
+            Actualizar Grabacion
           </h2>
           <button
             onClick={onClose}
@@ -68,19 +284,49 @@ function UpdateVideoModal({
         </div>
 
         <div className="flex flex-col gap-2">
+          {statusLoading && (
+            <span className="text-text-tertiary text-xs leading-3">
+              Verificando estado de carga activa...
+            </span>
+          )}
+          {activeUpload && (
+            <div className="w-full rounded-lg bg-bg-secondary p-3 outline outline-1 outline-stroke-primary">
+              <p className="text-text-primary text-sm leading-4">
+                Ya existe una carga activa ({activeUpload.mode === 'initial' ? 'inicial' : 'reemplazo'}).
+              </p>
+              <p className="text-text-tertiary text-xs leading-3 mt-1">
+                {activeUpload.expiresAt
+                  ? `Expira aproximadamente: ${new Date(activeUpload.expiresAt).toLocaleString()}`
+                  : 'La carga activa sigue bloqueando nuevos intentos.'}
+              </p>
+              <button
+                onClick={handleCancelActiveUpload}
+                disabled={canceling}
+                className="mt-3 px-4 py-2 bg-bg-accent-primary-solid rounded-lg text-text-white text-xs font-medium leading-4 hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {canceling ? 'Cancelando...' : 'Cancelar carga activa'}
+              </button>
+            </div>
+          )}
           <label className="text-text-secondary text-sm font-medium leading-4">
-            URL de la grabación
+            Video de la grabacion
           </label>
           <input
-            type="url"
-            value={recordingUrl}
-            onChange={(e) => setRecordingUrl(e.target.value)}
-            placeholder="https://drive.google.com/..."
+            type="file"
+            accept="video/*"
+            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+            disabled={statusLoading || !!activeUpload || saving}
             className="w-full px-4 py-3 bg-bg-secondary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-sm leading-4 placeholder:text-text-tertiary focus:outline-stroke-accent-primary focus:outline-2 transition-colors"
           />
-          {error && (
-            <span className="text-text-error text-xs leading-3">{error}</span>
-          )}
+          <span className="text-text-tertiary text-xs leading-3">
+            {selectedFile
+              ? `${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`
+              : 'Selecciona un video corto para probar el flujo completo'}
+          </span>
+          <span className="text-text-tertiary text-xs leading-3">
+            No cierres ni recargues esta pestaña mientras la carga este en progreso.
+          </span>
+          {error && <span className="text-text-error text-xs leading-3">{error}</span>}
         </div>
 
         <div className="flex justify-end gap-3">
@@ -92,10 +338,10 @@ function UpdateVideoModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || statusLoading || !!activeUpload}
             className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg text-text-white text-sm font-medium leading-4 hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {saving ? 'Guardando...' : 'Guardar'}
+            {saving ? 'Subiendo...' : 'Subir Video'}
           </button>
         </div>
       </div>
@@ -168,7 +414,7 @@ function EditInfoModal({
       onClose();
     } catch (err) {
       console.error('Error al actualizar evento:', err);
-      setError('Error al actualizar la información');
+      setError('Error al actualizar la informacion');
     } finally {
       setSaving(false);
     }
@@ -180,7 +426,7 @@ function EditInfoModal({
       <div className="relative w-full max-w-lg bg-bg-primary rounded-2xl shadow-xl p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h2 className="text-text-primary text-xl font-semibold leading-6">
-            Editar Información de Clase
+            Editar Informacion de Clase
           </h2>
           <button
             onClick={onClose}
@@ -231,7 +477,7 @@ function EditInfoModal({
 
           <div className="flex flex-col gap-2">
             <label className="text-text-secondary text-sm font-medium leading-4">
-              URL de reunión en vivo
+              URL de reunion en vivo
             </label>
             <input
               type="url"
@@ -242,9 +488,7 @@ function EditInfoModal({
             />
           </div>
 
-          {error && (
-            <span className="text-text-error text-xs leading-3">{error}</span>
-          )}
+          {error && <span className="text-text-error text-xs leading-3">{error}</span>}
         </div>
 
         <div className="flex justify-end gap-3">
@@ -297,7 +541,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       const eval_ = data.evaluations.find((e) => e.id === eId);
       if (eval_) evalShortName = eval_.name || eval_.evaluationType;
     } catch (err) {
-      console.error('Error al cargar datos de evaluación:', err);
+      console.error('Error al cargar datos de evaluacion:', err);
     }
 
     return { courseName, evalShortName };
@@ -307,7 +551,11 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     const isFinished = event.sessionStatus === 'FINALIZADA';
     const isLive = event.sessionStatus === 'EN_CURSO';
     const isScheduled = event.sessionStatus === 'PROGRAMADA';
-    const isLiveSoonLocal = isLive || (isScheduled && (new Date(event.startDatetime).getTime() - Date.now()) <= 60 * 60 * 1000 && (new Date(event.startDatetime).getTime() - Date.now()) > 0);
+    const isLiveSoonLocal =
+      isLive ||
+      (isScheduled &&
+        new Date(event.startDatetime).getTime() - Date.now() <= 60 * 60 * 1000 &&
+        new Date(event.startDatetime).getTime() - Date.now() > 0);
 
     const renderPrimaryButton = () => {
       if (isFinished) {
@@ -343,7 +591,9 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
               className={event.liveMeetingUrl ? 'text-icon-white' : 'text-icon-disabled'}
               variant="rounded"
             />
-            <span className={`text-sm font-medium leading-4 ${event.liveMeetingUrl ? 'text-text-white' : 'text-text-disabled'}`}>
+            <span
+              className={`text-sm font-medium leading-4 ${event.liveMeetingUrl ? 'text-text-white' : 'text-text-disabled'}`}
+            >
               Unirme a la Clase
             </span>
           </button>
