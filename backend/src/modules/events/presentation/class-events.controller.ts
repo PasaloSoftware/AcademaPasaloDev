@@ -256,6 +256,17 @@ export class ClassEventsController {
     return await this.recordingUploadsService.finalizeUpload(id, user, dto);
   }
 
+  @Post(':id/recording-upload/cancel')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Intento de upload de grabacion cancelado exitosamente')
+  async cancelRecordingUpload(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
+    return await this.recordingUploadsService.cancelUpload(id, user);
+  }
+
   @Patch(':id')
   @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Evento actualizado exitosamente')

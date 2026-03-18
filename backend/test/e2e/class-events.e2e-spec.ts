@@ -841,9 +841,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         [professor.user.id],
       );
       expect(
-        auditRows.some(
-          (row) => row.code === 'CLASS_RECORDING_PUBLISHED',
-        ),
+        auditRows.some((row) => row.code === 'CLASS_RECORDING_PUBLISHED'),
       ).toBe(true);
     });
 

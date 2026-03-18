@@ -41,7 +41,11 @@ describe('ClassEventRecordingDriveService', () => {
     const service = new ClassEventRecordingDriveService(configService);
     const mockClient = {
       request: jest.fn().mockResolvedValue({
-        data: { id: 'drive-file-1', name: 'clase-1.mp4', parents: ['videos-1'] },
+        data: {
+          id: 'drive-file-1',
+          name: 'clase-1.mp4',
+          parents: ['videos-1'],
+        },
         headers: { location: 'https://upload-session.example/resumable-1' },
       }),
     };
@@ -182,7 +186,10 @@ describe('ClassEventRecordingDriveService', () => {
     const service = new ClassEventRecordingDriveService(configService);
     const mockClient = {
       request: jest.fn().mockRejectedValue({
-        response: { status: 404, data: { error: { message: 'File not found' } } },
+        response: {
+          status: 404,
+          data: { error: { message: 'File not found' } },
+        },
         message: 'Request failed with status code 404',
       }),
     };
@@ -231,7 +238,9 @@ describe('ClassEventRecordingDriveService', () => {
     };
     googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
 
-    await expect(service.deleteUploadedFile('drive-file-1')).resolves.toBeUndefined();
+    await expect(
+      service.deleteUploadedFile('drive-file-1'),
+    ).resolves.toBeUndefined();
   });
 
   it('falla si Drive no devuelve location de sesion resumable', async () => {
@@ -258,5 +267,4 @@ describe('ClassEventRecordingDriveService', () => {
       }),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
-
 });

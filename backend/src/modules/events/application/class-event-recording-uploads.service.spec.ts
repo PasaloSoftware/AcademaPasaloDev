@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ClassEventRecordingUploadsService } from '@modules/events/application/class-event-recording-uploads.service';
 import { ClassEventRepository } from '@modules/events/infrastructure/class-event.repository';
@@ -16,9 +13,7 @@ import { ClassEventsCacheService } from '@modules/events/application/class-event
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
 import { AuditService } from '@modules/audit/application/audit.service';
 import { AUDIT_ACTION_CODES } from '@modules/audit/interfaces/audit.constants';
-import {
-  CLASS_EVENT_RECORDING_STATUS_CODES,
-} from '@modules/events/domain/class-event.constants';
+import { CLASS_EVENT_RECORDING_STATUS_CODES } from '@modules/events/domain/class-event.constants';
 
 describe('ClassEventRecordingUploadsService', () => {
   let service: ClassEventRecordingUploadsService;
@@ -35,7 +30,10 @@ describe('ClassEventRecordingUploadsService', () => {
   const user = { id: 'prof-1', activeRole: 'PROFESSOR' } as any;
   const evaluation = {
     id: 'eval-1',
-    courseCycle: { academicCycleId: 'cycle-1', course: { courseTypeId: 'ct-1' } },
+    courseCycle: {
+      academicCycleId: 'cycle-1',
+      course: { courseTypeId: 'ct-1' },
+    },
   } as any;
   let logSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
@@ -47,8 +45,9 @@ describe('ClassEventRecordingUploadsService', () => {
         {
           provide: DataSource,
           useValue: {
-            transaction: jest.fn(async (work: (manager: unknown) => Promise<unknown>) =>
-              await work({}),
+            transaction: jest.fn(
+              async (work: (manager: unknown) => Promise<unknown>) =>
+                await work({}),
             ),
           },
         },
@@ -69,7 +68,9 @@ describe('ClassEventRecordingUploadsService', () => {
           provide: ClassEventsPermissionService,
           useValue: {
             isAdminUser: jest.fn().mockReturnValue(false),
-            assertMutationAllowedForEvaluation: jest.fn().mockResolvedValue(undefined),
+            assertMutationAllowedForEvaluation: jest
+              .fn()
+              .mockResolvedValue(undefined),
             checkUserAuthorizationForUser: jest.fn().mockResolvedValue(true),
           },
         },
@@ -104,13 +105,14 @@ describe('ClassEventRecordingUploadsService', () => {
           provide: ClassEventRecordingStatusRepository,
           useValue: {
             findByCode: jest.fn().mockImplementation(async (code: string) => ({
-              id: {
-                [CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE]:
-                  'status-not-available',
-                [CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING]:
-                  'status-processing',
-                [CLASS_EVENT_RECORDING_STATUS_CODES.READY]: 'status-ready',
-              }[code] || 'status-generic',
+              id:
+                {
+                  [CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE]:
+                    'status-not-available',
+                  [CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING]:
+                    'status-processing',
+                  [CLASS_EVENT_RECORDING_STATUS_CODES.READY]: 'status-ready',
+                }[code] || 'status-generic',
               code,
             })),
           },
@@ -129,7 +131,9 @@ describe('ClassEventRecordingUploadsService', () => {
         {
           provide: NotificationsDispatchService,
           useValue: {
-            dispatchClassRecordingAvailable: jest.fn().mockResolvedValue(undefined),
+            dispatchClassRecordingAvailable: jest
+              .fn()
+              .mockResolvedValue(undefined),
           },
         },
         {
@@ -172,13 +176,17 @@ describe('ClassEventRecordingUploadsService', () => {
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+        },
       } as any)
       .mockResolvedValueOnce({
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING,
+        },
       } as any);
 
     const result = await service.startUpload('event-1', user, {
@@ -195,9 +203,8 @@ describe('ClassEventRecordingUploadsService', () => {
       CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING,
     );
     expect(result.activeUploadMode).toBe('initial');
-    expect(result.resumableSessionUrl).toBe(
-      'https://upload-session.example/resumable-1',
-    );
+    expect(result.resumableSessionUrl).toBeNull();
+    expect(result.driveVideosFolderId).toBe('videos-folder-1');
   });
 
   it('mantiene READY durante reemplazo', async () => {
@@ -223,11 +230,12 @@ describe('ClassEventRecordingUploadsService', () => {
     });
 
     expect(classEventRepository.update).not.toHaveBeenCalled();
-    expect(result.recordingStatus).toBe(CLASS_EVENT_RECORDING_STATUS_CODES.READY);
-    expect(result.activeUploadMode).toBe('replacement');
-    expect(result.resumableSessionUrl).toBe(
-      'https://upload-session.example/resumable-1',
+    expect(result.recordingStatus).toBe(
+      CLASS_EVENT_RECORDING_STATUS_CODES.READY,
     );
+    expect(result.activeUploadMode).toBe('replacement');
+    expect(result.resumableSessionUrl).toBeNull();
+    expect(result.driveVideosFolderId).toBe('videos-folder-1');
   });
 
   it('permite upload a profesor habilitado aunque no sea creador del evento', async () => {
@@ -237,14 +245,18 @@ describe('ClassEventRecordingUploadsService', () => {
         evaluationId: 'eval-1',
         isCancelled: false,
         createdBy: 'creador-distinto',
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+        },
       } as any)
       .mockResolvedValueOnce({
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
         createdBy: 'creador-distinto',
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING,
+        },
       } as any);
 
     const result = await service.startUpload('event-1', user, {
@@ -253,23 +265,29 @@ describe('ClassEventRecordingUploadsService', () => {
       sizeBytes: 1024,
     });
 
-    expect(permissionService.assertMutationAllowedForEvaluation).toHaveBeenCalled();
+    expect(
+      permissionService.assertMutationAllowedForEvaluation,
+    ).toHaveBeenCalled();
     expect(result.activeUploadMode).toBe('initial');
   });
 
-  it('crea sesion resumable apuntando a la carpeta de videos resuelta', async () => {
+  it('devuelve driveVideosFolderId resuelto para que el browser cree su sesion', async () => {
     classEventRepository.findById
       .mockResolvedValueOnce({
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+        },
       } as any)
       .mockResolvedValueOnce({
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING,
+        },
       } as any);
 
     await service.startUpload('event-1', user, {
@@ -278,13 +296,9 @@ describe('ClassEventRecordingUploadsService', () => {
       sizeBytes: 1024,
     });
 
-    expect(recordingDriveService.createResumableUploadSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        classEventId: 'event-1',
-        evaluationId: 'eval-1',
-        driveVideosFolderId: 'videos-folder-1',
-      }),
-    );
+    expect(
+      recordingDriveService.createResumableUploadSession,
+    ).not.toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Carpeta de videos resuelta para upload de grabacion',
@@ -293,16 +307,16 @@ describe('ClassEventRecordingUploadsService', () => {
     );
   });
 
-  it('revierte estado inicial y libera lock si falla crear sesion resumable', async () => {
+  it('revierte estado inicial y libera lock si falla persistir contexto en Redis', async () => {
     classEventRepository.findById.mockResolvedValue({
       id: 'event-1',
       evaluationId: 'eval-1',
       isCancelled: false,
-      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+      recordingStatus: {
+        code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+      },
     } as any);
-    recordingDriveService.createResumableUploadSession.mockRejectedValueOnce(
-      new Error('drive failed'),
-    );
+    cacheService.setOrThrow.mockRejectedValueOnce(new Error('redis failed'));
 
     await expect(
       service.startUpload('event-1', user, {
@@ -310,7 +324,7 @@ describe('ClassEventRecordingUploadsService', () => {
         mimeType: 'video/mp4',
         sizeBytes: 1024,
       }),
-    ).rejects.toThrow('drive failed');
+    ).rejects.toThrow('redis failed');
 
     expect(classEventRepository.update).toHaveBeenNthCalledWith(
       1,
@@ -331,7 +345,9 @@ describe('ClassEventRecordingUploadsService', () => {
       id: 'event-1',
       evaluationId: 'eval-1',
       isCancelled: false,
-      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+      recordingStatus: {
+        code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+      },
     } as any);
     cacheService.setIfNotExists.mockResolvedValueOnce(false);
 
@@ -356,7 +372,9 @@ describe('ClassEventRecordingUploadsService', () => {
       id: 'event-1',
       evaluationId: 'eval-1',
       isCancelled: false,
-      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+      recordingStatus: {
+        code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+      },
     } as any);
     driveAccessScopeService.resolveForEvaluation.mockResolvedValueOnce({
       persisted: { driveVideosFolderId: null },
@@ -381,12 +399,13 @@ describe('ClassEventRecordingUploadsService', () => {
 
     const result = await service.getUploadStatus('event-1', user);
 
-    expect(permissionService.assertMutationAllowedForEvaluation).toHaveBeenCalledWith(
-      user,
-      evaluation,
-    );
+    expect(
+      permissionService.assertMutationAllowedForEvaluation,
+    ).toHaveBeenCalledWith(user, evaluation);
     expect(result.hasActiveRecordingUpload).toBe(false);
-    expect(result.recordingStatus).toBe(CLASS_EVENT_RECORDING_STATUS_CODES.READY);
+    expect(result.recordingStatus).toBe(
+      CLASS_EVENT_RECORDING_STATUS_CODES.READY,
+    );
   });
 
   it('devuelve estado activo con resumableSessionUrl cuando existe contexto y lock vigentes', async () => {
@@ -441,13 +460,17 @@ describe('ClassEventRecordingUploadsService', () => {
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING,
+        },
       } as any)
       .mockResolvedValueOnce({
         id: 'event-1',
         evaluationId: 'eval-1',
         isCancelled: false,
-        recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE },
+        recordingStatus: {
+          code: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+        },
       } as any);
     cacheService.get.mockResolvedValueOnce({
       uploadToken: 'token-activo',
@@ -646,7 +669,9 @@ describe('ClassEventRecordingUploadsService', () => {
       fileId: 'drive-file-1',
     });
 
-    expect(permissionService.assertMutationAllowedForEvaluation).toHaveBeenCalled();
+    expect(
+      permissionService.assertMutationAllowedForEvaluation,
+    ).toHaveBeenCalled();
     expect(recordingDriveService.getUploadedFileMetadata).toHaveBeenCalledWith(
       'drive-file-1',
     );
@@ -671,9 +696,9 @@ describe('ClassEventRecordingUploadsService', () => {
       'class-event-recording-upload:lock:event-1',
       'token-activo',
     );
-    expect(notificationsDispatchService.dispatchClassRecordingAvailable).toHaveBeenCalledWith(
-      'event-1',
-    );
+    expect(
+      notificationsDispatchService.dispatchClassRecordingAvailable,
+    ).toHaveBeenCalledWith('event-1');
     expect(logSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Verificacion de archivo en Drive completada exitosamente',
@@ -688,7 +713,9 @@ describe('ClassEventRecordingUploadsService', () => {
       }),
     );
     expect(result.hasActiveRecordingUpload).toBe(false);
-    expect(result.recordingStatus).toBe(CLASS_EVENT_RECORDING_STATUS_CODES.READY);
+    expect(result.recordingStatus).toBe(
+      CLASS_EVENT_RECORDING_STATUS_CODES.READY,
+    );
   });
 
   it('rechaza finalize cuando el archivo no pertenece a la carpeta autorizada e intenta cleanup', async () => {
@@ -735,7 +762,9 @@ describe('ClassEventRecordingUploadsService', () => {
       expect.objectContaining({ recordingStatusId: 'status-not-available' }),
     );
     expect(auditService.logAction).not.toHaveBeenCalled();
-    expect(notificationsDispatchService.dispatchClassRecordingAvailable).not.toHaveBeenCalled();
+    expect(
+      notificationsDispatchService.dispatchClassRecordingAvailable,
+    ).not.toHaveBeenCalled();
   });
 
   it('mantiene READY y conserva grabacion anterior si falla finalize de reemplazo', async () => {
@@ -844,5 +873,103 @@ describe('ClassEventRecordingUploadsService', () => {
         fileId: 'drive-file-1',
       }),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('cancelUpload devuelve estado idle cuando no existe intento activo', async () => {
+    classEventRepository.findById.mockResolvedValue({
+      id: 'event-1',
+      evaluationId: 'eval-1',
+      isCancelled: false,
+      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.READY },
+    } as any);
+    cacheService.get.mockResolvedValueOnce(null);
+
+    const result = await service.cancelUpload('event-1', user);
+
+    expect(result.hasActiveRecordingUpload).toBe(false);
+    expect(result.recordingStatus).toBe(
+      CLASS_EVENT_RECORDING_STATUS_CODES.READY,
+    );
+    expect(cacheService.del).not.toHaveBeenCalledWith(
+      'class-event-recording-upload:context:event-1',
+    );
+  });
+
+  it('cancelUpload limpia lock/contexto y revierte a NOT_AVAILABLE para intento initial', async () => {
+    classEventRepository.findById.mockResolvedValue({
+      id: 'event-1',
+      evaluationId: 'eval-1',
+      isCancelled: false,
+      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+    } as any);
+    cacheService.get.mockResolvedValueOnce({
+      userId: 'prof-1',
+      uploadToken: 'token-activo',
+      uploadMode: 'initial',
+      expiresAt: '2026-03-16T10:00:00.000Z',
+    } as any);
+
+    const result = await service.cancelUpload('event-1', user);
+
+    expect(cacheService.del).toHaveBeenCalledWith(
+      'class-event-recording-upload:context:event-1',
+    );
+    expect(cacheService.delIfValueMatches).toHaveBeenCalledWith(
+      'class-event-recording-upload:lock:event-1',
+      'token-activo',
+    );
+    expect(classEventRepository.update).toHaveBeenCalledWith(
+      'event-1',
+      expect.objectContaining({ recordingStatusId: 'status-not-available' }),
+    );
+    expect(result.hasActiveRecordingUpload).toBe(false);
+    expect(result.recordingStatus).toBe(
+      CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+    );
+  });
+
+  it('cancelUpload mantiene READY en intento replacement', async () => {
+    classEventRepository.findById.mockResolvedValue({
+      id: 'event-1',
+      evaluationId: 'eval-1',
+      isCancelled: false,
+      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.READY },
+    } as any);
+    cacheService.get.mockResolvedValueOnce({
+      userId: 'prof-1',
+      uploadToken: 'token-activo',
+      uploadMode: 'replacement',
+      expiresAt: '2026-03-16T10:00:00.000Z',
+    } as any);
+
+    const result = await service.cancelUpload('event-1', user);
+
+    expect(classEventRepository.update).not.toHaveBeenCalledWith(
+      'event-1',
+      expect.objectContaining({ recordingStatusId: 'status-not-available' }),
+    );
+    expect(result.hasActiveRecordingUpload).toBe(false);
+    expect(result.recordingStatus).toBe(
+      CLASS_EVENT_RECORDING_STATUS_CODES.READY,
+    );
+  });
+
+  it('cancelUpload rechaza a profesor distinto del actor del intento activo', async () => {
+    classEventRepository.findById.mockResolvedValue({
+      id: 'event-1',
+      evaluationId: 'eval-1',
+      isCancelled: false,
+      recordingStatus: { code: CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING },
+    } as any);
+    cacheService.get.mockResolvedValueOnce({
+      userId: 'otro-profesor',
+      uploadToken: 'token-activo',
+      uploadMode: 'initial',
+      expiresAt: '2026-03-16T10:00:00.000Z',
+    } as any);
+
+    await expect(service.cancelUpload('event-1', user)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });

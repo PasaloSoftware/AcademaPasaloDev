@@ -25,6 +25,7 @@ const mockRecordingUploadsService = {
   getUploadStatus: jest.fn(),
   heartbeatUpload: jest.fn(),
   finalizeUpload: jest.fn(),
+  cancelUpload: jest.fn(),
 };
 
 describe('ClassEventsController RBAC', () => {
@@ -95,6 +96,16 @@ describe('ClassEventsController RBAC', () => {
     const roles = Reflect.getMetadata(
       'roles',
       controller.heartbeatRecordingUpload,
+    );
+    expect(roles).toContain(ROLE_CODES.PROFESSOR);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "cancelRecordingUpload" should allow PROFESSOR/ADMIN/SUPER_ADMIN roles', () => {
+    const roles = Reflect.getMetadata(
+      'roles',
+      controller.cancelRecordingUpload,
     );
     expect(roles).toContain(ROLE_CODES.PROFESSOR);
     expect(roles).toContain(ROLE_CODES.ADMIN);

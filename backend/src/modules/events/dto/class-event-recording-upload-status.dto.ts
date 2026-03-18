@@ -20,7 +20,8 @@ export class ClassEventRecordingUploadStatusDto {
     return {
       classEventId: input.classEventId,
       recordingStatus:
-        input.recordingStatus || CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+        input.recordingStatus ||
+        CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
       hasActiveRecordingUpload: false,
       activeUploadMode: null,
       uploadExpiresAt: null,

@@ -135,7 +135,9 @@ export class ClassEventRecordingDriveService {
     }
   }
 
-  async getUploadedFileMetadata(fileId: string): Promise<DriveUploadedFileMetadata> {
+  async getUploadedFileMetadata(
+    fileId: string,
+  ): Promise<DriveUploadedFileMetadata> {
     const normalizedFileId = String(fileId || '').trim();
     if (!normalizedFileId) {
       throw new NotFoundException('FileId de Drive invalido');
@@ -179,13 +181,16 @@ export class ClassEventRecordingDriveService {
       };
       const status = maybeError.response?.status ?? maybeError.code ?? null;
       this.logger.error({
-        message: 'Fallo la verificacion de metadata del archivo en Google Drive',
+        message:
+          'Fallo la verificacion de metadata del archivo en Google Drive',
         fileId: normalizedFileId,
         status,
         error: maybeError.message || String(error),
       });
       if (status === 404) {
-        throw new NotFoundException('Archivo de grabacion no encontrado en Drive');
+        throw new NotFoundException(
+          'Archivo de grabacion no encontrado en Drive',
+        );
       }
       throw new BadGatewayException(
         'No se pudo verificar el archivo subido en Google Drive',
@@ -261,7 +266,9 @@ export class ClassEventRecordingDriveService {
     const client = await auth.getClient();
     const requestClient = client as unknown as GoogleRequestClient;
     if (typeof requestClient.request !== 'function') {
-      throw new InternalServerErrorException('Cliente de Google Drive invalido');
+      throw new InternalServerErrorException(
+        'Cliente de Google Drive invalido',
+      );
     }
     return requestClient;
   }
@@ -289,7 +296,8 @@ export class ClassEventRecordingDriveService {
       typeof headers.get === 'function'
     ) {
       const getHeader = headers.get.bind(headers);
-      const value = getHeader(headerName) ?? getHeader(headerName.toLowerCase());
+      const value =
+        getHeader(headerName) ?? getHeader(headerName.toLowerCase());
       return String(value || '').trim();
     }
 

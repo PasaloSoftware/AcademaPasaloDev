@@ -291,7 +291,9 @@ describe('Courses Content Logic (Integration)', () => {
         mockCycleId,
         mockUserId,
       );
-      const finalExpired = resultExpired.evaluations.find((e) => e.id === 'ev-2');
+      const finalExpired = resultExpired.evaluations.find(
+        (e) => e.id === 'ev-2',
+      );
       expect(finalExpired?.label).toBe('Completado');
     });
 

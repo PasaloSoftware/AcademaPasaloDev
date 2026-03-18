@@ -9,10 +9,15 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
+const trimStringIfNeeded = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  return value;
+};
+
 export class StartClassEventRecordingUploadDto {
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
+  @Transform(({ value }) => trimStringIfNeeded(value as unknown))
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)

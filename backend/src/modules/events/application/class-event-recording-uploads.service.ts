@@ -166,21 +166,12 @@ export class ClassEventRecordingUploadsService {
           classEventId,
         );
         this.logger.log({
-          message: 'Evento marcado en PROCESSING para upload inicial de grabacion',
+          message:
+            'Evento marcado en PROCESSING para upload inicial de grabacion',
           classEventId,
           evaluationId: event.evaluationId,
         });
       }
-
-      const { resumableSessionUrl, fileId: expectedDriveFileId } =
-        await this.recordingDriveService.createResumableUploadSession({
-          classEventId: event.id,
-          evaluationId: event.evaluationId,
-          driveVideosFolderId,
-          fileName: dto.fileName.trim(),
-          mimeType: dto.mimeType,
-          sizeBytes: dto.sizeBytes,
-        });
 
       const startedAt = new Date();
       const expiresAt = new Date(
@@ -191,7 +182,7 @@ export class ClassEventRecordingUploadsService {
         evaluationId: event.evaluationId,
         userId: user.id,
         driveVideosFolderId,
-        expectedDriveFileId,
+        expectedDriveFileId: null,
         fileName: dto.fileName.trim(),
         mimeType: dto.mimeType,
         sizeBytes: dto.sizeBytes,
@@ -199,7 +190,7 @@ export class ClassEventRecordingUploadsService {
         expiresAt: expiresAt.toISOString(),
         uploadToken,
         uploadMode,
-        resumableSessionUrl,
+        resumableSessionUrl: null,
       };
       await this.cacheService.setOrThrow(
         contextKey,
@@ -208,7 +199,8 @@ export class ClassEventRecordingUploadsService {
       );
 
       const freshEvent = await this.classEventRepository.findById(classEventId);
-      const currentRecordingStatus = this.resolveRecordingStatusCode(freshEvent);
+      const currentRecordingStatus =
+        this.resolveRecordingStatusCode(freshEvent);
 
       return {
         classEventId: event.id,
@@ -221,12 +213,11 @@ export class ClassEventRecordingUploadsService {
         fileName: context.fileName,
         mimeType: context.mimeType,
         sizeBytes: context.sizeBytes,
+        driveVideosFolderId: context.driveVideosFolderId,
       };
     } catch (error) {
       const currentStatusCode = this.resolveRecordingStatusCode(event);
-      if (
-        currentStatusCode !== CLASS_EVENT_RECORDING_STATUS_CODES.READY
-      ) {
+      if (currentStatusCode !== CLASS_EVENT_RECORDING_STATUS_CODES.READY) {
         const notAvailableStatusId = await this.getRecordingStatusIdByCode(
           CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
         );
@@ -284,10 +275,13 @@ export class ClassEventRecordingUploadsService {
         uploadMode: context.uploadMode,
       });
       await this.clearAbandonedUploadState(event, context);
-      const refreshedEvent = await this.classEventRepository.findById(classEventId);
+      const refreshedEvent =
+        await this.classEventRepository.findById(classEventId);
       return ClassEventRecordingUploadStatusDto.idle({
         classEventId,
-        recordingStatus: this.resolveRecordingStatusCode(refreshedEvent || event),
+        recordingStatus: this.resolveRecordingStatusCode(
+          refreshedEvent || event,
+        ),
       });
     }
 
@@ -326,7 +320,8 @@ export class ClassEventRecordingUploadsService {
 
     const lockKey = this.getUploadLockKey(classEventId);
     const contextKey = this.getUploadContextKey(classEventId);
-    const context = await this.cacheService.get<RecordingUploadContext>(contextKey);
+    const context =
+      await this.cacheService.get<RecordingUploadContext>(contextKey);
     if (!context) {
       throw new ConflictException(
         'No existe un intento activo de carga para este evento',
@@ -450,7 +445,9 @@ export class ClassEventRecordingUploadsService {
       });
 
       const driveFile =
-        await this.recordingDriveService.getUploadedFileMetadata(normalizedFileId);
+        await this.recordingDriveService.getUploadedFileMetadata(
+          normalizedFileId,
+        );
       verifiedFileExists = true;
       this.assertDriveFileMatchesActiveUpload(context, driveFile);
       this.logger.log({
@@ -499,7 +496,7 @@ export class ClassEventRecordingUploadsService {
           classEventId,
           evaluationId: event.evaluationId,
           fileId: normalizedFileId,
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : '[non-error thrown]',
         });
         throw error;
       }
@@ -529,6 +526,77 @@ export class ClassEventRecordingUploadsService {
     return ClassEventRecordingUploadStatusDto.idle({
       classEventId,
       recordingStatus: CLASS_EVENT_RECORDING_STATUS_CODES.READY,
+    });
+  }
+
+  async cancelUpload(
+    classEventId: string,
+    user: User,
+  ): Promise<ClassEventRecordingUploadStatusDto> {
+    const event = await this.classEventRepository.findById(classEventId);
+    if (!event) {
+      throw new NotFoundException('Evento de clase no encontrado');
+    }
+
+    const evaluation = await this.evaluationRepository.findByIdWithCycle(
+      event.evaluationId,
+    );
+    if (!evaluation) {
+      throw new NotFoundException('Evaluación no encontrada');
+    }
+    await this.permissionService.assertMutationAllowedForEvaluation(
+      user,
+      evaluation,
+    );
+
+    const contextKey = this.getUploadContextKey(classEventId);
+    const lockKey = this.getUploadLockKey(classEventId);
+    const context =
+      await this.cacheService.get<RecordingUploadContext>(contextKey);
+    if (!context) {
+      return ClassEventRecordingUploadStatusDto.idle({
+        classEventId,
+        recordingStatus: this.resolveRecordingStatusCode(event),
+      });
+    }
+
+    this.assertUploadActorAllowed(context, user);
+
+    this.logger.log({
+      message: 'Cancelando intento activo de upload de grabacion',
+      classEventId,
+      evaluationId: event.evaluationId,
+      uploadMode: context.uploadMode,
+      actorUserId: user.id,
+    });
+
+    await this.cacheService.del(contextKey);
+    await this.cacheService.delIfValueMatches(lockKey, context.uploadToken);
+
+    if (
+      context.uploadMode === 'initial' &&
+      this.resolveRecordingStatusCode(event) ===
+        CLASS_EVENT_RECORDING_STATUS_CODES.PROCESSING
+    ) {
+      const notAvailableStatusId = await this.getRecordingStatusIdByCode(
+        CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+      );
+      await this.classEventRepository.update(classEventId, {
+        recordingStatusId: notAvailableStatusId,
+      });
+      await this.cacheModuleService.invalidateForEvaluation(
+        event.evaluationId,
+        classEventId,
+      );
+      return ClassEventRecordingUploadStatusDto.idle({
+        classEventId,
+        recordingStatus: CLASS_EVENT_RECORDING_STATUS_CODES.NOT_AVAILABLE,
+      });
+    }
+
+    return ClassEventRecordingUploadStatusDto.idle({
+      classEventId,
+      recordingStatus: this.resolveRecordingStatusCode(event),
     });
   }
 
@@ -664,7 +732,7 @@ export class ClassEventRecordingUploadsService {
         message: 'Fallo la invalidacion de cache tras publicar grabacion',
         classEventId,
         evaluationId,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : '[non-error thrown]',
       });
     }
 
@@ -676,10 +744,11 @@ export class ClassEventRecordingUploadsService {
       );
     } catch (error) {
       this.logger.error({
-        message: 'Fallo la liberacion del lock de upload tras publicar grabacion',
+        message:
+          'Fallo la liberacion del lock de upload tras publicar grabacion',
         classEventId,
         evaluationId,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : '[non-error thrown]',
       });
     }
   }
@@ -702,7 +771,7 @@ export class ClassEventRecordingUploadsService {
       evaluationId: event.evaluationId,
       uploadMode: context.uploadMode,
       fileId,
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : '[non-error thrown]',
     });
 
     if (context.uploadMode === 'initial') {
@@ -733,7 +802,8 @@ export class ClassEventRecordingUploadsService {
 
     try {
       this.logger.log({
-        message: 'Intentando cleanup automatico del archivo de grabacion no publicado',
+        message:
+          'Intentando cleanup automatico del archivo de grabacion no publicado',
         classEventId: event.id,
         evaluationId: event.evaluationId,
         fileId,
@@ -749,7 +819,7 @@ export class ClassEventRecordingUploadsService {
         error:
           cleanupError instanceof Error
             ? cleanupError.message
-            : String(cleanupError),
+            : '[non-error thrown]',
       });
     }
   }
@@ -800,7 +870,9 @@ export class ClassEventRecordingUploadsService {
     context: RecordingUploadContext,
     user: User,
   ): boolean {
-    return this.permissionService.isAdminUser(user) || context.userId === user.id;
+    return (
+      this.permissionService.isAdminUser(user) || context.userId === user.id
+    );
   }
 
   private async getRecordingStatusIdByCode(code: string): Promise<string> {
