@@ -19,7 +19,9 @@ type GoogleRequest = {
 
 type GoogleResponse<T> = {
   data: T;
-  headers?: Record<string, string | string[] | undefined>;
+  headers?:
+    | Record<string, string | string[] | undefined>
+    | { get?: (name: string) => string | null | undefined };
 };
 
 interface GoogleRequestClient {
@@ -72,14 +74,22 @@ export class ClassEventRecordingDriveService {
         },
       });
 
-      const locationHeader = response.headers?.location;
-      const resumableSessionUrl = Array.isArray(locationHeader)
-        ? String(locationHeader[0] || '').trim()
-        : String(locationHeader || '').trim();
+      const resumableSessionUrl = this.extractHeaderValue(
+        response.headers,
+        'location',
+      );
 
       if (!resumableSessionUrl) {
+        const headerKeys =
+          response.headers &&
+          typeof response.headers === 'object' &&
+          !('get' in response.headers)
+            ? Object.keys(response.headers)
+            : [];
         throw new BadGatewayException(
-          'Google Drive no devolvio una sesion resumable valida',
+          `Google Drive no devolvio una sesion resumable valida${
+            headerKeys.length ? ` (headers: ${headerKeys.join(',')})` : ''
+          }`,
         );
       }
 
@@ -94,11 +104,6 @@ export class ClassEventRecordingDriveService {
       });
 
       const driveFileId = String(response.data?.id || '').trim() || null;
-      if (!driveFileId) {
-        throw new BadGatewayException(
-          'Google Drive no devolvio un fileId valido para la sesion resumable',
-        );
-      }
 
       return {
         resumableSessionUrl,
@@ -268,5 +273,36 @@ export class ClassEventRecordingDriveService {
     }
     const parsed = Number.parseInt(normalized, 10);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private extractHeaderValue(
+    headers: GoogleResponse<unknown>['headers'],
+    headerName: string,
+  ): string {
+    if (!headers) {
+      return '';
+    }
+
+    if (
+      typeof headers === 'object' &&
+      'get' in headers &&
+      typeof headers.get === 'function'
+    ) {
+      const getHeader = headers.get.bind(headers);
+      const value = getHeader(headerName) ?? getHeader(headerName.toLowerCase());
+      return String(value || '').trim();
+    }
+
+    const record = headers as Record<string, string | string[] | undefined>;
+    const directValue =
+      record[headerName] ??
+      record[headerName.toLowerCase()] ??
+      record[headerName.toUpperCase()] ??
+      record.Location ??
+      record.LOCATION;
+
+    return Array.isArray(directValue)
+      ? String(directValue[0] || '').trim()
+      : String(directValue || '').trim();
   }
 }

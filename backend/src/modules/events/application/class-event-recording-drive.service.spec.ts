@@ -76,6 +76,34 @@ describe('ClassEventRecordingDriveService', () => {
     );
   });
 
+  it('acepta sesion resumable aunque Drive no devuelva fileId al iniciar', async () => {
+    const configService = createConfigService({
+      GOOGLE_APPLICATION_CREDENTIALS: 'C:\\drive-service-account.json',
+    });
+    const service = new ClassEventRecordingDriveService(configService);
+    const mockClient = {
+      request: jest.fn().mockResolvedValue({
+        data: {},
+        headers: { Location: 'https://upload-session.example/resumable-2' },
+      }),
+    };
+    googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
+
+    const result = await service.createResumableUploadSession({
+      classEventId: 'event-1',
+      evaluationId: 'eval-1',
+      driveVideosFolderId: 'videos-1',
+      fileName: 'clase-1.mp4',
+      mimeType: 'video/mp4',
+      sizeBytes: 1024,
+    });
+
+    expect(result).toEqual({
+      resumableSessionUrl: 'https://upload-session.example/resumable-2',
+      fileId: null,
+    });
+  });
+
   it('obtiene metadata del archivo subido', async () => {
     const configService = createConfigService({
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\drive-service-account.json',
@@ -231,28 +259,4 @@ describe('ClassEventRecordingDriveService', () => {
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
-  it('falla si Drive no devuelve fileId para la sesion resumable', async () => {
-    const configService = createConfigService({
-      GOOGLE_APPLICATION_CREDENTIALS: 'C:\\drive-service-account.json',
-    });
-    const service = new ClassEventRecordingDriveService(configService);
-    const mockClient = {
-      request: jest.fn().mockResolvedValue({
-        data: { name: 'clase-1.mp4' },
-        headers: { location: 'https://upload-session.example/resumable-1' },
-      }),
-    };
-    googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
-
-    await expect(
-      service.createResumableUploadSession({
-        classEventId: 'event-1',
-        evaluationId: 'eval-1',
-        driveVideosFolderId: 'videos-1',
-        fileName: 'clase-1.mp4',
-        mimeType: 'video/mp4',
-        sizeBytes: 1024,
-      }),
-    ).rejects.toBeInstanceOf(BadGatewayException);
-  });
 });

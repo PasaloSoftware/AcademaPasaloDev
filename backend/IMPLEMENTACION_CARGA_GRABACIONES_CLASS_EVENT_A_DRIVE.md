@@ -16,6 +16,25 @@ Este documento no reemplaza la estrategia. Se apoya en:
 
 1. [`ESTRATEGIA_CARGA_GRABACIONES_CLASS_EVENT_A_DRIVE.md`](D:/trabajos_profesionales/academia_pasalo/repositorio-desarrollo/AcademaPasaloDev/backend/ESTRATEGIA_CARGA_GRABACIONES_CLASS_EVENT_A_DRIVE.md)
 
+## 1.1 Estado de avance real (2026-03-17)
+
+Estado validado en codigo y pruebas:
+
+1. Fase 0 completada.
+2. Fase 1 completada.
+3. Fase 2 completada parcialmente.
+4. Fase 3 completada.
+5. Fase 4 completada.
+6. Fase 5 completada.
+7. Fase 6 completada.
+8. Fase 7 completada en pruebas backend/e2e del flujo actual.
+
+Bloqueo tecnico detectado:
+
+1. El mecanismo de Fase 2 donde backend crea resumable session (service account) y frontend hace `PUT` directo a esa URL fallo por CORS en navegador.
+2. Por tanto, Fase 2 queda funcional en backend pero no valida como arquitectura final browser-direct.
+3. Se requiere fase de refactor de inicio de upload para cerrar la implementacion final.
+
 ## 2. Principios de Implementacion
 
 ## 2.1 Reglas obligatorias
@@ -79,6 +98,12 @@ No debe cubrir:
 3. crear una nueva tabla de uploads sin justificacion posterior aprobada
 4. agregar polling a Drive para detectar disponibilidad de reproduccion del video, porque esa decision fue descartada por diseno
 5. mantener `PATCH recordingUrl` como camino funcional principal equivalente al upload directo
+
+Nota de estado:
+
+1. El backend actual ya cubre la mayor parte del flujo critico.
+2. El trabajo pendiente principal no es rehacer dominio ni finalize.
+3. El pendiente principal es corregir la estrategia tecnica de inicio/subida browser-direct para evitar el bloqueo CORS observado.
 
 ## 4. Diseño Tecnico Base
 
@@ -267,6 +292,12 @@ Informar:
 2. respuesta exacta devuelta al frontend
 3. errores controlados
 4. resultados de pruebas
+
+Estado real de esta fase:
+
+1. implementada y probada del lado backend.
+2. no valida como solucion final para browser-direct con el mecanismo actual de sesion generada por service account y consumida por navegador.
+3. se mantiene util como base tecnica, pero requiere refactor en fase nueva de cierre arquitectonico.
 
 ## 8. Fase 3: Redis, Lock Temporal y Recuperacion
 
@@ -507,6 +538,46 @@ Entregar informe final al desarrollador validador con:
 5. riesgos remanentes
 6. decisiones pendientes si aun existieran
 
+Estado real de esta fase:
+
+1. pruebas unitarias/e2e backend del flujo actual fueron ejecutadas y cerradas.
+2. la validacion real con frontend descubrio bloqueo CORS en el tramo browser -> resumableSessionUrl creada por backend.
+3. esa observacion abre una fase adicional de refactor obligatoria.
+
+## 12.1 Fase 8: Refactor de Upload Browser-Direct Final
+
+Objetivo:
+
+1. cerrar el upload directo a Drive sin pasar binario por backend y sin bloqueo CORS.
+
+Alcance tecnico:
+
+1. mantener lo ya estable de permisos funcionales, lock Redis, heartbeat, finalize, auditoria y notificaciones.
+2. refactorizar `start` y contrato frontend-backend para que el navegador inicie/resuma upload con autorizacion compatible de usuario.
+3. eliminar del camino principal cualquier dependencia de `resumableSessionUrl` creada por backend con service account para consumo directo de browser.
+
+Permisos Drive obligatorios para esta fase:
+
+1. alumnos: solo visibilidad.
+2. profesores habilitados del course_cycle: permiso de escritura en destino de videos para subir/reemplazar.
+3. admins/superadmins: permiso segun politica operativa acordada.
+
+Tareas minimas:
+
+1. definir y documentar contrato final `start/status/heartbeat/finalize` ajustado al nuevo esquema de upload browser-direct.
+2. ajustar provisionamiento/sincronizacion de grupos Drive para soportar profesor-editor en carpeta de videos.
+3. actualizar frontend para flujo final sin hack temporal.
+4. agregar pruebas unitarias/e2e del nuevo inicio de upload.
+5. validar con prueba real de archivo corto y prueba de archivo largo (simulada/controlada).
+
+Criterio de salida:
+
+1. upload directo desde frontend a Drive funcionando sin CORS.
+2. sin doble transferencia de binario por backend.
+3. finalize consistente y seguro.
+4. reemplazo desde `READY` operativo.
+5. locks Redis sin bloqueos huerfanos.
+
 ## 13. Preguntas que deben detener la implementacion si no estan resueltas
 
 Estas dudas no se deben asumir nunca:
@@ -552,6 +623,8 @@ Decisiones ya cerradas para no reabrir innecesariamente:
 9. Con codigo cohesivo, testeable y mantenible.
 10. Con consultas y aclaraciones obligatorias ante cualquier ambiguedad.
 11. Sin decisiones apuradas ni soluciones provisionales que comprometan la calidad final del modulo.
+12. Upload browser-direct validado en entorno real del navegador sin CORS blocker.
+13. Permisos Drive de profesor-editor confirmados para carpeta destino de videos.
 
 ## 15. Entregable Esperado por Fase
 

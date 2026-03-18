@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
@@ -15,6 +20,7 @@ export class EvaluationDriveAccessProvisioningService {
   constructor(
     @InjectRepository(Evaluation)
     private readonly evaluationOrmRepository: Repository<Evaluation>,
+    private readonly configService: ConfigService,
     private readonly namingService: DriveScopeNamingService,
     private readonly workspaceGroupsService: WorkspaceGroupsService,
     private readonly driveScopeProvisioningService: DriveScopeProvisioningService,
@@ -81,6 +87,11 @@ export class EvaluationDriveAccessProvisioningService {
       folders.scopeFolderId,
       names.viewerGroupEmail,
     );
+    await this.ensureProfessorWriterPermissions(
+      String(evaluation.courseCycleId || '').trim(),
+      folders.videosFolderId,
+      folders.documentsFolderId,
+    );
     await this.ensureStaffGroupReaderPermission(folders.scopeFolderId);
 
     const persisted =
@@ -119,9 +130,57 @@ export class EvaluationDriveAccessProvisioningService {
     );
   }
 
+  private async ensureProfessorWriterPermissions(
+    courseCycleId: string,
+    videosFolderId: string,
+    documentsFolderId: string,
+  ): Promise<void> {
+    const normalizedCourseCycleId = String(courseCycleId || '').trim();
+    if (!/^\d+$/.test(normalizedCourseCycleId)) {
+      return;
+    }
+
+    const professorGroupEmail = this.buildCourseCycleProfessorGroupEmail(
+      normalizedCourseCycleId,
+    );
+    const professorGroup = await this.workspaceGroupsService.findOrCreateGroup({
+      email: professorGroupEmail,
+      name: `CC ${normalizedCourseCycleId} Professors`,
+      description: `Grupo de profesores para cc_${normalizedCourseCycleId}`,
+    });
+
+    await this.driveScopeProvisioningService.ensureGroupWriterPermission(
+      videosFolderId,
+      professorGroup.email,
+    );
+    await this.driveScopeProvisioningService.ensureGroupWriterPermission(
+      documentsFolderId,
+      professorGroup.email,
+    );
+  }
+
+  private buildCourseCycleProfessorGroupEmail(courseCycleId: string): string {
+    const workspaceDomain = this.getWorkspaceGroupDomain();
+    return `cc-${courseCycleId}-professors@${workspaceDomain}`;
+  }
+
   private getConfiguredStaffGroupEmail(): string {
     return technicalSettings.mediaAccess.staffViewersGroupEmail
       .trim()
       .toLowerCase();
+  }
+
+  private getWorkspaceGroupDomain(): string {
+    const workspaceDomain = String(
+      this.configService.get<string>('GOOGLE_WORKSPACE_GROUP_DOMAIN', '') || '',
+    )
+      .trim()
+      .toLowerCase();
+    if (!workspaceDomain) {
+      throw new InternalServerErrorException(
+        'Falta GOOGLE_WORKSPACE_GROUP_DOMAIN en configuracion',
+      );
+    }
+    return workspaceDomain;
   }
 }

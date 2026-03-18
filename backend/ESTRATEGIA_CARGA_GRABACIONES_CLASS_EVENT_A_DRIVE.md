@@ -13,6 +13,22 @@ Definir una estrategia profesional, consistente con la arquitectura actual del b
 
 Este documento define la estrategia funcional y tecnica. No es aun el documento de implementacion.
 
+## 1.1 Estado real validado (2026-03-17)
+
+Se valida y deja explicito el estado real despues de las pruebas end-to-end:
+
+1. El backend ya implementa control de concurrencia, estado transitorio en Redis, heartbeat, finalize, auditoria y notificacion.
+2. El flujo probado de `start -> resumableSessionUrl -> PUT desde navegador` usando sesion creada por service account fallo por CORS en browser.
+3. Con ese mecanismo exacto, el upload directo desde frontend no cierra en produccion.
+4. El objetivo arquitectonico se mantiene: no pasar binario por backend como camino final.
+5. El ajuste necesario es de arquitectura de inicio de upload, no de dominio completo.
+
+Decision explicita:
+
+1. No se descarta Google Drive como storage final.
+2. Si se descarta la variante actual de sesion resumable creada por backend y consumida directamente por navegador.
+3. El refactor debe habilitar browser-direct upload con credenciales de usuario y permisos de escritura en carpeta destino.
+
 ## 2. Contexto Actual del Backend
 
 Actualmente el backend ya tiene las piezas base necesarias:
@@ -46,6 +62,21 @@ La arquitectura definida para este caso es:
 3. El backend inicia, autoriza, controla y finaliza el flujo.
 4. El archivo debe quedar en la carpeta `drive_videos_folder_id` de la evaluacion del `class_event`.
 5. Solo despues de validar la existencia y ubicacion real del archivo en Drive se actualiza la base de datos.
+
+## 3.2 Ajuste obligatorio tras validacion real de CORS
+
+La decision anterior se mantiene, pero con una condicion tecnica obligatoria:
+
+1. El navegador no debe consumir directamente una resumable session creada por backend con service account.
+2. El upload browser-direct debe iniciarse con autorizacion compatible con navegador (token OAuth de usuario) y permisos correctos en Drive.
+3. El backend sigue orquestando permisos funcionales, lock Redis, finalize, auditoria y notificacion.
+
+Flujo objetivo corregido:
+
+1. `frontend` inicia intento con backend (`start`) y recibe metadata de control.
+2. `frontend` crea y usa upload resumable contra Drive con token de usuario (no con URL de sesion de service account entregada por backend).
+3. `frontend` envia `fileId` a `finalize`.
+4. backend valida carpeta/archivo y publica en BD.
 
 Se descarta como flujo principal:
 
@@ -440,6 +471,19 @@ Regla explicita de permisos para este flujo:
 2. no debe heredarse automaticamente la restriccion de ownership del creador si el `PATCH` legacy actual la usa
 3. este flujo no debe endurecer accidentalmente la operacion a "solo el creador del evento puede subir o reemplazar la grabacion"
 
+Regla explicita de permisos Drive para upload browser-direct:
+
+1. alumnos: solo visibilidad/lectura.
+2. profesores habilitados del course_cycle: permiso de escritura para subir/reemplazar grabaciones.
+3. admins/superadmins: acceso operativo definido por politica (viewer global o writer segun necesidad operativa).
+4. el backend debe validar permiso funcional del actor aunque Drive tambien valide permisos tecnicos.
+
+Estado actual detectado:
+
+1. hoy la provision de scope de evaluacion aplica grupos viewer (reader) en carpeta scope.
+2. no existe aun en este flujo un grupo profesor-editor para `drive_videos_folder_id`.
+3. ese gap debe cerrarse en el refactor para que el upload browser-direct sea viable.
+
 ## 12.2 Restricciones obligatorias
 
 1. El folder destino no debe venir confiado desde frontend.
@@ -654,6 +698,9 @@ No necesariamente todo esto debe ir en el detalle general del `class_event`, per
 18. `heartbeat` y `finalize` validaran el `uploadToken` o `lockToken` del intento activo.
 19. Si el archivo nuevo ya existe en Drive pero la publicacion final falla, se intentara borrado automatico; si falla, quedara logueado para limpieza posterior.
 20. La autorizacion del upload se evaluara por permiso funcional del profesor del curso/ciclo asociado al `class_event`, sin heredar por defecto una restriccion de "solo creador" del flujo legacy.
+21. El mecanismo `backend crea resumable session con service account y browser hace PUT a esa URL` queda descartado como implementacion final por incompatibilidad CORS observada en pruebas reales.
+22. Se refactorizara la fase de inicio de upload para browser-direct con autorizacion de usuario compatible con navegador.
+23. Para habilitar upload browser-direct, el esquema de grupos/permisos Drive debe incluir capacidad de escritura para profesores habilitados en el destino de videos.
 
 Decision cerrada de reemplazo:
 

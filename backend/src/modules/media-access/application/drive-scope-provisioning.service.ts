@@ -112,6 +112,21 @@ export class DriveScopeProvisioningService {
     folderId: string,
     groupEmail: string,
   ): Promise<void> {
+    await this.ensureGroupPermission(folderId, groupEmail, 'reader');
+  }
+
+  async ensureGroupWriterPermission(
+    folderId: string,
+    groupEmail: string,
+  ): Promise<void> {
+    await this.ensureGroupPermission(folderId, groupEmail, 'writer');
+  }
+
+  private async ensureGroupPermission(
+    folderId: string,
+    groupEmail: string,
+    role: 'reader' | 'writer',
+  ): Promise<void> {
     const normalizedGroupEmail = groupEmail.trim().toLowerCase();
     const permissions = await this.listPermissions(folderId);
     const existingPermission = permissions.find(
@@ -130,7 +145,7 @@ export class DriveScopeProvisioningService {
         method: 'POST',
         data: {
           type: 'group',
-          role: 'reader',
+          role,
           emailAddress: normalizedGroupEmail,
         },
         headers: {
@@ -146,9 +161,10 @@ export class DriveScopeProvisioningService {
     }
 
     this.logger.log({
-      message: 'Permiso reader de grupo aplicado en carpeta Drive',
+      message: 'Permiso de grupo aplicado en carpeta Drive',
       folderId,
       groupEmail: normalizedGroupEmail,
+      role,
     });
   }
 
