@@ -164,9 +164,10 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(200);
 
     expect(res.body.data.courseCycleId).toBe(courseCycleAId);
-    expect(res.body.data.evaluations[0].name).toBe('Práctica Calificada 1');
-    expect(res.body.data.evaluations[0].userStatus.hasAccess).toBe(true);
-    expect(res.body.data.evaluations[0].userStatus.status).toBe('IN_PROGRESS');
+    expect(res.body.data.evaluations[0].evaluationTypeCode).toBe('PC');
+    expect(res.body.data.evaluations[0].shortName).toBe('PC1');
+    expect(res.body.data.evaluations[0].fullName).toContain('Calificada 1');
+    expect(res.body.data.evaluations[0].label).toBe('En curso');
   });
 
   it('assigned professor cannot read course content on non-assigned courseCycle', async () => {
@@ -190,8 +191,7 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(200);
 
     expect(res.body.data.courseCycleId).toBe(courseCycleBId);
-    expect(res.body.data.evaluations[0].userStatus.hasAccess).toBe(true);
-    expect(res.body.data.evaluations[0].userStatus.status).toBe('IN_PROGRESS');
+    expect(res.body.data.evaluations[0].label).toBe('En curso');
   });
 
   it('superadmin can read course content on any courseCycle', async () => {
@@ -201,8 +201,7 @@ describe('E2E: Professor scope access (courses/evaluations)', () => {
       .expect(200);
 
     expect(res.body.data.courseCycleId).toBe(courseCycleBId);
-    expect(res.body.data.evaluations[0].userStatus.hasAccess).toBe(true);
-    expect(res.body.data.evaluations[0].userStatus.status).toBe('IN_PROGRESS');
+    expect(res.body.data.evaluations[0].label).toBe('En curso');
   });
 
   it('professor gets 404 when courseCycle does not exist', async () => {

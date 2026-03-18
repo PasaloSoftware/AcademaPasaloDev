@@ -10,7 +10,10 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from '@modules/courses/application/courses.service';
 import {
   CourseResponseDto,
@@ -32,6 +35,10 @@ import { AssignCourseCycleProfessorDto } from '@modules/courses/dto/assign-cours
 import { UpdateCourseCycleEvaluationStructureDto } from '@modules/courses/dto/update-course-cycle-evaluation-structure.dto';
 import { UpdateCourseCycleIntroVideoDto } from '@modules/courses/dto/update-course-cycle-intro-video.dto';
 import { CreateCourseSetupDto } from '@modules/courses/dto/create-course-setup.dto';
+import {
+  UploadBankDocumentDto,
+  UploadBankDocumentResponseDto,
+} from '@modules/courses/dto/bank-documents.dto';
 import {
   AdminCourseCycleListQueryDto,
   AdminCourseCycleListResponseDto,
@@ -169,6 +176,29 @@ export class CoursesController {
       (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentBankStructureResponseDto, structure, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Post('cycle/:id/bank-documents')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Archivo del banco subido exitosamente')
+  async uploadBankDocument(
+    @Param('id') courseCycleId: string,
+    @CurrentUser() user: User,
+    @Body() dto: UploadBankDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const material = await this.coursesService.uploadBankDocument(
+      user,
+      courseCycleId,
+      dto,
+      file,
+      (user as UserWithSession).activeRole,
+    );
+    return plainToInstance(UploadBankDocumentResponseDto, material, {
       excludeExtraneousValues: true,
     });
   }

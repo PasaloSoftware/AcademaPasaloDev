@@ -143,6 +143,31 @@ export class MaterialRepository {
     });
   }
 
+  async findByFolderIds(
+    folderIds: string[],
+    materialStatusId?: string,
+  ): Promise<Material[]> {
+    if (folderIds.length === 0) {
+      return [];
+    }
+
+    const qb = this.ormRepository
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.fileResource', 'fr')
+      .leftJoinAndSelect('m.fileVersion', 'fv')
+      .where('m.materialFolderId IN (:...folderIds)', { folderIds })
+      .orderBy('m.displayName', 'ASC')
+      .addOrderBy('m.id', 'ASC');
+
+    if (materialStatusId) {
+      qb.andWhere('m.materialStatusId = :materialStatusId', {
+        materialStatusId,
+      });
+    }
+
+    return await qb.getMany();
+  }
+
   async countByFolderIds(
     folderIds: string[],
     materialStatusId: string,

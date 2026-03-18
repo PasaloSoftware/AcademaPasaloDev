@@ -201,6 +201,12 @@ export const technicalSettings = {
     // src/modules/feedback/presentation/feedback.controller.ts
     feedbackPhotoAllowedExtensionsRegex: /(jpg|jpeg|png)$/,
 
+    classEventRecordings: {
+      allowedMimeTypes: ['video/mp4', 'video/x-matroska'],
+      maxSizeBytes: 10 * 1024 * 1024 * 1024, // 10GB
+      uploadContextTtlSeconds: 4 * 60 * 60, // 4h
+    },
+
     materials: {
       // src/modules/materials/application/materials.service.ts
       allowedMimeTypes: [

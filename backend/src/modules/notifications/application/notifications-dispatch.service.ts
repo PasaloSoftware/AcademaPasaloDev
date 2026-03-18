@@ -32,7 +32,7 @@ export class NotificationsDispatchService {
           materialId,
           folderId,
         },
-        `new-material:${materialId}`,
+        `new-material-${materialId}`,
       );
     } catch (error) {
       this.logger.warn({
@@ -73,7 +73,7 @@ export class NotificationsDispatchService {
           type: NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED,
           classEventId,
         },
-        `class-scheduled:${classEventId}`,
+        `class-scheduled-${classEventId}`,
       );
     } catch (error) {
       this.logger.warn({
@@ -108,7 +108,7 @@ export class NotificationsDispatchService {
           type: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
           classEventId,
         },
-        `class-cancelled:${classEventId}`,
+        `class-cancelled-${classEventId}`,
       );
     } catch (error) {
       this.logger.warn({
@@ -143,7 +143,7 @@ export class NotificationsDispatchService {
           type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
           requestId,
         },
-        `deletion-approved:${requestId}`,
+        `deletion-approved-${requestId}`,
       );
     } catch (error) {
       this.logger.warn({
@@ -166,7 +166,7 @@ export class NotificationsDispatchService {
           requestId,
           adminComment,
         },
-        `deletion-rejected:${requestId}`,
+        `deletion-rejected-${requestId}`,
       );
     } catch (error) {
       this.logger.warn({
@@ -195,7 +195,7 @@ export class NotificationsDispatchService {
           artifactExpiresAt,
           estimatedFileCount,
         },
-        `audit-export-ready:${exportJobId}`,
+        `audit-export-ready-${exportJobId}`,
       );
     } catch (error) {
       this.logger.warn({

@@ -7,6 +7,8 @@ import { ClassEventRepository } from '@modules/events/infrastructure/class-event
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { ClassEventsService } from '@modules/events/application/class-events.service';
+import { ClassEventRecordingUploadsService } from '@modules/events/application/class-event-recording-uploads.service';
+import { ClassEventRecordingDriveService } from '@modules/events/application/class-event-recording-drive.service';
 import { ClassEventsPermissionService } from '@modules/events/application/class-events-permission.service';
 import { ClassEventsSchedulingService } from '@modules/events/application/class-events-scheduling.service';
 import { ClassEventsCacheService } from '@modules/events/application/class-events-cache.service';
@@ -21,6 +23,7 @@ import { RedisCacheModule } from '@infrastructure/cache/redis-cache.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { MediaAccessModule } from '@modules/media-access/media-access.module';
 import { StorageModule } from '@infrastructure/storage/storage.module';
+import { AuditModule } from '@modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -38,12 +41,15 @@ import { StorageModule } from '@infrastructure/storage/storage.module';
     NotificationsModule,
     MediaAccessModule,
     StorageModule,
+    AuditModule,
   ],
   providers: [
     ClassEventRepository,
     ClassEventProfessorRepository,
     ClassEventRecordingStatusRepository,
     ClassEventsService,
+    ClassEventRecordingUploadsService,
+    ClassEventRecordingDriveService,
     ClassEventsPermissionService,
     ClassEventsSchedulingService,
     ClassEventsCacheService,
@@ -52,6 +58,8 @@ import { StorageModule } from '@infrastructure/storage/storage.module';
   controllers: [ClassEventsController],
   exports: [
     ClassEventsService,
+    ClassEventRecordingUploadsService,
+    ClassEventRecordingDriveService,
     ClassEventsPermissionService,
     ClassEventsSchedulingService,
     ClassEventsCacheService,
