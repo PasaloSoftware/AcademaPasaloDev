@@ -239,7 +239,6 @@ describe('MediaAccessMembershipProcessor', () => {
     (dataSource.query as jest.Mock).mockResolvedValueOnce([
       { email: 'student@test.com' },
       { email: 'other@test.com' },
-      { email: 'prof@test.com' },
     ]);
     (
       workspaceGroupsService.listGroupMembers as unknown as jest.Mock
@@ -263,10 +262,6 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-20-viewers@academiapasalo.com',
       memberEmail: 'other@test.com',
-    });
-    expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
-      groupEmail: 'ev-20-viewers@academiapasalo.com',
-      memberEmail: 'prof@test.com',
     });
     expect(workspaceGroupsService.removeMemberFromGroup).not.toHaveBeenCalled();
   });
@@ -348,6 +343,47 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
       groupEmail: 'cc-5-viewers@academiapasalo.com',
       memberEmail: 'student@test.com',
+    });
+    expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledWith({
+      groupEmail: 'cc-5-professors@academiapasalo.com',
+      memberEmail: 'student@test.com',
+    });
+  });
+
+  it('otorga membresia de course_cycle en grupo de profesores', async () => {
+    (dataSource.query as jest.Mock)
+      .mockResolvedValueOnce([{ hasAccess: 0 }])
+      .mockResolvedValueOnce([{ hasAccess: 1 }]);
+    (userRepository.findOne as jest.Mock).mockResolvedValue({
+      id: '10',
+      email: 'prof@test.com',
+    } as User);
+    workspaceGroupsService.findOrCreateGroup.mockResolvedValue({
+      id: 'cc-prof-group-id',
+      email: 'cc-5-professors@academiapasalo.com',
+    } as never);
+
+    await processor.process({
+      id: 'job-cc-grant-prof',
+      name: MEDIA_ACCESS_JOB_NAMES.SYNC_COURSE_CYCLE_MEMBERSHIP,
+      data: {
+        action: MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT,
+        userId: '10',
+        courseCycleId: '5',
+        source: 'PROFESSOR_ASSIGNED_COURSE_CYCLE',
+      },
+    } as unknown as Job);
+
+    expect(workspaceGroupsService.findOrCreateGroup).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'cc-5-professors@academiapasalo.com' }),
+    );
+    expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
+      groupEmail: 'cc-5-professors@academiapasalo.com',
+      memberEmail: 'prof@test.com',
+    });
+    expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledWith({
+      groupEmail: 'cc-5-viewers@academiapasalo.com',
+      memberEmail: 'prof@test.com',
     });
   });
 });

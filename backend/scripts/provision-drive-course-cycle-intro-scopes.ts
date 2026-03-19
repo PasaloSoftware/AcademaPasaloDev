@@ -173,8 +173,10 @@ async function findOrCreateFolderUnderParent(
   return createdId;
 }
 
-async function getActiveCourseCycles(dataSource: DataSource): Promise<CourseCycleRow[]> {
-  const rows = (await dataSource.query(
+async function getActiveCourseCycles(
+  dataSource: DataSource,
+): Promise<CourseCycleRow[]> {
+  const rows = await dataSource.query<CourseCycleRow[]>(
     `
       SELECT
         cc.id AS courseCycleId,
@@ -199,7 +201,7 @@ async function getActiveCourseCycles(dataSource: DataSource): Promise<CourseCycl
       )
       ORDER BY cc.id ASC
     `,
-  )) as CourseCycleRow[];
+  );
 
   return rows;
 }
@@ -208,7 +210,7 @@ async function getEligibleViewerEmails(
   dataSource: DataSource,
   courseCycleId: string,
 ): Promise<string[]> {
-  const rows = (await dataSource.query(
+  const rows = await dataSource.query<EmailRow[]>(
     `
       SELECT DISTINCT LOWER(TRIM(source.email)) AS email
       FROM (
@@ -218,24 +220,19 @@ async function getEligibleViewerEmails(
         WHERE e.course_cycle_id = ?
           AND e.cancelled_at IS NULL
           AND u.is_active = 1
-
-        UNION ALL
-
-        SELECT u.email
-        FROM course_cycle_professor ccp
-        INNER JOIN user u ON u.id = ccp.professor_user_id
-        WHERE ccp.course_cycle_id = ?
-          AND ccp.revoked_at IS NULL
-          AND u.is_active = 1
       ) source
       WHERE source.email IS NOT NULL
         AND TRIM(source.email) <> ''
     `,
-    [courseCycleId, courseCycleId],
-  )) as EmailRow[];
+    [courseCycleId],
+  );
 
   return rows
-    .map((row) => String(row.email || '').trim().toLowerCase())
+    .map((row) =>
+      String(row.email || '')
+        .trim()
+        .toLowerCase(),
+    )
     .filter((email) => !!email);
 }
 
@@ -245,7 +242,7 @@ async function ensureStaffGroupMembers(
   staffGroupEmail: string,
   mutationDelayMs: number,
 ): Promise<number> {
-  const rows = (await dataSource.query(
+  const rows = await dataSource.query<EmailRow[]>(
     `
       SELECT DISTINCT LOWER(TRIM(u.email)) AS email
       FROM user u
@@ -258,11 +255,13 @@ async function ensureStaffGroupMembers(
       ORDER BY u.id ASC
     `,
     [ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN],
-  )) as EmailRow[];
+  );
 
   let added = 0;
   for (const row of rows) {
-    const email = String(row.email || '').trim().toLowerCase();
+    const email = String(row.email || '')
+      .trim()
+      .toLowerCase();
     if (!email || !isValidEmail(email)) {
       continue;
     }
@@ -292,7 +291,9 @@ async function main(): Promise<void> {
     const dataSource = app.get(DataSource);
     const configService = app.get(ConfigService);
     const workspaceGroupsService = app.get(WorkspaceGroupsService);
-    const driveScopeProvisioningService = app.get(DriveScopeProvisioningService);
+    const driveScopeProvisioningService = app.get(
+      DriveScopeProvisioningService,
+    );
 
     const workspaceDomain = String(
       configService.get<string>('GOOGLE_WORKSPACE_GROUP_DOMAIN', '') || '',
@@ -413,7 +414,8 @@ async function main(): Promise<void> {
             syncedMembers += 1;
             await sleep(mutationDelayMs);
           } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message =
+              error instanceof Error ? error.message : String(error);
             console.warn(
               `[WARN] no se pudo agregar member ${memberEmail} a ${group.email}: ${message}`,
             );

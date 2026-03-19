@@ -361,72 +361,47 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     const viewerGroupEmail = this.buildCourseCycleViewerGroupEmail(
       normalizedCourseCycleId,
     );
-
-    if (normalizedAction === MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT) {
-      const hasEffectiveAccess = await this.userHasEffectiveCourseCycleAccess(
-        normalizedUserId,
-        normalizedCourseCycleId,
-      );
-      if (!hasEffectiveAccess) {
-        this.logger.log({
-          context: MediaAccessMembershipProcessor.name,
-          message:
-            'Grant course_cycle omitido: el usuario no tiene acceso efectivo vigente',
-          courseCycleId: normalizedCourseCycleId,
-          userId: normalizedUserId,
-          source: normalizedSource,
-        });
-        return;
-      }
-
-      await this.workspaceGroupsService.findOrCreateGroup({
-        email: viewerGroupEmail,
-        name: `CC ${normalizedCourseCycleId} Viewers`,
-        description: `Acceso viewer para contenido de course_cycle ${normalizedCourseCycleId}`,
-      });
-      await this.workspaceGroupsService.ensureMemberInGroup({
-        groupEmail: viewerGroupEmail,
-        memberEmail: normalizedUserEmail,
-      });
-      this.logger.log({
-        context: MediaAccessMembershipProcessor.name,
-        message: 'Membresia Drive de course_cycle otorgada',
-        courseCycleId: normalizedCourseCycleId,
-        userId: normalizedUserId,
-        userEmail: normalizedUserEmail,
-        groupEmail: viewerGroupEmail,
-        source: normalizedSource,
-      });
-      return;
-    }
-
-    const hasEffectiveAccess = await this.userHasEffectiveCourseCycleAccess(
-      normalizedUserId,
+    const professorGroupEmail = this.buildCourseCycleProfessorGroupEmail(
       normalizedCourseCycleId,
     );
-    if (hasEffectiveAccess) {
-      this.logger.log({
-        context: MediaAccessMembershipProcessor.name,
-        message:
-          'Revocacion course_cycle omitida: el usuario mantiene acceso efectivo',
-        courseCycleId: normalizedCourseCycleId,
-        userId: normalizedUserId,
-        source: normalizedSource,
-      });
-      return;
-    }
 
-    await this.workspaceGroupsService.removeMemberFromGroup({
+    const [shouldBeViewerMember, shouldBeProfessorMember] = await Promise.all([
+      this.userHasActiveEnrollmentInCourseCycle(
+        normalizedUserId,
+        normalizedCourseCycleId,
+      ),
+      this.userHasActiveProfessorAssignmentInCourseCycle(
+        normalizedUserId,
+        normalizedCourseCycleId,
+      ),
+    ]);
+
+    await this.syncCourseCycleGroupMembership({
       groupEmail: viewerGroupEmail,
+      groupName: `CC ${normalizedCourseCycleId} Viewers`,
+      groupDescription: `Acceso viewer para contenido de course_cycle ${normalizedCourseCycleId}`,
+      shouldHaveMembership: shouldBeViewerMember,
       memberEmail: normalizedUserEmail,
     });
+    await this.syncCourseCycleGroupMembership({
+      groupEmail: professorGroupEmail,
+      groupName: `CC ${normalizedCourseCycleId} Professors`,
+      groupDescription: `Grupo de profesores para cc_${normalizedCourseCycleId}`,
+      shouldHaveMembership: shouldBeProfessorMember,
+      memberEmail: normalizedUserEmail,
+    });
+
     this.logger.log({
       context: MediaAccessMembershipProcessor.name,
-      message: 'Membresia Drive de course_cycle revocada',
+      message: 'Membresia Drive de course_cycle sincronizada',
+      action: normalizedAction,
       courseCycleId: normalizedCourseCycleId,
       userId: normalizedUserId,
       userEmail: normalizedUserEmail,
-      groupEmail: viewerGroupEmail,
+      viewerGroupEmail,
+      professorGroupEmail,
+      viewerMembership: shouldBeViewerMember,
+      professorMembership: shouldBeProfessorMember,
       source: normalizedSource,
     });
   }
@@ -481,27 +456,10 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       return true;
     }
 
-    const professorResult = await this.dataSource.query<
-      Array<{ hasAccess: number | string }>
-    >(
-      `SELECT EXISTS(
-         SELECT 1
-         FROM evaluation ev
-         INNER JOIN course_cycle_professor ccp
-           ON ccp.course_cycle_id = ev.course_cycle_id
-          AND ccp.revoked_at IS NULL
-         INNER JOIN user u ON u.id = ccp.professor_user_id
-         WHERE ev.id = ?
-           AND ccp.professor_user_id = ?
-           AND u.is_active = 1
-         LIMIT 1
-       ) AS hasAccess`,
-      [evaluationId, userId],
-    );
-    return Number(professorResult[0]?.hasAccess) === 1;
+    return false;
   }
 
-  private async userHasEffectiveCourseCycleAccess(
+  private async userHasActiveEnrollmentInCourseCycle(
     userId: string,
     courseCycleId: string,
   ): Promise<boolean> {
@@ -520,10 +478,13 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
        ) AS hasAccess`,
       [courseCycleId, userId],
     );
-    if (Number(enrollmentResult[0]?.hasAccess) === 1) {
-      return true;
-    }
+    return Number(enrollmentResult[0]?.hasAccess) === 1;
+  }
 
+  private async userHasActiveProfessorAssignmentInCourseCycle(
+    userId: string,
+    courseCycleId: string,
+  ): Promise<boolean> {
     const professorResult = await this.dataSource.query<
       Array<{ hasAccess: number | string }>
     >(
@@ -561,21 +522,9 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
            AND u.email IS NOT NULL
            AND TRIM(u.email) <> ''
 
-         UNION
-
-         SELECT LOWER(TRIM(u.email)) AS email
-         FROM evaluation ev
-         INNER JOIN course_cycle_professor ccp
-           ON ccp.course_cycle_id = ev.course_cycle_id
-          AND ccp.revoked_at IS NULL
-         INNER JOIN user u ON u.id = ccp.professor_user_id
-         WHERE ev.id = ?
-           AND u.is_active = 1
-           AND u.email IS NOT NULL
-           AND TRIM(u.email) <> ''
        ) expected_members
        ORDER BY email ASC`,
-      [evaluationId, evaluationId],
+      [evaluationId],
     );
 
     return result
@@ -626,5 +575,44 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       );
     }
     return `cc-${courseCycleId}-viewers@${domain}`;
+  }
+
+  private buildCourseCycleProfessorGroupEmail(courseCycleId: string): string {
+    const domain = String(
+      this.configService.get<string>('GOOGLE_WORKSPACE_GROUP_DOMAIN', '') || '',
+    )
+      .trim()
+      .toLowerCase();
+    if (!domain) {
+      throw new UnrecoverableError(
+        'Falta GOOGLE_WORKSPACE_GROUP_DOMAIN para sync course_cycle',
+      );
+    }
+    return `cc-${courseCycleId}-professors@${domain}`;
+  }
+
+  private async syncCourseCycleGroupMembership(input: {
+    groupEmail: string;
+    groupName: string;
+    groupDescription: string;
+    shouldHaveMembership: boolean;
+    memberEmail: string;
+  }): Promise<void> {
+    if (input.shouldHaveMembership) {
+      await this.workspaceGroupsService.findOrCreateGroup({
+        email: input.groupEmail,
+        name: input.groupName,
+        description: input.groupDescription,
+      });
+      await this.workspaceGroupsService.ensureMemberInGroup({
+        groupEmail: input.groupEmail,
+        memberEmail: input.memberEmail,
+      });
+      return;
+    }
+    await this.workspaceGroupsService.removeMemberFromGroup({
+      groupEmail: input.groupEmail,
+      memberEmail: input.memberEmail,
+    });
   }
 }

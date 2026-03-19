@@ -15,10 +15,6 @@ type CourseCycleRow = {
   courseCycleId: string | number;
 };
 
-type EvaluationGroupRow = {
-  viewerGroupEmail: string | null;
-};
-
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
@@ -40,7 +36,7 @@ async function main(): Promise<void> {
       throw new Error('Falta GOOGLE_WORKSPACE_GROUP_DOMAIN en .env');
     }
 
-    const userRows = (await dataSource.query(
+    const userRows = await dataSource.query<UserRow[]>(
       `
         SELECT
           u.id AS userId,
@@ -51,7 +47,7 @@ async function main(): Promise<void> {
         LIMIT 1
       `,
       [targetEmail],
-    )) as UserRow[];
+    );
 
     const user = userRows[0];
     if (!user) {
@@ -61,7 +57,7 @@ async function main(): Promise<void> {
       throw new Error(`El usuario ${targetEmail} no esta activo`);
     }
 
-    const courseCycleRows = (await dataSource.query(
+    const courseCycleRows = await dataSource.query<CourseCycleRow[]>(
       `
         SELECT DISTINCT ccp.course_cycle_id AS courseCycleId
         FROM course_cycle_professor ccp
@@ -70,7 +66,7 @@ async function main(): Promise<void> {
         ORDER BY ccp.course_cycle_id ASC
       `,
       [user.userId],
-    )) as CourseCycleRow[];
+    );
 
     const courseCycleIds = courseCycleRows
       .map((row) => String(row.courseCycleId || '').trim())
@@ -85,7 +81,8 @@ async function main(): Promise<void> {
             courseCycleIds: [],
             ensuredGroups: [],
             ensuredCount: 0,
-            message: 'El profesor no tiene asignaciones activas en course_cycle_professor',
+            message:
+              'El profesor no tiene asignaciones activas en course_cycle_professor',
           },
           null,
           2,
@@ -94,32 +91,11 @@ async function main(): Promise<void> {
       return;
     }
 
-    const courseCycleViewerGroups = courseCycleIds.map(
-      (courseCycleId) => `cc-${courseCycleId}-viewers@${workspaceDomain}`,
+    const courseCycleProfessorGroups = courseCycleIds.map(
+      (courseCycleId) => `cc-${courseCycleId}-professors@${workspaceDomain}`,
     );
 
-    const placeholders = courseCycleIds.map(() => '?').join(', ');
-    const evaluationRows = (await dataSource.query(
-      `
-        SELECT DISTINCT LOWER(TRIM(eda.viewer_group_email)) AS viewerGroupEmail
-        FROM evaluation e
-        INNER JOIN evaluation_drive_access eda
-          ON eda.evaluation_id = e.id
-         AND eda.is_active = 1
-        WHERE e.course_cycle_id IN (${placeholders})
-          AND eda.viewer_group_email IS NOT NULL
-          AND TRIM(eda.viewer_group_email) <> ''
-      `,
-      courseCycleIds,
-    )) as EvaluationGroupRow[];
-
-    const evaluationViewerGroups = evaluationRows
-      .map((row) => String(row.viewerGroupEmail || '').trim().toLowerCase())
-      .filter((email) => email.length > 0);
-
-    const allGroups = Array.from(
-      new Set([...courseCycleViewerGroups, ...evaluationViewerGroups]),
-    ).sort();
+    const allGroups = Array.from(new Set(courseCycleProfessorGroups)).sort();
 
     const ensuredGroups: string[] = [];
     const failedGroups: Array<{ groupEmail: string; error: string }> = [];
@@ -144,8 +120,7 @@ async function main(): Promise<void> {
           targetEmail,
           userId: String(user.userId),
           courseCycleIds,
-          courseCycleViewerGroups,
-          evaluationViewerGroupsCount: evaluationViewerGroups.length,
+          courseCycleProfessorGroups,
           allGroupsCount: allGroups.length,
           ensuredCount: ensuredGroups.length,
           failedCount: failedGroups.length,
@@ -167,4 +142,3 @@ async function main(): Promise<void> {
 }
 
 void main();
-

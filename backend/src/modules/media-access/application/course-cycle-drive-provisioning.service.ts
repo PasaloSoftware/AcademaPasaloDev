@@ -202,19 +202,11 @@ export class CourseCycleDriveProvisioningService {
             AND e.cancelled_at IS NULL
             AND u.is_active = 1
 
-          UNION ALL
-
-          SELECT u.email
-          FROM course_cycle_professor ccp
-          INNER JOIN user u ON u.id = ccp.professor_user_id
-          WHERE ccp.course_cycle_id = ?
-            AND ccp.revoked_at IS NULL
-            AND u.is_active = 1
         ) source
         WHERE source.email IS NOT NULL
           AND TRIM(source.email) <> ''
       `,
-      [courseCycleId, courseCycleId],
+      [courseCycleId],
     );
 
     for (const row of rows) {
