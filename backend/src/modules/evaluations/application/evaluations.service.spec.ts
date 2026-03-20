@@ -8,11 +8,14 @@ import { CourseCycleAllowedEvaluationTypeRepository } from '@modules/courses/inf
 import { AcademicCycleRepository } from '@modules/cycles/infrastructure/academic-cycle.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { DataSource } from 'typeorm';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import { ROLE_CODES } from '@common/constants/role-codes.constants';
 
 describe('EvaluationsService create', () => {
   let service: EvaluationsService;
   let evaluationRepository: jest.Mocked<EvaluationRepository>;
   let courseCycleRepository: jest.Mocked<CourseCycleRepository>;
+  let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
   let courseCycleAllowedEvaluationTypeRepository: jest.Mocked<CourseCycleAllowedEvaluationTypeRepository>;
   let academicCycleRepository: jest.Mocked<AcademicCycleRepository>;
   let dataSource: jest.Mocked<DataSource>;
@@ -45,6 +48,7 @@ describe('EvaluationsService create', () => {
           provide: CourseCycleProfessorRepository,
           useValue: {
             isProfessorAssigned: jest.fn(),
+            canProfessorReadCourseCycle: jest.fn(),
           },
         },
         {
@@ -64,7 +68,7 @@ describe('EvaluationsService create', () => {
           useValue: {
             get: jest.fn(),
             set: jest.fn(),
-            invalidateGroup: jest.fn(),
+            invalidateIndex: jest.fn(),
           },
         },
       ],
@@ -73,6 +77,7 @@ describe('EvaluationsService create', () => {
     service = module.get(EvaluationsService);
     evaluationRepository = module.get(EvaluationRepository);
     courseCycleRepository = module.get(CourseCycleRepository);
+    courseCycleProfessorRepository = module.get(CourseCycleProfessorRepository);
     dataSource = module.get(DataSource);
     courseCycleAllowedEvaluationTypeRepository = module.get(
       CourseCycleAllowedEvaluationTypeRepository,
@@ -120,7 +125,7 @@ describe('EvaluationsService create', () => {
       }),
       expect.anything(),
     );
-    expect(cacheService.invalidateGroup).toHaveBeenCalled();
+    expect(cacheService.invalidateIndex).toHaveBeenCalled();
   });
 
   it('should reject create when structure is empty for course-cycle', async () => {
@@ -201,5 +206,34 @@ describe('EvaluationsService create', () => {
         endDate: '2026-02-01T23:59:59.000Z',
       }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should hide BANCO_ENUNCIADOS in visible course-cycle evaluations list', async () => {
+    (cacheService.get as jest.Mock).mockResolvedValue(true);
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: '1',
+        evaluationType: { code: 'PC' },
+      },
+      {
+        id: '2',
+        evaluationType: { code: EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS },
+      },
+      {
+        id: '3',
+        evaluationType: { code: 'EX' },
+      },
+    ]);
+
+    const result = await service.findByCourseCycle(
+      '10',
+      'prof-1',
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(result.map((item) => item.id)).toEqual(['1', '3']);
   });
 });

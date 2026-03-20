@@ -343,10 +343,6 @@ describe('AuthService', () => {
     expect(typeof result.accessToken).toBe('string');
     expect(sessionServiceMock.rotateRefreshToken).toHaveBeenCalledTimes(1);
 
-    expect(redisCacheServiceMock.del).toHaveBeenCalledWith(
-      'cache:session:123:user',
-    );
-
     expect(redisCacheServiceMock.set).toHaveBeenCalledWith(
       expect.stringMatching(/^blacklist:refresh:/),
       expect.objectContaining({ reason: 'TOKEN_ROTATED' }),
@@ -573,5 +569,168 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(sessionServiceMock.rotateRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('logout: registra metadata consistente en evento de seguridad', async () => {
+    sessionServiceMock.deactivateSession.mockResolvedValue(undefined);
+    securityEventServiceMock.logEvent.mockResolvedValue(undefined);
+
+    await authService.logout(
+      'session-123',
+      baseUser.id,
+      metadata,
+      ROLE_CODES.STUDENT,
+    );
+
+    expect(sessionServiceMock.deactivateSession).toHaveBeenCalledWith(
+      'session-123',
+    );
+    expect(securityEventServiceMock.logEvent).toHaveBeenCalledWith(
+      baseUser.id,
+      SECURITY_EVENT_CODES.LOGOUT_SUCCESS,
+      {
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        deviceId: metadata.deviceId,
+        activeRoleCode: ROLE_CODES.STUDENT,
+        sessionStatus: SESSION_STATUS_CODES.REVOKED,
+        sessionId: 'session-123',
+      },
+    );
+  });
+
+  it('reauthAnomalousSession: registra activeRoleCode y sessionStatus en exito', async () => {
+    const refreshToken = jwtService.sign({
+      sub: baseUser.id,
+      deviceId: metadata.deviceId,
+      type: 'refresh',
+      jti: 'jti-mock',
+    });
+
+    const blockedSession = {
+      id: '555',
+      userId: baseUser.id,
+      deviceId: metadata.deviceId,
+      sessionStatusId: '9',
+      activeRoleId: baseUser.roles[0].id,
+    } as unknown as UserSession;
+
+    sessionServiceMock.findSessionByRefreshToken.mockResolvedValue(
+      blockedSession,
+    );
+    sessionServiceMock.findSessionByRefreshTokenForUpdate.mockResolvedValue(
+      blockedSession,
+    );
+    sessionStatusServiceMock.getIdByCode.mockResolvedValue('9');
+    googleProviderServiceMock.verifyCodeAndGetEmail.mockResolvedValue({
+      email: baseUser.email,
+    });
+    usersServiceMock.findOne.mockResolvedValue(baseUser);
+    usersServiceMock.findByEmail.mockResolvedValue(baseUser);
+    sessionServiceMock.activateBlockedSession.mockResolvedValue(undefined);
+    sessionServiceMock.rotateRefreshToken.mockResolvedValue({ id: '555' });
+
+    await authService.reauthAnomalousSession(
+      'google-auth-code',
+      refreshToken,
+      metadata.deviceId,
+      metadata,
+    );
+
+    expect(securityEventServiceMock.logEvent).toHaveBeenCalledWith(
+      baseUser.id,
+      SECURITY_EVENT_CODES.ANOMALOUS_LOGIN_REAUTH_SUCCESS,
+      expect.objectContaining({
+        deviceId: metadata.deviceId,
+        activeRoleCode: ROLE_CODES.STUDENT,
+        sessionStatus: SESSION_STATUS_CODES.ACTIVE,
+        sessionId: '555',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('reauthAnomalousSession: fallo de Google registra estado revocado y rol activo', async () => {
+    const refreshToken = jwtService.sign({
+      sub: baseUser.id,
+      deviceId: metadata.deviceId,
+      type: 'refresh',
+      jti: 'jti-mock',
+    });
+
+    const blockedSession = {
+      id: '555',
+      userId: baseUser.id,
+      deviceId: metadata.deviceId,
+      sessionStatusId: '9',
+      activeRoleId: baseUser.roles[0].id,
+    } as unknown as UserSession;
+
+    sessionServiceMock.findSessionByRefreshToken.mockResolvedValue(
+      blockedSession,
+    );
+    sessionServiceMock.findSessionByRefreshTokenForUpdate.mockResolvedValue(
+      blockedSession,
+    );
+    sessionStatusServiceMock.getIdByCode.mockResolvedValue('9');
+    usersServiceMock.findOne.mockResolvedValue(baseUser);
+    googleProviderServiceMock.verifyCodeAndGetEmail.mockRejectedValue(
+      new UnauthorizedException(),
+    );
+    sessionServiceMock.deactivateSession.mockResolvedValue(undefined);
+
+    await expect(
+      authService.reauthAnomalousSession(
+        'google-auth-code',
+        refreshToken,
+        metadata.deviceId,
+        metadata,
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(securityEventServiceMock.logEvent).toHaveBeenCalledWith(
+      baseUser.id,
+      SECURITY_EVENT_CODES.ANOMALOUS_LOGIN_REAUTH_FAILED,
+      expect.objectContaining({
+        deviceId: metadata.deviceId,
+        activeRoleCode: ROLE_CODES.STUDENT,
+        sessionStatus: SESSION_STATUS_CODES.REVOKED,
+        sessionId: '555',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('switchProfile: registra roleName y roleCode en auditoria de seguridad', async () => {
+    const multiRoleUser = {
+      ...baseUser,
+      roles: [
+        { id: '1', code: ROLE_CODES.STUDENT, name: 'Student' },
+        { id: '2', code: ROLE_CODES.ADMIN, name: 'Administrador' },
+      ],
+    };
+    dataSourceMock.transaction.mockImplementationOnce(
+      async (cb: (manager: unknown) => Promise<unknown>) =>
+        cb({
+          getRepository: jest.fn(() => ({
+            update: jest.fn().mockResolvedValue(undefined),
+          })),
+        }),
+    );
+
+    usersServiceMock.findOne.mockResolvedValue(multiRoleUser);
+    sessionServiceMock.rotateRefreshToken.mockResolvedValue({ id: '777' });
+
+    await authService.switchProfile('10', '777', '2', metadata);
+
+    expect(securityEventServiceMock.logEvent).toHaveBeenCalledWith(
+      '10',
+      SECURITY_EVENT_CODES.PROFILE_SWITCH,
+      expect.objectContaining({
+        roleCode: ROLE_CODES.ADMIN,
+        roleName: 'Administrador',
+      }),
+      expect.anything(),
+    );
   });
 });

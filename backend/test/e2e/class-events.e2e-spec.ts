@@ -1,15 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { getQueueToken } from '@nestjs/bullmq';
 import request from 'supertest';
 import { AppModule } from '@/app.module';
 import { DataSource } from 'typeorm';
+import { Queue } from 'bullmq';
 import { TestSeeder } from './test-utils';
 import { TransformInterceptor } from '@common/interceptors/transform.interceptor';
 import { User } from '@modules/users/domain/user.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.constants';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
@@ -18,6 +21,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
+  let notificationsQueue: Queue;
 
   let admin: { user: User; token: string };
   let professor: { user: User; token: string };
@@ -25,10 +29,13 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   let courseCycle: CourseCycle;
   let sameCategoryCourseCycle: CourseCycle;
   let differentCategoryCourseCycle: CourseCycle;
+  let historicalCourseCycle: CourseCycle;
   let evaluation: Evaluation;
   let sameCategoryEvaluation: Evaluation;
   let differentCategoryEvaluation: Evaluation;
+  let historicalEvaluation: Evaluation;
   let createdEventId: string;
+  let historicalEventId: string;
 
   const now = new Date();
   const yesterday = new Date(now);
@@ -38,6 +45,26 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   const nextWeek = new Date(now);
   nextWeek.setDate(now.getDate() + 7);
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
+  const formatPeruLocalDatetime = (
+    d: Date,
+    hour: number,
+    minute = 0,
+  ): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hourText = String(hour).padStart(2, '0');
+    const minuteText = String(minute).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hourText}:${minuteText}:00`;
+  };
+  const formatPeruLocalDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -56,6 +83,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    notificationsQueue = app.get<Queue>(getQueueToken(QUEUES.NOTIFICATIONS));
     const cacheService = app.get(RedisCacheService);
 
     await cacheService.invalidateGroup('*');
@@ -127,6 +155,16 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       cycle.id,
     );
 
+    const historicalCycle = await seeder.createCycle(
+      `CYCLE-EVENT-HIST-${Date.now()}`,
+      formatDate(new Date(yesterday.getTime() - 160 * 24 * 60 * 60 * 1000)),
+      formatDate(new Date(yesterday.getTime() - 120 * 24 * 60 * 60 * 1000)),
+    );
+    historicalCourseCycle = await seeder.linkCourseCycle(
+      course.id,
+      historicalCycle.id,
+    );
+
     await dataSource.query(
       `INSERT INTO system_setting (setting_key, setting_value, description, created_at, updated_at)
        VALUES ('ACTIVE_CYCLE_ID', ?, 'Ciclo activo para pruebas E2E', NOW(), NOW())
@@ -155,6 +193,13 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       1,
       formatDate(yesterday),
       formatDate(nextWeek),
+    );
+    historicalEvaluation = await seeder.createEvaluation(
+      historicalCourseCycle.id,
+      EVALUATION_TYPE_CODES.PC,
+      1,
+      formatDate(new Date(yesterday.getTime() - 150 * 24 * 60 * 60 * 1000)),
+      formatDate(new Date(yesterday.getTime() - 130 * 24 * 60 * 60 * 1000)),
     );
 
     admin = await seeder.createAuthenticatedUser(
@@ -195,11 +240,67 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
 
     const cacheSvc = app.get(RedisCacheService);
     await cacheSvc.invalidateGroup('*');
+
+    const recordingStatusRows = await dataSource.query<Array<{ id: string }>>(
+      `SELECT id FROM class_event_recording_status WHERE code = 'NOT_AVAILABLE' LIMIT 1`,
+    );
+    const historicalStart = new Date(now.getTime() - 145 * 24 * 60 * 60 * 1000);
+    const historicalEnd = new Date(
+      historicalStart.getTime() + 2 * 60 * 60 * 1000,
+    );
+    await dataSource.query(
+      `INSERT INTO class_event (
+        evaluation_id,
+        session_number,
+        title,
+        topic,
+        start_datetime,
+        end_datetime,
+        live_meeting_url,
+        recording_status_id,
+        is_cancelled,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NOW(), NULL)`,
+      [
+        historicalEvaluation.id,
+        1,
+        'Clase Historica 1',
+        'Revision Historica',
+        historicalStart,
+        historicalEnd,
+        'https://zoom.us/j/1111111111',
+        recordingStatusRows[0].id,
+        admin.user.id,
+      ],
+    );
+    const historicalEventRows = await dataSource.query<Array<{ id: string }>>(
+      `SELECT id
+       FROM class_event
+       WHERE evaluation_id = ?
+         AND session_number = 1
+       ORDER BY id DESC
+       LIMIT 1`,
+      [historicalEvaluation.id],
+    );
+    historicalEventId = String(historicalEventRows[0].id);
   });
 
   afterAll(async () => {
     await app.close();
   });
+
+  async function removeReminderJobIfExists(
+    classEventId: string,
+  ): Promise<void> {
+    const job = await notificationsQueue.getJob(
+      `class-reminder-${classEventId}`,
+    );
+    if (job) {
+      await job.remove();
+    }
+  }
 
   describe('POST /api/v1/class-events - Crear evento', () => {
     it('debe crear un evento exitosamente como docente asignado', async () => {
@@ -306,6 +407,20 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       expect(Array.isArray(response.body.data)).toBe(true);
       expect(response.body.data.length).toBeGreaterThan(0);
     });
+
+    it('debe permitir a profesor ver eventos historicos del mismo curso', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/evaluation/${historicalEvaluation.id}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(
+        response.body.data.some(
+          (event: { id: string }) => event.id === historicalEventId,
+        ),
+      ).toBe(true);
+    });
   });
 
   describe('GET /api/v1/class-events/discovery/layers/:courseCycleId', () => {
@@ -385,6 +500,16 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       expect(response.body.data.id).toBe(createdEventId);
     });
 
+    it('GET /api/v1/class-events/:id - Profesor debe poder ver detalle historico del mismo curso', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/${historicalEventId}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(response.body.data.id).toBe(historicalEventId);
+      expect(response.body.data.title).toBe('Clase Historica 1');
+    });
+
     it('PATCH /api/v1/class-events/:id - Actualizar evento', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/class-events/${createdEventId}`)
@@ -431,6 +556,108 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         .delete(`/api/v1/class-events/${createdEventId}/cancel`)
         .set('Authorization', `Bearer ${professor.token}`)
         .expect(204);
+    });
+  });
+
+  describe('REMINDERS DE CLASE', () => {
+    it('reemplaza el reminder existente cuando cambia la hora de inicio', async () => {
+      const originalStart = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const originalEnd = new Date(
+        originalStart.getTime() + 2 * 60 * 60 * 1000,
+      );
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 70,
+          title: 'Evento Reminder Reprogramable',
+          topic: 'Reminder',
+          startDatetime: originalStart.toISOString(),
+          endDatetime: originalEnd.toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/7070707070',
+        })
+        .expect(201);
+
+      const eventId = createRes.body.data.id as string;
+      const originalJobId = `class-reminder-${eventId}`;
+
+      try {
+        const originalJob = await notificationsQueue.getJob(originalJobId);
+        expect(originalJob).toBeDefined();
+        const originalTimestamp = Number(originalJob?.timestamp ?? 0);
+
+        const updatedStart = new Date(Date.now() + 72 * 60 * 60 * 1000);
+        const updatedEnd = new Date(
+          updatedStart.getTime() + 2 * 60 * 60 * 1000,
+        );
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/class-events/${eventId}`)
+          .set('Authorization', `Bearer ${professor.token}`)
+          .send({
+            startDatetime: updatedStart.toISOString(),
+            endDatetime: updatedEnd.toISOString(),
+          })
+          .expect(200);
+
+        const updatedJob = await notificationsQueue.getJob(originalJobId);
+        expect(updatedJob).toBeDefined();
+        expect(updatedJob?.id).toBe(originalJobId);
+        expect(Number(updatedJob?.timestamp ?? 0)).toBeGreaterThanOrEqual(
+          originalTimestamp,
+        );
+        expect(Number(updatedJob?.delay ?? 0)).toBeGreaterThan(0);
+      } finally {
+        await removeReminderJobIfExists(eventId);
+      }
+    });
+
+    it('elimina el reminder existente si el nuevo horario ya no permite reminder', async () => {
+      const originalStart = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const originalEnd = new Date(
+        originalStart.getTime() + 2 * 60 * 60 * 1000,
+      );
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 71,
+          title: 'Evento Reminder Eliminable',
+          topic: 'Reminder',
+          startDatetime: originalStart.toISOString(),
+          endDatetime: originalEnd.toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/7171717171',
+        })
+        .expect(201);
+
+      const eventId = createRes.body.data.id as string;
+      const jobId = `class-reminder-${eventId}`;
+
+      try {
+        const originalJob = await notificationsQueue.getJob(jobId);
+        expect(originalJob).toBeDefined();
+
+        const updatedStart = new Date(Date.now() + 5 * 60 * 1000);
+        const updatedEnd = new Date(updatedStart.getTime() + 60 * 60 * 1000);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/class-events/${eventId}`)
+          .set('Authorization', `Bearer ${professor.token}`)
+          .send({
+            startDatetime: updatedStart.toISOString(),
+            endDatetime: updatedEnd.toISOString(),
+          })
+          .expect(200);
+
+        const updatedJob = await notificationsQueue.getJob(jobId);
+        expect(updatedJob ?? null).toBeNull();
+      } finally {
+        await removeReminderJobIfExists(eventId);
+      }
     });
   });
 
@@ -487,6 +714,64 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       const event = res.body.data.find((e: any) => e.id === cacheEventId);
       expect(event).toBeDefined();
       expect(event.title).toBe(newTitle);
+    });
+  });
+
+  describe('CONTRATO HORARIO PERU', () => {
+    it('interpreta ISO sin zona como hora America/Lima y responde UTC', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 150,
+          title: 'Clase 150: Hora Lima',
+          topic: 'Conversion horaria',
+          startDatetime: formatPeruLocalDatetime(tomorrow, 9),
+          endDatetime: formatPeruLocalDatetime(tomorrow, 11),
+          liveMeetingUrl: 'https://zoom.us/j/5555555555',
+        })
+        .expect(201);
+
+      expect(response.body.data.startDatetime).toBe(
+        `${formatPeruLocalDate(tomorrow)}T14:00:00.000Z`,
+      );
+      expect(response.body.data.endDatetime).toBe(
+        `${formatPeruLocalDate(tomorrow)}T16:00:00.000Z`,
+      );
+    });
+
+    it('interpreta start y end YYYY-MM-DD con semantica America/Lima', async () => {
+      const localMorningRes = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 151,
+          title: 'Evento Rango Lima',
+          topic: 'Filtro por fecha',
+          startDatetime: formatPeruLocalDatetime(tomorrow, 12),
+          endDatetime: formatPeruLocalDatetime(tomorrow, 13),
+          liveMeetingUrl: 'https://zoom.us/j/1010101010',
+        })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/class-events/my-schedule')
+        .query({
+          start: formatPeruLocalDate(tomorrow),
+          end: formatPeruLocalDate(tomorrow),
+        })
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      const event = res.body.data.find(
+        (item: any) => item.id === localMorningRes.body.data.id,
+      );
+      expect(event).toBeDefined();
+      expect(event.startDatetime).toBe(
+        `${formatPeruLocalDate(tomorrow)}T17:00:00.000Z`,
+      );
     });
   });
 });

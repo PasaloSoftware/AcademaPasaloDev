@@ -11,7 +11,8 @@ import { TestSeeder } from './e2e/test-utils';
 jest.setTimeout(60000);
 
 interface AuditLogQueryResult {
-  entity_type: string | null;
+  id: string;
+  event_datetime: Date | string;
 }
 
 describe('Audit Cleanup Process (Integration)', () => {
@@ -74,38 +75,36 @@ describe('Audit Cleanup Process (Integration)', () => {
       'ADMIN',
     ]);
 
-    await auditLogRepo.create({
+    const keptAuditLog = await auditLogRepo.create({
       userId: user.user.id,
       auditActionId: '1',
       eventDatetime: new Date(),
-      entityType: 'TEST_KEEP',
     });
 
     const oldDate = new Date();
     oldDate.setDate(oldDate.getDate() - 35);
 
     await dataSource.query(
-      `INSERT INTO audit_log (user_id, audit_action_id, event_datetime, entity_type) VALUES (?, ?, ?, ?)`,
-      [user.user.id, 1, oldDate, 'TEST_DELETE'],
+      `INSERT INTO audit_log (user_id, audit_action_id, event_datetime) VALUES (?, ?, ?)`,
+      [user.user.id, 1, oldDate],
     );
 
     const job = { name: 'cleanup-old-logs' } as Job;
     await processor.process(job);
 
-    const remainingLogs = await dataSource.query(
-      `SELECT entity_type FROM audit_log WHERE user_id = ?`,
+    const remainingLogs = await dataSource.query<AuditLogQueryResult[]>(
+      `SELECT id, event_datetime FROM audit_log WHERE user_id = ? ORDER BY event_datetime DESC`,
       [user.user.id],
     );
 
-    const keptLog = remainingLogs.find(
-      (l: any) => l.entity_type === 'TEST_KEEP',
-    );
+    const keptLog = remainingLogs.find((log) => log.id === keptAuditLog.id);
     const deletedLog = remainingLogs.find(
-      (l: any) => l.entity_type === 'TEST_DELETE',
+      (log) => new Date(log.event_datetime).getTime() === oldDate.getTime(),
     );
 
     expect(keptLog).toBeDefined();
     expect(deletedLog).toBeUndefined();
+    expect(remainingLogs).toHaveLength(1);
   });
 
   it('should STOP deletion if max batch limit is reached (Circuit Breaker)', async () => {

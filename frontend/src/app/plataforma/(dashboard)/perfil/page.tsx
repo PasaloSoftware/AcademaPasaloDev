@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import PerfilContent from '@/components/pages/shared/PerfilContent';
+import RoleBasedContent from '@/components/RoleBasedContent';
 
 export const metadata: Metadata = {
   title: 'Mi Perfil | Pásalo a la Primera',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function PerfilPage() {
-  return <PerfilContent />;
+  return <RoleBasedContent />;
 }

@@ -50,6 +50,7 @@ export class SecurityEventRepository {
       startDate?: Date;
       endDate?: Date;
       userId?: string;
+      actionCode?: string;
     },
     limit: number,
   ): Promise<SecurityEvent[]> {
@@ -76,7 +77,48 @@ export class SecurityEventRepository {
       query.andWhere('e.userId = :userId', { userId: filters.userId });
     }
 
+    if (filters.actionCode) {
+      query.andWhere('et.code = :actionCode', {
+        actionCode: filters.actionCode,
+      });
+    }
+
     return await query.orderBy('e.eventDatetime', 'DESC').take(limit).getMany();
+  }
+
+  async countAll(filters: {
+    startDate?: Date;
+    endDate?: Date;
+    userId?: string;
+    actionCode?: string;
+  }): Promise<number> {
+    const query = this.ormRepository
+      .createQueryBuilder('e')
+      .leftJoin('e.securityEventType', 'et');
+
+    if (filters.startDate) {
+      query.andWhere('e.eventDatetime >= :startDate', {
+        startDate: filters.startDate,
+      });
+    }
+
+    if (filters.endDate) {
+      query.andWhere('e.eventDatetime <= :endDate', {
+        endDate: filters.endDate,
+      });
+    }
+
+    if (filters.userId) {
+      query.andWhere('e.userId = :userId', { userId: filters.userId });
+    }
+
+    if (filters.actionCode) {
+      query.andWhere('et.code = :actionCode', {
+        actionCode: filters.actionCode,
+      });
+    }
+
+    return await query.getCount();
   }
 
   async countByUserIdAndTypeCode(

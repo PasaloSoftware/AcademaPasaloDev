@@ -72,12 +72,14 @@ export class CourseCycleAllowedEvaluationTypeRepository {
       existing.map((row) => [String(row.evaluationTypeId), row]),
     );
 
+    const toUpdate: CourseCycleAllowedEvaluationType[] = [];
     const toInsert: CourseCycleAllowedEvaluationType[] = [];
     for (const evaluationTypeId of evaluationTypeIds) {
       const row = existingMap.get(String(evaluationTypeId));
       if (row) {
         row.isActive = true;
         row.updatedAt = now;
+        toUpdate.push(row);
       } else {
         toInsert.push(
           repo.create({
@@ -90,11 +92,6 @@ export class CourseCycleAllowedEvaluationTypeRepository {
         );
       }
     }
-
-    const selectedIdSet = new Set(evaluationTypeIds);
-    const toUpdate = existing.filter((row) =>
-      selectedIdSet.has(String(row.evaluationTypeId)),
-    );
 
     if (toUpdate.length > 0) {
       await repo.save(toUpdate);

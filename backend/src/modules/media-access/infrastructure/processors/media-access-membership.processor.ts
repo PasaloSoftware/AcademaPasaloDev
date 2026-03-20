@@ -10,6 +10,7 @@ import {
   MEDIA_ACCESS_JOB_NAMES,
   MEDIA_ACCESS_MEMBERSHIP_ACTIONS,
   MEDIA_ACCESS_SYNC_SOURCES,
+  isGoogleGroupMemberRemovable,
 } from '@modules/media-access/domain/media-access.constants';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
@@ -21,6 +22,7 @@ import {
 } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MediaAccessReconciliationService } from '@modules/media-access/application/media-access-reconciliation.service';
 import { ConfigService } from '@nestjs/config';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 
 @Injectable()
 @Processor(QUEUES.MEDIA_ACCESS)
@@ -43,11 +45,11 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
 
   async process(job: Job): Promise<void> {
     if (job.name === MEDIA_ACCESS_JOB_NAMES.RECONCILE_SCOPES) {
-      await this.reconciliationService.runReconciliation();
+      await this.runReconciliationJob();
       return;
     }
     if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS) {
-      await this.reconciliationService.runStaffViewersSyncOnly();
+      await this.runStaffViewersSyncJob();
       return;
     }
     if (job.name === MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP) {
@@ -77,6 +79,28 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     throw new UnrecoverableError(
       `Job media-access no soportado: ${String(job.name)}`,
     );
+  }
+
+  private async runReconciliationJob(): Promise<void> {
+    try {
+      await this.reconciliationService.runReconciliation();
+    } catch (error) {
+      if (error instanceof MediaAccessReconciliationSafetyStopError) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  private async runStaffViewersSyncJob(): Promise<void> {
+    try {
+      await this.reconciliationService.runStaffViewersSyncOnly();
+    } catch (error) {
+      if (error instanceof MediaAccessReconciliationSafetyStopError) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
   }
 
   @OnWorkerEvent('error')
@@ -522,19 +546,36 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     evaluationId: string,
   ): Promise<string[]> {
     const result = await this.dataSource.query<Array<{ email: string | null }>>(
-      `SELECT DISTINCT LOWER(TRIM(u.email)) AS email
-       FROM enrollment_evaluation ee
-       INNER JOIN enrollment e ON e.id = ee.enrollment_id
-       INNER JOIN user u ON u.id = e.user_id
-       WHERE ee.evaluation_id = ?
-         AND ee.is_active = 1
-         AND ee.access_start_date <= NOW()
-         AND ee.access_end_date >= NOW()
-         AND e.cancelled_at IS NULL
-         AND u.email IS NOT NULL
-         AND TRIM(u.email) <> ''
+      `SELECT DISTINCT email
+       FROM (
+         SELECT LOWER(TRIM(u.email)) AS email
+         FROM enrollment_evaluation ee
+         INNER JOIN enrollment e ON e.id = ee.enrollment_id
+         INNER JOIN user u ON u.id = e.user_id
+         WHERE ee.evaluation_id = ?
+           AND ee.is_active = 1
+           AND ee.access_start_date <= NOW()
+           AND ee.access_end_date >= NOW()
+           AND e.cancelled_at IS NULL
+           AND u.is_active = 1
+           AND u.email IS NOT NULL
+           AND TRIM(u.email) <> ''
+
+         UNION
+
+         SELECT LOWER(TRIM(u.email)) AS email
+         FROM evaluation ev
+         INNER JOIN course_cycle_professor ccp
+           ON ccp.course_cycle_id = ev.course_cycle_id
+          AND ccp.revoked_at IS NULL
+         INNER JOIN user u ON u.id = ccp.professor_user_id
+         WHERE ev.id = ?
+           AND u.is_active = 1
+           AND u.email IS NOT NULL
+           AND TRIM(u.email) <> ''
+       ) expected_members
        ORDER BY email ASC`,
-      [evaluationId],
+      [evaluationId, evaluationId],
     );
 
     return result
@@ -570,7 +611,7 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
   }
 
   private isRemovableMemberRole(role: string): boolean {
-    return role === 'MEMBER' || role === '';
+    return isGoogleGroupMemberRemovable(role);
   }
 
   private buildCourseCycleViewerGroupEmail(courseCycleId: string): string {

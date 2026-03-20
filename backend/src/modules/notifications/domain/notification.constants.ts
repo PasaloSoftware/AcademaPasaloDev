@@ -1,11 +1,14 @@
 export const NOTIFICATION_TYPE_CODES = {
   NEW_MATERIAL: 'NEW_MATERIAL',
+  MATERIAL_UPDATED: 'MATERIAL_UPDATED',
   CLASS_SCHEDULED: 'CLASS_SCHEDULED',
   CLASS_UPDATED: 'CLASS_UPDATED',
   CLASS_CANCELLED: 'CLASS_CANCELLED',
   CLASS_REMINDER: 'CLASS_REMINDER',
+  CLASS_RECORDING_AVAILABLE: 'CLASS_RECORDING_AVAILABLE',
   DELETION_REQUEST_APPROVED: 'DELETION_REQUEST_APPROVED',
   DELETION_REQUEST_REJECTED: 'DELETION_REQUEST_REJECTED',
+  AUDIT_EXPORT_READY: 'AUDIT_EXPORT_READY',
 } as const;
 
 export type NotificationTypeCode =
@@ -31,16 +34,22 @@ export const NOTIFICATION_SYSTEM_SETTING_KEYS = {
 } as const;
 
 export const NOTIFICATION_ENTITY_TYPES = {
-  MATERIAL_FOLDER: 'material_folder',
+  MATERIAL: 'material',
   CLASS_EVENT: 'class_event',
   DELETION_REQUEST: 'deletion_request',
+  AUDIT_EXPORT: 'audit_export',
 } as const;
 
 export const NOTIFICATION_MESSAGES = {
   [NOTIFICATION_TYPE_CODES.NEW_MATERIAL]: {
     title: 'Nuevo material disponible',
     message: (displayName: string, courseName: string) =>
-      `Se publicó '${displayName}' en el curso ${courseName}.`,
+      `Se publico '${displayName}' en el curso ${courseName}.`,
+  },
+  [NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED]: {
+    title: 'Material actualizado',
+    message: (displayName: string, courseName: string) =>
+      `Se actualizo '${displayName}' en el curso ${courseName}.`,
   },
   [NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED]: {
     title: 'Nueva clase programada',
@@ -49,8 +58,8 @@ export const NOTIFICATION_MESSAGES = {
   },
   [NOTIFICATION_TYPE_CODES.CLASS_UPDATED]: {
     title: 'Clase actualizada',
-    message: (classTitle: string, nuevaFecha: string) =>
-      `La clase '${classTitle}' ha sido reprogramada al ${nuevaFecha}.`,
+    message: (classTitle: string) =>
+      `El horario de la clase '${classTitle}' ha sido actualizado. Revisa los detalles mas recientes en la plataforma.`,
   },
   [NOTIFICATION_TYPE_CODES.CLASS_CANCELLED]: {
     title: 'Clase cancelada',
@@ -62,16 +71,28 @@ export const NOTIFICATION_MESSAGES = {
     message: (classTitle: string, minutosRestantes: number) =>
       `Tienes una clase '${classTitle}' en ${minutosRestantes} minutos.`,
   },
+  [NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE]: {
+    title: 'Grabacion disponible',
+    message: (classTitle: string) =>
+      `La grabacion de la clase '${classTitle}' ya esta disponible.`,
+  },
   [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED]: {
-    title: 'Solicitud de eliminación aprobada',
+    title: 'Solicitud de eliminacion aprobada',
     message: (displayName: string) =>
-      `Tu solicitud de eliminación del material '${displayName}' fue aprobada.`,
+      `Tu solicitud de eliminacion del material '${displayName}' fue aprobada.`,
   },
   [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED]: {
-    title: 'Solicitud de eliminación rechazada',
+    title: 'Solicitud de eliminacion rechazada',
     message: (displayName: string, adminComment?: string) =>
       adminComment && adminComment.trim().length > 0
-        ? `Tu solicitud de eliminación del material '${displayName}' fue rechazada. Motivo: ${adminComment.trim()}.`
-        : `Tu solicitud de eliminación del material '${displayName}' fue rechazada.`,
+        ? `Tu solicitud de eliminacion del material '${displayName}' fue rechazada. Motivo: ${adminComment.trim()}.`
+        : `Tu solicitud de eliminacion del material '${displayName}' fue rechazada.`,
+  },
+  [NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY]: {
+    title: 'Reporte de auditoria listo',
+    message: (artifactName: string, estimatedFileCount: number) =>
+      estimatedFileCount > 1
+        ? `Tu reporte de auditoria '${artifactName}' ya esta listo para descarga. Incluye ${estimatedFileCount} archivos Excel dentro de un zip y estara disponible por 1 hora.`
+        : `Tu reporte de auditoria '${artifactName}' ya esta listo para descarga y estara disponible por 1 hora.`,
   },
 } as const;

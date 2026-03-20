@@ -85,6 +85,7 @@ describe('Security Scenarios (Integration)', () => {
     findByIdWithUser: jest.fn(),
     findByIdForUpdate: jest.fn(),
     update: jest.fn(),
+    updateLastActivity: jest.fn().mockResolvedValue(undefined),
     deactivateSession: jest.fn(),
     existsByUserIdAndDeviceId: jest.fn().mockResolvedValue(true),
     findSessionsByUserAndStatus: jest.fn().mockResolvedValue([]),

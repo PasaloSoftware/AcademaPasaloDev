@@ -53,7 +53,7 @@ INSERT INTO user_role (user_id, role_id) VALUES
 -- 3. CREACIÓN DE CURSOS
 -- -----------------------------------------------------------------------------
 INSERT INTO course (course_type_id, cycle_level_id, code, name, created_at) VALUES
-(@type_ciencias_id, @level_1_id, 'MATE101', 'Álgebra Matricial', NOW()),
+(@type_ciencias_id, @level_1_id, 'MATE101', 'Álgebra Matricial y Geometría Analítica', NOW()),
 (@type_ciencias_id, @level_1_id, 'MATE102', 'Cálculo I', NOW()),
 (@type_ciencias_id, @level_1_id, 'FIS101', 'Física I', NOW()),
 (@type_ciencias_id, @level_1_id, 'QUI101', 'Química General', NOW());
@@ -127,12 +127,12 @@ SELECT
     WHEN type.code = 'EX' AND num.n = 2 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 73 DAY), '05:00:00')
   END AS start_date,
   CASE
-    WHEN type.code = 'PC' AND num.n = 1 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 16 DAY), '23:59:59')
-    WHEN type.code = 'PC' AND num.n = 2 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 30 DAY), '23:59:59')
-    WHEN type.code = 'EX' AND num.n = 1 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 44 DAY), '23:59:59')
-    WHEN type.code = 'PC' AND num.n = 3 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 58 DAY), '23:59:59')
-    WHEN type.code = 'PC' AND num.n = 4 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 72 DAY), '23:59:59')
-    WHEN type.code = 'EX' AND num.n = 2 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 83 DAY), '23:59:59')
+    WHEN type.code = 'PC' AND num.n = 1 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 17 DAY), '04:59:59')
+    WHEN type.code = 'PC' AND num.n = 2 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 31 DAY), '04:59:59')
+    WHEN type.code = 'EX' AND num.n = 1 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 45 DAY), '04:59:59')
+    WHEN type.code = 'PC' AND num.n = 3 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 59 DAY), '04:59:59')
+    WHEN type.code = 'PC' AND num.n = 4 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 73 DAY), '04:59:59')
+    WHEN type.code = 'EX' AND num.n = 2 THEN TIMESTAMP(DATE_ADD(ac.start_date, INTERVAL 84 DAY), '04:59:59')
   END AS end_date
 FROM course_cycle cc
 INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
@@ -189,11 +189,11 @@ WHERE cc.course_id IN (@course_alg_id, @course_cal_id, @course_fis_id, @course_q
   );
 
 INSERT INTO enrollment_evaluation (enrollment_id, evaluation_id, access_start_date, access_end_date, is_active)
-SELECT
+SELECT 
   e.id,
   ev.id,
-  ac.start_date,
-  ac.end_date,
+  TIMESTAMP(ac.start_date, '05:00:00'),
+  TIMESTAMP(DATE_ADD(ac.end_date, INTERVAL 1 DAY), '04:59:59'),
   TRUE
 FROM enrollment e
 JOIN course_cycle cc_enr ON cc_enr.id = e.course_cycle_id
@@ -266,29 +266,29 @@ BEGIN
         -- Sesión 1: Semana 1, Día asignado, 18:00 - 20:00 (Noche)
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
         VALUES (eval_id, 1, CONCAT('Sesión 1 - ', e_type, e_num), 'Introducción', 
-                DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 18 HOUR),
-                DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 20 HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 23 HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 25 HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
         -- Sesión 2: Semana 1, Sábado, Bloque Rotativo desde 08:00 AM
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
         VALUES (eval_id, 2, CONCAT('Sesión 2 - ', e_type, e_num), 'Ejercicios', 
-                DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (8 + day_offset * 2) HOUR),
-                DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (10 + day_offset * 2) HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (13 + day_offset * 2) HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (15 + day_offset * 2) HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
         -- Sesión 3: Semana 2, Día asignado, 19:00 - 21:00 (Noche)
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
         VALUES (eval_id, 3, CONCAT('Sesión 3 - ', e_type, e_num), 'Avanzado', 
-                DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 19 HOUR),
-                DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 21 HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 24 HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 26 HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
         -- Sesión 4: Semana 2, Domingo, Bloque Rotativo desde 09:00 AM
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
         VALUES (eval_id, 4, CONCAT('Sesión 4 - ', e_type, e_num), 'Repaso', 
-                DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (9 + day_offset * 2) HOUR),
-                DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (11 + day_offset * 2) HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (14 + day_offset * 2) HOUR),
+                DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (16 + day_offset * 2) HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
     END LOOP;
@@ -305,4 +305,4 @@ FROM class_event ce
 JOIN evaluation ev ON ce.evaluation_id = ev.id
 JOIN course_cycle_professor ccp ON ev.course_cycle_id = ccp.course_cycle_id;
 
-SELECT 'Data OK: 96 Sesiones (Inicio >= 08:00, Fin <= 21:00)' AS Status;
+SELECT 'Data OK: 96 sesiones almacenadas en UTC para visualizarse en America/Lima' AS Status;

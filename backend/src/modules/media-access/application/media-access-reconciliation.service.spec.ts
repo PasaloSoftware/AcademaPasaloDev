@@ -4,6 +4,7 @@ import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastru
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 import { technicalSettings } from '@config/technical-settings';
 import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
+import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
 
 describe('MediaAccessReconciliationService', () => {
   let service: MediaAccessReconciliationService;
@@ -60,6 +61,7 @@ describe('MediaAccessReconciliationService', () => {
     (dataSource.query as jest.Mock).mockResolvedValueOnce([
       { email: 'student1@academiapasalo.com' },
       { email: 'student3@academiapasalo.com' },
+      { email: 'profesor@academiapasalo.com' },
     ]);
     workspaceGroupsService.listGroupMembers.mockResolvedValueOnce([
       { email: 'student1@academiapasalo.com', role: 'MEMBER' },
@@ -72,6 +74,10 @@ describe('MediaAccessReconciliationService', () => {
     expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-200-viewers@academiapasalo.com',
       memberEmail: 'student3@academiapasalo.com',
+    });
+    expect(workspaceGroupsService.ensureMemberInGroup).toHaveBeenCalledWith({
+      groupEmail: 'ev-200-viewers@academiapasalo.com',
+      memberEmail: 'profesor@academiapasalo.com',
     });
     expect(workspaceGroupsService.removeMemberFromGroup).toHaveBeenCalledWith({
       groupEmail: 'ev-200-viewers@academiapasalo.com',
@@ -86,7 +92,7 @@ describe('MediaAccessReconciliationService', () => {
     );
     expect(summary.scopesProcessed).toBe(1);
     expect(summary.scopesWithDrift).toBe(1);
-    expect(summary.addedMembersTotal).toBe(1);
+    expect(summary.addedMembersTotal).toBe(2);
     expect(summary.removedMembersTotal).toBe(1);
     expect(
       driveScopeProvisioningService.ensureGroupReaderPermission,
@@ -169,6 +175,24 @@ describe('MediaAccessReconciliationService', () => {
     ).toHaveBeenCalledWith(
       'scope-folder-200',
       'staff-viewers@academiapasalo.com',
+    );
+  });
+
+  it('lanza error de safety stop si el cursor no avanza', async () => {
+    evaluationDriveAccessRepository.findActiveByIdCursor.mockResolvedValue([
+      {
+        id: '0',
+        evaluationId: '200',
+        viewerGroupEmail: 'ev-200-viewers@academiapasalo.com',
+        driveScopeFolderId: 'scope-folder-200',
+        isActive: true,
+      } as never,
+    ]);
+    (dataSource.query as jest.Mock).mockResolvedValue([]);
+    workspaceGroupsService.listGroupMembers.mockResolvedValue([] as never);
+
+    await expect(service.reconcileActiveScopes()).rejects.toBeInstanceOf(
+      MediaAccessReconciliationSafetyStopError,
     );
   });
 });

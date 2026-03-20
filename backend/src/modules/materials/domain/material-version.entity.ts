@@ -7,11 +7,19 @@ import {
 } from 'typeorm';
 import { FileResource } from '@modules/materials/domain/file-resource.entity';
 import { User } from '@modules/users/domain/user.entity';
+import { Material } from '@modules/materials/domain/material.entity';
 
-@Entity('file_version')
-export class FileVersion {
+@Entity('material_version')
+export class MaterialVersion {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
+
+  @Column({ name: 'material_id', type: 'bigint' })
+  materialId: string;
+
+  @ManyToOne(() => Material)
+  @JoinColumn({ name: 'material_id' })
+  material: Material;
 
   @Column({ name: 'file_resource_id', type: 'bigint' })
   fileResourceId: string;
@@ -23,8 +31,16 @@ export class FileVersion {
   @Column({ name: 'version_number', type: 'int' })
   versionNumber: number;
 
-  @Column({ name: 'storage_url', type: 'varchar', length: 500, nullable: true })
-  storageUrl: string | null;
+  @Column({
+    name: 'restored_from_material_version_id',
+    type: 'bigint',
+    nullable: true,
+  })
+  restoredFromMaterialVersionId: string | null;
+
+  @ManyToOne(() => MaterialVersion)
+  @JoinColumn({ name: 'restored_from_material_version_id' })
+  restoredFromMaterialVersion: MaterialVersion | null;
 
   @Column({ name: 'created_at', type: 'datetime' })
   createdAt: Date;

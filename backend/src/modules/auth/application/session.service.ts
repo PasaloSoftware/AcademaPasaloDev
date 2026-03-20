@@ -5,7 +5,6 @@ import { UserSessionRepository } from '@modules/auth/infrastructure/user-session
 import { SessionAnomalyDetectorService } from '@modules/auth/application/session-anomaly-detector.service';
 import { UserSession } from '@modules/auth/domain/user-session.entity';
 import { RequestMetadata } from '@modules/auth/interfaces/request-metadata.interface';
-import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import {
   SessionStatusCode,
   SessionStatusService,
@@ -27,7 +26,6 @@ export class SessionService {
     private readonly userSessionRepository: UserSessionRepository,
     private readonly sessionAnomalyDetector: SessionAnomalyDetectorService,
     private readonly sessionStatusService: SessionStatusService,
-    private readonly cacheService: RedisCacheService,
     private readonly sessionValidator: SessionValidatorService,
     private readonly sessionConflict: SessionConflictService,
     private readonly sessionSecurity: SessionSecurityService,
@@ -41,6 +39,7 @@ export class SessionService {
     expiresAt: Date,
     activeRoleId?: string,
     externalManager?: EntityManager,
+    activeRoleCode?: string,
   ): Promise<{
     session: UserSession;
     sessionStatus: SessionStatusCode;
@@ -123,6 +122,10 @@ export class SessionService {
         isNewDevice,
         anomaly,
         isConcurrent: !!concurrentSession,
+        activeRoleCode,
+        sessionStatus: concurrentSession
+          ? SESSION_STATUS_CODES.PENDING_CONCURRENT_RESOLUTION
+          : SESSION_STATUS_CODES.ACTIVE,
         existingSession: concurrentSession,
         manager,
       });
@@ -196,19 +199,18 @@ export class SessionService {
   }
 
   async deactivateAllUserSessions(userId: string): Promise<void> {
-    const sessions =
-      await this.userSessionRepository.findActiveSessionsByUserId(userId);
+    const sessionIds =
+      await this.userSessionRepository.findActiveSessionIdsByUserId(userId);
 
     const revokedStatusId = await this.sessionStatusService.getIdByCode(
       SESSION_STATUS_CODES.REVOKED,
     );
 
-    for (const session of sessions) {
-      await this.userSessionRepository.update(session.id, {
-        sessionStatusId: revokedStatusId,
-        isActive: false,
-      });
-      await this.cacheService.del(`cache:session:${session.id}:user`);
+    if (sessionIds.length > 0) {
+      await this.userSessionRepository.deactivateActiveSessionsByUserId(
+        userId,
+        revokedStatusId,
+      );
     }
 
     this.logger.log({
@@ -216,7 +218,7 @@ export class SessionService {
       context: SessionService.name,
       message: 'Todas las sesiones del usuario desactivadas',
       userId,
-      sessionsCount: sessions.length,
+      sessionsCount: sessionIds.length,
     });
   }
 
