@@ -29,7 +29,7 @@ const roleOrder: Record<string, number> = {
   SUPER_ADMIN: 4,
 };
 
-const roleIcons: Record<string, string> = {
+export const roleIcons: Record<string, string> = {
   STUDENT: 'school',
   PROFESSOR: 'work',
   ADMIN: 'admin_panel_settings',

@@ -82,6 +82,7 @@ describe('Profile Switching (e2e)', () => {
       sessionStatusId: '1',
     }),
     update: jest.fn(),
+    updateLastActivity: jest.fn().mockResolvedValue(undefined),
     findActiveById: jest.fn().mockResolvedValue({
       id: 'session-123',
       isActive: true,

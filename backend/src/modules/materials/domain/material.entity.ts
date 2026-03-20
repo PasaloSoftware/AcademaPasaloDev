@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { MaterialFolder } from '@modules/materials/domain/material-folder.entity';
 import { FileResource } from '@modules/materials/domain/file-resource.entity';
-import { FileVersion } from '@modules/materials/domain/file-version.entity';
+import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { MaterialStatus } from '@modules/materials/domain/material-status.entity';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
@@ -38,12 +38,28 @@ export class Material {
   @JoinColumn({ name: 'file_resource_id' })
   fileResource: FileResource;
 
-  @Column({ name: 'file_version_id', type: 'bigint' })
-  fileVersionId: string;
+  @Column({ name: 'current_version_id', type: 'bigint', nullable: true })
+  fileVersionId: string | null;
 
-  @ManyToOne(() => FileVersion)
-  @JoinColumn({ name: 'file_version_id' })
-  fileVersion: FileVersion;
+  @ManyToOne(() => MaterialVersion)
+  @JoinColumn({ name: 'current_version_id' })
+  fileVersion: MaterialVersion | null;
+
+  get currentVersionId(): string | null {
+    return this.fileVersionId;
+  }
+
+  set currentVersionId(value: string | null) {
+    this.fileVersionId = value;
+  }
+
+  get currentVersion(): MaterialVersion | null {
+    return this.fileVersion;
+  }
+
+  set currentVersion(value: MaterialVersion | null) {
+    this.fileVersion = value;
+  }
 
   @Column({ name: 'material_status_id', type: 'bigint' })
   materialStatusId: string;

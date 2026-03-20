@@ -24,6 +24,13 @@ import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { User } from '@modules/users/domain/user.entity';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import { technicalSettings } from '@config/technical-settings';
+import {
+  assertValidDateRange,
+  parseBusinessDatetimeToUtc,
+  parseScheduleRangeEndExclusiveToUtc,
+  parseScheduleRangeStartToUtc,
+} from '@common/utils/peru-time.util';
 
 @Controller('class-events')
 @Auth()
@@ -64,15 +71,15 @@ export class ClassEventsController {
       dto.sessionNumber,
       dto.title,
       dto.topic,
-      new Date(dto.startDatetime),
-      new Date(dto.endDatetime),
+      parseBusinessDatetimeToUtc(dto.startDatetime, 'startDatetime'),
+      parseBusinessDatetimeToUtc(dto.endDatetime, 'endDatetime'),
       dto.liveMeetingUrl,
       user,
     );
 
     const eventDetail = await this.classEventsService.getEventDetail(
       event.id,
-      user.id,
+      user,
     );
     return this.mapEventToResponse(eventDetail);
   }
@@ -90,10 +97,21 @@ export class ClassEventsController {
     @Query('start') startDate: string,
     @Query('end') endDate: string,
   ): Promise<ClassEventResponseDto[]> {
-    const start = startDate ? new Date(startDate) : new Date();
+    const start = startDate
+      ? parseScheduleRangeStartToUtc(startDate, 'start')
+      : new Date();
     const end = endDate
-      ? new Date(endDate)
-      : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+      ? parseScheduleRangeEndExclusiveToUtc(endDate, 'end')
+      : new Date(
+          start.getTime() +
+            technicalSettings.cache.events.myScheduleDefaultRangeDays *
+              24 *
+              60 *
+              60 *
+              1000,
+        );
+
+    assertValidDateRange(start, end, 'start', 'end');
 
     const events = await this.classEventsQueryService.getMySchedule(
       user.id,
@@ -122,10 +140,21 @@ export class ClassEventsController {
   ): Promise<
     Awaited<ReturnType<ClassEventsQueryService['getGlobalSessions']>>
   > {
+    const startDate = parseScheduleRangeStartToUtc(
+      query.startDate,
+      'startDate',
+    );
+    const endDate = parseScheduleRangeEndExclusiveToUtc(
+      query.endDate,
+      'endDate',
+    );
+
+    assertValidDateRange(startDate, endDate, 'startDate', 'endDate');
+
     return await this.classEventsQueryService.getGlobalSessions(
       query.courseCycleIds,
-      new Date(query.startDate),
-      new Date(query.endDate),
+      startDate,
+      endDate,
     );
   }
 
@@ -137,7 +166,7 @@ export class ClassEventsController {
   ): Promise<ClassEventResponseDto[]> {
     const events = await this.classEventsService.getEventsByEvaluation(
       evaluationId,
-      user.id,
+      user,
     );
 
     if (events.length === 0) {
@@ -153,7 +182,7 @@ export class ClassEventsController {
     @Param('id') id: string,
     @CurrentUser() user: User,
   ): Promise<ClassEventResponseDto> {
-    const event = await this.classEventsService.getEventDetail(id, user.id);
+    const event = await this.classEventsService.getEventDetail(id, user);
     return this.mapEventToResponse(event);
   }
 
@@ -185,15 +214,19 @@ export class ClassEventsController {
       user,
       dto.title,
       dto.topic,
-      dto.startDatetime ? new Date(dto.startDatetime) : undefined,
-      dto.endDatetime ? new Date(dto.endDatetime) : undefined,
+      dto.startDatetime
+        ? parseBusinessDatetimeToUtc(dto.startDatetime, 'startDatetime')
+        : undefined,
+      dto.endDatetime
+        ? parseBusinessDatetimeToUtc(dto.endDatetime, 'endDatetime')
+        : undefined,
       dto.liveMeetingUrl,
       dto.recordingUrl,
     );
 
     const eventDetail = await this.classEventsService.getEventDetail(
       event.id,
-      user.id,
+      user,
     );
     return this.mapEventToResponse(eventDetail);
   }

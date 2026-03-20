@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { User } from '@modules/users/domain/user.entity';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RoleRepository } from '@modules/users/infrastructure/role.repository';
@@ -28,6 +28,8 @@ import {
 } from '@common/interfaces/database-error.interface';
 import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
 import { ADMIN_ROLE_CODES } from '@common/constants/role-codes.constants';
+import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 
 @Injectable()
 export class UsersService {
@@ -38,6 +40,7 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     private readonly roleRepository: RoleRepository,
     private readonly identitySecurityService: IdentitySecurityService,
+    private readonly mediaAccessMembershipDispatchService: MediaAccessMembershipDispatchService,
     @InjectQueue(QUEUES.MEDIA_ACCESS)
     private readonly mediaAccessQueue: Queue,
   ) {}
@@ -65,6 +68,67 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async createWithRole(
+    createUserDto: CreateUserDto,
+    roleCode: string,
+  ): Promise<User> {
+    const normalizedRoleCode = String(roleCode || '')
+      .trim()
+      .toUpperCase();
+
+    const createdUser = await this.dataSource.transaction(async (manager) => {
+      const existingUser = await this.userRepository.findByEmail(
+        createUserDto.email,
+        manager,
+      );
+
+      if (existingUser) {
+        throw new ConflictException('El correo electrónico ya está registrado');
+      }
+
+      const role = await this.roleRepository.findByCode(
+        normalizedRoleCode,
+        manager,
+      );
+      if (!role) {
+        throw new NotFoundException(`Rol ${normalizedRoleCode} no encontrado`);
+      }
+
+      const now = new Date();
+      try {
+        return await this.userRepository.create(
+          {
+            ...createUserDto,
+            createdAt: now,
+            updatedAt: null,
+            roles: [role],
+            lastActiveRoleId: role.id,
+          },
+          manager,
+        );
+      } catch (error) {
+        const errno = getErrnoFromDbError(error as DatabaseError);
+        if (errno === MySqlErrorCode.DUPLICATE_ENTRY) {
+          throw new ConflictException(
+            'El correo electrónico ya está registrado',
+          );
+        }
+        throw error;
+      }
+    });
+
+    await this.enqueueImmediateStaffReconciliationIfNeeded({
+      userId: createdUser.id,
+      roleCode: normalizedRoleCode,
+      event: 'ASSIGN_ROLE',
+      shouldEnqueue:
+        createdUser.isActive &&
+        this.shouldTriggerStaffReconciliationForRoleCode(normalizedRoleCode),
+    });
+
+    return createdUser;
   }
 
   async findAll(): Promise<User[]> {
@@ -243,6 +307,11 @@ export class UsersService {
           throw new NotFoundException('Usuario no encontrado');
         }
 
+        const revokedProfessorAccess =
+          roleCode === ROLE_CODES.PROFESSOR
+            ? await this.listProfessorAccessTargets(userId, manager)
+            : { courseCycleIds: [], evaluationIds: [] };
+
         const roleIndex = user.roles.findIndex((r) => r.code === roleCode);
         if (roleIndex === -1) {
           throw new NotFoundException('El usuario no tiene este rol asignado');
@@ -285,14 +354,20 @@ export class UsersService {
           roleCode,
         });
 
+        if (roleCode === ROLE_CODES.PROFESSOR) {
+          await this.revokeProfessorAssignments(userId, manager);
+        }
+
         await this.identitySecurityService.invalidateUserIdentity(userId, {
           revokeSessions: false,
           reason: IDENTITY_INVALIDATION_REASONS.ROLE_CHANGE,
           manager,
+          professorCacheContext: revokedProfessorAccess,
         });
 
         return {
           updatedUser,
+          revokedProfessorAccess,
           shouldEnqueueStaffReconciliation:
             this.shouldTriggerStaffReconciliationForRoleCode(roleCode),
         };
@@ -305,6 +380,25 @@ export class UsersService {
       event: 'REMOVE_ROLE',
       shouldEnqueue: transactionResult.shouldEnqueueStaffReconciliation,
     });
+
+    if (
+      roleCode === ROLE_CODES.PROFESSOR &&
+      (transactionResult.revokedProfessorAccess.courseCycleIds.length > 0 ||
+        transactionResult.revokedProfessorAccess.evaluationIds.length > 0)
+    ) {
+      await Promise.all([
+        this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
+          userId,
+          transactionResult.revokedProfessorAccess.courseCycleIds,
+          MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+        ),
+        this.mediaAccessMembershipDispatchService.enqueueRevokeForUserEvaluations(
+          userId,
+          transactionResult.revokedProfessorAccess.evaluationIds,
+          MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+        ),
+      ]);
+    }
 
     return transactionResult.updatedUser;
   }
@@ -507,5 +601,59 @@ export class UsersService {
       if (newValue === undefined) return false;
       return newValue !== currentUser[field];
     });
+  }
+
+  private async listProfessorAccessTargets(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<{ courseCycleIds: string[]; evaluationIds: string[] }> {
+    const executor = manager ?? this.dataSource;
+    const [courseCycleRows, evaluationRows] = await Promise.all([
+      executor.query<Array<{ courseCycleId: string }>>(
+        `
+          SELECT DISTINCT ccp.course_cycle_id AS courseCycleId
+          FROM course_cycle_professor ccp
+          WHERE ccp.professor_user_id = ?
+            AND ccp.revoked_at IS NULL
+        `,
+        [userId],
+      ),
+      executor.query<Array<{ evaluationId: string }>>(
+        `
+          SELECT DISTINCT ev.id AS evaluationId
+          FROM evaluation ev
+          INNER JOIN course_cycle_professor ccp
+            ON ccp.course_cycle_id = ev.course_cycle_id
+          WHERE ccp.professor_user_id = ?
+            AND ccp.revoked_at IS NULL
+        `,
+        [userId],
+      ),
+    ]);
+
+    return {
+      courseCycleIds: courseCycleRows
+        .map((row) => String(row.courseCycleId || '').trim())
+        .filter((id) => id.length > 0),
+      evaluationIds: evaluationRows
+        .map((row) => String(row.evaluationId || '').trim())
+        .filter((id) => id.length > 0),
+    };
+  }
+
+  private async revokeProfessorAssignments(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const executor = manager ?? this.dataSource;
+    await executor.query(
+      `
+        UPDATE course_cycle_professor
+        SET revoked_at = NOW()
+        WHERE professor_user_id = ?
+          AND revoked_at IS NULL
+      `,
+      [userId],
+    );
   }
 }

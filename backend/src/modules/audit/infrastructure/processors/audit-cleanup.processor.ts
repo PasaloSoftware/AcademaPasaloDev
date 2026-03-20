@@ -5,13 +5,9 @@ import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { AuditLogRepository } from '@modules/audit/infrastructure/audit-log.repository';
 import { SecurityEventRepository } from '@modules/auth/infrastructure/security-event.repository';
 import { SettingsService } from '@modules/settings/application/settings.service';
-import { AuditService } from '@modules/audit/application/audit.service';
 import { technicalSettings } from '@config/technical-settings';
 import {
-  AUDIT_ACTION_CODES,
-  AUDIT_ENTITY_TYPES,
   AUDIT_JOB_NAMES,
-  AUDIT_SYSTEM_ACTOR,
   AUDIT_SYSTEM_SETTING_KEYS,
 } from '@modules/audit/interfaces/audit.constants';
 
@@ -23,7 +19,6 @@ export class AuditCleanupProcessor extends WorkerHost {
     private readonly auditLogRepository: AuditLogRepository,
     private readonly securityEventRepository: SecurityEventRepository,
     private readonly settingsService: SettingsService,
-    private readonly auditService: AuditService,
   ) {
     super();
   }
@@ -53,7 +48,7 @@ export class AuditCleanupProcessor extends WorkerHost {
     let retentionDays: number;
     try {
       const retentionDaysStr = await this.settingsService.getString(
-        AUDIT_SYSTEM_SETTING_KEYS.CLEANUP_RETENTION_DAYS,
+        AUDIT_SYSTEM_SETTING_KEYS.AUDIT_CLEANUP_RETENTION_DAYS,
       );
       retentionDays =
         parseInt(retentionDaysStr, 10) ||
@@ -77,7 +72,7 @@ export class AuditCleanupProcessor extends WorkerHost {
         job: jobName,
         message:
           'No se encontro la configuracion de retencion en system_setting, usando valor por defecto',
-        missingKey: AUDIT_SYSTEM_SETTING_KEYS.CLEANUP_RETENTION_DAYS,
+        missingKey: AUDIT_SYSTEM_SETTING_KEYS.AUDIT_CLEANUP_RETENTION_DAYS,
         defaultValue: technicalSettings.audit.retentionDefaultDays,
       });
       retentionDays = technicalSettings.audit.retentionDefaultDays;
@@ -100,23 +95,6 @@ export class AuditCleanupProcessor extends WorkerHost {
         totalAuditDeleted,
         retentionDays,
       });
-
-      await this.auditService
-        .logAction(
-          AUDIT_SYSTEM_ACTOR.USER_ID,
-          AUDIT_ACTION_CODES.CLEANUP_EXECUTED,
-          AUDIT_ENTITY_TYPES.SYSTEM,
-          `Eliminados seguridad: ${totalSecurityDeleted}, auditoria: ${totalAuditDeleted}`,
-        )
-        .catch((err: Error) => {
-          this.logger.warn({
-            context: AuditCleanupProcessor.name,
-            job: jobName,
-            message:
-              'No se pudo registrar la accion de limpieza en el audit_log',
-            error: err.message,
-          });
-        });
     } catch (error) {
       const isError = error instanceof Error;
       this.logger.error({

@@ -14,12 +14,14 @@ import { UserSessionRepository } from '@modules/auth/infrastructure/user-session
 import { SessionStatusRepository } from '@modules/auth/infrastructure/session-status.repository';
 import { RedisCacheModule } from '@infrastructure/cache/redis-cache.module';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
+import { MediaAccessModule } from '@modules/media-access/media-access.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Role, UserSession, SessionStatus]),
     BullModule.registerQueue({ name: QUEUES.MEDIA_ACCESS }),
     RedisCacheModule,
+    MediaAccessModule,
   ],
   controllers: [UsersController],
   providers: [

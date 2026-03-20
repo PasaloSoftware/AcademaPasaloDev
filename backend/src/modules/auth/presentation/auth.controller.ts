@@ -139,9 +139,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Sesión cerrada exitosamente')
-  async logout(@CurrentUser() user: UserWithSession) {
+  async logout(
+    @CurrentUser() user: UserWithSession,
+    @Req() request: express.Request,
+  ) {
     if (user.sessionId) {
-      await this.authService.logout(user.sessionId, user.id);
+      const metadata = this.extractRequestMetadata(request, user.deviceId);
+      await this.authService.logout(
+        user.sessionId,
+        user.id,
+        metadata,
+        user.activeRole,
+      );
     }
   }
 

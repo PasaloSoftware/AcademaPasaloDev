@@ -19,6 +19,10 @@ import {
 } from '@modules/events/interfaces/class-event.interfaces';
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
+import {
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
 
 @Injectable()
 export class ClassEventsQueryService {
@@ -42,8 +46,8 @@ export class ClassEventsQueryService {
   ): Promise<ClassEvent[]> {
     const cacheKey = CLASS_EVENT_CACHE_KEYS.MY_SCHEDULE(
       userId,
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0],
+      start.toISOString(),
+      end.toISOString(),
     );
 
     const cached = await this.cacheService.get<ClassEvent[]>(cacheKey);
@@ -108,12 +112,17 @@ export class ClassEventsQueryService {
         activeCycleId,
       );
 
-    await this.cacheService.set(cacheKey, layers, this.EVENT_CACHE_TTL);
-    await this.cacheService.addToIndex(
-      CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(courseTypeId, activeCycleId),
-      cacheKey,
-      this.EVENT_CACHE_TTL,
-    );
+    await Promise.all([
+      this.cacheService.set(cacheKey, layers, this.EVENT_CACHE_TTL),
+      this.cacheService.addToIndex(
+        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+          courseTypeId,
+          activeCycleId,
+        ),
+        cacheKey,
+        this.EVENT_CACHE_TTL,
+      ),
+    ]);
     return layers;
   }
 
@@ -195,19 +204,17 @@ export class ClassEventsQueryService {
     }
 
     const groupedSessions = [...grouped.values()];
-    await this.cacheService.set(
-      cacheKey,
-      groupedSessions,
-      this.EVENT_CACHE_TTL,
-    );
-    await this.cacheService.addToIndex(
-      CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
-        courseTypeId,
-        academicCycleId,
+    await Promise.all([
+      this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL),
+      this.cacheService.addToIndex(
+        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
+          courseTypeId,
+          academicCycleId,
+        ),
+        cacheKey,
+        this.EVENT_CACHE_TTL,
       ),
-      cacheKey,
-      this.EVENT_CACHE_TTL,
-    );
+    ]);
     return groupedSessions;
   }
 
@@ -225,8 +232,12 @@ export class ClassEventsQueryService {
     }
 
     const now = new Date();
-    const cycleStart = new Date(evaluation.courseCycle.academicCycle.startDate);
-    const cycleEnd = new Date(evaluation.courseCycle.academicCycle.endDate);
+    const cycleStart = toBusinessDayStartUtc(
+      evaluation.courseCycle.academicCycle.startDate,
+    );
+    const cycleEnd = toBusinessDayEndUtc(
+      evaluation.courseCycle.academicCycle.endDate,
+    );
 
     const isActive = now >= cycleStart && now <= cycleEnd;
 

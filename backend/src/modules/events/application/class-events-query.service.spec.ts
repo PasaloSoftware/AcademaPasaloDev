@@ -105,8 +105,8 @@ describe('ClassEventsQueryService', () => {
   describe('isCycleActive', () => {
     it('debe retornar true si el ciclo está en el rango actual', async () => {
       const now = new Date();
-      const start = new Date(now.getTime() - 100000);
-      const end = new Date(now.getTime() + 100000);
+      const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       evaluationRepository.findByIdWithCycle.mockResolvedValue({
         courseCycle: {

@@ -220,6 +220,13 @@ describe('E2E: Courses Professors (Profesores por Curso)', () => {
       expect(response.body.data).toHaveLength(0);
     });
 
+    it('debe denegar a un profesor no asignado al curso', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/courses/cycle/${courseCycle.id}/professors`)
+        .set('Authorization', `Bearer ${professor3.token}`)
+        .expect(403);
+    });
+
     it('debe denegar acceso si el usuario no tiene rol adecuado', async () => {
       await request(app.getHttpServer())
         .get(`/api/v1/courses/cycle/${courseCycle.id}/professors`)

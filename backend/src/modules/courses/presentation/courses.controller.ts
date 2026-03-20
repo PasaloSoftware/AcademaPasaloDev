@@ -18,7 +18,6 @@ import {
   CycleLevelResponseDto,
 } from '@modules/courses/dto/course-response.dto';
 import { CourseContentResponseDto } from '@modules/courses/dto/course-content.dto';
-import { MyCourseCycleResponseDto } from '@modules/courses/dto/my-course-cycle-response.dto';
 import {
   StudentBankStructureResponseDto,
   StudentCurrentCycleContentResponseDto,
@@ -46,6 +45,7 @@ import { plainToInstance } from 'class-transformer';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { CourseSetupService } from '@modules/courses/application/course-setup.service';
+import { MyEnrollmentsResponseDto } from '@modules/enrollments/dto/my-enrollments-response.dto';
 
 @Controller('courses')
 @Auth()
@@ -102,7 +102,12 @@ export class CoursesController {
   }
 
   @Get('cycle/:id/previous-cycles')
-  @Roles(ROLE_CODES.STUDENT)
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
   @ResponseMessage('Ciclos anteriores del curso obtenidos exitosamente')
   async getPreviousCyclesForStudent(
     @Param('id') courseCycleId: string,
@@ -111,6 +116,7 @@ export class CoursesController {
     const cycles = await this.coursesService.getStudentPreviousCycles(
       courseCycleId,
       user.id,
+      (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentPreviousCycleListResponseDto, cycles, {
       excludeExtraneousValues: true,
@@ -118,7 +124,12 @@ export class CoursesController {
   }
 
   @Get('cycle/:id/previous-cycles/:cycleCode/content')
-  @Roles(ROLE_CODES.STUDENT)
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
   @ResponseMessage(
     'Contenido del ciclo anterior del curso obtenido exitosamente',
   )
@@ -131,6 +142,7 @@ export class CoursesController {
       courseCycleId,
       cycleCode,
       user.id,
+      (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentPreviousCycleContentResponseDto, content, {
       excludeExtraneousValues: true,
@@ -138,7 +150,12 @@ export class CoursesController {
   }
 
   @Get('cycle/:id/bank-structure')
-  @Roles(ROLE_CODES.STUDENT)
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
   @ResponseMessage(
     'Estructura del banco de enunciados del curso obtenida exitosamente',
   )
@@ -149,6 +166,7 @@ export class CoursesController {
     const structure = await this.coursesService.getStudentBankStructure(
       courseCycleId,
       user.id,
+      (user as UserWithSession).activeRole,
     );
     return plainToInstance(StudentBankStructureResponseDto, structure, {
       excludeExtraneousValues: true,
@@ -242,9 +260,15 @@ export class CoursesController {
   @Get('cycle/:id/professors')
   @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Profesores del curso obtenidos exitosamente')
-  async getProfessorsByCycle(@Param('id') courseCycleId: string) {
-    const professors =
-      await this.coursesService.getProfessorsByCourseCycle(courseCycleId);
+  async getProfessorsByCycle(
+    @Param('id') courseCycleId: string,
+    @CurrentUser() user: User,
+  ) {
+    const professors = await this.coursesService.getProfessorsByCourseCycle(
+      courseCycleId,
+      user.id,
+      (user as UserWithSession).activeRole,
+    );
     return plainToInstance(UserResponseDto, professors, {
       excludeExtraneousValues: true,
     });
@@ -281,11 +305,10 @@ export class CoursesController {
   @Get('my-courses')
   @Roles(ROLE_CODES.PROFESSOR)
   @ResponseMessage('Cursos del profesor obtenidos exitosamente')
-  async getMyCourses(@CurrentUser() user: User) {
-    const courseCycles = await this.coursesService.getMyCourseCycles(user.id);
-    return plainToInstance(MyCourseCycleResponseDto, courseCycles, {
-      excludeExtraneousValues: true,
-    });
+  async getMyCourses(
+    @CurrentUser() user: User,
+  ): Promise<MyEnrollmentsResponseDto[]> {
+    return await this.coursesService.getMyCourseCycles(user.id);
   }
 
   @Get()

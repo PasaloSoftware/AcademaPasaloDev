@@ -33,6 +33,8 @@ interface MaterialUploadResponse {
 }
 
 describe('E2E: Gestion de Materiales y Seguridad', () => {
+  jest.setTimeout(120000);
+
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
@@ -42,10 +44,13 @@ describe('E2E: Gestion de Materiales y Seguridad', () => {
   let studentWithAccess: { user: User; token: string };
   let courseCycle: CourseCycle;
   let evaluation: Evaluation;
+  let historicalEvaluation: Evaluation;
   let rootFolderId: string;
   let childFolderId: string;
   let templateRootFolderId: string;
   let uploadedMaterialId: string;
+  let historicalRootFolderId: string;
+  let historicalMaterialId: string;
   const storageMock = {
     calculateHash: jest.fn().mockResolvedValue('mock-sha256-hash'),
     saveFile: jest
@@ -105,7 +110,7 @@ describe('E2E: Gestion de Materiales y Seguridad', () => {
       'enrollment_evaluation',
       'enrollment',
       'material',
-      'file_version',
+      'material_version',
       'file_resource',
       'material_folder',
       'evaluation',
@@ -140,6 +145,22 @@ describe('E2E: Gestion de Materiales y Seguridad', () => {
       formatDate(yesterday),
       formatDate(nextMonth),
     );
+    const historicalCycle = await seeder.createCycle(
+      `2025-MAT-${Date.now()}`,
+      formatDate(new Date(now.getTime() - 220 * 24 * 60 * 60 * 1000)),
+      formatDate(new Date(now.getTime() - 150 * 24 * 60 * 60 * 1000)),
+    );
+    const historicalCourseCycle = await seeder.linkCourseCycle(
+      course.id,
+      historicalCycle.id,
+    );
+    historicalEvaluation = await seeder.createEvaluation(
+      historicalCourseCycle.id,
+      EVALUATION_TYPE_CODES.PC,
+      1,
+      formatDate(new Date(now.getTime() - 210 * 24 * 60 * 60 * 1000)),
+      formatDate(new Date(now.getTime() - 200 * 24 * 60 * 60 * 1000)),
+    );
 
     admin = await seeder.createAuthenticatedUser(
       TestSeeder.generateUniqueEmail('admin_mat'),
@@ -169,6 +190,32 @@ describe('E2E: Gestion de Materiales y Seguridad', () => {
         enrollmentTypeCode: ENROLLMENT_TYPE_CODES.FULL,
       })
       .expect(201);
+
+    const historicalFolderRes = await request(app.getHttpServer())
+      .post('/api/v1/materials/folders')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({
+        evaluationId: historicalEvaluation.id,
+        name: 'Material Historico',
+        visibleFrom: new Date(
+          now.getTime() - 205 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+      })
+      .expect(201);
+    historicalRootFolderId = (
+      historicalFolderRes.body as MaterialFolderResponse
+    ).data.id;
+
+    const historicalMaterialRes = await request(app.getHttpServer())
+      .post('/api/v1/materials')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .attach('file', Buffer.from('%PDF-1.4 historical-material'), 'hist.pdf')
+      .field('materialFolderId', historicalRootFolderId)
+      .field('displayName', 'Material Historico PDF')
+      .expect(201);
+    historicalMaterialId = (
+      historicalMaterialRes.body as MaterialUploadResponse
+    ).data.id;
   });
 
   afterAll(async () => {
@@ -275,6 +322,55 @@ describe('E2E: Gestion de Materiales y Seguridad', () => {
       expect(new Date(res.body.data.lastModifiedAt).toString()).not.toBe(
         'Invalid Date',
       );
+    });
+
+    it('Profesor asignado debe poder listar carpetas raiz del mismo curso', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/materials/folders/evaluation/${evaluation.id}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(
+        res.body.data.some(
+          (folder: { id: string }) => folder.id === rootFolderId,
+        ),
+      ).toBe(true);
+    });
+
+    it('Profesor asignado debe poder listar carpetas raiz historicas del mismo curso', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/materials/folders/evaluation/${historicalEvaluation.id}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(
+        res.body.data.some(
+          (folder: { id: string }) => folder.id === historicalRootFolderId,
+        ),
+      ).toBe(true);
+    });
+
+    it('Profesor asignado debe poder descargar material historico del mismo curso', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/materials/${historicalMaterialId}/download`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(res.headers['content-type']).toContain('application/pdf');
+    });
+
+    it('Profesor asignado debe poder obtener enlace autorizado de material historico', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/materials/${historicalMaterialId}/authorized-link`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(res.body.data.url).toContain(
+        `/materials/${historicalMaterialId}/download`,
+      );
+      expect(res.body.data.evaluationId).toBe(historicalEvaluation.id);
     });
 
     it('Estudiante NO debe poder consultar ultima modificacion (403)', async () => {

@@ -13,10 +13,24 @@ import StudentInicioContent from '@/components/pages/student/InicioContent';
 import StudentCursoContent from '@/components/pages/student/CursoContent';
 import StudentCalendarioContent from '@/components/pages/student/CalendarioContent';
 import StudentEvaluationContent from '@/components/pages/student/EvaluationContent';
+import StudentPreviousCycleContent from '@/components/pages/student/PreviousCycleContent';
+import StudentPreviousCycleEvaluationContent from '@/components/pages/student/PreviousCycleEvaluationContent';
+import StudentBancoEnunciadosContent from '@/components/pages/student/BancoEnunciadosContent';
+import StudentVideoPageContent from '@/components/pages/student/VideoPageContent';
 
 // Importar componentes de docente
 import TeacherInicioContent from '@/components/pages/teacher/InicioContent';
 import TeacherCalendarioContent from '@/components/pages/teacher/CalendarioContent';
+import TeacherCursoContent from '@/components/pages/teacher/CursoContent';
+import TeacherEvaluationContent from '@/components/pages/teacher/EvaluationContent';
+import TeacherVideoPageContent from '@/components/pages/teacher/VideoPageContent';
+import TeacherPreviousCycleContent from '@/components/pages/teacher/PreviousCycleContent';
+import TeacherPreviousCycleEvaluationContent from '@/components/pages/teacher/PreviousCycleEvaluationContent';
+import TeacherBancoEnunciadosContent from '@/components/pages/teacher/BancoEnunciadosContent';
+import TeacherPerfilContent from '@/components/pages/teacher/PerfilContent';
+
+// Importar componentes de shared
+import SharedPerfilContent from '@/components/pages/shared/PerfilContent';
 
 // Importar componentes de admin
 import AdminInicioContent from '@/components/pages/admin/InicioContent';
@@ -33,14 +47,30 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   'student/CursoContent': StudentCursoContent,
   'student/CalendarioContent': StudentCalendarioContent,
   'student/EvaluationContent': StudentEvaluationContent,
+  'student/PreviousCycleContent': StudentPreviousCycleContent,
+  'student/PreviousCycleEvaluationContent': StudentPreviousCycleEvaluationContent,
+  'student/BancoEnunciadosContent': StudentBancoEnunciadosContent,
+  'student/VideoPageContent': StudentVideoPageContent,
   
   // Docente
   'teacher/InicioContent': TeacherInicioContent,
   'teacher/CalendarioContent': TeacherCalendarioContent,
+  'teacher/CursoContent': TeacherCursoContent,
+  'teacher/EvaluationContent': TeacherEvaluationContent,
+  'teacher/VideoPageContent': TeacherVideoPageContent,
+  'teacher/PreviousCycleContent': TeacherPreviousCycleContent,
+  'teacher/PreviousCycleEvaluationContent': TeacherPreviousCycleEvaluationContent,
+  'teacher/BancoEnunciadosContent': TeacherBancoEnunciadosContent,
   
   // Admin
   'admin/InicioContent': AdminInicioContent,
   'admin/AuditoriaContent': AdminAuditoriaContent,
+
+  // Shared
+  'shared/PerfilContent': SharedPerfilContent,
+
+  // Teacher (perfil)
+  'teacher/PerfilContent': TeacherPerfilContent,
 };
 
 interface RoleBasedContentProps {

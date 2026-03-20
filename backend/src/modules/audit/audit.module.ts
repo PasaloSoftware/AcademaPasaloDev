@@ -5,12 +5,18 @@ import { AuditAction } from '@modules/audit/domain/audit-action.entity';
 import { AuditLog } from '@modules/audit/domain/audit-log.entity';
 import { AuditActionRepository } from '@modules/audit/infrastructure/audit-action.repository';
 import { AuditLogRepository } from '@modules/audit/infrastructure/audit-log.repository';
+import { AuditExportRepository } from '@modules/audit/infrastructure/audit-export.repository';
 import { AuditService } from '@modules/audit/application/audit.service';
+import { AuditExportJobsService } from '@modules/audit/application/audit-export-jobs.service';
 import { AuditController } from '@modules/audit/presentation/audit.controller';
 import { AuthModule } from '@modules/auth/auth.module';
 import { SettingsModule } from '@modules/settings/settings.module';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { AuditCleanupProcessor } from './infrastructure/processors/audit-cleanup.processor';
+import { AuditExportCoordinatorService } from './application/audit-export-coordinator.service';
+import { AuditExportProcessor } from './infrastructure/processors/audit-export.processor';
+import { AuditExportArtifactsService } from './application/audit-export-artifacts.service';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,12 +26,18 @@ import { AuditCleanupProcessor } from './infrastructure/processors/audit-cleanup
     }),
     forwardRef(() => AuthModule),
     SettingsModule,
+    NotificationsModule,
   ],
   controllers: [AuditController],
   providers: [
     AuditActionRepository,
     AuditLogRepository,
+    AuditExportRepository,
     AuditService,
+    AuditExportJobsService,
+    AuditExportCoordinatorService,
+    AuditExportArtifactsService,
+    AuditExportProcessor,
     AuditCleanupProcessor,
   ],
   exports: [AuditService],

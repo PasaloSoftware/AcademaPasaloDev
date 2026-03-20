@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import {
@@ -65,7 +66,7 @@ describe('MediaAccessMembershipDispatchService', () => {
     expect(jobs[0].data.source).toBe('ENROLLMENT_CANCELLED');
   });
 
-  it('no propaga error si queue falla', async () => {
+  it('propaga error si queue falla', async () => {
     (queue.addBulk as jest.Mock).mockRejectedValue(new Error('Redis down'));
 
     await expect(
@@ -74,7 +75,7 @@ describe('MediaAccessMembershipDispatchService', () => {
         ['100', '100'],
         'EVALUATION_CREATED',
       ),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('Redis down');
   });
 
   it('encola recover scope con payload normalizado', async () => {
@@ -103,5 +104,25 @@ describe('MediaAccessMembershipDispatchService', () => {
       jobId: 'media-access__recover-scope__200__reconcile__keep-extra',
       removeOnComplete: true,
     });
+  });
+
+  it('lanza BadRequestException si falta input obligatorio en recover scope', async () => {
+    await expect(
+      service.enqueueRecoverEvaluationScope({
+        evaluationId: '200',
+        requestedByUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('lanza BadRequestException si pruneExtraMembers requiere reconciliacion', async () => {
+    await expect(
+      service.enqueueRecoverEvaluationScope({
+        evaluationId: '200',
+        requestedByUserId: '10',
+        reconcileMembers: false,
+        pruneExtraMembers: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

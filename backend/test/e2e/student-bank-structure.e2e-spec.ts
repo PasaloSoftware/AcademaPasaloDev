@@ -15,9 +15,12 @@ describe('E2E: Student bank structure', () => {
   let seeder: TestSeeder;
 
   let admin: { user: { id: string }; token: string };
+  let assignedProfessor: { user: { id: string }; token: string };
+  let unassignedProfessor: { user: { id: string }; token: string };
   let enrolledStudent: { user: { id: string }; token: string };
   let notEnrolledStudent: { user: { id: string }; token: string };
   let courseCycleId: string;
+  let pastCourseCycleId: string;
   let pcTypeId: string;
   let exTypeId: string;
   let taTypeId: string;
@@ -59,6 +62,14 @@ describe('E2E: Student bank structure', () => {
       TestSeeder.generateUniqueEmail('admin_bank_struct'),
       [ROLE_CODES.ADMIN],
     );
+    assignedProfessor = await seeder.createAuthenticatedUser(
+      TestSeeder.generateUniqueEmail('prof_bank_struct_ok'),
+      [ROLE_CODES.PROFESSOR],
+    );
+    unassignedProfessor = await seeder.createAuthenticatedUser(
+      TestSeeder.generateUniqueEmail('prof_bank_struct_forbidden'),
+      [ROLE_CODES.PROFESSOR],
+    );
     enrolledStudent = await seeder.createAuthenticatedUser(
       TestSeeder.generateUniqueEmail('student_bank_struct_ok'),
       [ROLE_CODES.STUDENT],
@@ -77,6 +88,19 @@ describe('E2E: Student bank structure', () => {
     const course = await seeder.createCourse('BNK-STR', 'Banco Structure');
     const cc = await seeder.linkCourseCycle(course.id, cycle.id);
     courseCycleId = cc.id;
+    const pastCycle = await seeder.createCycle(
+      '2025-2',
+      addDays(now, -200),
+      addDays(now, -120),
+    );
+    const pastCc = await seeder.linkCourseCycle(course.id, pastCycle.id);
+    pastCourseCycleId = pastCc.id;
+
+    await dataSource.query(
+      `INSERT INTO course_cycle_professor (course_cycle_id, professor_user_id, assigned_at)
+       VALUES (?, ?, NOW())`,
+      [courseCycleId, assignedProfessor.user.id],
+    );
 
     const maybePc = await dataSource.query<Array<{ id: string }>>(
       `SELECT id FROM evaluation_type WHERE code = 'PC' LIMIT 1`,
@@ -122,6 +146,8 @@ describe('E2E: Student bank structure', () => {
        VALUES
         (?, ?, 1, NOW(), NULL),
         (?, ?, 1, NOW(), NULL),
+        (?, ?, 1, NOW(), NULL),
+        (?, ?, 1, NOW(), NULL),
         (?, ?, 1, NOW(), NULL)`,
       [
         courseCycleId,
@@ -130,6 +156,10 @@ describe('E2E: Student bank structure', () => {
         exTypeId,
         courseCycleId,
         taTypeId,
+        pastCourseCycleId,
+        pcTypeId,
+        pastCourseCycleId,
+        exTypeId,
       ],
     );
 
@@ -178,10 +208,48 @@ describe('E2E: Student bank structure', () => {
     );
   });
 
+  it('admin can read bank structure without enrollment', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/courses/cycle/${courseCycleId}/bank-structure`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .expect(200);
+
+    expect(res.body.data.courseCycleId).toBe(courseCycleId);
+    expect(res.body.data.items).toHaveLength(3);
+  });
+
+  it('assigned professor can read bank structure for own course cycle', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/courses/cycle/${courseCycleId}/bank-structure`)
+      .set('Authorization', `Bearer ${assignedProfessor.token}`)
+      .expect(200);
+
+    expect(res.body.data.courseCycleId).toBe(courseCycleId);
+    expect(res.body.data.items).toHaveLength(3);
+  });
+
+  it('assigned professor can read bank structure for a previous cycle of the same course', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/courses/cycle/${pastCourseCycleId}/bank-structure`)
+      .set('Authorization', `Bearer ${assignedProfessor.token}`)
+      .expect(200);
+
+    expect(res.body.data.courseCycleId).toBe(pastCourseCycleId);
+    expect(res.body.data.cycleCode).toBe('2025-2');
+    expect(res.body.data.items).toHaveLength(2);
+  });
+
   it('student without active enrollment is forbidden', async () => {
     await request(app.getHttpServer())
       .get(`/api/v1/courses/cycle/${courseCycleId}/bank-structure`)
       .set('Authorization', `Bearer ${notEnrolledStudent.token}`)
+      .expect(403);
+  });
+
+  it('unassigned professor is forbidden', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/v1/courses/cycle/${courseCycleId}/bank-structure`)
+      .set('Authorization', `Bearer ${unassignedProfessor.token}`)
       .expect(403);
   });
 });

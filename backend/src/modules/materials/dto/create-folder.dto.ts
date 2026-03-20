@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsNotEmpty,
   IsString,
   IsOptional,
@@ -24,11 +25,11 @@ export class CreateFolderDto {
   @MaxLength(255)
   name: string;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
   visibleFrom?: string;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
   visibleUntil?: string;
 }

@@ -5,6 +5,7 @@ import { Job, UnrecoverableError } from 'bullmq';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { technicalSettings } from '@config/technical-settings';
 import { SettingsService } from '@modules/settings/application/settings.service';
+import { AuditExportReadyNotificationService } from '@modules/notifications/application/audit-export-ready-notification.service';
 import { NotificationRepository } from '@modules/notifications/infrastructure/notification.repository';
 import { NotificationTypeRepository } from '@modules/notifications/infrastructure/notification-type.repository';
 import { UserNotificationRepository } from '@modules/notifications/infrastructure/user-notification.repository';
@@ -13,6 +14,7 @@ import { Notification } from '@modules/notifications/domain/notification.entity'
 import { UserNotification } from '@modules/notifications/domain/user-notification.entity';
 import { DeletionRequest } from '@modules/materials/domain/deletion-request.entity';
 import { Material } from '@modules/materials/domain/material.entity';
+import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import {
   NOTIFICATION_JOB_NAMES,
   NOTIFICATION_MESSAGES,
@@ -27,8 +29,13 @@ import {
   DispatchClassPayload,
   DispatchMaterialPayload,
   DispatchDeletionReviewPayload,
+  DispatchAuditExportReadyPayload,
   ClassReminderPayload,
 } from '@modules/notifications/interfaces';
+import {
+  NotificationIntegrityError,
+  NotificationTargetNotFoundError,
+} from '@modules/notifications/domain/notification.errors';
 
 @Processor(QUEUES.NOTIFICATIONS, {
   lockDuration: technicalSettings.notifications.workerLockDurationMs,
@@ -43,6 +50,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
     private readonly userNotificationRepository: UserNotificationRepository,
     private readonly recipientsService: NotificationRecipientsService,
     private readonly settingsService: SettingsService,
+    private readonly auditExportReadyNotificationService: AuditExportReadyNotificationService,
   ) {
     super();
   }
@@ -85,7 +93,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
 
     this.logger.log({
       context: NotificationDispatchProcessor.name,
-      message: 'Procesando job de dispatch de notificación',
+      message: 'Procesando job de dispatch de notificacion',
       jobId: job.id,
       type,
     });
@@ -95,10 +103,16 @@ export class NotificationDispatchProcessor extends WorkerHost {
       return;
     }
 
+    if (type === NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED) {
+      await this.handleMaterialUpdated(job.data);
+      return;
+    }
+
     if (
       type === NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED ||
       type === NOTIFICATION_TYPE_CODES.CLASS_UPDATED ||
-      type === NOTIFICATION_TYPE_CODES.CLASS_CANCELLED
+      type === NOTIFICATION_TYPE_CODES.CLASS_CANCELLED ||
+      type === NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE
     ) {
       await this.handleClassEvent(job.data);
       return;
@@ -112,7 +126,12 @@ export class NotificationDispatchProcessor extends WorkerHost {
       return;
     }
 
-    const msg = `Error de integridad: tipo de notificación desconocido '${String(
+    if (type === NOTIFICATION_TYPE_CODES.AUDIT_EXPORT_READY) {
+      await this.handleAuditExportReady(job.data);
+      return;
+    }
+
+    const msg = `Error de integridad: tipo de notificacion desconocido '${String(
       type,
     )}' recibido en el job de dispatch`;
     this.logger.error({
@@ -127,9 +146,30 @@ export class NotificationDispatchProcessor extends WorkerHost {
   private async handleNewMaterial(
     payload: DispatchMaterialPayload,
   ): Promise<void> {
+    await this.handleMaterialDispatch(
+      payload,
+      NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
+    );
+  }
+
+  private async handleMaterialUpdated(
+    payload: DispatchMaterialPayload,
+  ): Promise<void> {
+    await this.handleMaterialDispatch(
+      payload,
+      NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED,
+    );
+  }
+
+  private async handleMaterialDispatch(
+    payload: DispatchMaterialPayload,
+    expectedType:
+      | typeof NOTIFICATION_TYPE_CODES.NEW_MATERIAL
+      | typeof NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED,
+  ): Promise<void> {
     const { materialId, folderId } = payload;
 
-    const context = await this.recipientsService.resolveMaterialContext(
+    const context = await this.resolveMaterialContextOrFail(
       materialId,
       folderId,
     );
@@ -138,31 +178,26 @@ export class NotificationDispatchProcessor extends WorkerHost {
       this.logger.log({
         context: NotificationDispatchProcessor.name,
         message:
-          'NEW_MATERIAL: sin destinatarios para este material, job completado sin insertar notificación',
+          'NEW_MATERIAL: sin destinatarios para este material, job completado sin insertar notificacion',
         materialId,
         folderId,
       });
       return;
     }
 
-    const notificationType = await this.resolveNotificationTypeOrFail(
-      NOTIFICATION_TYPE_CODES.NEW_MATERIAL,
-    );
+    const notificationType =
+      await this.resolveNotificationTypeOrFail(expectedType);
 
-    const template =
-      NOTIFICATION_MESSAGES[NOTIFICATION_TYPE_CODES.NEW_MATERIAL];
+    const template = NOTIFICATION_MESSAGES[expectedType];
     const title = template.title;
-    const message = template.message(
-      context.materialDisplayName,
-      context.courseName,
-    );
+    const message = this.buildMaterialMessage(expectedType, context);
 
     const notificationData: Partial<Notification> = {
       notificationTypeId: notificationType.id,
       title,
       message,
-      entityType: NOTIFICATION_ENTITY_TYPES.MATERIAL_FOLDER,
-      entityId: context.folderId,
+      entityType: NOTIFICATION_ENTITY_TYPES.MATERIAL,
+      entityId: context.materialId,
       createdAt: new Date(),
     };
 
@@ -185,9 +220,11 @@ export class NotificationDispatchProcessor extends WorkerHost {
       },
     );
 
+    await this.invalidateUnreadCountSafely(context.recipientUserIds);
+
     this.logger.log({
       context: NotificationDispatchProcessor.name,
-      message: 'NEW_MATERIAL: notificación creada y distribuida',
+      message: `${expectedType}: notificación creada y distribuida`,
       notificationId,
       materialId,
       folderId,
@@ -198,14 +235,13 @@ export class NotificationDispatchProcessor extends WorkerHost {
   private async handleClassEvent(payload: DispatchClassPayload): Promise<void> {
     const { type, classEventId } = payload;
 
-    const context =
-      await this.recipientsService.resolveClassEventContext(classEventId);
+    const context = await this.resolveClassEventContextOrFail(classEventId);
 
     if (context.recipientUserIds.length === 0) {
       this.logger.log({
         context: NotificationDispatchProcessor.name,
         message:
-          'Notificación de clase: sin destinatarios, job completado sin insertar notificación',
+          'Notificacion de clase: sin destinatarios, job completado sin insertar notificacion',
         classEventId,
         type,
       });
@@ -214,9 +250,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
 
     const notificationType = await this.resolveNotificationTypeOrFail(type);
 
-    const fechaFormateada = this.formatDatetime(context.startDatetime);
     const template = NOTIFICATION_MESSAGES[type];
-    const message = template.message(context.classTitle, fechaFormateada);
+    const message = this.buildClassEventMessage(type, context);
 
     const notificationData: Partial<Notification> = {
       notificationTypeId: notificationType.id,
@@ -246,9 +281,11 @@ export class NotificationDispatchProcessor extends WorkerHost {
       },
     );
 
+    await this.invalidateUnreadCountSafely(context.recipientUserIds);
+
     this.logger.log({
       context: NotificationDispatchProcessor.name,
-      message: 'Notificación de clase creada y distribuida',
+      message: 'Notificacion de clase creada y distribuida',
       notificationId,
       classEventId,
       type,
@@ -269,14 +306,36 @@ export class NotificationDispatchProcessor extends WorkerHost {
       reminderMinutes,
     });
 
-    const context =
-      await this.recipientsService.resolveClassEventContext(classEventId);
+    const classEvent = await this.dataSource.getRepository(ClassEvent).findOne({
+      where: { id: classEventId },
+      select: { id: true, isCancelled: true },
+    });
+    if (!classEvent) {
+      const msg = `No existe el class_event ${classEventId} para recordatorio`;
+      this.logger.error({
+        context: NotificationDispatchProcessor.name,
+        message: msg,
+        classEventId,
+      });
+      throw new UnrecoverableError(msg);
+    }
+
+    if (classEvent.isCancelled) {
+      this.logger.log({
+        context: NotificationDispatchProcessor.name,
+        message: 'CLASS_REMINDER omitido: la clase ya se encuentra cancelada',
+        classEventId,
+      });
+      return;
+    }
+
+    const context = await this.resolveClassEventContextOrFail(classEventId);
 
     if (context.recipientUserIds.length === 0) {
       this.logger.log({
         context: NotificationDispatchProcessor.name,
         message:
-          'CLASS_REMINDER: sin destinatarios, job completado sin insertar notificación',
+          'CLASS_REMINDER: sin destinatarios, job completado sin insertar notificacion',
         classEventId,
       });
       return;
@@ -288,7 +347,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
 
     const template =
       NOTIFICATION_MESSAGES[NOTIFICATION_TYPE_CODES.CLASS_REMINDER];
-    const message = template.message(context.classTitle, reminderMinutes);
+    const message = this.buildClassReminderMessage(context, reminderMinutes);
 
     const notificationData: Partial<Notification> = {
       notificationTypeId: notificationType.id,
@@ -318,6 +377,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
       },
     );
 
+    await this.invalidateUnreadCountSafely(context.recipientUserIds);
+
     this.logger.log({
       context: NotificationDispatchProcessor.name,
       message: 'CLASS_REMINDER: notificación creada y distribuida',
@@ -326,6 +387,14 @@ export class NotificationDispatchProcessor extends WorkerHost {
       reminderMinutes,
       recipientCount: context.recipientUserIds.length,
     });
+  }
+
+  private async handleAuditExportReady(
+    payload: DispatchAuditExportReadyPayload,
+  ): Promise<void> {
+    await this.auditExportReadyNotificationService.createReadyNotification(
+      payload,
+    );
   }
 
   private async handleDeletionReview(
@@ -393,6 +462,8 @@ export class NotificationDispatchProcessor extends WorkerHost {
       },
     );
 
+    await this.invalidateUnreadCountSafely([request.requestedById]);
+
     this.logger.log({
       context: NotificationDispatchProcessor.name,
       message: 'Notificación de revisión de solicitud creada y distribuida',
@@ -423,7 +494,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
       if (
         retentionDays < technicalSettings.notifications.retentionMinSafeDays
       ) {
-        const msg = `Error de seguridad: Se intentó configurar una retención menor a ${technicalSettings.notifications.retentionMinSafeDays} días`;
+        const msg = `Error de seguridad: Se intento configurar una retención menor a ${technicalSettings.notifications.retentionMinSafeDays} dias`;
         this.logger.error({
           context: NotificationDispatchProcessor.name,
           message: msg,
@@ -452,6 +523,10 @@ export class NotificationDispatchProcessor extends WorkerHost {
       cutOffDate,
       technicalSettings.notifications.cleanupBatchSize,
     );
+
+    if (totalDeleted > 0) {
+      await this.invalidateAllUnreadCountsSafely();
+    }
 
     this.logger.log({
       context: NotificationDispatchProcessor.name,
@@ -491,5 +566,164 @@ export class NotificationDispatchProcessor extends WorkerHost {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  private async invalidateUnreadCountSafely(userIds: string[]): Promise<void> {
+    try {
+      await this.userNotificationRepository.invalidateUnreadCountForUsers(
+        userIds,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationDispatchProcessor.name,
+        message:
+          'No se pudo invalidar el cache de unread-count luego de crear notificaciones',
+        userIds,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async invalidateAllUnreadCountsSafely(): Promise<void> {
+    try {
+      await this.userNotificationRepository.invalidateAllUnreadCounts();
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationDispatchProcessor.name,
+        message:
+          'No se pudo invalidar globalmente el cache de unread-count luego del cleanup',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async resolveClassEventContextOrFail(classEventId: string) {
+    try {
+      return await this.recipientsService.resolveClassEventContext(
+        classEventId,
+      );
+    } catch (error) {
+      if (
+        error instanceof NotificationTargetNotFoundError ||
+        error instanceof NotificationIntegrityError
+      ) {
+        this.logger.error({
+          context: NotificationDispatchProcessor.name,
+          message: error.message,
+          classEventId,
+        });
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  private async resolveMaterialContextOrFail(
+    materialId: string,
+    folderId: string,
+  ) {
+    try {
+      return await this.recipientsService.resolveMaterialContext(
+        materialId,
+        folderId,
+      );
+    } catch (error) {
+      if (
+        error instanceof NotificationTargetNotFoundError ||
+        error instanceof NotificationIntegrityError
+      ) {
+        this.logger.error({
+          context: NotificationDispatchProcessor.name,
+          message: error.message,
+          materialId,
+          folderId,
+        });
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  private buildMaterialMessage(
+    type:
+      | typeof NOTIFICATION_TYPE_CODES.NEW_MATERIAL
+      | typeof NOTIFICATION_TYPE_CODES.MATERIAL_UPDATED,
+    context: {
+      materialDisplayName: string;
+      sessionNumber: number | null;
+      evaluationLabel: string;
+      courseName: string;
+    },
+  ): string {
+    const action =
+      type === NOTIFICATION_TYPE_CODES.NEW_MATERIAL
+        ? 'Se publicó'
+        : 'Se actualizó';
+    const scopeLabel =
+      context.sessionNumber !== null
+        ? `de la clase ${context.sessionNumber} de la ${context.evaluationLabel}`
+        : `de la ${context.evaluationLabel}`;
+    return `${action} '${context.materialDisplayName}' ${scopeLabel} del curso ${context.courseName}.`;
+  }
+
+  private buildClassEventMessage(
+    type:
+      | typeof NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED
+      | typeof NOTIFICATION_TYPE_CODES.CLASS_UPDATED
+      | typeof NOTIFICATION_TYPE_CODES.CLASS_CANCELLED
+      | typeof NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE,
+    context: {
+      sessionNumber: number;
+      evaluationLabel: string;
+      courseName: string;
+      startDatetime: Date;
+    },
+  ): string {
+    const sessionLabel = this.buildSessionLabel(
+      context.sessionNumber,
+      context.evaluationLabel,
+      context.courseName,
+    );
+    const fechaFormateada = this.formatDatetime(context.startDatetime);
+
+    if (type === NOTIFICATION_TYPE_CODES.CLASS_SCHEDULED) {
+      return `${sessionLabel} ha sido programada para el ${fechaFormateada}.`;
+    }
+    if (type === NOTIFICATION_TYPE_CODES.CLASS_UPDATED) {
+      return `El horario de ${this.lowercaseLeadingArticle(sessionLabel)} ha sido actualizado. Revisa los detalles mas recientes en la plataforma.`;
+    }
+    if (type === NOTIFICATION_TYPE_CODES.CLASS_CANCELLED) {
+      return `${sessionLabel} programada para el ${fechaFormateada} ha sido cancelada.`;
+    }
+
+    return `La grabación de ${this.lowercaseLeadingArticle(sessionLabel)} ya está disponible.`;
+  }
+
+  private buildClassReminderMessage(
+    context: {
+      sessionNumber: number;
+      evaluationLabel: string;
+      courseName: string;
+    },
+    reminderMinutes: number,
+  ): string {
+    const sessionLabel = this.buildSessionLabel(
+      context.sessionNumber,
+      context.evaluationLabel,
+      context.courseName,
+    );
+    return `Tienes ${this.lowercaseLeadingArticle(sessionLabel)} en ${reminderMinutes} minutos.`;
+  }
+
+  private buildSessionLabel(
+    sessionNumber: number,
+    evaluationLabel: string,
+    courseName: string,
+  ): string {
+    return `La clase ${sessionNumber} de la ${evaluationLabel} del curso ${courseName}`;
+  }
+
+  private lowercaseLeadingArticle(value: string): string {
+    return value.startsWith('La ') ? `la ${value.slice(3)}` : value;
   }
 }

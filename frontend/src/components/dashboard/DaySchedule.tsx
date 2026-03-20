@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import { classEventService } from "@/services/classEvent.service";
 import { ClassEvent } from "@/types/classEvent";
@@ -20,6 +21,7 @@ export default function DaySchedule() {
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   // Calcular inicio y fin de la semana
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Domingo
@@ -27,6 +29,12 @@ export default function DaySchedule() {
 
   // Generar array de días de la semana
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Tick every 30s so join-button reactivity stays fresh
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     loadSchedule();
@@ -225,7 +233,13 @@ export default function DaySchedule() {
             </button>
           </div>
         ) : todayEvents.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
+            <Icon
+              name="event_busy"
+              size={32}
+              className="text-gray-600 mx-auto mb-2"
+              variant="outlined"
+            />
             <p className="text-sm text-gray-600">
               No tienes clases programadas
             </p>
@@ -233,10 +247,18 @@ export default function DaySchedule() {
         ) : (
           todayEvents.map((event) => {
             const colors = getCourseColor(event.courseCode);
-            const isNow = event.status === "EN_CURSO";
+            const isNow = event.sessionStatus === "EN_CURSO";
 
+            const startMs = new Date(event.startDatetime).getTime();
+            const isLive = event.sessionStatus === "EN_CURSO";
+            const isLiveSoon =
+              event.sessionStatus === "PROGRAMADA" &&
+              startMs - now <= 60 * 60 * 1000 &&
+              startMs - now > 0;
             const canJoinNow =
-              !!event.liveMeetingUrl && !event.isCancelled;
+              (isLive || isLiveSoon) &&
+              !!event.liveMeetingUrl &&
+              !event.isCancelled;
 
             return (
               <div
@@ -253,11 +275,11 @@ export default function DaySchedule() {
                       <span className="text-[10px] font-medium text-primary">
                         {event.title}
                       </span>
-                      {isNow && (
+                      {/*isNow && (
                         <span className="px-1.5 py-0.5 bg-error-solid text-white text-[8px] font-bold rounded">
                           EN VIVO
                         </span>
-                      )}
+                      )*/}
                     </div>
                     <div className="flex items-center">
                       <span className="text-xs font-medium text-primary truncate">
@@ -275,7 +297,13 @@ export default function DaySchedule() {
                   </div>
                   {canJoinNow && (
                     <button
-                      onClick={() => classEventService.joinMeeting(event)}
+                      onClick={() =>
+                        window.open(
+                          event.liveMeetingUrl!,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
                       className="px-3 py-1.5 rounded-lg hover:bg-white/70 transition-colors"
                     >
                       <span className="text-sm font-medium text-accent-primary">
@@ -288,6 +316,18 @@ export default function DaySchedule() {
             );
           })
         )}
+      </div>
+
+      {/* Footer - Ver Calendario Completo */}
+      <div className="w-full p-3 border-t border-stroke-secondary inline-flex flex-col justify-start items-center">
+        <Link
+          href="/plataforma/calendario"
+          className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
+        >
+          <span className="text-text-accent-primary text-sm font-medium leading-4">
+            Ver Calendario Completo
+          </span>
+        </Link>
       </div>
     </div>
   );

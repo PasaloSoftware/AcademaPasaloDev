@@ -9,6 +9,7 @@ interface CalendarMonthlyViewProps {
   events: ClassEvent[];
   isToday: (date: Date) => boolean;
   onEventClick: (event: ClassEvent, e: React.MouseEvent) => void;
+  selectedEventId?: string | null;
 }
 
 export default function CalendarMonthlyView({
@@ -16,6 +17,7 @@ export default function CalendarMonthlyView({
   events,
   isToday,
   onEventClick,
+  selectedEventId,
 }: CalendarMonthlyViewProps) {
   const monthDays = getMonthDays(currentDate);
   const weeksCount = monthDays.length / 7;
@@ -85,10 +87,12 @@ export default function CalendarMonthlyView({
                         {dayEvents.slice(0, 2).map((event) => {
                           const colors = getCourseColor(event.courseCode);
 
+                          const isSelected = selectedEventId === event.id;
+
                           return (
                             <div
                               key={event.id}
-                              className="rounded-lg overflow-hidden border-l-4 px-2 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+                              className={`mr-2 rounded-lg overflow-hidden border-l-4 px-2 py-1 cursor-pointer hover:opacity-80 transition-all ${isSelected ? 'shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10' : ''}`}
                               style={{
                                 borderLeftColor: colors.primary,
                                 backgroundColor: colors.secondary,

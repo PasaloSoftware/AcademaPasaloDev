@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Course } from '@modules/courses/domain/course.entity';
 
 @Injectable()
@@ -34,5 +38,36 @@ export class CourseRepository {
     return await this.ormRepository.findOne({
       where: { code },
     });
+  }
+
+  async updateAndReturn(
+    id: string,
+    data: Partial<Course>,
+    manager?: EntityManager,
+  ): Promise<Course> {
+    const repo = manager ? manager.getRepository(Course) : this.ormRepository;
+    const result = await repo.update(id, data);
+
+    if ((result.affected ?? 0) === 0) {
+      throw new NotFoundException(
+        'La materia solicitada no se encuentra disponible.',
+      );
+    }
+
+    const updated = await repo.findOne({
+      where: { id },
+      relations: {
+        courseType: true,
+        cycleLevel: true,
+      },
+    });
+
+    if (!updated) {
+      throw new InternalServerErrorException(
+        'No se pudo reconstruir la materia actualizada.',
+      );
+    }
+
+    return updated;
   }
 }

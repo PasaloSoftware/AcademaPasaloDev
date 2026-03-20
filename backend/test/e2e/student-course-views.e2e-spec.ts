@@ -17,6 +17,7 @@ describe('E2E: Student course views', () => {
   let seeder: TestSeeder;
 
   let admin: { user: { id: string }; token: string };
+  let assignedProfessor: { user: { id: string }; token: string };
   let studentFull: { user: { id: string }; token: string };
   let studentPartialNoPrev: { user: { id: string }; token: string };
   let studentPartialWithPrev: { user: { id: string }; token: string };
@@ -67,6 +68,10 @@ describe('E2E: Student course views', () => {
       TestSeeder.generateUniqueEmail('admin_course_views'),
       [ROLE_CODES.ADMIN],
     );
+    assignedProfessor = await seeder.createAuthenticatedUser(
+      TestSeeder.generateUniqueEmail('prof_course_views'),
+      [ROLE_CODES.PROFESSOR],
+    );
     studentFull = await seeder.createAuthenticatedUser(
       TestSeeder.generateUniqueEmail('student_full'),
       [ROLE_CODES.STUDENT],
@@ -108,6 +113,12 @@ describe('E2E: Student course views', () => {
     const ccPrev1 = await seeder.linkCourseCycle(course.id, cyclePrev1.id);
     const ccPrev2 = await seeder.linkCourseCycle(course.id, cyclePrev2.id);
     currentCourseCycleId = ccCurrent.id;
+
+    await dataSource.query(
+      `INSERT INTO course_cycle_professor (course_cycle_id, professor_user_id, assigned_at)
+       VALUES (?, ?, NOW())`,
+      [ccCurrent.id, assignedProfessor.user.id],
+    );
 
     const currentEvalPast = await seeder.createEvaluation(
       ccCurrent.id,
@@ -289,6 +300,45 @@ describe('E2E: Student course views', () => {
     expect(byId.get(previousEvalLockedId)).toMatchObject({
       label: 'Bloqueado',
       evaluationTypeCode: 'EX',
+    });
+  });
+
+  it('profesor asignado puede listar ciclos anteriores del curso', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/courses/cycle/${currentCourseCycleId}/previous-cycles`)
+      .set('Authorization', `Bearer ${assignedProfessor.token}`)
+      .expect(200);
+
+    expect(res.body.data.cycles).toEqual([
+      { cycleCode: previousCycleCode1 },
+      { cycleCode: previousCycleCode2 },
+    ]);
+  });
+
+  it('profesor asignado ve todo el contenido archivado de ciclos anteriores', async () => {
+    const res = await request(app.getHttpServer())
+      .get(
+        `/courses/cycle/${currentCourseCycleId}/previous-cycles/${previousCycleCode1}/content`,
+      )
+      .set('Authorization', `Bearer ${assignedProfessor.token}`)
+      .expect(200);
+
+    const byId = new Map(
+      res.body.data.evaluations.map(
+        (ev: { id: string; label: string; hasAccess: boolean }) => [
+          ev.id,
+          { label: ev.label, hasAccess: ev.hasAccess },
+        ],
+      ),
+    );
+
+    expect(byId.get(previousEvalArchivedId)).toMatchObject({
+      label: 'Archivado',
+      hasAccess: true,
+    });
+    expect(byId.get(previousEvalLockedId)).toMatchObject({
+      label: 'Archivado',
+      hasAccess: true,
     });
   });
 

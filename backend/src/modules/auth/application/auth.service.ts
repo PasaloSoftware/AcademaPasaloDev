@@ -203,8 +203,6 @@ export class AuthService {
         };
       });
 
-    await this.cacheService.del(`cache:session:${sessionId}:user`);
-
     const ttlSeconds =
       technicalSettings.auth.tokens.refreshTokenBlacklistTtlSeconds;
     await this.cacheService.set(
@@ -274,8 +272,6 @@ export class AuthService {
         activeRoleId: roleId,
       });
 
-      await this.cacheService.del(`cache:session:${sessionId}:user`);
-
       const accessPayload: JwtPayload = {
         sub: user.id,
         email: user.email,
@@ -297,6 +293,7 @@ export class AuthService {
           deviceId: metadata.deviceId,
           sessionId: session.id,
           roleCode: role.code,
+          roleName: role.name,
         },
         manager,
       );
@@ -308,13 +305,22 @@ export class AuthService {
     });
   }
 
-  async logout(sessionId: string, userId: string): Promise<void> {
+  async logout(
+    sessionId: string,
+    userId: string,
+    metadata: RequestMetadata,
+    activeRoleCode?: string,
+  ): Promise<void> {
     await this.sessionService.deactivateSession(sessionId);
-    await this.cacheService.del(`cache:session:${sessionId}:user`);
     await this.securityEventService.logEvent(
       userId,
       SECURITY_EVENT_CODES.LOGOUT_SUCCESS,
       {
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        deviceId: metadata.deviceId,
+        ...(activeRoleCode ? { activeRoleCode } : {}),
+        sessionStatus: SESSION_STATUS_CODES.REVOKED,
         sessionId,
       },
     );
@@ -349,8 +355,6 @@ export class AuthService {
     if (!keptSessionId) {
       return { keptSessionId: null };
     }
-
-    await this.cacheService.del(`cache:session:${keptSessionId}:user`);
 
     const user = await this.usersService.findOne(payload.sub);
     await this.assertUserIsActive(
@@ -469,8 +473,9 @@ export class AuthService {
         }
 
         await this.sessionService.deactivateSession(lockedSession.id, manager);
-        await this.cacheService.del(`cache:session:${lockedSession.id}:user`);
-
+        const failedActiveRole =
+          user.roles.find((r) => r.id === lockedSession.activeRoleId) ||
+          user.roles[0];
         await this.securityEventService.logEvent(
           payload.sub,
           SECURITY_EVENT_CODES.ANOMALOUS_LOGIN_REAUTH_FAILED,
@@ -478,6 +483,8 @@ export class AuthService {
             ipAddress: metadata.ipAddress,
             userAgent: metadata.userAgent,
             deviceId,
+            activeRoleCode: failedActiveRole?.code,
+            sessionStatus: SESSION_STATUS_CODES.REVOKED,
             sessionId: lockedSession.id,
             googleEmail:
               typeof googleUserEmail === 'string' ? googleUserEmail : null,
@@ -519,8 +526,6 @@ export class AuthService {
         manager,
       );
 
-      await this.cacheService.del(`cache:session:${lockedSession.id}:user`);
-
       await this.securityEventService.logEvent(
         payload.sub,
         SECURITY_EVENT_CODES.ANOMALOUS_LOGIN_REAUTH_SUCCESS,
@@ -528,6 +533,10 @@ export class AuthService {
           ipAddress: metadata.ipAddress,
           userAgent: metadata.userAgent,
           deviceId,
+          activeRoleCode:
+            userByEmail.roles.find((r) => r.id === lockedSession.activeRoleId)
+              ?.code || userByEmail.roles[0]?.code,
+          sessionStatus: SESSION_STATUS_CODES.ACTIVE,
           sessionId: lockedSession.id,
         },
         manager,
@@ -655,6 +664,7 @@ export class AuthService {
         expiresAt,
         activeRole?.id,
         manager,
+        activeRole?.code,
       );
 
     const accessTokenPayload: JwtPayload = {

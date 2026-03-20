@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { ClassEvent } from "@/types/classEvent";
 import { getCourseColor } from "@/lib/courseColors";
-import { MdClose, MdLink, MdContentCopy, MdCheck, MdEdit, MdEventBusy } from "react-icons/md";
+import {
+  MdClose,
+  MdLink,
+  MdContentCopy,
+  MdCheck,
+  MdEdit,
+  MdEventBusy,
+} from "react-icons/md";
 import Icon from "../ui/Icon";
 
 interface EventDetailModalProps {
@@ -13,6 +21,7 @@ interface EventDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   anchorPosition?: { x: number; y: number };
+  calendarView?: "weekly" | "monthly";
   canEdit?: boolean;
   canCancel?: boolean;
   onEdit?: () => void;
@@ -24,28 +33,46 @@ export default function EventDetailModal({
   isOpen,
   onClose,
   anchorPosition,
+  calendarView = "weekly",
   canEdit,
   canCancel,
   onEdit,
   onCancel,
 }: EventDetailModalProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
   const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const router = useRouter();
+
+  // Tick every 30s for join-button reactivity
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [isOpen]);
 
   useLayoutEffect(() => {
     if (!isOpen || !event || !anchorPosition || !tooltipRef.current) return;
 
     const tooltip = tooltipRef.current;
     const tooltipRect = tooltip.getBoundingClientRect();
-    const padding = 8; // Espacio desde el borde de la pantalla
+    const padding = 8;
 
-    let top = anchorPosition.y;
-    let left = anchorPosition.x + 16; // 16px a la derecha del evento
+    let top: number;
+    let left: number;
+
+    top = anchorPosition.y;
+    if (calendarView === "monthly") {
+      // Monthly: appear below the event, centered horizontally
+      left = anchorPosition.x + 24;
+    } else {
+      // Weekly: appear to the right of the event
+      left = anchorPosition.x + 32;
+    }
 
     // Ajustar si se sale por la derecha
     if (left + tooltipRect.width > window.innerWidth - padding) {
-      left = anchorPosition.x - tooltipRect.width - 16; // Mostrar a la izquierda
+      left = anchorPosition.x - tooltipRect.width - 32;
     }
 
     // Ajustar si se sale por abajo
@@ -58,8 +85,9 @@ export default function EventDetailModal({
       top = padding;
     }
 
-    setPosition({ top, left });
-  }, [isOpen, event, anchorPosition]);
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+  }, [isOpen, event, anchorPosition, calendarView]);
 
   // Bloquear scroll cuando el tooltip está abierto
   useEffect(() => {
@@ -112,10 +140,6 @@ export default function EventDetailModal({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (!isOpen) setCopied(false);
-  }, [isOpen]);
 
   if (!isOpen || !event) return null;
 
@@ -191,25 +215,10 @@ export default function EventDetailModal({
   return (
     <div
       ref={tooltipRef}
-      className="fixed z-50 w-96 bg-bg-primary rounded-2xl shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] border border-stroke-primary"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-      }}
+      className="shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] fixed z-50 w-96 bg-bg-primary rounded-2xl border border-stroke-primary"
     >
       {/* Header con acciones */}
       <div className="self-stretch px-2 pt-3 pb-2 flex justify-end items-center gap-1">
-        <button
-          onClick={handleCopySummary}
-          className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
-          title={copied ? "Copiado" : "Copiar resumen"}
-        >
-          {copied ? (
-            <MdCheck className="w-5 h-5 text-success-primary" />
-          ) : (
-            <MdContentCopy className="w-5 h-5 text-icon-tertiary" />
-          )}
-        </button>
         <button
           onClick={onClose}
           className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
@@ -322,7 +331,7 @@ export default function EventDetailModal({
                 href={event.liveMeetingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 text-text-primary text-base font-normal font-['Poppins'] leading-4 line-clamp-1 hover:text-text-accent-primary transition-colors"
+                className="flex-1 text-text-primary text-base font-normal font-['Poppins'] leading-5 line-clamp-1 hover:text-text-accent-primary transition-colors"
               >
                 {event.liveMeetingUrl}
               </a>
@@ -335,7 +344,10 @@ export default function EventDetailModal({
           <div className="self-stretch flex items-center gap-2 pt-2">
             {canEdit && onEdit && (
               <button
-                onClick={() => { onClose(); onEdit(); }}
+                onClick={() => {
+                  onClose();
+                  onEdit();
+                }}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-light text-text-accent-primary text-sm font-medium hover:bg-accent-light/80 transition-colors"
               >
                 <MdEdit className="w-4 h-4" />
@@ -344,13 +356,70 @@ export default function EventDetailModal({
             )}
             {canCancel && onCancel && (
               <button
-                onClick={() => { onClose(); onCancel(); }}
+                onClick={() => {
+                  onClose();
+                  onCancel();
+                }}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-error-light text-error-solid text-sm font-medium hover:bg-error-light/80 transition-colors"
               >
                 <MdEventBusy className="w-4 h-4" />
                 Cancelar
               </button>
             )}
+          </div>
+        )}
+
+        {/* Join / Recording action button */}
+        {!event.isCancelled && event.sessionStatus !== 'FINALIZADA' && (() => {
+          const startMs = new Date(event.startDatetime).getTime();
+          const isLiveSoon = event.sessionStatus === 'EN_CURSO' ||
+            (event.sessionStatus === 'PROGRAMADA' &&
+              startMs - now <= 60 * 60 * 1000 &&
+              startMs - now > 0);
+          const canJoin = isLiveSoon && !!event.liveMeetingUrl;
+
+          return (
+            <div className="flex justify-end w-full">
+              <button
+                onClick={() => {
+                  if (canJoin) {
+                    window.open(event.liveMeetingUrl!, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                disabled={!canJoin}
+                className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-medium font-['Poppins'] transition-colors ${
+                  canJoin
+                    ? 'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-primary-solid/90 cursor-pointer'
+                    : 'bg-bg-disabled text-text-disabled cursor-not-allowed'
+                }`}
+              >
+                <Icon name="videocam" size={20} className={canJoin ? 'text-icon-white' : 'text-icon-disabled'} />
+                Unirse a la Clase
+              </button>
+            </div>
+          );
+        })()}
+
+        {!event.isCancelled && event.sessionStatus === 'FINALIZADA' && (
+          <div className="flex justify-end w-full">
+            <button
+              onClick={() => {
+                if (event.canWatchRecording) {
+                  router.push(
+                    `/plataforma/curso/${event.courseCycleId}/evaluacion/${event.evaluationId}/clase/${event.id}`
+                  );
+                }
+              }}
+              disabled={!event.canWatchRecording}
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-medium font-['Poppins'] transition-colors ${
+                event.canWatchRecording
+                  ? 'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-primary-solid/90 cursor-pointer'
+                  : 'bg-bg-accent-primary-solid/40 text-text-white/60 cursor-not-allowed'
+              }`}
+            >
+              <Icon name="play_arrow" size={20} className="text-current" />
+              Ver Grabación
+            </button>
           </div>
         )}
       </div>

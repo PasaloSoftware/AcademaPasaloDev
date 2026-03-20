@@ -306,7 +306,6 @@ export class TestSeeder {
       }),
     )) as { id: string };
 
-    await this.cacheService.del(`cache:session:${session.id}:user`);
     await this.cacheService.invalidateGroup(`cache:access:user:${user.id}:*`);
 
     const payload = {
@@ -325,18 +324,9 @@ export class TestSeeder {
   }
 
   async createUser(email: string): Promise<User> {
-    const repo = this.dataSource.getRepository(User);
-    let user = await repo.findOne({ where: { email } });
-    if (!user) {
-      user = await repo.save(
-        repo.create({
-          email,
-          firstName: 'Test',
-          photoSource: PhotoSource.NONE,
-          createdAt: new Date(),
-        }),
-      );
-    }
+    const { user } = await this.createAuthenticatedUser(email, [
+      ROLE_CODES.STUDENT,
+    ]);
     return user;
   }
 }

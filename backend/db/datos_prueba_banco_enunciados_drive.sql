@@ -200,21 +200,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -253,12 +240,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yNOZ2jqOO876W_Je8ts7Jn-G9PX_yGa3'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -315,21 +302,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -368,12 +342,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LFJsupbTVJ9wCRzQD4My5fEptb9tGJnG'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -430,21 +404,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -483,12 +444,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D1MjzR0tbFXThEwmv-eqsU-gdho9eC9B'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -612,21 +573,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1wFaagGIO4wu2n-87Q9CVx-aARUffZReH/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -665,12 +613,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wFaagGIO4wu2n-87Q9CVx-aARUffZReH'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -727,21 +675,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -780,12 +715,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1aO18tNcwiXhSLoNhkufBsVDZfo92VLm0'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -842,21 +777,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -895,12 +817,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16ZnX56TX-3zM3Q3_xRhuVt6dVfeGEtlu'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1024,21 +946,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1xc1a7-95X9GwT4gaC3mJvgSp0shachy_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1077,12 +986,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xc1a7-95X9GwT4gaC3mJvgSp0shachy_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1139,21 +1048,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1192,12 +1088,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1l8YCEq68U_W6fy0yD7rg-LxZFtC49ZEu'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1254,21 +1150,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1307,12 +1190,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '17ifRZbuMvSkLbkwA_AhYcOuKTjZHTYg0'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1436,21 +1319,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L38617cj3rDWdteNFYzrvR-rDDj44f1F'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1L38617cj3rDWdteNFYzrvR-rDDj44f1F/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L38617cj3rDWdteNFYzrvR-rDDj44f1F'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1489,12 +1359,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1L38617cj3rDWdteNFYzrvR-rDDj44f1F'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1551,21 +1421,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1604,12 +1461,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rE1xCGbO_pIkmU3YXN6sbefDGE5se9dB'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1666,21 +1523,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1719,12 +1563,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZETJ4aMItX2pO7qURkMRjrDTfVYBae9A'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1848,21 +1692,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -1901,12 +1732,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1qSXJVzyjZXFcE6lSD8Z1TxYCLRzKAhVx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -1963,21 +1794,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2016,12 +1834,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1llFodfsHAuaOM8KKUCeNJzYvjvKyATbz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2078,21 +1896,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2131,12 +1936,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1pskmg-q3afMkzZ2oP9Ig7XBA1DC8ru7x'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2260,21 +2065,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2313,12 +2105,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1szSE76Xzgp4XiH0Kc9w7pr6XcqWYRZ_t'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2375,21 +2167,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2428,12 +2207,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1CMJyrwFnVa5RY9yc7SHXWQ0-XbyEbM6A'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2490,21 +2269,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2543,12 +2309,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1-Ee1Py2_e17s_Zg0hxCSYOnCPG_ZHvwh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2672,21 +2438,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2725,12 +2478,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EsVpvy0ffyo6zSAV4mJj0Ct0QhlZHZ_o'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2787,21 +2540,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2840,12 +2580,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1etBE3U6Ox83C_LQdhSJNFBoN3DRn0RTo'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -2902,21 +2642,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -2955,12 +2682,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1D9WECBIXaDJE34EDCcx8sqre-VA3ITBo'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3084,21 +2811,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3137,12 +2851,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11TG1GdmmW2yRHbb_72-y39lol3rBi6Zi'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3199,21 +2913,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1yHnVleteQdPCJh2D5XG2NnRNzazmix2o/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3252,12 +2953,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yHnVleteQdPCJh2D5XG2NnRNzazmix2o'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3314,21 +3015,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3367,12 +3055,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '198bDd4-RM_OWDMBvIwNd72UhfwMfxp0S'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3496,21 +3184,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3549,12 +3224,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13WjeUdbOwrBxBLFCi6-m9xzsUnlhf35Y'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3611,21 +3286,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3664,12 +3326,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1vjgtjYMlE4gxrFDXdWel5OTkwqFgejum'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3726,21 +3388,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3779,12 +3428,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rFfNRZVOUM3i52ustQDK8n4fHlNFYJ5-'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -3908,21 +3557,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -3961,12 +3597,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1UJ9H3HRTtPiZmCurfHYyGH17xUbt5ijg'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4023,21 +3659,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -4076,12 +3699,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eMYdaZHkTJY0ZHIiowkn87gpix6rKcnG'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4138,21 +3761,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -4191,12 +3801,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZEqlZwrTgRHy2n9cEj1YF04mJVbSwQ4o'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4320,21 +3930,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -4373,12 +3970,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1N9_9WoxFGCQucrOgHQzIMzB28-UaLqWV'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4435,21 +4032,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -4488,12 +4072,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_qRRDvWdeMN78Nmvo1irLvZiUcpFLAf9'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4550,21 +4134,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '145OW-JWJad45jMewP7izlRgpzXQF8CIC'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/145OW-JWJad45jMewP7izlRgpzXQF8CIC/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '145OW-JWJad45jMewP7izlRgpzXQF8CIC'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -4603,12 +4174,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '145OW-JWJad45jMewP7izlRgpzXQF8CIC'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4845,21 +4416,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -4898,12 +4456,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tNPQoL-EK8PE7vZJ7oyohpZzxIP0-82C'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -4960,21 +4518,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5013,12 +4558,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eYcL4zWWJRmXd7lcIzFtjl9-7Y-PL86C'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5075,21 +4620,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gOof550fe2yIjfNXMoPACmSe0arBR1th'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1gOof550fe2yIjfNXMoPACmSe0arBR1th/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gOof550fe2yIjfNXMoPACmSe0arBR1th'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5128,12 +4660,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gOof550fe2yIjfNXMoPACmSe0arBR1th'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5257,21 +4789,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5310,12 +4829,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1A7BNjRektWpMvfJcrCokfAy8bfUSdYyr'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5372,21 +4891,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5425,12 +4931,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12YShJfRcXOr0AWbvhtCzdgqE1k8x8tP-'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5487,21 +4993,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MplmcOV0so45u1rcrFm2y_votsJhd36L'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1MplmcOV0so45u1rcrFm2y_votsJhd36L/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MplmcOV0so45u1rcrFm2y_votsJhd36L'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5540,12 +5033,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1MplmcOV0so45u1rcrFm2y_votsJhd36L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5669,21 +5162,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5722,12 +5202,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Es12uvUOwq0Y5oqODlIV2OsZpZIFUeDZ'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5784,21 +5264,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5837,12 +5304,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kEHKePSWaaS6m90W4fqly1NMBn3rxGEe'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -5899,21 +5366,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -5952,12 +5406,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1v4xaLa5N7KG685-GoMf_WQvmh7W8Q5Z4'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6081,21 +5535,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6134,12 +5575,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1mY1leqUSg6V7C-nSA69dWUPCJV1Zae4L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6196,21 +5637,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yWleot-K24G8NCOey71uxhuK6kP2JfnP'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1yWleot-K24G8NCOey71uxhuK6kP2JfnP/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yWleot-K24G8NCOey71uxhuK6kP2JfnP'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6249,12 +5677,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1yWleot-K24G8NCOey71uxhuK6kP2JfnP'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6311,21 +5739,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6364,12 +5779,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12BwsFH7q9J2Y3TFwATYsnnMFibGJT6Ed'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6493,21 +5908,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6546,12 +5948,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19tUdxsD-APR-itWLhnoWJZwWDRmzhjZx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6608,21 +6010,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6661,12 +6050,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kuSUAr_G81vOGcLKeN9MH59f59gqdUAM'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6723,21 +6112,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6776,12 +6152,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uTm978mrVUn-s5YRrtncVGDDE_QS4OlD'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -6905,21 +6281,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -6958,12 +6321,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1J8aFJq59d6pVzBs3CLmKna2stsbtGbjI'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7020,21 +6383,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7073,12 +6423,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ogysH35GVAqPEar8RL5kkb6LpO_GGd6T'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7135,21 +6485,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7188,12 +6525,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15Pcp6kAmAlmOIv03kgOGIsuxP_0hO4wx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7317,21 +6654,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7370,12 +6694,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1kPFdNPxd8yhNYVnEGUm9IVQYl6_G7Kb_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7432,21 +6756,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1B4fh5GeapK5UWqadvREJCRamb-Quo0ow/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7485,12 +6796,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1B4fh5GeapK5UWqadvREJCRamb-Quo0ow'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7547,21 +6858,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7600,12 +6898,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1rdIIJW5X_m7BkWgUXqDfBvN_sag2gSQk'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7729,21 +7027,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7782,12 +7067,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11Z6fSubAuzmNeCxZNEZGk1CHbkg6Xp0L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7844,21 +7129,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -7897,12 +7169,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dD14oTdA2RhLWzYl5-aahLKi0_Cf7YC4'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -7959,21 +7231,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8012,12 +7271,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18PGKtUTvCctTkDU3fZ3Da4V3q34gXx9T'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8141,21 +7400,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8194,12 +7440,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11wzTJwNH6-ZpFLnri4wuzhZNx_CBtVVN'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8256,21 +7502,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8309,12 +7542,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eDk7jXJE_QdkFNobVmlmJmd6mO-ojtsL'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8371,21 +7604,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8424,12 +7644,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KRljL345u2TPxS-j2-b8NwNkVV7qiLvz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8553,21 +7773,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8606,12 +7813,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SHG81ozkI0JIhiZ0KZ2f0lAR9MY90N0n'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8668,21 +7875,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8721,12 +7915,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1KxjNPyhbfq_yRnaD1en8P6iRgRMS8qng'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8783,21 +7977,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -8836,12 +8017,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1EN3w3xz1m45MuVO2kvF488Eu-OV8dJtU'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -8965,21 +8146,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9018,12 +8186,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ZmqJ_GQnC8ma7ZItNQOuDKenkLau23hz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -9080,21 +8248,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9133,12 +8288,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1apjZZGyVQ64nbZQ0RfIDlIaU315iMzhy'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -9195,21 +8350,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t0IicD9lOrp0BgITZmX59khJVROZkRLw'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1t0IicD9lOrp0BgITZmX59khJVROZkRLw/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t0IicD9lOrp0BgITZmX59khJVROZkRLw'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9248,12 +8390,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1t0IicD9lOrp0BgITZmX59khJVROZkRLw'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -9490,21 +8632,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9543,12 +8672,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LSoxLSvWegtW45wDSsebQCUUuRyvA9dG'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -9605,21 +8734,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9658,12 +8774,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1uQ0P91990DpVqEHyEvaVSXdL9lyFEds6'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -9720,21 +8836,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9773,12 +8876,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1i4kDIwDOfWhi76X3uyU0pavTY3zaenfQ'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -9902,21 +9005,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -9955,12 +9045,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1gHFXBCW2VsvUzGr1OpX3JZL5cGQ8modj'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10017,21 +9107,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10070,12 +9147,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ozvp1mCq_nYHSTY1xDR4qQdsK0-GS-rD'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10132,21 +9209,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10185,12 +9249,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '12szCve_3TQdQAG86m0u9L8RJpX4Y8Zdr'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10314,21 +9378,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10367,12 +9418,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '13ZWbdOBwI3_kAVGxXLpLCYOpuVYOxvPt'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10429,21 +9480,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10482,12 +9520,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1LJsD9_sVvPuSvPbR5YrwTnAzy1zE58Y5'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10544,21 +9582,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10597,12 +9622,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1H-hlGoAZ8yXR-8lu-gaoSt2WQOD87MiD'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10726,21 +9751,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10779,12 +9791,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T88kDJGZCjtwUKgDg6AW4m-hdvr7pEs5'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10841,21 +9853,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -10894,12 +9893,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GqgPQwpc8b4z_LCalYCEjcaAVQ-mSjtN'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -10956,21 +9955,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11009,12 +9995,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IxkVrdPaxgjN1rYYFRJdYlTK4yz4yDm_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11138,21 +10124,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11191,12 +10164,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Z9XXR9R_w6OgNLQVJK7si_KmR2DooIzh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11253,21 +10226,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11306,12 +10266,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1p-TWrH4KUJvAur5BeMucSpIlGhTkeIJj'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11368,21 +10328,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11421,12 +10368,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HgpAuzdefjg5e0gax7gOBvTLDCV5QQru'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11550,21 +10497,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11603,12 +10537,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1s4RgIPlUJ93PxOljTkpIei-dMbBtrePo'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11665,21 +10599,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11718,12 +10639,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1itbkz-I2LbcxVMlbhwPX_bCylHiM2bPp'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11780,21 +10701,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -11833,12 +10741,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TDuuy7PoD6R-k9nda9-AhPVFPi25_70f'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -11962,21 +10870,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12015,12 +10910,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1ykZnj3UuuQuzhX6Z3H91ZM-DHpS9ve9N'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12077,21 +10972,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12130,12 +11012,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SiVgJMQ3h0m8rsM8CpAQ16PA_wkz-9X_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12192,21 +11074,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/16j1LH5IRymGI_DXAue16dtI_O-FGTg_L/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12245,12 +11114,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16j1LH5IRymGI_DXAue16dtI_O-FGTg_L'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12374,21 +11243,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12427,12 +11283,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1nHJlLFojlZe9bNUBNqRULl_lfX_muzTx'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12489,21 +11345,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12542,12 +11385,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1SaoaMIYkBtxcoSAfE9CoTwqafrIJemVA'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12604,21 +11447,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12657,12 +11487,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1k7xQGTwK1ISKLVhF4DFNYCee1g8YC4do'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12786,21 +11616,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12839,12 +11656,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1a2atjZpDbDEM4XkwXtQx9Q6f1Owa8Phs'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -12901,21 +11718,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -12954,12 +11758,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1dPlfMFTTkOx2QuTzcbcnXwR08MstYR08'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13016,21 +11820,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13069,12 +11860,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1eXNOcuM--_bem9_ScZVB5vp6ajAkvAal'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13198,21 +11989,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13251,12 +12029,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1md6Qaqy0w8mBLk280-DPCLCuKY1ejBkM'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13313,21 +12091,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13366,12 +12131,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '15kGpONbZH0ZRIutqARQlLTTaxTLKBR1e'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13428,21 +12193,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13481,12 +12233,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jFU_Gb1u6mvU3RTyAwYCJ-ZYScdixoIL'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13610,21 +12362,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13663,12 +12402,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1TjOJ5IwmX0lGpOiWYjzyC_Prp8UC-ApL'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13725,21 +12464,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13778,12 +12504,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1jwIarlD2cLPsTOyE-EmQu2iLju0JkJu8'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -13840,21 +12566,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -13893,12 +12606,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HHJLSZ3z0tFWeIKA6K0JRnZHmZb_FW7K'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14135,21 +12848,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -14188,12 +12888,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Iu_iWxkOeBa8tm-aowQoFfouTZOFbO-c'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14250,21 +12950,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -14303,12 +12990,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1GD4T5Qehw40WfQKA-0mM8q3qheD0m8jm'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14365,21 +13052,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -14418,12 +13092,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1NYFkQRLC4WKmBPC3om-bkrgnI2LA3Ctv'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14547,21 +13221,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -14600,12 +13261,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '152r3wh9cr76o9qgPzjlnqa7oi1ya-Glh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14662,21 +13323,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -14715,12 +13363,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1RZ_llkurRI2HUhOICRcP8WnAK7eThFfY'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14777,21 +13425,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -14830,12 +13465,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1n3XlHqa9uICa2l8jvlsu5uGvBAn61AOF'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -14959,21 +13594,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15012,12 +13634,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1BPTIRLpdhemsslW1YlD6grfWP-mm1wnz'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15074,21 +13696,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15127,12 +13736,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1P40v7ph9GzCDRIcfkJVz-bPHi9KdAwdg'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15189,21 +13798,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15242,12 +13838,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1IeArtGgc6_7g7FoQL0ZRWUslCzf8U2g6'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15371,21 +13967,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15424,12 +14007,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1G6S3FXJ6l_fM-DMRGmoq3ZeuVSspZAfh'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15486,21 +14069,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15539,12 +14109,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HYATEQaLj7oiVClP8EXY6fVXrSVpKYFI'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15601,21 +14171,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15654,12 +14211,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '121GQ__jxIYzuiRUzPQhOFLPsX4InBWAj'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15783,21 +14340,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15836,12 +14380,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1xzE0u17mj-ZWk57ea7thuzCpTwlQGNOp'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -15898,21 +14442,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -15951,12 +14482,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wwyCJlR_AJaOFSbQTpJRubXWjrn3UHHT'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16013,21 +14544,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16066,12 +14584,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1tUsSVUolqMOhLHSMtxDTxJjOVykd6Ssc'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16195,21 +14713,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16248,12 +14753,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1PrFh_GtLEn7etc9lMMsbpV_uqS5iNcn_'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16310,21 +14815,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16363,12 +14855,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1hK-IoPu-VeSVmmU1wxReRShNpPtNXyIS'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16425,21 +14917,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16478,12 +14957,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1K-_jzKfmjvZ_19CtxYVIa2LoHaFCFEwV'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16607,21 +15086,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1okp7-ok-yu0tUREln-4nROL6OOqREzmI'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1okp7-ok-yu0tUREln-4nROL6OOqREzmI/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1okp7-ok-yu0tUREln-4nROL6OOqREzmI'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16660,12 +15126,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1okp7-ok-yu0tUREln-4nROL6OOqREzmI'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16722,21 +15188,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16775,12 +15228,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '18wc9PphQi3bCyKwLF_Ay_yHkIi9-9YW6'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -16837,21 +15290,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bDZPqveV2kb277a98uUSVyO_E43yJIts'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1bDZPqveV2kb277a98uUSVyO_E43yJIts/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bDZPqveV2kb277a98uUSVyO_E43yJIts'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -16890,12 +15330,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1bDZPqveV2kb277a98uUSVyO_E43yJIts'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17019,21 +15459,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1Irzn5QEb7F_MS494KiViCpOkQglv9D_y/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17072,12 +15499,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Irzn5QEb7F_MS494KiViCpOkQglv9D_y'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17134,21 +15561,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17187,12 +15601,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '16nwnuTZbuf1fFkR-BAbc8eRp_i92OzMa'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17249,21 +15663,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17302,12 +15703,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kr-3DZ6Xeg5OCvTL3FnNNhpRoFakwnYd'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17431,21 +15832,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17484,12 +15872,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1QCbGY3fXx2z9MFAqTbr51St8vv38g3Vn'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17546,21 +15934,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17599,12 +15974,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1T5eThGSKP10cOp5MSUqf64FxjjEIgmmN'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17661,21 +16036,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17714,12 +16076,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '19R3ISzh_x3YCEqwZVFRDHD6Kf2zaCOB8'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17843,21 +16205,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -17896,12 +16245,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1Kj15cAHfLs2lpDCtYjmUBhAAO_hRi9jS'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -17958,21 +16307,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -18011,12 +16347,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1_MUa5nSJ3PFgg6U7itR8HT7XzGOMGW2U'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -18073,21 +16409,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '111YtfBhiyMVzoQszX96YWayKJlSpGwzy'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/111YtfBhiyMVzoQszX96YWayKJlSpGwzy/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '111YtfBhiyMVzoQszX96YWayKJlSpGwzy'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -18126,12 +16449,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '111YtfBhiyMVzoQszX96YWayKJlSpGwzy'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -18255,21 +16578,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://docs.google.com/document/d/11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq/edit?usp=drivesdk&ouid=104725373034984418734&rtpof=true&sd=true',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -18308,12 +16618,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF26-Plantilla_E2.docx',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '11AAUrKE8ZBjFELxmxZnhiyMpGOUs67iq'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -18370,21 +16680,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -18423,12 +16720,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   '1INF61-2026-1-SILABO.PDF',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1wME_8n4mqkkwPN2rGsPYziAOElgbKUAW'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -18485,21 +16782,8 @@ WHERE NOT EXISTS (
   WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf'
 );
 
-INSERT INTO file_version (file_resource_id, version_number, storage_url, created_at, created_by)
-SELECT
-  fr.id,
-  1,
-  'https://drive.google.com/file/d/1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf/view?usp=drivesdk',
-  NOW(),
-  @actor_user_id
-FROM file_resource fr
-WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf'
-  AND NOT EXISTS (
-    SELECT 1 FROM file_version fv
-    WHERE fv.file_resource_id = fr.id AND fv.version_number = 1
-  );
 
-INSERT INTO material (material_folder_id, class_event_id, file_resource_id, file_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
+INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT
   (
           SELECT mf.id
@@ -18538,12 +16822,12 @@ SELECT
         ),
   NULL,
   fr.id,
-  fv.id,
+  NULL,
   @material_status_active,
   'Desarrollo de un videojuego educativo configurable con mecánicas de aprendizaje y de juego que.pdf',
   NULL, NULL, @actor_user_id, NOW(), NOW()
 FROM file_resource fr
-INNER JOIN file_version fv ON fv.file_resource_id = fr.id AND fv.version_number = 1
+
 WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7WwN2Hg_vOECf'
   AND NOT EXISTS (
     SELECT 1 FROM material m
@@ -18587,3 +16871,36 @@ WHERE fr.storage_provider = 'GDRIVE' AND fr.storage_key = '1HLUUTMKa5Zts8IWvkEX7
 
 
 -- Summary: leafFolders=44, files=132
+
+-- Material versions + current version backfill
+INSERT INTO material_version (
+  material_id,
+  file_resource_id,
+  version_number,
+  restored_from_material_version_id,
+  created_at,
+  created_by
+)
+SELECT
+  m.id,
+  m.file_resource_id,
+  1,
+  NULL,
+  COALESCE(m.updated_at, m.created_at, NOW()),
+  m.created_by
+FROM material m
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM material_version mv
+  WHERE mv.material_id = m.id
+    AND mv.version_number = 1
+);
+
+UPDATE material m
+INNER JOIN material_version mv
+  ON mv.material_id = m.id
+ AND mv.version_number = 1
+SET m.current_version_id = mv.id
+WHERE m.current_version_id IS NULL;
+
+

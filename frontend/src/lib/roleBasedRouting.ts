@@ -27,8 +27,28 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/curso/[id]/evaluacion/[id]': {
-    allowedRoles: ['STUDENT'],
+    allowedRoles: ['STUDENT', 'TEACHER'],
     component: 'EvaluationContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/curso/[id]/evaluacion/[id]/clase/[id]': {
+    allowedRoles: ['STUDENT', 'TEACHER'],
+    component: 'VideoPageContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/curso/[id]/ciclo-anterior/[id]': {
+    allowedRoles: ['STUDENT', 'TEACHER'],
+    component: 'PreviousCycleContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
+    allowedRoles: ['STUDENT', 'TEACHER'],
+    component: 'PreviousCycleEvaluationContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/curso/[id]/banco/[id]': {
+    allowedRoles: ['STUDENT', 'TEACHER'],
+    component: 'BancoEnunciadosContent',
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/calendario': {
@@ -82,7 +102,24 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
     ADMIN: 'admin/CursoContent'
   },
   '/plataforma/curso/[id]/evaluacion/[id]': {
-    STUDENT: 'student/EvaluationContent'
+    STUDENT: 'student/EvaluationContent',
+    TEACHER: 'teacher/EvaluationContent'
+  },
+  '/plataforma/curso/[id]/evaluacion/[id]/clase/[id]': {
+    STUDENT: 'student/VideoPageContent',
+    TEACHER: 'teacher/VideoPageContent'
+  },
+  '/plataforma/curso/[id]/ciclo-anterior/[id]': {
+    STUDENT: 'student/PreviousCycleContent',
+    TEACHER: 'teacher/PreviousCycleContent'
+  },
+  '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
+    STUDENT: 'student/PreviousCycleEvaluationContent',
+    TEACHER: 'teacher/PreviousCycleEvaluationContent'
+  },
+  '/plataforma/curso/[id]/banco/[id]': {
+    STUDENT: 'student/BancoEnunciadosContent',
+    TEACHER: 'teacher/BancoEnunciadosContent'
   },
   '/plataforma/calendario': {
     STUDENT: 'student/CalendarioContent',
@@ -98,6 +135,12 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
   '/plataforma/admin/auditoria': {
     ADMIN: 'admin/AuditoriaContent',
     SUPER_ADMIN: 'admin/AuditoriaContent'
+  },
+  '/plataforma/perfil': {
+    STUDENT: 'shared/PerfilContent',
+    TEACHER: 'teacher/PerfilContent',
+    ADMIN: 'shared/PerfilContent',
+    SUPER_ADMIN: 'shared/PerfilContent'
   }
 };
 
@@ -155,5 +198,7 @@ export function sanitizeRouteParam(param: string): string {
  * Ejemplo: /plataforma/curso/123 -> /plataforma/curso/[id]
  */
 export function normalizeRoute(route: string): string {
-  return route.replace(/\/[0-9a-f-]+(?=\/|$)/gi, '/[id]');
+  return route
+    .replace(/\/[0-9a-f-]+(?=\/|$)/gi, '/[id]')
+    .replace(/\/banco\/[^/]+(?=\/|$)/i, '/banco/[id]');
 }
