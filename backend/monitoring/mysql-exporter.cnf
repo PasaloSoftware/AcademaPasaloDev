@@ -1,0 +1,5 @@
+[client]
+user=academia
+password=${DB_PASSWORD}
+host=172.31.65.82
+port=3306

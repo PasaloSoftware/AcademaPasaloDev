@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-
 jobs:
   validate-ec2-status:
     runs-on: ubuntu-latest
@@ -14,7 +13,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-
       - name: Validate status
         run: |
           INSTANCE_ID="i-075c22a8bf3645192"
@@ -26,23 +24,19 @@ jobs:
             exit 1
           fi
           echo "EC2 Instance is running"
-
   build-and-push:
     needs: validate-ec2-status
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -53,7 +47,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:${{ github.sha }}
-
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -67,7 +60,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:${{ github.sha }}
-
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -88,12 +80,13 @@ jobs:
           GOOGLE_WORKSPACE_ADMIN_EMAIL: ${{ secrets.GOOGLE_WORKSPACE_ADMIN_EMAIL }}
           GOOGLE_WORKSPACE_GROUP_DOMAIN: ${{ secrets.GOOGLE_WORKSPACE_GROUP_DOMAIN }}
           GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL: ${{ secrets.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL }}
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_NAME,DB_USER,GOOGLE_CLIENT_ID,GOOGLE_REDIRECT_URI,CORS_ORIGINS,GOOGLE_DRIVE_ROOT_FOLDER_ID,STORAGE_PROVIDER,GITHUB_REPOSITORY,GOOGLE_WORKSPACE_ADMIN_EMAIL,GOOGLE_WORKSPACE_GROUP_DOMAIN,GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_NAME,DB_USER,GOOGLE_CLIENT_ID,GOOGLE_REDIRECT_URI,CORS_ORIGINS,GOOGLE_DRIVE_ROOT_FOLDER_ID,STORAGE_PROVIDER,GITHUB_REPOSITORY,GOOGLE_WORKSPACE_ADMIN_EMAIL,GOOGLE_WORKSPACE_GROUP_DOMAIN,GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL,GRAFANA_PASSWORD
           script: |
             set -Eeuo pipefail
             APP_DIR="/home/ubuntu/academia-pasalo"

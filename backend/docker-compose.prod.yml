@@ -92,6 +92,84 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: academia-pasalo-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+      - '--storage.tsdb.path=/prometheus'
+    expose:
+      - "9090"
+    networks:
+      - academia-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: academia-pasalo-grafana
+    restart: unless-stopped
+    expose:
+      - "3002"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://www.academiapasalo.com/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - academia-network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: academia-pasalo-node-exporter
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - "9100"
+    networks:
+      - academia-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: academia-pasalo-redis-exporter
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    expose:
+      - "9121"
+    depends_on:
+      - redis
+    networks:
+      - academia-network
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: academia-pasalo-mysql-exporter
+    restart: unless-stopped
+    command:
+      - '--config.my-cnf=/etc/mysql/my.cnf'
+    volumes:
+      - ./monitoring/mysql-exporter.cnf:/etc/mysql/my.cnf:ro
+    expose:
+      - "9104"
+    networks:
+      - academia-network
 
 networks:
   academia-network:
@@ -99,4 +177,8 @@ networks:
 
 volumes:
   redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local

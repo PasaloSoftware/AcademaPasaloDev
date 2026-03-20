@@ -19,6 +19,7 @@ JWT_SECRET=$(echo "$PARAMS" | python3 -c "import sys,json; params=json.load(sys.
 GOOGLE_CLIENT_SECRET=$(echo "$PARAMS" | python3 -c "import sys,json; params=json.load(sys.stdin); print(next(p['Value'] for p in params if p['Name']=='$SSM_PATH/GOOGLE_CLIENT_SECRET'))")
 MAXMIND_LICENSE_KEY=$(echo "$PARAMS" | python3 -c "import sys,json; params=json.load(sys.stdin); print(next(p['Value'] for p in params if p['Name']=='$SSM_PATH/MAXMIND_LICENSE_KEY'))")
 GOOGLE_DRIVE_SA_JSON=$(echo "$PARAMS" | python3 -c "import sys,json; params=json.load(sys.stdin); print(next(p['Value'] for p in params if p['Name']=='$SSM_PATH/GOOGLE_DRIVE_SA_JSON'))")
+GRAFANA_PASSWORD=$(echo "$PARAMS" | python3 -c "import sys,json; params=json.load(sys.stdin); print(next(p['Value'] for p in params if p['Name']=='$SSM_PATH/GRAFANA_PASSWORD'))")
 echo "✅ Secretos cargados desde SSM"
 
 MYSQL="mysql -u \"$DB_USER\" -p\"$DB_PASSWORD\" -h \"$DB_HOST\" -P \"$DB_PORT\""
@@ -31,7 +32,6 @@ mkdir -p "$APP_DIR/certbot/www/.well-known/acme-challenge" "$APP_DIR/letsencrypt
 chown -R ubuntu:ubuntu "$APP_DIR/certbot" || true
 chmod -R 755 "$APP_DIR/certbot" || true
 # --- Google SA key (Drive) ---
-# Requiere env var: GOOGLE_DRIVE_SA_JSON
 sudo mkdir -p /opt/academia/secrets
 sudo chown ubuntu:ubuntu /opt/academia/secrets
 sudo chmod 700 /opt/academia/secrets
@@ -66,6 +66,7 @@ STORAGE_PROVIDER=$STORAGE_PROVIDER
 GOOGLE_WORKSPACE_ADMIN_EMAIL=$GOOGLE_WORKSPACE_ADMIN_EMAIL
 GOOGLE_WORKSPACE_GROUP_DOMAIN=$GOOGLE_WORKSPACE_GROUP_DOMAIN
 GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=$GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL
+GRAFANA_PASSWORD=$GRAFANA_PASSWORD
 EOF
 # 5) Deploy
 docker-compose -f "$COMPOSE_FILE" pull
@@ -90,7 +91,7 @@ TABLES_COUNT=$(eval "$MYSQL -D \"$DB_NAME\" -sN -e \"SELECT COUNT(*) FROM inform
 [ "$TABLES_COUNT" -gt 0 ] || { echo "❌ Error en scripts SQL"; exit 1; }
 echo "✅ BD inicializada: $TABLES_COUNT tablas"
 # 9) Verificar contenedores clave
-for c in academia-pasalo-nginx academia-pasalo-backend academia-pasalo-frontend; do
+for c in academia-pasalo-nginx academia-pasalo-backend academia-pasalo-frontend academia-pasalo-grafana; do
   docker inspect "$c" >/dev/null 2>&1 || { echo "❌ $c no existe"; docker ps; exit 1; }
   [ "$(docker inspect -f '{{.State.Status}}' "$c")" = "running" ] || { echo "❌ $c no está running"; docker logs --tail=200 "$c"; exit 1; }
 done
