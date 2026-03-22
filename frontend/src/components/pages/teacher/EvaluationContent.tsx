@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
-import type { CourseCycle } from '@/types/api';
 import Icon from '@/components/ui/Icon';
 import { EvaluationPageContent } from '@/components/pages/student/EvaluationShared';
 
@@ -26,12 +25,12 @@ export default function EvaluationContent({
   useEffect(() => {
     async function loadCourseData() {
       try {
-        const courses = await coursesService.getMyCourseCycles();
-        const found = (Array.isArray(courses) ? courses : []).find(
-          (cc: CourseCycle) => cc.id === cursoId,
+        const enrollments = await coursesService.getMyCourseCycles();
+        const found = enrollments.find(
+          (e) => e.courseCycle.id === cursoId,
         );
         if (found) {
-          setCourseName(found.course?.name || '');
+          setCourseName(found.courseCycle.course.name);
         }
       } catch (err) {
         console.error('Error al cargar nombre del curso:', err);
@@ -43,8 +42,8 @@ export default function EvaluationContent({
         const data = await coursesService.getCourseContent(cursoId);
         const eval_ = data.evaluations.find((e) => e.id === evalId);
         if (eval_) {
-          setEvalShortName(eval_.name || eval_.evaluationType);
-          setEvalFullName(eval_.evaluationType);
+          setEvalShortName(eval_.shortName);
+          setEvalFullName(eval_.fullName);
         }
       } catch (err) {
         console.error('Error al cargar datos de evaluación:', err);

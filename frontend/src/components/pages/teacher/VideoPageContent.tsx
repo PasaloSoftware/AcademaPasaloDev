@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { coursesService } from '@/services/courses.service';
 import { classEventService } from '@/services/classEvent.service';
-import type { CourseCycle } from '@/types/api';
+import type { Enrollment } from '@/types/enrollment';
 import type { ClassEvent } from '@/types/classEvent';
 import VideoPageLayout from '@/components/shared/VideoPageLayout';
 import Icon from '@/components/ui/Icon';
@@ -527,11 +527,11 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     let evalShortName = '';
 
     try {
-      const courses = await coursesService.getMyCourseCycles();
-      const found = (Array.isArray(courses) ? courses : []).find(
-        (cc: CourseCycle) => cc.id === cId,
+      const enrollments = await coursesService.getMyCourseCycles();
+      const found = enrollments.find(
+        (e: Enrollment) => e.courseCycle.id === cId,
       );
-      if (found) courseName = found.course?.name || '';
+      if (found) courseName = found.courseCycle.course.name;
     } catch (err) {
       console.error('Error al cargar nombre del curso:', err);
     }
@@ -539,7 +539,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     try {
       const data = await coursesService.getCourseContent(cId);
       const eval_ = data.evaluations.find((e) => e.id === eId);
-      if (eval_) evalShortName = eval_.name || eval_.evaluationType;
+      if (eval_) evalShortName = eval_.shortName || eval_.fullName;
     } catch (err) {
       console.error('Error al cargar datos de evaluacion:', err);
     }

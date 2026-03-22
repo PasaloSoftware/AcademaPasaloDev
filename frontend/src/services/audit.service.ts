@@ -53,4 +53,21 @@ export const auditService = {
 
     return response.blob();
   },
+
+  async downloadExportJob(jobId: string): Promise<Blob> {
+    const url = `${API_BASE_URL}/audit/export-jobs/${jobId}/download`;
+    const token = getAccessToken();
+
+    const response = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al descargar el reporte de auditoría');
+    }
+
+    return response.blob();
+  },
 };

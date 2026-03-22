@@ -17,6 +17,7 @@ import StudentPreviousCycleContent from '@/components/pages/student/PreviousCycl
 import StudentPreviousCycleEvaluationContent from '@/components/pages/student/PreviousCycleEvaluationContent';
 import StudentBancoEnunciadosContent from '@/components/pages/student/BancoEnunciadosContent';
 import StudentVideoPageContent from '@/components/pages/student/VideoPageContent';
+import StudentNotificacionesContent from '@/components/pages/student/NotificacionesContent';
 
 // Importar componentes de docente
 import TeacherInicioContent from '@/components/pages/teacher/InicioContent';
@@ -51,7 +52,8 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   'student/PreviousCycleEvaluationContent': StudentPreviousCycleEvaluationContent,
   'student/BancoEnunciadosContent': StudentBancoEnunciadosContent,
   'student/VideoPageContent': StudentVideoPageContent,
-  
+  'student/NotificacionesContent': StudentNotificacionesContent,
+
   // Docente
   'teacher/InicioContent': TeacherInicioContent,
   'teacher/CalendarioContent': TeacherCalendarioContent,

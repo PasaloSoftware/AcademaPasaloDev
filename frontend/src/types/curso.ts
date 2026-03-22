@@ -154,3 +154,16 @@ export interface BankStructureResponse {
   cycleCode: string;
   items: BankStructureItem[];
 }
+
+export interface IntroVideoLinkResponse {
+  contentKind: string;
+  accessMode: string;
+  courseCycleId: string;
+  driveFileId: string;
+  url: string;
+  expiresAt: string | null;
+  requestedMode: string;
+  fileName: string | null;
+  mimeType: string | null;
+  storageProvider: string;
+}

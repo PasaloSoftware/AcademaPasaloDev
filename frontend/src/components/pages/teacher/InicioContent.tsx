@@ -8,12 +8,12 @@ import DaySchedule from '@/components/dashboard/DaySchedule';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { coursesService } from '@/services/courses.service';
-import type { CourseCycle } from '@/types/api';
+import type { Enrollment } from '@/types/enrollment';
 import { getCourseColor } from '@/lib/courseColors';
 
 export default function InicioContent() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [courseCycles, setCourseCycles] = useState<CourseCycle[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -25,14 +25,13 @@ export default function InicioContent() {
     setBreadcrumbItems([{ icon: 'home', label: 'Inicio' }]);
   }, [setBreadcrumbItems]);
 
-  // Cargar cursos asignados al profesor
   useEffect(() => {
     async function loadCourses() {
       setLoading(true);
       setError(null);
       try {
         const data = await coursesService.getMyCourseCycles();
-        setCourseCycles(Array.isArray(data) ? data : []);
+        setEnrollments(data);
       } catch (err) {
         console.error('Error al cargar cursos:', err);
         setError(err instanceof Error ? err.message : 'Error al cargar los cursos');
@@ -44,7 +43,6 @@ export default function InicioContent() {
     loadCourses();
   }, []);
 
-  // Obtener iniciales del profesor (el propio usuario)
   const getTeacherInitials = (): string => {
     if (!user) return 'XX';
     return `${user.firstName[0]}${(user.lastName1 || 'X')[0]}`.toUpperCase();
@@ -138,24 +136,24 @@ export default function InicioContent() {
           className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'flex flex-col gap-6'}
           style={viewMode === 'grid' ? { gridAutoRows: '1fr' } : undefined}
         >
-          {courseCycles.length === 0 ? (
+          {enrollments.length === 0 ? (
             <div className="col-span-2 text-center py-12">
               <Icon name="school" size={64} className="text-secondary mx-auto mb-4" />
               <p className="text-lg font-semibold text-primary mb-2">No tienes cursos asignados</p>
               <p className="text-secondary">Los cursos aparecerán aquí cuando un administrador te asigne</p>
             </div>
           ) : (
-            courseCycles.map((cc) => {
-              const courseCode = cc.course?.code || '';
+            enrollments.map((enrollment) => {
+              const courseCode = enrollment.courseCycle.course.code || '';
               const courseColor = getCourseColor(courseCode);
 
               return (
-                <div key={cc.id} className="flex flex-col gap-3 h-full">
+                <div key={enrollment.courseCycle.id} className="flex flex-col gap-3 h-full">
                   <CourseCard
                     headerColor={courseColor.primary}
-                    category="CIENCIAS"
-                    cycle={cc.academicCycle?.code || ''}
-                    title={cc.course?.name || ''}
+                    category={enrollment.courseCycle.course.courseType?.name?.toUpperCase() || 'CIENCIAS'}
+                    cycle={enrollment.courseCycle.academicCycle?.code || ''}
+                    title={enrollment.courseCycle.course.name}
                     teachers={[
                       {
                         initials: getTeacherInitials(),
@@ -164,7 +162,7 @@ export default function InicioContent() {
                         photoUrl: user?.profilePhotoUrl,
                       }
                     ]}
-                    onViewCourse={() => router.push(`/plataforma/curso/${cc.id}`)}
+                    onViewCourse={() => router.push(`/plataforma/curso/${enrollment.courseCycle.id}`)}
                     variant={viewMode}
                   />
                 </div>

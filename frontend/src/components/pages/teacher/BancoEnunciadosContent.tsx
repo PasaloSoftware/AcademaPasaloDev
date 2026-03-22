@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
 import { materialsService } from '@/services/materials.service';
-import type { CourseCycle } from '@/types/api';
-import type { StaffCourseEvaluation } from '@/types/curso';
+import type { CycleEvaluation } from '@/types/curso';
 import type { FolderMaterial } from '@/types/material';
 import Icon from '@/components/ui/Icon';
 import ExpandableFolderList from '@/components/shared/ExpandableFolderList';
@@ -78,12 +77,12 @@ export default function BancoEnunciadosContent({
   useEffect(() => {
     async function loadCourseName() {
       try {
-        const courses = await coursesService.getMyCourseCycles();
-        const found = (Array.isArray(courses) ? courses : []).find(
-          (cc: CourseCycle) => cc.id === cursoId,
+        const enrollments = await coursesService.getMyCourseCycles();
+        const found = enrollments.find(
+          (e) => e.courseCycle.id === cursoId,
         );
         if (found) {
-          setCourseName(found.course?.name || '');
+          setCourseName(found.courseCycle.course.name);
         }
       } catch (err) {
         console.error('Error al cargar nombre del curso:', err);
@@ -106,10 +105,11 @@ export default function BancoEnunciadosContent({
           setTypeName(typeItem.evaluationTypeName);
         }
 
-        const staffContent = await coursesService.getCourseContent(cursoId);
-        const typeEvaluations = staffContent.evaluations.filter(
-          (e: StaffCourseEvaluation) => {
-            const evalTypeName = e.evaluationType?.toLowerCase() || '';
+        const cycleContent = await coursesService.getCourseContent(cursoId);
+        const typeEvaluations = cycleContent.evaluations.filter(
+          (e: CycleEvaluation) => {
+            if (e.evaluationTypeCode === typeCode) return true;
+            const evalTypeName = e.fullName?.toLowerCase() || '';
             const codeMap: Record<string, string[]> = {
               PD: ['práctica dirigida', 'practica dirigida'],
               PC: ['práctica calificada', 'practica calificada'],
@@ -141,7 +141,7 @@ export default function BancoEnunciadosContent({
               if (!matAdicional) {
                 return {
                   evalId: evaluation.id,
-                  shortName: evaluation.name || evaluation.evaluationType,
+                  shortName: evaluation.shortName || evaluation.fullName,
                   enunciadosFolderId: null,
                   materialCount: 0,
                 };
@@ -156,7 +156,7 @@ export default function BancoEnunciadosContent({
               if (!enunciadosFolder) {
                 return {
                   evalId: evaluation.id,
-                  shortName: evaluation.name || evaluation.evaluationType,
+                  shortName: evaluation.shortName || evaluation.fullName,
                   enunciadosFolderId: null,
                   materialCount: 0,
                 };
@@ -164,7 +164,7 @@ export default function BancoEnunciadosContent({
 
               return {
                 evalId: evaluation.id,
-                shortName: evaluation.name || evaluation.evaluationType,
+                shortName: evaluation.shortName || evaluation.fullName,
                 enunciadosFolderId: enunciadosFolder.id,
                 materialCount:
                   contents.subfolderMaterialCount?.[enunciadosFolder.id] ?? 0,
@@ -172,7 +172,7 @@ export default function BancoEnunciadosContent({
             } catch {
               return {
                 evalId: evaluation.id,
-                shortName: evaluation.name || evaluation.evaluationType,
+                shortName: evaluation.shortName || evaluation.fullName,
                 enunciadosFolderId: null,
                 materialCount: 0,
               };

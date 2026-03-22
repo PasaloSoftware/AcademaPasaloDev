@@ -10,12 +10,13 @@ import type {
   CycleLevel,
   CourseCycle,
 } from '@/types/api';
+import type { Enrollment } from '@/types/enrollment';
 import type {
   CurrentCycleResponse,
   PreviousCyclesResponse,
   PreviousCycleContentResponse,
   BankStructureResponse,
-  StaffCourseContentResponse,
+  IntroVideoLinkResponse,
 } from '@/types/curso';
 
 export const coursesService = {
@@ -81,10 +82,12 @@ export const coursesService = {
 
   /**
    * Obtener los cursos-ciclo asignados al profesor actual (PROFESSOR)
+   * Ahora devuelve la misma estructura que enrollments/my-courses
    */
-  async getMyCourseCycles(): Promise<CourseCycle[]> {
-    const response = await apiClient.get<CourseCycle[]>('/courses/my-courses');
-    return response.data;
+  async getMyCourseCycles(): Promise<Enrollment[]> {
+    const response = await apiClient.get<Enrollment[]>('/courses/my-courses');
+    const data = response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   /**
@@ -150,11 +153,26 @@ export const coursesService = {
 
   /**
    * Obtener contenido de un curso-ciclo (PROFESSOR/ADMIN/SUPER_ADMIN)
+   * Ahora devuelve la misma estructura que /current (CurrentCycleResponse)
    */
-  async getCourseContent(courseCycleId: string): Promise<StaffCourseContentResponse> {
-    const response = await apiClient.get<StaffCourseContentResponse>(
+  async getCourseContent(courseCycleId: string): Promise<CurrentCycleResponse> {
+    const response = await apiClient.get<CurrentCycleResponse>(
       `/courses/cycle/${courseCycleId}/content`
     );
     return response.data;
+  },
+
+  /**
+   * Obtener link autorizado del video introductorio del curso-ciclo
+   */
+  async getIntroVideoLink(courseCycleId: string): Promise<IntroVideoLinkResponse | null> {
+    try {
+      const response = await apiClient.get<IntroVideoLinkResponse>(
+        `/courses/cycle/${courseCycleId}/intro-video-link`
+      );
+      return response.data;
+    } catch {
+      return null;
+    }
   },
 };

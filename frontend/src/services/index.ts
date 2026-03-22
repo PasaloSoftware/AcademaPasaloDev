@@ -10,3 +10,5 @@ export { evaluationsService } from './evaluations.service';
 export { enrollmentsService } from './enrollments.service';
 export { getCursoDetalle, getCursoNombre } from './cursoService';
 export { auditService } from './audit.service';
+export { feedbackService } from './feedback.service';
+export { notificationsService } from './notifications.service';

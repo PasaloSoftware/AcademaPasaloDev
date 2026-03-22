@@ -18,6 +18,9 @@ import {
   BancoCategoryCard,
   sortEvaluations,
 } from "@/components/shared/evaluationHelpers";
+import ValorarCursoModal from "@/components/modals/ValorarCursoModal";
+import { feedbackService } from "@/services/feedback.service";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface CursoContentProps {
   cursoId: string;
@@ -55,9 +58,16 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [bankStructure, setBankStructure] =
     useState<BankStructureResponse | null>(null);
   const [loadingBank, setLoadingBank] = useState(false);
+  // Video introductorio
+  const [introVideoUrl, setIntroVideoUrl] = useState<string | null>(null);
+
   // Loading general (enrollment)
   const [loadingEnrollment, setLoadingEnrollment] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Feedback modal
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const { showToast } = useToast();
 
   // Obtener datos del enrollment para el header
   useEffect(() => {
@@ -146,6 +156,22 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     if (cursoId) loadBankStructure();
   }, [cursoId]);
 
+  // Cargar video introductorio
+  useEffect(() => {
+    async function loadIntroVideo() {
+      try {
+        const data = await coursesService.getIntroVideoLink(cursoId);
+        if (data?.url) {
+          setIntroVideoUrl(data.url);
+        }
+      } catch {
+        // No intro video available
+      }
+    }
+
+    if (cursoId) loadIntroVideo();
+  }, [cursoId]);
+
   // Helpers
   const getInitials = (firstName: string, lastName1: string) => {
     return `${firstName[0] || ""}${lastName1[0] || ""}`.toUpperCase();
@@ -163,6 +189,20 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     const profs = enrollment.courseCycle.professors;
     if (profs.length === 0) return "XX";
     return getInitials(profs[0].firstName, profs[0].lastName1);
+  };
+
+  const handleSubmitFeedback = async (rating: number, comment: string) => {
+    if (!enrollment) return;
+    await feedbackService.submitTestimony({
+      courseCycleId: enrollment.courseCycle.id,
+      rating,
+      comment,
+    });
+    showToast({
+      type: 'success',
+      title: 'Comentario enviado con éxito',
+      description: 'Tu comentario ha sido enviado correctamente.',
+    });
   };
 
   // ============================================
@@ -240,7 +280,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           ======================================== */}
       <div className="self-stretch inline-flex justify-start items-start gap-8 overflow-hidden mb-8">
         {/* Left: Course Info */}
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-5">
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-4">
           {/* Tags */}
           <div className="inline-flex justify-start items-center gap-2">
             <div className="px-2.5 py-1.5 bg-bg-success-light rounded-full flex justify-center items-center gap-1">
@@ -280,34 +320,44 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </div>
             </div>
           </div>
+
+          {/* Feedback */}
+          <button
+            onClick={() => setShowFeedbackModal(true)}
+            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary inline-flex justify-center items-center gap-1.5"
+          >
+            <Icon name="star" size={16} className="text-icon-accent-primary" />
+            <span className="text-text-accent-primary text-sm font-medium leading-4">
+              Valorar Curso
+            </span>
+          </button>
         </div>
 
-        {/* Right: Video Placeholder */}
-        <div className="flex-1 h-[217px] py-14 px-5 bg-bg-tertiary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-center items-center gap-3 overflow-hidden">
-          <div className="p-2 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
-            <Icon name="play_arrow" size={24} className="text-icon-white" />
-          </div>
-          <div className="self-stretch flex flex-col justify-center items-center gap-1">
-            <div className="self-stretch inline-flex justify-center items-center gap-1">
-              <span className="text-center text-text-secondary text-xs font-medium leading-4">
-                Video:
-              </span>
-              <span className="text-center text-text-secondary text-xs font-medium leading-4">
-                Curso
-              </span>
-              <span className="text-center text-text-secondary text-xs font-medium leading-4">
-                - Clase introductoria
-              </span>
+        {/* Right: Intro Video */}
+        <div className="h-[190px] aspect-video rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary overflow-hidden">
+          {introVideoUrl ? (
+            <iframe
+              src={introVideoUrl}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title="Video introductorio del curso"
+            />
+          ) : (
+            <div className="w-full h-full py-14 px-5 bg-bg-tertiary inline-flex flex-col justify-center items-center gap-3">
+              <div className="p-2 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
+                <Icon name="play_arrow" size={24} className="text-icon-white" />
+              </div>
+              <div className="self-stretch flex flex-col justify-center items-center gap-1">
+                <span className="text-center text-text-secondary text-xs font-medium leading-4">
+                  Video: Curso - Clase introductoria
+                </span>
+                <span className="text-center text-text-tertiary text-xs font-normal leading-4 line-clamp-1">
+                  Profesor(a): {getProfessorName()}
+                </span>
+              </div>
             </div>
-            <div className="self-stretch inline-flex justify-center items-center gap-1">
-              <span className="text-center text-text-tertiary text-xs font-normal leading-4">
-                Profesor(a):
-              </span>
-              <span className="text-center text-text-tertiary text-xs font-normal leading-4 line-clamp-1">
-                {getProfessorName()}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -496,6 +546,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           </div>
         )}
       </div>
+
+      <ValorarCursoModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        onSubmit={handleSubmitFeedback}
+      />
     </div>
   );
 }
