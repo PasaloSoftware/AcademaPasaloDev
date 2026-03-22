@@ -409,7 +409,8 @@ Define una nueva evaluación dentro de un curso/ciclo.
 ## ÉPICA: REPOSITORIO DE MATERIALES (`/materials`)
 
 ### 1. Navegación de Carpetas (Explorador)
-Permite navegar la jerarquía de una evaluación. Requiere matrícula en la evaluación.
+Permite navegar la jerarquia de una evaluacion. Requiere acceso a la evaluacion segun rol/matricula.
+  - Excepcion Banco (`BANCO_ENUNCIADOS`): para alumno matriculado activo del course_cycle, sin restriccion FULL/PARTIAL.
 - **Endpoints:**
     * `GET /materials/folders/evaluation/:evaluationId` (Carpetas raíz)
     * `GET /materials/folders/:folderId` (Contenido de una carpeta)
@@ -649,28 +650,61 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 2. `404` course_cycle no existe.
 3. `403` si rol no autorizado.
 
-### 2) Alumno - Obtener estructura del tab Banco
+### 2) Alumno - Obtener estructura del tab Banco (cards + carpetas navegables)
 
 - Endpoint: `GET /courses/cycle/:courseCycleId/bank-structure`
-- Roles: `STUDENT`
+- Roles: `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - Reglas de acceso:
-1. Requiere matricula activa en ese `courseCycleId`.
-2. Si no tiene matricula activa: `403`.
+1. `STUDENT`: requiere matricula activa en ese `courseCycleId` (`403` si no cumple).
+2. `PROFESSOR`: requiere estar asignado al `courseCycleId` (`403` si no cumple).
+3. `ADMIN` y `SUPER_ADMIN`: acceso permitido por rol.
 - Respuesta 200:
 ```json
 {
   "courseCycleId": "4",
   "cycleCode": "2026-0",
+  "bankEvaluationId": "88",
   "items": [
     {
       "evaluationTypeId": "2",
       "evaluationTypeCode": "EX",
-      "evaluationTypeName": "Examen"
+      "evaluationTypeName": "Examen",
+      "entries": [
+        {
+          "evaluationId": "190",
+          "evaluationTypeCode": "EX",
+          "evaluationTypeName": "Examen",
+          "evaluationNumber": 1,
+          "label": "EX1",
+          "folderId": "702",
+          "folderName": "EX1"
+        }
+      ]
     },
     {
       "evaluationTypeId": "1",
       "evaluationTypeCode": "PC",
-      "evaluationTypeName": "Practica Calificada"
+      "evaluationTypeName": "Practica Calificada",
+      "entries": [
+        {
+          "evaluationId": "120",
+          "evaluationTypeCode": "PC",
+          "evaluationTypeName": "Practica Calificada",
+          "evaluationNumber": 1,
+          "label": "PC1",
+          "folderId": "703",
+          "folderName": "PC1"
+        },
+        {
+          "evaluationId": "121",
+          "evaluationTypeCode": "PC",
+          "evaluationTypeName": "Practica Calificada",
+          "evaluationNumber": 2,
+          "label": "PC2",
+          "folderId": null,
+          "folderName": null
+        }
+      ]
     }
   ]
 }
@@ -679,6 +713,8 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 1. Mostrar cards segun `items`.
 2. No hardcodear tipos.
 3. El orden llega desde backend (por code).
+4. Para navegar contenido de Banco, usar `entries[].folderId` y luego `GET /materials/folders/:folderId`.
+5. Si `folderId` es `null`, la carpeta logica aun no fue creada (no intentar abrir `evaluation/:id` para Banco).
 
 ### 3) Admin - Crear evaluacion con validacion estricta de estructura
 
@@ -754,9 +790,10 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 ### 5) Impacto esperado en frontend
 
 1. En admin, configurar estructura por ciclo antes de crear evaluaciones nuevas.
-2. En alumno, usar `bank-structure` para render del tab Banco.
-3. No inferir acceso por labels.
-4. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion.
+2. En alumno y profesor, usar `bank-structure` para render del tab Banco.
+3. En Banco, no inferir ids ni usar `evaluationId` de evaluaciones academicas para leer carpetas.
+4. En Banco, abrir contenido solo con `GET /materials/folders/:folderId` usando `entries[].folderId`.
+5. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion academica (fuera de Banco).
 
 ### 6) Cache y consistencia
 

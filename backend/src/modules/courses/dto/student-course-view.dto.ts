@@ -65,6 +65,33 @@ export class StudentBankStructureItemDto {
 
   @Expose()
   evaluationTypeName: string;
+
+  @Expose()
+  @Type(() => StudentBankStructureEntryDto)
+  entries: StudentBankStructureEntryDto[];
+}
+
+export class StudentBankStructureEntryDto {
+  @Expose()
+  evaluationId: string;
+
+  @Expose()
+  evaluationTypeCode: string;
+
+  @Expose()
+  evaluationTypeName: string;
+
+  @Expose()
+  evaluationNumber: number;
+
+  @Expose()
+  label: string;
+
+  @Expose()
+  folderId: string | null;
+
+  @Expose()
+  folderName: string | null;
 }
 
 export class StudentBankStructureResponseDto {
@@ -73,6 +100,9 @@ export class StudentBankStructureResponseDto {
 
   @Expose()
   cycleCode: string;
+
+  @Expose()
+  bankEvaluationId: string;
 
   @Expose()
   @Type(() => StudentBankStructureItemDto)

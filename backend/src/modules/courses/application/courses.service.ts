@@ -115,6 +115,16 @@ type BankCardMeta = {
   leafFolderName: string;
 };
 
+type StudentBankFolderEntry = {
+  evaluationId: string;
+  evaluationTypeCode: string;
+  evaluationTypeName: string;
+  evaluationNumber: number;
+  label: string;
+  folderId: string | null;
+  folderName: string | null;
+};
+
 @Injectable()
 export class CoursesService {
   private readonly logger = new Logger(CoursesService.name);
@@ -1040,20 +1050,29 @@ export class CoursesService {
       activeRole,
     );
 
+    const bankEvaluation =
+      await this.findBankEvaluationEntityForCourseCycle(courseCycleId);
+
     const cacheKey = COURSE_CACHE_KEYS.BANK_STRUCTURE(courseCycleId);
     let items = await this.cacheService.get<
       Array<{
         evaluationTypeId: string;
         evaluationTypeCode: string;
         evaluationTypeName: string;
+        entries: StudentBankFolderEntry[];
       }>
     >(cacheKey);
 
     if (!items) {
+      const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
       const structure =
         await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
           courseCycleId,
         );
+      const entriesByTypeCode = await this.resolveBankEntriesByTypeCode(
+        bankEvaluation.id,
+        bankCards,
+      );
 
       items = structure.map((item) => ({
         evaluationTypeId: String(item.evaluationTypeId),
@@ -1062,6 +1081,7 @@ export class CoursesService {
           item.evaluationType.code,
           item.evaluationType.name,
         ),
+        entries: entriesByTypeCode[item.evaluationType.code] || [],
       }));
 
       await this.cacheService.set(
@@ -1074,8 +1094,58 @@ export class CoursesService {
     return {
       courseCycleId: accessContext.cycle.id,
       cycleCode: accessContext.cycle.academicCycle.code,
+      bankEvaluationId: bankEvaluation.id,
       items,
     };
+  }
+
+  private async resolveBankEntriesByTypeCode(
+    bankEvaluationId: string,
+    cards: BankCardMeta[],
+  ): Promise<Record<string, StudentBankFolderEntry[]>> {
+    const activeFolderStatus = await this.getActiveFolderStatus();
+    const rootFolders = await this.materialFolderRepository.findRootsByEvaluation(
+      bankEvaluationId,
+      activeFolderStatus.id,
+    );
+
+    const leafFolderByCompositeKey = new Map<string, MaterialFolder>();
+    for (const root of rootFolders) {
+      const children = await this.materialFolderRepository.findSubFolders(
+        root.id,
+        activeFolderStatus.id,
+      );
+      for (const child of children) {
+        const key = `${root.name}::${child.name}`;
+        leafFolderByCompositeKey.set(key, child);
+      }
+    }
+
+    const entriesByTypeCode: Record<string, StudentBankFolderEntry[]> = {};
+    for (const card of cards) {
+      const key = `${card.groupFolderName}::${card.leafFolderName}`;
+      const folder = leafFolderByCompositeKey.get(key) || null;
+      if (!entriesByTypeCode[card.evaluationTypeCode]) {
+        entriesByTypeCode[card.evaluationTypeCode] = [];
+      }
+      entriesByTypeCode[card.evaluationTypeCode].push({
+        evaluationId: card.evaluationId,
+        evaluationTypeCode: card.evaluationTypeCode,
+        evaluationTypeName: card.evaluationTypeName,
+        evaluationNumber: card.evaluationNumber,
+        label: card.leafFolderName,
+        folderId: folder?.id || null,
+        folderName: folder?.name || null,
+      });
+    }
+
+    for (const typeCode of Object.keys(entriesByTypeCode)) {
+      entriesByTypeCode[typeCode].sort(
+        (left, right) => left.evaluationNumber - right.evaluationNumber,
+      );
+    }
+
+    return entriesByTypeCode;
   }
 
   private async assertCanManageCourseCycleBank(

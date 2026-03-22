@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
 import { materialsService } from '@/services/materials.service';
-import type { CycleEvaluation } from '@/types/curso';
 import type { FolderMaterial } from '@/types/material';
 import Icon from '@/components/ui/Icon';
 import ExpandableFolderList from '@/components/shared/ExpandableFolderList';
@@ -70,20 +69,14 @@ export default function BancoEnunciadosContent({
   const [previewMaterials, setPreviewMaterials] = useState<FolderMaterial[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  const [enunciadosFolderMap, setEnunciadosFolderMap] = useState<
-    Record<string, string>
-  >({});
+  const [folderIdMap, setFolderIdMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadCourseName() {
       try {
         const enrollments = await coursesService.getMyCourseCycles();
-        const found = enrollments.find(
-          (e) => e.courseCycle.id === cursoId,
-        );
-        if (found) {
-          setCourseName(found.courseCycle.course.name);
-        }
+        const found = enrollments.find((e) => e.courseCycle.id === cursoId);
+        if (found) setCourseName(found.courseCycle.course.name);
       } catch (err) {
         console.error('Error al cargar nombre del curso:', err);
       }
@@ -101,79 +94,44 @@ export default function BancoEnunciadosContent({
         const typeItem = bankStructure.items.find(
           (item) => item.evaluationTypeCode === typeCode,
         );
-        if (typeItem) {
-          setTypeName(typeItem.evaluationTypeName);
-        }
 
-        const cycleContent = await coursesService.getCourseContent(cursoId);
-        const typeEvaluations = cycleContent.evaluations.filter(
-          (e: CycleEvaluation) => {
-            if (e.evaluationTypeCode === typeCode) return true;
-            const evalTypeName = e.fullName?.toLowerCase() || '';
-            const codeMap: Record<string, string[]> = {
-              PD: ['práctica dirigida', 'practica dirigida'],
-              PC: ['práctica calificada', 'practica calificada'],
-              EX: ['examen'],
-            };
-            const keywords = codeMap[typeCode];
-            if (keywords) {
-              return keywords.some((kw) => evalTypeName.includes(kw));
-            }
-            return false;
-          },
-        );
+        setTypeName(typeItem?.evaluationTypeName || '');
+        const entries = typeItem?.entries || [];
 
-        if (typeEvaluations.length === 0) {
+        if (entries.length === 0) {
           setFolders([]);
+          setFolderIdMap({});
           setLoading(false);
           return;
         }
 
         const folderResults = await Promise.all(
-          typeEvaluations.map(async (evaluation) => {
+          entries.map(async (entry) => {
+            const fallbackId = `${entry.evaluationTypeCode}-${entry.evaluationNumber}`;
+            const uiFolderId = entry.folderId || `missing-${fallbackId}`;
             try {
-              const rootFolders = await materialsService.getRootFolders(
-                evaluation.id,
-              );
-              const matAdicional = rootFolders.find((f) =>
-                f.name.toLowerCase().includes('adicional'),
-              );
-              if (!matAdicional) {
+              if (!entry.folderId) {
                 return {
-                  evalId: evaluation.id,
-                  shortName: evaluation.shortName || evaluation.fullName,
-                  enunciadosFolderId: null,
+                  uiFolderId,
+                  label: entry.label,
+                  backendFolderId: null,
                   materialCount: 0,
                 };
               }
-
               const contents = await materialsService.getFolderContents(
-                matAdicional.id,
+                entry.folderId,
               );
-              const enunciadosFolder = contents.folders.find((f) =>
-                f.name.toLowerCase().includes('enunciados'),
-              );
-              if (!enunciadosFolder) {
-                return {
-                  evalId: evaluation.id,
-                  shortName: evaluation.shortName || evaluation.fullName,
-                  enunciadosFolderId: null,
-                  materialCount: 0,
-                };
-              }
-
               return {
-                evalId: evaluation.id,
-                shortName: evaluation.shortName || evaluation.fullName,
-                enunciadosFolderId: enunciadosFolder.id,
-                materialCount:
-                  contents.subfolderMaterialCount?.[enunciadosFolder.id] ?? 0,
+                uiFolderId,
+                label: entry.label,
+                backendFolderId: entry.folderId,
+                materialCount: contents.materials.length,
               };
             } catch {
               return {
-                evalId: evaluation.id,
-                shortName: evaluation.shortName || evaluation.fullName,
-                enunciadosFolderId: null,
+                uiFolderId,
+                label: entry.label,
+                backendFolderId: entry.folderId,
                 materialCount: 0,
               };
             }
@@ -181,21 +139,19 @@ export default function BancoEnunciadosContent({
         );
 
         const expandableFolders: ExpandableFolder[] = [];
-        const folderMap: Record<string, string> = {};
+        const map: Record<string, string> = {};
 
         for (const result of folderResults) {
-          if (result.enunciadosFolderId) {
-            expandableFolders.push({
-              id: result.evalId,
-              name: result.shortName,
-              materialCount: result.materialCount,
-            });
-            folderMap[result.evalId] = result.enunciadosFolderId;
-          }
+          expandableFolders.push({
+            id: result.uiFolderId,
+            name: result.label,
+            materialCount: result.materialCount,
+          });
+          if (result.backendFolderId) map[result.uiFolderId] = result.backendFolderId;
         }
 
         setFolders(expandableFolders);
-        setEnunciadosFolderMap(folderMap);
+        setFolderIdMap(map);
       } catch (err) {
         console.error('Error al cargar banco de enunciados:', err);
         setError('Error al cargar el banco de enunciados');
@@ -218,14 +174,13 @@ export default function BancoEnunciadosContent({
   }, [setBreadcrumbItems, courseName, typeName, typeCode, cursoId]);
 
   const loadFolderMaterials = useCallback(
-    async (evalId: string): Promise<FolderMaterial[]> => {
-      const enunciadosFolderId = enunciadosFolderMap[evalId];
-      if (!enunciadosFolderId) return [];
-      const contents =
-        await materialsService.getFolderContents(enunciadosFolderId);
+    async (uiFolderId: string): Promise<FolderMaterial[]> => {
+      const backendFolderId = folderIdMap[uiFolderId];
+      if (!backendFolderId) return [];
+      const contents = await materialsService.getFolderContents(backendFolderId);
       return contents.materials;
     },
-    [enunciadosFolderMap],
+    [folderIdMap],
   );
 
   const handleDownloadMaterial = useCallback(async (mat: FolderMaterial) => {

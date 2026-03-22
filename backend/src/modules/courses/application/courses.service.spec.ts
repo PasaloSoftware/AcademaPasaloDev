@@ -876,21 +876,95 @@ describe('CoursesService student views', () => {
         evaluationType: { code: 'PC', name: 'Practica Calificada' },
       },
     ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc-1',
+        number: 1,
+        evaluationTypeId: '1',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+      {
+        id: 'pc-2',
+        number: 2,
+        evaluationTypeId: '1',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+      {
+        id: 'ex-1',
+        number: 1,
+        evaluationTypeId: '2',
+        evaluationType: { code: 'EX', name: 'Examen' },
+      },
+    ]);
+    (materialCatalogRepository.findFolderStatusByCode as jest.Mock).mockResolvedValue({
+      id: 'folder-active',
+    });
+    (materialFolderRepository.findRootsByEvaluation as jest.Mock).mockResolvedValue([
+      { id: 'root-pc', name: 'Practicas Calificadas' },
+      { id: 'root-ex', name: 'Examenes' },
+    ]);
+    (materialFolderRepository.findSubFolders as jest.Mock)
+      .mockResolvedValueOnce([
+        { id: 'leaf-pc1', name: 'PC1' },
+        { id: 'leaf-pc2', name: 'PC2' },
+      ])
+      .mockResolvedValueOnce([{ id: 'leaf-ex1', name: 'EX1' }]);
 
     const result = await service.getStudentBankStructure('100', '501');
 
     expect(result.courseCycleId).toBe('100');
     expect(result.cycleCode).toBe('2026-1');
+    expect(result.bankEvaluationId).toBe('bank-0');
     expect(result.items).toEqual([
       {
         evaluationTypeId: '2',
         evaluationTypeCode: 'EX',
         evaluationTypeName: 'Examenes',
+        entries: [
+          {
+            evaluationId: 'ex-1',
+            evaluationTypeCode: 'EX',
+            evaluationTypeName: 'Examenes',
+            evaluationNumber: 1,
+            label: 'EX1',
+            folderId: 'leaf-ex1',
+            folderName: 'EX1',
+          },
+        ],
       },
       {
         evaluationTypeId: '1',
         evaluationTypeCode: 'PC',
         evaluationTypeName: 'Practicas Calificadas',
+        entries: [
+          {
+            evaluationId: 'pc-1',
+            evaluationTypeCode: 'PC',
+            evaluationTypeName: 'Practicas Calificadas',
+            evaluationNumber: 1,
+            label: 'PC1',
+            folderId: 'leaf-pc1',
+            folderName: 'PC1',
+          },
+          {
+            evaluationId: 'pc-2',
+            evaluationTypeCode: 'PC',
+            evaluationTypeName: 'Practicas Calificadas',
+            evaluationNumber: 2,
+            label: 'PC2',
+            folderId: 'leaf-pc2',
+            folderName: 'PC2',
+          },
+        ],
       },
     ]);
   });
@@ -904,6 +978,57 @@ describe('CoursesService student views', () => {
     await expect(service.getStudentBankStructure('100', '501')).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('should return bank entries with null folderId when folder tree is not created yet', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (dataSource.query as jest.Mock).mockResolvedValue([{ typeCode: 'FULL' }]);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: '1',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc-1',
+        number: 1,
+        evaluationTypeId: '1',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (materialCatalogRepository.findFolderStatusByCode as jest.Mock).mockResolvedValue({
+      id: 'folder-active',
+    });
+    (materialFolderRepository.findRootsByEvaluation as jest.Mock).mockResolvedValue([]);
+
+    const result = await service.getStudentBankStructure('100', '501');
+
+    expect(result.bankEvaluationId).toBe('bank-0');
+    expect(result.items[0].entries).toEqual([
+      {
+        evaluationId: 'pc-1',
+        evaluationTypeCode: 'PC',
+        evaluationTypeName: 'Practicas Calificadas',
+        evaluationNumber: 1,
+        label: 'PC1',
+        folderId: null,
+        folderName: null,
+      },
+    ]);
   });
 
   it('should upload a bank document to the resolved Drive leaf folder', async () => {

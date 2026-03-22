@@ -172,6 +172,14 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     if (cursoId) loadIntroVideo();
   }, [cursoId]);
 
+  const canViewPreviousCycles = Boolean(currentCycle?.canViewPreviousCycles);
+
+  useEffect(() => {
+    if (!canViewPreviousCycles && activeTab === "anteriores") {
+      setActiveTab("vigente");
+    }
+  }, [canViewPreviousCycles, activeTab]);
+
   // Helpers
   const getInitials = (firstName: string, lastName1: string) => {
     return `${firstName[0] || ""}${lastName1[0] || ""}`.toUpperCase();
@@ -269,7 +277,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   // Tab config
   const tabs: { key: TabOption; label: string; disabled?: boolean }[] = [
     { key: "vigente", label: "Ciclo Vigente" },
-    { key: "anteriores", label: "Ciclos Pasados" },
+    ...(canViewPreviousCycles
+      ? ([{ key: "anteriores", label: "Ciclos Pasados" }] as const)
+      : []),
     { key: "banco", label: "Banco de Enunciados" },
   ];
 
@@ -447,7 +457,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         {/* ========================================
             TAB CONTENT: Ciclos Pasados
             ======================================== */}
-        {activeTab === "anteriores" && (
+        {activeTab === "anteriores" && canViewPreviousCycles && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             {/* Section Title */}
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
