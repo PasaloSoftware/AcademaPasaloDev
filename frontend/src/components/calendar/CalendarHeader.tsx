@@ -26,7 +26,6 @@ interface CalendarHeaderProps {
 }
 
 export default function CalendarHeader({
-  title,
   currentMonthYear,
   view,
   selectedCourseId,
@@ -45,86 +44,93 @@ export default function CalendarHeader({
   }));
 
   return (
-    <>
-      <div className="flex justify-between items-center flex-shrink-0">
-        <h1 className="text-3xl font-semibold text-text-primary">{title}</h1>
-
-        <div className="flex items-center gap-3">
-          {actions}
-
-          <FloatingSelect
-            label="Curso"
-            value={selectedCourseId}
-            options={selectOptions}
-            onChange={onCourseChange}
-            allLabel="Todos"
-            disabled={loadingCourses}
-          />
-        </div>
+    <div className="self-stretch flex flex-col gap-8 flex-shrink-0">
+      {/* Row 1: Title + Actions (Crear Evento) */}
+      <div className="self-stretch inline-flex justify-between items-center">
+        <h1 className="text-text-primary text-3xl font-semibold leading-10">
+          Calendario de Clases
+        </h1>
+        {actions}
       </div>
 
-      <div className="p-4 bg-bg-primary rounded-xl border border-stroke-primary flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-5">
+      {/* Row 2: Course filter + Controls bar */}
+      <div className="self-stretch inline-flex justify-between items-stretch">
+        {/* Left: Course filter (stretches to match controls bar height) */}
+        <FloatingSelect
+          label="Curso"
+          value={selectedCourseId}
+          options={selectOptions}
+          onChange={onCourseChange}
+          allLabel="Todos"
+          disabled={loadingCourses}
+        />
+
+        {/* Right: Controls bar */}
+        <div className="p-2 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex justify-center items-center">
+          {/* Today button */}
+          <div className="pr-6 border-r border-stroke-primary flex justify-start items-start">
             <button
               onClick={onToday}
-              className="px-4 py-3 bg-bg-primary rounded-lg border border-stroke-accent-primary text-sm font-medium text-text-accent-primary hover:bg-accent-light transition-colors"
+              className="px-6 py-2 bg-bg-accent-light rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-accent-light/80 transition-colors"
             >
-              Hoy
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Hoy
+              </span>
             </button>
+          </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+          {/* View toggles */}
+          <div className="px-6 border-r border-stroke-secondary flex justify-center items-center">
+            <div className="flex justify-start items-center gap-2.5">
+              <button
+                onClick={() => onViewChange('weekly')}
+                className={`px-2.5 py-2 rounded flex justify-center items-center gap-1 text-sm font-medium transition-colors ${
+                  view === 'weekly'
+                    ? 'bg-bg-accent-primary-solid text-text-white'
+                    : 'bg-bg-primary text-text-accent-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary'
+                }`}
+              >
+                <Icon name="calendar_view_week" size={16} className={view === 'weekly' ? 'text-icon-white' : 'text-icon-accent-primary'} />
+                <span>Semanal</span>
+              </button>
+              <button
+                onClick={() => onViewChange('monthly')}
+                className={`px-2.5 py-2 rounded flex justify-center items-center gap-1 text-sm font-medium transition-colors ${
+                  view === 'monthly'
+                    ? 'bg-bg-accent-primary-solid text-text-white'
+                    : 'bg-bg-primary text-text-accent-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary'
+                }`}
+              >
+                <Icon name="calendar_view_month" size={16} className={view === 'monthly' ? 'text-icon-white' : 'text-icon-accent-primary'} />
+                <span>Mensual</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Month/Year + Navigation */}
+          <div className="pl-6 py-1 flex justify-center items-center">
+            <div className="flex justify-start items-center gap-2">
+              <span className="text-text-primary text-lg font-medium leading-5">
+                {currentMonthYear}
+              </span>
+              <div className="flex justify-start items-center gap-2">
                 <button
                   onClick={onPrevious}
-                  className="p-1 rounded-lg hover:bg-bg-secondary transition-colors"
-                  aria-label="Anterior"
+                  className="p-1 rounded-lg flex justify-center items-center hover:bg-bg-secondary transition-colors"
                 >
                   <Icon name="chevron_left" size={16} className="text-icon-accent-primary" />
                 </button>
                 <button
                   onClick={onNext}
-                  className="p-1 rounded-lg hover:bg-bg-secondary transition-colors"
-                  aria-label="Siguiente"
+                  className="p-1 rounded-lg flex justify-center items-center hover:bg-bg-secondary transition-colors"
                 >
                   <Icon name="chevron_right" size={16} className="text-icon-accent-primary" />
                 </button>
               </div>
-
-              <div className="flex items-center gap-1 capitalize">
-                <span className="text-xl font-medium text-text-primary">
-                  {currentMonthYear}
-                </span>
-              </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => onViewChange('weekly')}
-              className={`px-2.5 py-2 rounded flex items-center gap-1 text-sm font-medium transition-colors ${
-                view === 'weekly'
-                  ? 'bg-deep-blue-700 text-white'
-                  : 'bg-bg-primary text-text-accent-primary border border-stroke-accent-primary hover:bg-accent-light'
-              }`}
-            >
-              <Icon name="calendar_view_week" size={16} />
-              Semanal
-            </button>
-            <button
-              onClick={() => onViewChange('monthly')}
-              className={`px-2.5 py-2 rounded flex items-center gap-1 text-sm font-medium transition-colors ${
-                view === 'monthly'
-                  ? 'bg-deep-blue-700 text-white'
-                  : 'bg-bg-primary text-text-accent-primary border border-stroke-accent-primary hover:bg-accent-light'
-              }`}
-            >
-              <Icon name="calendar_view_month" size={16} />
-              Mensual
-            </button>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

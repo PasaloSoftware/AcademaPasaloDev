@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { coursesService } from '@/services/courses.service';
-import type { CourseCycle } from '@/types/api';
+import type { Enrollment } from '@/types/enrollment';
 import type {
-  StaffCourseContentResponse,
-  StaffCourseEvaluation,
-  CycleEvaluation,
-  EvaluationLabel,
+  CurrentCycleResponse,
   PreviousCyclesResponse,
   BankStructureResponse,
 } from '@/types/curso';
@@ -28,33 +25,13 @@ interface CursoContentProps {
 
 type TabOption = 'vigente' | 'anteriores' | 'banco';
 
-function mapStaffEvalToLabel(eval_: StaffCourseEvaluation): EvaluationLabel {
-  const now = new Date();
-  const start = new Date(eval_.startDate);
-  const end = new Date(eval_.endDate);
-
-  if (now > end) return 'Completado';
-  if (now < start) return 'Próximamente';
-  return 'En curso';
-}
-
-function mapStaffEvaluation(eval_: StaffCourseEvaluation): CycleEvaluation {
-  return {
-    id: eval_.id,
-    evaluationTypeCode: '',
-    shortName: eval_.name || eval_.evaluationType,
-    fullName: eval_.evaluationType,
-    label: mapStaffEvalToLabel(eval_),
-  };
-}
-
 export default function CursoContent({ cursoId }: CursoContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
   const { user } = useAuth();
 
-  const [courseCycle, setCourseCycle] = useState<CourseCycle | null>(null);
-  const [cycleContent, setCycleContent] = useState<StaffCourseContentResponse | null>(null);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+  const [currentCycle, setCurrentCycle] = useState<CurrentCycleResponse | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(true);
   const [loadingContent, setLoadingContent] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,20 +45,22 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [bankStructure, setBankStructure] = useState<BankStructureResponse | null>(null);
   const [loadingBank, setLoadingBank] = useState(false);
 
+  const [introVideoUrl, setIntroVideoUrl] = useState<string | null>(null);
+
   useEffect(() => {
-    async function loadCourseCycle() {
+    async function loadEnrollment() {
       setLoadingCourse(true);
       setError(null);
       try {
-        const courses = await coursesService.getMyCourseCycles();
-        const found = (Array.isArray(courses) ? courses : []).find(
-          (cc) => cc.id === cursoId,
+        const data = await coursesService.getMyCourseCycles();
+        const found = data.find(
+          (e) => e.courseCycle.id === cursoId,
         );
         if (found) {
-          setCourseCycle(found);
+          setEnrollment(found);
           setBreadcrumbItems([
             { label: 'Cursos' },
-            { label: found.course?.name || '' },
+            { label: found.courseCycle.course.name },
           ]);
         } else {
           setError('No se encontró el curso asignado');
@@ -94,7 +73,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       }
     }
 
-    if (cursoId) loadCourseCycle();
+    if (cursoId) loadEnrollment();
   }, [cursoId, setBreadcrumbItems]);
 
   useEffect(() => {
@@ -103,7 +82,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       setErrorContent(null);
       try {
         const data = await coursesService.getCourseContent(cursoId);
-        setCycleContent(data);
+        setCurrentCycle(data);
       } catch (err) {
         console.error('Error al cargar contenido del ciclo:', err);
         setErrorContent('Error al cargar las evaluaciones');
@@ -147,6 +126,21 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     if (cursoId) loadBankStructure();
   }, [cursoId]);
 
+  useEffect(() => {
+    async function loadIntroVideo() {
+      try {
+        const data = await coursesService.getIntroVideoLink(cursoId);
+        if (data?.url) {
+          setIntroVideoUrl(data.url);
+        }
+      } catch {
+        // No intro video available
+      }
+    }
+
+    if (cursoId) loadIntroVideo();
+  }, [cursoId]);
+
   const getTeacherInitials = (): string => {
     if (!user) return 'XX';
     return `${user.firstName[0]}${(user.lastName1 || 'X')[0]}`.toUpperCase();
@@ -186,7 +180,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     );
   }
 
-  if (error || errorContent || !courseCycle) {
+  if (error || errorContent || !enrollment) {
     return (
       <div className="bg-white rounded-2xl border border-stroke-primary p-12 text-center">
         <Icon
@@ -204,10 +198,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     );
   }
 
-  const courseName = courseCycle.course?.name || '';
-  const evaluations: CycleEvaluation[] = cycleContent
-    ? cycleContent.evaluations.map(mapStaffEvaluation)
-    : [];
+  const courseName = enrollment.courseCycle.course.name;
+  const courseTypeName = enrollment.courseCycle.course.courseType?.name || 'CIENCIAS';
+  const evaluations = currentCycle?.evaluations || [];
 
   const tabs: { key: TabOption; label: string }[] = [
     { key: 'vigente', label: 'Ciclo Vigente' },
@@ -219,12 +212,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* HEADER SECTION */}
       <div className="self-stretch inline-flex justify-start items-start gap-8 overflow-hidden mb-8">
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-5">
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-4">
           {/* Tags */}
           <div className="inline-flex justify-start items-center gap-2">
             <div className="px-2.5 py-1.5 bg-bg-success-light rounded-full flex justify-center items-center gap-1">
               <span className="text-text-success-primary text-xs font-medium leading-3">
-                CIENCIAS
+                {courseTypeName.toUpperCase()}
               </span>
             </div>
           </div>
@@ -254,34 +247,35 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </div>
             </div>
           </div>
+
+          {/* Feedback */}
         </div>
 
-        {/* Right: Video Placeholder */}
-        <div className="flex-1 h-[217px] py-14 px-5 bg-bg-tertiary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col justify-center items-center gap-3 overflow-hidden">
-          <div className="p-2 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
-            <Icon name="play_arrow" size={24} className="text-icon-white" />
-          </div>
-          <div className="self-stretch flex flex-col justify-center items-center gap-1">
-            <div className="self-stretch inline-flex justify-center items-center gap-1">
-              <span className="text-center text-text-secondary text-xs font-medium leading-4">
-                Video:
-              </span>
-              <span className="text-center text-text-secondary text-xs font-medium leading-4">
-                Curso
-              </span>
-              <span className="text-center text-text-secondary text-xs font-medium leading-4">
-                - Clase introductoria
-              </span>
+        {/* Right: Intro Video */}
+        <div className="h-[190px] aspect-video rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary overflow-hidden">
+          {introVideoUrl ? (
+            <iframe
+              src={introVideoUrl}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title="Video introductorio del curso"
+            />
+          ) : (
+            <div className="w-full h-full py-14 px-5 bg-bg-tertiary inline-flex flex-col justify-center items-center gap-3">
+              <div className="p-2 bg-bg-accent-primary-solid rounded-full inline-flex justify-start items-center gap-2">
+                <Icon name="play_arrow" size={24} className="text-icon-white" />
+              </div>
+              <div className="self-stretch flex flex-col justify-center items-center gap-1">
+                <span className="text-center text-text-secondary text-xs font-medium leading-4">
+                  Video: Curso - Clase introductoria
+                </span>
+                <span className="text-center text-text-tertiary text-xs font-normal leading-4 line-clamp-1">
+                  Profesor(a): {getTeacherName()}
+                </span>
+              </div>
             </div>
-            <div className="self-stretch inline-flex justify-center items-center gap-1">
-              <span className="text-center text-text-tertiary text-xs font-normal leading-4">
-                Profesor(a):
-              </span>
-              <span className="text-center text-text-tertiary text-xs font-normal leading-4 line-clamp-1">
-                {getTeacherName()}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -319,7 +313,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
-                Ciclo Vigente {cycleContent?.cycleCode || ''}
+                Ciclo Vigente {currentCycle?.cycleCode || ''}
               </span>
             </div>
 

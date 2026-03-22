@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCalendar } from "@/hooks/useCalendar";
+import { classEventService } from "@/services/classEvent.service";
 import { useTeacherCourses } from "@/hooks/useTeacherCourses";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +18,7 @@ import {
   CalendarMonthlyView,
   CalendarLoading,
 } from "@/components/calendar";
-import { MdAdd } from "react-icons/md";
+import Icon from "@/components/ui/Icon";
 
 export default function CalendarioContent() {
   const {
@@ -29,6 +31,7 @@ export default function CalendarioContent() {
     goToPrevious,
     goToToday,
     changeView,
+    goToDate,
     filterByCourse,
     getCurrentMonthYear,
     getWeekDays,
@@ -36,9 +39,11 @@ export default function CalendarioContent() {
     refreshEvents,
   } = useCalendar();
 
+  const searchParams = useSearchParams();
   const { courseCycles, uniqueCourses, loading: loadingCourses } = useTeacherCourses();
   const { setBreadcrumbItems } = useBreadcrumb();
   const { user } = useAuth();
+  const deepLinkHandled = useRef(false);
 
   // Detail modal state
   const [selectedEvent, setSelectedEvent] = useState<ClassEvent | null>(null);
@@ -55,6 +60,30 @@ export default function CalendarioContent() {
   const [eventToCancel, setEventToCancel] = useState<ClassEvent | null>(null);
 
   const weekDays = getWeekDays();
+
+  useEffect(() => {
+    if (deepLinkHandled.current || loading) return;
+    const eventId = searchParams.get("eventId");
+    if (!eventId) return;
+
+    deepLinkHandled.current = true;
+    changeView("weekly");
+
+    const found = events.find((e) => e.id === eventId);
+    if (found) {
+      goToDate(new Date(found.startDatetime));
+      setSelectedEvent(found);
+      setIsDetailOpen(true);
+    } else {
+      classEventService.getEventDetail(eventId).then((event) => {
+        goToDate(new Date(event.startDatetime));
+        setSelectedEvent(event);
+        setIsDetailOpen(true);
+      }).catch((err) => {
+        console.error("Error al cargar evento desde notificación:", err);
+      });
+    }
+  }, [searchParams, events, loading, changeView, goToDate]);
 
   useEffect(() => {
     setBreadcrumbItems([{ icon: "event", label: "Calendario" }]);
@@ -118,10 +147,12 @@ export default function CalendarioContent() {
         actions={
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-3 rounded-lg bg-accent-solid text-white text-sm font-medium hover:bg-accent-solid/90 transition-colors"
+            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
           >
-            <MdAdd className="w-5 h-5" />
-            Registrar Evento
+            <Icon name="add" size={16} className="text-icon-accent-primary" />
+            <span className="text-text-accent-primary text-sm font-medium leading-4">
+              Crear Evento
+            </span>
           </button>
         }
       />

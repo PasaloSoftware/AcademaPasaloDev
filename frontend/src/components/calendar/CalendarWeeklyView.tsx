@@ -71,7 +71,7 @@ export default function CalendarWeeklyView({
   return (
     <div className="bg-bg-primary rounded-2xl border border-stroke-primary overflow-hidden flex-1 flex flex-col min-h-0">
       <div className="flex border-b border-stroke-primary flex-shrink-0">
-        <div className="w-16" />
+        <div className="w-16 border-r border-stroke-secondary" />
         {weekDays.map((day, index) => (
           <div
             key={index}
@@ -96,7 +96,7 @@ export default function CalendarWeeklyView({
         className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       >
         <div className="flex min-w-full">
-          <div className="w-16 flex flex-col flex-shrink-0 bg-bg-primary sticky left-0 z-10">
+          <div className="w-16 flex flex-col flex-shrink-0 bg-bg-primary sticky left-0 z-10 border-r border-stroke-secondary">
             {HOURS.map((hour) => {
               const period = hour >= 12 ? 'PM' : 'AM';
               const displayHour =
@@ -166,23 +166,21 @@ export default function CalendarWeeklyView({
                         onClick={(e) => onEventClick(event, e)}
                       >
                         <div
-                          className="h-full px-2.5 py-1.5 rounded-l-lg border-l-4 flex flex-col gap-1"
+                          className="h-full px-2.5 py-1.5 rounded-l-lg border-l-4 flex flex-col gap-0.5 overflow-hidden"
                           style={{ borderLeftColor: colors.primary }}
                         >
-                          <span className="text-[10px] font-medium text-text-primary line-clamp-1">
+                          <span className="text-[10px] font-medium text-text-primary truncate">
                             {event.title}
                           </span>
-                          <div className="flex-1 min-h-0">
-                            <p className="text-xs font-medium text-text-primary line-clamp-3">
-                              {event.courseName}
-                            </p>
-                          </div>
-                          <div className="text-xs text-text-secondary">
+                          <p className="text-xs font-medium text-text-primary line-clamp-2">
+                            {event.courseName}
+                          </p>
+                          <span className="text-[10px] text-text-secondary">
                             {formatTimeRange(
                               event.startDatetime,
                               event.endDatetime,
                             )}
-                          </div>
+                          </span>
                         </div>
                       </div>
                     );

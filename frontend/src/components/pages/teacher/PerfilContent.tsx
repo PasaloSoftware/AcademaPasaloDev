@@ -9,14 +9,14 @@ import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { getRoleFriendlyName } from '@/components/dashboard/RoleSwitcher';
 import { coursesService } from '@/services/courses.service';
 import { getCourseColor } from '@/lib/courseColors';
-import type { CourseCycle } from '@/types/api';
+import type { Enrollment } from '@/types/enrollment';
 
 export default function PerfilContent() {
   const { user } = useAuth();
   const { setBreadcrumbItems } = useBreadcrumb();
   const router = useRouter();
 
-  const [courseCycles, setCourseCycles] = useState<CourseCycle[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function PerfilContent() {
     async function loadCourses() {
       try {
         const data = await coursesService.getMyCourseCycles();
-        setCourseCycles(Array.isArray(data) ? data : []);
+        setEnrollments(data);
       } catch (err) {
         console.error('Error al cargar cursos:', err);
       } finally {
@@ -139,7 +139,7 @@ export default function PerfilContent() {
           </div>
           {!loadingCourses && (
             <span className="text-gray-600 text-base font-medium leading-4">
-              {courseCycles.length} {courseCycles.length === 1 ? 'Curso' : 'Cursos'} en total
+              {enrollments.length} {enrollments.length === 1 ? 'Curso' : 'Cursos'} en total
             </span>
           )}
         </div>
@@ -150,20 +150,21 @@ export default function PerfilContent() {
               <div key={i} className="w-[240px] h-80 bg-bg-secondary rounded-xl flex-shrink-0" />
             ))}
           </div>
-        ) : courseCycles.length > 0 ? (
+        ) : enrollments.length > 0 ? (
           <div className="self-stretch overflow-x-auto">
             <div className="inline-flex gap-6">
-              {courseCycles.map((cc) => {
-                const courseCode = cc.course?.code || '';
+              {enrollments.map((enrollment) => {
+                const cc = enrollment.courseCycle;
+                const courseCode = cc.course.code || '';
                 const courseColor = getCourseColor(courseCode);
 
                 return (
                   <div key={cc.id} className="w-[394px] flex-shrink-0">
                     <CourseCard
                       headerColor={courseColor.primary}
-                      category="CIENCIAS"
+                      category={cc.course.courseType?.name?.toUpperCase() || 'CIENCIAS'}
                       cycle={cc.academicCycle?.code || ''}
-                      title={cc.course?.name || ''}
+                      title={cc.course.name}
                       teachers={[
                         {
                           initials: getTeacherInitials(),

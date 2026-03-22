@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCalendar } from "@/hooks/useCalendar";
 import { useEnrollments } from "@/hooks/useEnrollments";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
+import { classEventService } from "@/services/classEvent.service";
 import type { ClassEvent } from "@/types/classEvent";
 import EventDetailModal from "@/components/modals/EventDetailModal";
 import {
@@ -24,12 +26,14 @@ export default function CalendarioContent() {
     goToPrevious,
     goToToday,
     changeView,
+    goToDate,
     filterByCourse,
     getCurrentMonthYear,
     getWeekDays,
     isToday,
   } = useCalendar();
 
+  const searchParams = useSearchParams();
   const { uniqueCourses, loading: loadingCourses } = useEnrollments();
   const { setBreadcrumbItems } = useBreadcrumb();
   const [selectedEvent, setSelectedEvent] = useState<ClassEvent | null>(null);
@@ -37,12 +41,37 @@ export default function CalendarioContent() {
   const [anchorPosition, setAnchorPosition] = useState<
     { x: number; y: number } | undefined
   >();
+  const deepLinkHandled = useRef(false);
 
   const weekDays = getWeekDays();
 
   useEffect(() => {
     setBreadcrumbItems([{ icon: "event", label: "Calendario" }]);
   }, [setBreadcrumbItems]);
+
+  useEffect(() => {
+    if (deepLinkHandled.current || loading) return;
+    const eventId = searchParams.get("eventId");
+    if (!eventId) return;
+
+    deepLinkHandled.current = true;
+    changeView("weekly");
+
+    const found = events.find((e) => e.id === eventId);
+    if (found) {
+      goToDate(new Date(found.startDatetime));
+      setSelectedEvent(found);
+      setIsModalOpen(true);
+    } else {
+      classEventService.getEventDetail(eventId).then((event) => {
+        goToDate(new Date(event.startDatetime));
+        setSelectedEvent(event);
+        setIsModalOpen(true);
+      }).catch((err) => {
+        console.error("Error al cargar evento desde notificación:", err);
+      });
+    }
+  }, [searchParams, events, loading, changeView, goToDate]);
 
   const handleEventClick = (event: ClassEvent, e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();

@@ -185,7 +185,7 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
     return (
       <div className="px-2 py-1 bg-bg-info-primary-light rounded-full flex justify-center items-center">
         <span className="text-text-info-primary text-[10px] font-semibold leading-3">
-          GRABADA
+          SUBIDA
         </span>
       </div>
     );
