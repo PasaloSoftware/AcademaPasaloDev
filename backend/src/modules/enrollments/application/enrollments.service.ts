@@ -33,6 +33,7 @@ import {
   toBusinessDayEndUtc,
   toBusinessDayStartUtc,
 } from '@common/utils/peru-time.util';
+import { formatCycleLevelName } from '@common/utils/cycle-level-format.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -86,7 +87,9 @@ export class EnrollmentsService {
               name: enrollment.courseCycle.course.courseType.name,
             },
             cycleLevel: {
-              name: `${enrollment.courseCycle.course.cycleLevel.levelNumber} Ciclo`,
+              name: formatCycleLevelName(
+                enrollment.courseCycle.course.cycleLevel.levelNumber,
+              ),
             },
           },
           academicCycle: {

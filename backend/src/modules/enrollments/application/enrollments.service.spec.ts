@@ -108,4 +108,35 @@ describe('EnrollmentsService', () => {
 
     expect(enrollmentTypeRepositoryMock.findByCode).not.toHaveBeenCalled();
   });
+
+  it('findMyEnrollments retorna cycleLevel en formato ordinal uppercase', async () => {
+    cacheServiceMock.get.mockResolvedValue(null);
+    enrollmentRepositoryMock.findMyEnrollments.mockResolvedValue([
+      {
+        id: 'enr-1',
+        enrolledAt: new Date('2026-01-10T10:00:00.000Z'),
+        courseCycle: {
+          id: 'cc-1',
+          course: {
+            id: 'c-1',
+            code: 'MAT101',
+            name: 'Matematica',
+            courseType: { code: 'REGULAR', name: 'Regular' },
+            cycleLevel: { levelNumber: 1 },
+          },
+          academicCycle: {
+            id: 'ac-1',
+            code: '2026-1',
+            startDate: new Date('2026-01-01T00:00:00.000Z'),
+            endDate: new Date('2026-06-30T00:00:00.000Z'),
+          },
+          professors: [],
+        },
+      },
+    ]);
+
+    const result = await service.findMyEnrollments('user-1');
+
+    expect(result[0].courseCycle.course.cycleLevel.name).toBe('1° CICLO');
+  });
 });

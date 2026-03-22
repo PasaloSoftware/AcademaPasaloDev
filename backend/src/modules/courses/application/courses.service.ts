@@ -77,6 +77,7 @@ import {
   toBusinessDayEndUtc,
   toBusinessDayStartUtc,
 } from '@common/utils/peru-time.util';
+import { formatCycleLevelName } from '@common/utils/cycle-level-format.util';
 import { MyEnrollmentsResponseDto } from '@modules/enrollments/dto/my-enrollments-response.dto';
 import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
 import { StorageService } from '@infrastructure/storage/storage.service';
@@ -1734,7 +1735,9 @@ export class CoursesService {
             name: assignment.courseCycle.course.courseType.name,
           },
           cycleLevel: {
-            name: `${assignment.courseCycle.course.cycleLevel.levelNumber} Ciclo`,
+            name: formatCycleLevelName(
+              assignment.courseCycle.course.cycleLevel.levelNumber,
+            ),
           },
         },
         academicCycle: {

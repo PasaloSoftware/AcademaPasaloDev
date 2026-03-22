@@ -1350,7 +1350,7 @@ describe('CoursesService student views', () => {
             code: 'MAT',
             name: 'Matematica',
             courseType: { code: 'CIENCIAS', name: 'Ciencias' },
-            cycleLevel: { name: '1 Ciclo' },
+            cycleLevel: { name: '1° CICLO' },
           },
           academicCycle: {
             id: '200',

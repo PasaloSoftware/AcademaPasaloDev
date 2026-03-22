@@ -152,7 +152,7 @@ export default function InicioContent() {
                   <CourseCard
                     headerColor={courseColor.primary}
                     category={enrollment.courseCycle.course.courseType?.name?.toUpperCase() || 'CIENCIAS'}
-                    cycle={enrollment.courseCycle.academicCycle?.code || ''}
+                    cycle={enrollment.courseCycle.course.cycleLevel?.name?.toUpperCase() || ''}
                     title={enrollment.courseCycle.course.name}
                     teachers={[
                       {
