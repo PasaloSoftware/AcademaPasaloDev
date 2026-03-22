@@ -1,46 +1,67 @@
-# GUÍA DE CONTRIBUCIÓN (CONTRIBUTING)
+# CONTRIBUTING
 
-## 🛑 REGLAS DE ORO (HARD RULES)
-Cualquier código que viole estas reglas será rechazado automáticamente.
+## Golden Rules (Hard Rules)
 
-### 1. CÓDIGO LIMPIO Y TIPADO
-- **CERO COMENTARIOS:** El código debe ser auto-explicativo. Queda prohibido el uso de comentarios de línea o bloque.
-- **NO `ANY`:** Tipado estricto TypeScript en todo el proyecto. Queda prohibido el uso de `any`.
-- **IDS COMO STRING:** Todas las columnas `BIGINT` de base de datos (IDs y FKs) deben mapearse como `string` en TypeScript para garantizar precisión y coherencia con el driver.
-- **PRETTIER:** El código debe respetar el `.prettierrc` del proyecto.
+Any code that violates these rules must be rejected.
 
-### 2. IDIOMA
-- **Código (Internal):** INGLÉS (Variables, Clases, Funciones, Interfaces).
-- **Logs Técnicos:** Mensaje (`message`) en ESPAÑOL. El resto del objeto log en inglés.
-- **Mensajes UI (External):** ESPAÑOL (Strings de error, mensajes de éxito en el campo `message` de la respuesta).
-- **Commits:** ESPAÑOL (Imperativo, claro, máximo 1 línea).
+### 1) Clean Code And Typing
 
-### 3. ARQUITECTURA Y PERSISTENCIA
-- **ESTRUCTURA:** Seguir estrictamente DDD y Modularidad de NestJS.
-- **LOGS:** Formato JSON estructurado. Prohibido `console.log` o emojis.
-- **TRANSACCIONALIDAD:** Toda operación de escritura que afecte a más de una tabla o requiera integridad lógica debe envolverse en una transacción (`dataSource.transaction`).
-- **BASE DE DATOS:** 
-  - `synchronize: false` siempre. Las entidades son solo mapeos.
-  - El manejo de errores de base de datos debe ser semántico. Capturar errores específicos (ej. `ER_DUP_ENTRY`) y lanzar excepciones de NestJS (`ConflictException`, etc.) usando la interfaz `DatabaseError`.
+- No `any` in this project.
+- Keep code self-explanatory.
+- Comments are forbidden in routine/business code.
+- Exception: comments are allowed in `src/config/technical-settings.ts` for traceability.
+- `BIGINT` ids and foreign keys must be represented as `string` in TypeScript.
+- Respect project formatter and linter configuration.
 
-### 4. SEGURIDAD Y VALIDACIÓN
-- **CAPA DTO:** Validación obligatoria con `class-validator`. Todos los campos deben incluir `@MaxLength` basado en el tamaño definido en el esquema SQL para prevenir ataques DoS.
-- **CONFIGURACIÓN:** Queda prohibido el "Hardcoding". Valores operativos (TTLs, umbrales, flags) deben almacenarse en la tabla `system_setting`.
-- **VALIDACIÓN DE SESIÓN:** No confiar solo en la firma del JWT. Siempre validar el estado `isActive` y `sessionStatus` contra la base de datos en la estrategia de autenticación.
+### 2) Language
 
-### 5. FLUJO DE TRABAJO
-- **PRUEBAS:** Cada nueva funcionalidad crítica debe incluir tests de integración que validen escenarios de éxito y fallo (especialmente transacciones).
-- **REVISIÓN:** Antes de entregar, verificar línea por línea contra esta guía.
-- **DUDAS:** Ante cualquier ambigüedad técnica, PREGUNTAR.
+- Internal code identifiers: English.
+- Technical log `message`: Spanish.
+- External API messages (`message` and user-facing errors): Spanish.
+- Commit messages: Spanish, imperative, single line.
 
-### 6. PROCESOS EN SEGUNDO PLANO (BACKGROUND JOBS)
-- **INFRAESTRUCTURA:** Usar exclusivamente `QueueModule` (BullMQ + Redis).
-- **RESILIENCIA:**
-  - Configurar reintentos (`attempts`) y backoff exponencial en `technical-settings.ts`.
-  - Los Processors deben manejar excepciones y lanzar `throw error` controlado para activar el reintento automático.
-- **TRAZABILIDAD:**
-  - Todos los logs generados dentro de un Processor deben incluir la propiedad `job: jobName` en el objeto JSON.
-  - Procesos de borrado o mutación masiva deben dejar un registro en `audit_log`.
-- **SEGURIDAD:**
-  - Evitar bucles infinitos en operaciones masivas. Usar límites físicos (Circuit Breaker) y Batching.
-  - Configuración de horarios (Cron) debe ser centralizada en `technical-settings.ts`.
+### 3) Architecture And Persistence
+
+- Follow Modular DDD boundaries:
+  - `presentation`
+  - `application`
+  - `domain`
+  - `infrastructure`
+- Structured JSON logs only. Do not use `console.log`.
+- Multi-table writes or integrity-sensitive writes must run inside `dataSource.transaction(...)`.
+- `synchronize: false` is mandatory. Entities are mapping only.
+- Map known database errors to semantic NestJS exceptions.
+
+### 4) Configuration Policy (Hybrid)
+
+- `src/config/technical-settings.ts`:
+  - technical defaults and code-level constants.
+- `system_setting` table (through `SettingsService` and repository):
+  - runtime-operable business values that may be changed from frontend/admin flows.
+- Hardcoding is forbidden when a value belongs to one of the two channels above.
+
+### 5) Security And Validation
+
+- DTO validation with `class-validator` is mandatory.
+- Persisted string fields must include size limits aligned with SQL schema.
+- Never trust only JWT signature.
+- Authentication flow must validate user active state and session state.
+- Keep refresh token rotation and `jti` validation guarantees.
+
+### 6) Background Jobs
+
+- Use `QueueModule` (BullMQ + Redis) for async workflows.
+- Retry/backoff and scheduler defaults must live in `technical-settings.ts`.
+- Processor logs must include job context.
+- Mass mutation jobs must leave audit trace.
+
+### 7) Mandatory Quality Gate
+
+Before delivering any change:
+
+1. Run `npm run lint`.
+2. Run tests for the touched module/scope (unit/integration/e2e as needed).
+3. Confirm no rule violations from this file.
+4. Report what was executed and results.
+
+If lint/tests cannot run, explicitly report why and what remains unverified.

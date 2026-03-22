@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { getEpoch } from '@common/utils/date.util';
 import { technicalSettings } from '@config/technical-settings';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
@@ -26,6 +27,7 @@ import { MaterialFolderRepository } from '@modules/materials/infrastructure/mate
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 
 @Injectable()
 export class MaterialsExplorerService {
@@ -33,6 +35,7 @@ export class MaterialsExplorerService {
     technicalSettings.cache.materials.materialsExplorerCacheTtlSeconds;
 
   constructor(
+    private readonly dataSource: DataSource,
     private readonly accessEngine: AccessEngineService,
     private readonly cacheService: RedisCacheService,
     private readonly folderRepository: MaterialFolderRepository,
@@ -222,6 +225,13 @@ export class MaterialsExplorerService {
       evaluationId,
     );
     if (!hasEnrollment) {
+      const hasBankAccess = await this.hasStudentBankAccess(
+        user.id,
+        evaluationId,
+      );
+      if (hasBankAccess) {
+        return;
+      }
       throw new ForbiddenException(
         'No tienes acceso a este contenido educativo',
       );
@@ -246,6 +256,30 @@ export class MaterialsExplorerService {
         throw new ForbiddenException('Este material ya no esta disponible');
       }
     }
+  }
+
+  private async hasStudentBankAccess(
+    userId: string,
+    evaluationId: string,
+  ): Promise<boolean> {
+    const rows = await this.dataSource.query<Array<{ hasAccess: number }>>(
+      `SELECT EXISTS(
+        SELECT 1
+        FROM evaluation ev
+        INNER JOIN evaluation_type et
+          ON et.id = ev.evaluation_type_id
+        INNER JOIN enrollment e
+          ON e.course_cycle_id = ev.course_cycle_id
+        WHERE ev.id = ?
+          AND e.user_id = ?
+          AND e.cancelled_at IS NULL
+          AND UPPER(TRIM(et.code)) = ?
+        LIMIT 1
+      ) AS hasAccess`,
+      [evaluationId, userId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+    );
+
+    return Number(rows[0]?.hasAccess || 0) === 1;
   }
 
   private async getActiveFolderStatus() {

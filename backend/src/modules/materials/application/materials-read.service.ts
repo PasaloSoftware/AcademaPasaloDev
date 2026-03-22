@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { StorageService } from '@infrastructure/storage/storage.service';
 import { AccessEngineService } from '@modules/enrollments/application/access-engine.service';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
@@ -31,10 +32,12 @@ import {
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
 import { MaterialVersionHistoryDto } from '@modules/materials/dto/material-version-history.dto';
 import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 
 @Injectable()
 export class MaterialsReadService {
   constructor(
+    private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
     private readonly accessEngine: AccessEngineService,
     private readonly folderRepository: MaterialFolderRepository,
@@ -286,6 +289,13 @@ export class MaterialsReadService {
       evaluationId,
     );
     if (!hasEnrollment) {
+      const hasBankAccess = await this.hasStudentBankAccess(
+        user.id,
+        evaluationId,
+      );
+      if (hasBankAccess) {
+        return;
+      }
       throw new ForbiddenException(
         'No tienes acceso a este contenido educativo',
       );
@@ -324,5 +334,29 @@ export class MaterialsReadService {
 
   private hasProfessorAccess(activeRole?: string): boolean {
     return this.normalizeRole(activeRole) === ROLE_CODES.PROFESSOR;
+  }
+
+  private async hasStudentBankAccess(
+    userId: string,
+    evaluationId: string,
+  ): Promise<boolean> {
+    const rows = await this.dataSource.query<Array<{ hasAccess: number }>>(
+      `SELECT EXISTS(
+        SELECT 1
+        FROM evaluation ev
+        INNER JOIN evaluation_type et
+          ON et.id = ev.evaluation_type_id
+        INNER JOIN enrollment e
+          ON e.course_cycle_id = ev.course_cycle_id
+        WHERE ev.id = ?
+          AND e.user_id = ?
+          AND e.cancelled_at IS NULL
+          AND UPPER(TRIM(et.code)) = ?
+        LIMIT 1
+      ) AS hasAccess`,
+      [evaluationId, userId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+    );
+
+    return Number(rows[0]?.hasAccess || 0) === 1;
   }
 }
