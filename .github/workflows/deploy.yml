@@ -24,8 +24,75 @@ jobs:
             exit 1
           fi
           echo "EC2 Instance is running"
-  build-and-push:
+
+  detect-changes:
     needs: validate-ec2-status
+    runs-on: ubuntu-latest
+    outputs:
+      backend_changed: ${{ steps.changes.outputs.backend_changed }}
+      frontend_changed: ${{ steps.changes.outputs.frontend_changed }}
+      infra_changed: ${{ steps.changes.outputs.infra_changed }}
+      any_changed: ${{ steps.changes.outputs.any_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed areas
+        id: changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "backend_changed=true" >> "$GITHUB_OUTPUT"
+            echo "frontend_changed=true" >> "$GITHUB_OUTPUT"
+            echo "infra_changed=true" >> "$GITHUB_OUTPUT"
+            echo "any_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.before }}"
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA=$(git rev-parse HEAD^)
+          fi
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "${{ github.sha }}")
+          echo "Changed files between $BASE_SHA and ${{ github.sha }}:"
+          echo "$CHANGED_FILES"
+
+          backend_changed=false
+          frontend_changed=false
+          infra_changed=false
+
+          if echo "$CHANGED_FILES" | grep -q '^backend/'; then
+            backend_changed=true
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
+            frontend_changed=true
+          fi
+
+          if echo "$CHANGED_FILES" | grep -Eq '^(\.github/workflows/deploy\.yml|ops/|nginx\.conf)$'; then
+            infra_changed=true
+          fi
+
+          any_changed=false
+          if [ "$backend_changed" = true ] || [ "$frontend_changed" = true ] || [ "$infra_changed" = true ]; then
+            any_changed=true
+          fi
+
+          echo "backend_changed=$backend_changed" >> "$GITHUB_OUTPUT"
+          echo "frontend_changed=$frontend_changed" >> "$GITHUB_OUTPUT"
+          echo "infra_changed=$infra_changed" >> "$GITHUB_OUTPUT"
+          echo "any_changed=$any_changed" >> "$GITHUB_OUTPUT"
+
+          echo "backend_changed=$backend_changed"
+          echo "frontend_changed=$frontend_changed"
+          echo "infra_changed=$infra_changed"
+          echo "any_changed=$any_changed"
+
+  build-and-push:
+    needs: [validate-ec2-status, detect-changes]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -38,6 +105,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push backend image
+        if: needs.detect-changes.outputs.backend_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -48,6 +116,7 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:${{ github.sha }}
       - name: Build and push frontend image
+        if: needs.detect-changes.outputs.frontend_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -61,7 +130,8 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:${{ github.sha }}
   deploy:
-    needs: build-and-push
+    needs: [build-and-push, detect-changes]
+    if: needs.detect-changes.outputs.any_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
@@ -97,4 +167,4 @@ jobs:
             cd "$APP_DIR"
             git fetch origin
             git reset --hard origin/main
-            bash backend/scripts/deploy.sh
+            bash ops/scripts/deploy.sh
