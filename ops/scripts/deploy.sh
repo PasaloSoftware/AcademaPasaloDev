@@ -1,7 +1,7 @@
 #!/bin/bash
 set -Eeuo pipefail
 APP_DIR="/home/ubuntu/academia-pasalo"
-COMPOSE_FILE="$APP_DIR/backend/docker-compose.prod.yml"
+COMPOSE_FILE="$APP_DIR/ops/compose/docker-compose.prod.yml"
 DB_HOST="172.31.65.82"
 DB_PORT="3306"
 # --- Leer secretos desde AWS SSM Parameter Store ---
@@ -42,7 +42,7 @@ EOF
 sudo chown ubuntu:ubuntu /opt/academia/secrets/google-drive-sa.json
 sudo chmod 600 /opt/academia/secrets/google-drive-sa.json
 # --- MySQL Exporter config ---
-cat > "$APP_DIR/backend/monitoring/mysql-exporter.cnf" <<EOF
+cat > "$APP_DIR/ops/monitoring/mysql-exporter.cnf" <<EOF
 [client]
 user=academia
 password=${DB_PASSWORD}
@@ -50,7 +50,7 @@ host=172.31.65.82
 port=3306
 EOF
 # 2) Validar compose
-[ -f "$COMPOSE_FILE" ] || { echo "ERROR: No existe $COMPOSE_FILE"; ls -la "$APP_DIR/backend" || true; exit 1; }
+[ -f "$COMPOSE_FILE" ] || { echo "ERROR: No existe $COMPOSE_FILE"; ls -la "$APP_DIR/ops/compose" || true; exit 1; }
 # 3) Login Docker
 echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 # 4) Crear .env backend
