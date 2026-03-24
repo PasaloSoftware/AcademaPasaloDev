@@ -39,7 +39,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push backend image
-        if: needs.detect-changes.outputs.backend_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -50,7 +49,6 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:${{ github.sha }}
       - name: Build and push frontend image
-        if: needs.detect-changes.outputs.frontend_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -64,8 +62,7 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:${{ github.sha }}
   deploy:
-    needs: [build-and-push, detect-changes]
-    if: needs.detect-changes.outputs.any_changed == 'true'
+    needs: [build-and-push]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
