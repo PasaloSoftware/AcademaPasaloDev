@@ -42,8 +42,8 @@ jobs:
         with:
           context: ./backend
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:${{ github.sha }}
@@ -55,8 +55,8 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=/api/v1
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:${{ github.sha }}
