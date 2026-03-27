@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
 import { materialsService } from '@/services/materials.service';
@@ -9,6 +10,8 @@ import type { FolderMaterial } from '@/types/material';
 import Icon from '@/components/ui/Icon';
 import ExpandableFolderList from '@/components/shared/ExpandableFolderList';
 import MaterialPreviewModal from '@/components/materials/MaterialPreviewModal';
+import MaterialUploadView from '@/components/shared/MaterialUploadView';
+import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadView';
 import type {
   ExpandableFolder,
   FolderIconConfig,
@@ -59,6 +62,7 @@ export default function BancoEnunciadosContent({
   cursoId,
   typeCode,
 }: BancoEnunciadosContentProps) {
+  const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
 
   const [courseName, setCourseName] = useState('');
@@ -70,6 +74,11 @@ export default function BancoEnunciadosContent({
   const [previewIndex, setPreviewIndex] = useState(0);
 
   const [folderIdMap, setFolderIdMap] = useState<Record<string, string>>({});
+
+  // Upload state
+  const [showUploadView, setShowUploadView] = useState(false);
+  const [uploadFolders, setUploadFolders] = useState<MaterialUploadFolder[]>([]);
+  const [preselectedFolderId, setPreselectedFolderId] = useState<string | undefined>();
 
   useEffect(() => {
     async function loadCourseName() {
@@ -199,6 +208,21 @@ export default function BancoEnunciadosContent({
     }
   }, []);
 
+  const openUploadView = useCallback((backendFolderId?: string) => {
+    // Build upload folder list from the folderIdMap (banco folders with backend IDs)
+    const available: MaterialUploadFolder[] = folders
+      .filter((f) => folderIdMap[f.id])
+      .map((f) => ({ id: folderIdMap[f.id], name: f.name }));
+    setUploadFolders(available);
+    setPreselectedFolderId(backendFolderId);
+    setShowUploadView(true);
+  }, [folders, folderIdMap]);
+
+  const handleUploadToFolder = useCallback((uiFolderId: string) => {
+    const backendId = folderIdMap[uiFolderId];
+    if (backendId) openUploadView(backendId);
+  }, [folderIdMap, openUploadView]);
+
   const iconConfig = typeIconConfigs[typeCode] || defaultTypeIconConfig;
   const displayTitle =
     typeName ||
@@ -244,6 +268,19 @@ export default function BancoEnunciadosContent({
     );
   }
 
+  if (showUploadView) {
+    return (
+      <MaterialUploadView
+        folders={uploadFolders}
+        defaultFolderId={preselectedFolderId}
+        backLabel={`Volver a ${displayTitle}`}
+        successDescription={`El material ha sido subido en ${displayTitle}.`}
+        onClose={() => setShowUploadView(false)}
+        onSuccess={() => router.refresh()}
+      />
+    );
+  }
+
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden gap-8">
       <Link
@@ -268,6 +305,16 @@ export default function BancoEnunciadosContent({
           onDownloadMaterial={handleDownloadMaterial}
           onPreviewMaterial={(mats, idx) => { setPreviewMaterials(mats); setPreviewIndex(idx); }}
           iconConfig={iconConfig}
+          headerAction={
+            <button
+              onClick={() => openUploadView()}
+              className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
+            >
+              <Icon name="cloud_upload" size={16} className="text-icon-white" variant="rounded" />
+              <span className="text-text-white text-sm font-medium leading-4">Subir Material</span>
+            </button>
+          }
+          onUploadToFolder={handleUploadToFolder}
         />
       ) : (
         <>

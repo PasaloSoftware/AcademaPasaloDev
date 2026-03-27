@@ -21,10 +21,10 @@ const toastConfig: Record<ToastType, { bg: string; outline: string; icon: string
     iconClass: 'text-icon-success-primary',
   },
   error: {
-    bg: 'bg-bg-error-light',
-    outline: 'outline-stroke-error-secondary',
-    icon: 'error',
-    iconClass: 'text-icon-error-primary',
+    bg: 'bg-error-light',
+    outline: 'outline-red-200',
+    icon: 'report',
+    iconClass: 'text-red-500',
   },
   warning: {
     bg: 'bg-bg-warning-light',

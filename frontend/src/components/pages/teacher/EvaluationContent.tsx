@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
+import { materialsService } from '@/services/materials.service';
 import Icon from '@/components/ui/Icon';
 import { EvaluationPageContent } from '@/components/pages/student/EvaluationShared';
+import MaterialUploadView from '@/components/shared/MaterialUploadView';
+import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadView';
 
 interface EvaluationContentProps {
   cursoId: string;
@@ -16,22 +20,25 @@ export default function EvaluationContent({
   cursoId,
   evalId,
 }: EvaluationContentProps) {
+  const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
 
   const [courseName, setCourseName] = useState<string>('');
   const [evalShortName, setEvalShortName] = useState<string>('');
   const [evalFullName, setEvalFullName] = useState<string>('');
 
+  // Upload view state
+  const [showUploadView, setShowUploadView] = useState(false);
+  const [returnToMaterialTab, setReturnToMaterialTab] = useState(false);
+  const [uploadFolders, setUploadFolders] = useState<MaterialUploadFolder[]>([]);
+  const [preselectedFolderId, setPreselectedFolderId] = useState<string | undefined>();
+
   useEffect(() => {
     async function loadCourseData() {
       try {
         const enrollments = await coursesService.getMyCourseCycles();
-        const found = enrollments.find(
-          (e) => e.courseCycle.id === cursoId,
-        );
-        if (found) {
-          setCourseName(found.courseCycle.course.name);
-        }
+        const found = enrollments.find((e) => e.courseCycle.id === cursoId);
+        if (found) setCourseName(found.courseCycle.course.name);
       } catch (err) {
         console.error('Error al cargar nombre del curso:', err);
       }
@@ -65,9 +72,7 @@ export default function EvaluationContent({
   }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
 
   const handleEvalNameDetected = useCallback((name: string) => {
-    if (!evalShortName) {
-      setEvalShortName(name);
-    }
+    if (!evalShortName) setEvalShortName(name);
   }, [evalShortName]);
 
   const getClassPageUrl = useCallback(
@@ -76,6 +81,39 @@ export default function EvaluationContent({
     [cursoId, evalId],
   );
 
+  const openUploadView = useCallback(async (folderId?: string) => {
+    try {
+      const rootFolders = await materialsService.getRootFolders(evalId);
+      const matAdicional = rootFolders.find((f) => f.name.toLowerCase().includes('adicional'));
+      if (matAdicional) {
+        const contents = await materialsService.getFolderContents(matAdicional.id);
+        setUploadFolders(contents.folders.map((f) => ({ id: f.id, name: f.name })));
+      } else {
+        setUploadFolders(rootFolders.map((f) => ({ id: f.id, name: f.name })));
+      }
+    } catch {
+      setUploadFolders([]);
+    }
+    setPreselectedFolderId(folderId);
+    setReturnToMaterialTab(true);
+    setShowUploadView(true);
+  }, [evalId]);
+
+  // ---- Upload View ----
+  if (showUploadView) {
+    return (
+      <MaterialUploadView
+        folders={uploadFolders}
+        defaultFolderId={preselectedFolderId}
+        backLabel={`Volver a ${evalShortName}`}
+        successDescription={`El material ha sido subido en ${evalShortName}.`}
+        onClose={() => setShowUploadView(false)}
+        onSuccess={() => router.refresh()}
+      />
+    );
+  }
+
+  // ---- Normal View ----
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* Back Link */}
@@ -83,11 +121,7 @@ export default function EvaluationContent({
         href={`/plataforma/curso/${cursoId}`}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
       >
-        <Icon
-          name="arrow_back"
-          size={20}
-          className="text-icon-accent-primary"
-        />
+        <Icon name="arrow_back" size={20} className="text-icon-accent-primary" />
         <span className="text-text-accent-primary text-base font-medium leading-4">
           Volver al Ciclo Vigente
         </span>
@@ -121,6 +155,9 @@ export default function EvaluationContent({
         evalId={evalId}
         getClassPageUrl={getClassPageUrl}
         onEvalNameDetected={handleEvalNameDetected}
+        canUploadMaterials
+        onUploadMaterial={openUploadView}
+        defaultTab={returnToMaterialTab ? 'material' : 'sesiones'}
       />
     </div>
   );
