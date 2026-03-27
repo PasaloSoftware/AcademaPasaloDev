@@ -555,8 +555,8 @@ interface EvaluationPageContentProps {
   onEvalNameDetected?: (name: string) => void;
   /** Si true, muestra botón de subir material en la pestaña de Material Adicional */
   canUploadMaterials?: boolean;
-  /** Callback al dar click en "Subir Material" */
-  onUploadMaterial?: () => void;
+  /** Callback al dar click en "Subir Material". Recibe folderId opcional para preseleccionar carpeta */
+  onUploadMaterial?: (folderId?: string) => void;
 }
 
 export function EvaluationPageContent({
@@ -821,13 +821,14 @@ export function EvaluationPageContent({
               onPreviewMaterial={(mats, idx) => { setPreviewMaterials(mats); setPreviewIndex(idx); }}
               headerAction={canUploadMaterials && onUploadMaterial ? (
                 <button
-                  onClick={onUploadMaterial}
+                  onClick={() => onUploadMaterial()}
                   className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
                 >
                   <Icon name="cloud_upload" size={16} className="text-icon-white" variant="rounded" />
                   <span className="text-text-white text-sm font-medium leading-4">Subir Material</span>
                 </button>
               ) : undefined}
+              onUploadToFolder={canUploadMaterials && onUploadMaterial ? (folderId) => onUploadMaterial(folderId) : undefined}
             />
           )}
         </div>

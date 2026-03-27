@@ -37,6 +37,8 @@ interface ExpandableFolderListProps {
   iconConfig?: FolderIconConfig;
   /** Acción extra renderizada a la derecha de "Expandir Todo" */
   headerAction?: React.ReactNode;
+  /** Callback para subir material directamente a una carpeta específica */
+  onUploadToFolder?: (folderId: string) => void;
 }
 
 // ============================================
@@ -147,6 +149,7 @@ function ExpandableFolderRow({
   onDownloadMaterial,
   onPreviewMaterial,
   iconConfig,
+  onUploadToFolder,
 }: {
   folder: ExpandableFolder;
   isOpen: boolean;
@@ -156,42 +159,56 @@ function ExpandableFolderRow({
   onDownloadMaterial: (material: FolderMaterial) => void;
   onPreviewMaterial?: (materials: FolderMaterial[], index: number) => void;
   iconConfig: FolderIconConfig;
+  onUploadToFolder?: (folderId: string) => void;
 }) {
   return (
     <div className="self-stretch bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col justify-start items-start overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="self-stretch p-4 inline-flex justify-start items-center gap-4 hover:bg-bg-secondary transition-colors w-full text-left"
-      >
-        <div
-          className={`p-2 rounded-xl flex justify-start items-center ${isOpen ? iconConfig.bgOpen : iconConfig.bgClosed}`}
+      <div className="self-stretch p-4 inline-flex justify-start items-center gap-4 hover:bg-bg-secondary transition-colors w-full">
+        <button
+          onClick={onToggle}
+          className="flex-1 inline-flex justify-start items-center gap-4 text-left"
         >
-          <Icon
-            name={iconConfig.name}
-            size={24}
-            className={isOpen ? iconConfig.colorOpen : iconConfig.colorClosed}
-            variant={iconConfig.variant}
-          />
-        </div>
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
-          <span className="self-stretch text-text-primary text-lg font-semibold leading-5">
-            {folder.name}
-          </span>
-          <div className="self-stretch inline-flex justify-start items-start gap-1">
-            <span className="text-text-tertiary text-xs font-medium leading-4">
-              {folder.materialCount}
-            </span>
-            <span className="text-text-tertiary text-xs font-medium leading-4">
-              {folder.materialCount === 1 ? "archivo" : "archivos"}
-            </span>
+          <div
+            className={`p-2 rounded-xl flex justify-start items-center ${isOpen ? iconConfig.bgOpen : iconConfig.bgClosed}`}
+          >
+            <Icon
+              name={iconConfig.name}
+              size={24}
+              className={isOpen ? iconConfig.colorOpen : iconConfig.colorClosed}
+              variant={iconConfig.variant}
+            />
           </div>
-        </div>
-        <Icon
-          name="expand_more"
-          size={28}
-          className={`text-icon-tertiary transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
-      </button>
+          <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
+            <span className="self-stretch text-text-primary text-lg font-semibold leading-5">
+              {folder.name}
+            </span>
+            <div className="self-stretch inline-flex justify-start items-start gap-1">
+              <span className="text-text-tertiary text-xs font-medium leading-4">
+                {folder.materialCount}
+              </span>
+              <span className="text-text-tertiary text-xs font-medium leading-4">
+                {folder.materialCount === 1 ? "archivo" : "archivos"}
+              </span>
+            </div>
+          </div>
+        </button>
+        {onUploadToFolder && (
+          <button
+            onClick={() => onUploadToFolder(folder.id)}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors flex-shrink-0"
+            title={`Subir material a ${folder.name}`}
+          >
+            <Icon name="add_circle" size={20} className="text-icon-tertiary" />
+          </button>
+        )}
+        <button onClick={onToggle} className="flex-shrink-0">
+          <Icon
+            name="expand_more"
+            size={28}
+            className={`text-icon-tertiary transition-transform ${isOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
 
       <div
         className={`w-full grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
@@ -242,6 +259,7 @@ export default function ExpandableFolderList({
   onPreviewMaterial,
   iconConfig = defaultIconConfig,
   headerAction,
+  onUploadToFolder,
 }: ExpandableFolderListProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
@@ -332,6 +350,7 @@ export default function ExpandableFolderList({
             onDownloadMaterial={onDownloadMaterial}
             onPreviewMaterial={onPreviewMaterial}
             iconConfig={iconConfig}
+            onUploadToFolder={onUploadToFolder}
           />
         ))}
       </div>

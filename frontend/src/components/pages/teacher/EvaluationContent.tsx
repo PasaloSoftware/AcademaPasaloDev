@@ -155,11 +155,21 @@ export default function EvaluationContent({
 
   // ---- Upload handlers ----
 
-  const openUploadView = useCallback(async () => {
+  const openUploadView = useCallback(async (preselectedFolderId?: string) => {
     try {
+      // Load "Material Adicional" subfolders as categories
       const rootFolders = await materialsService.getRootFolders(evalId);
-      setFolders(rootFolders);
-      setSelectedFolderId(rootFolders[0]?.id || null);
+      const matAdicional = rootFolders.find((f) => f.name.toLowerCase().includes('adicional'));
+      if (matAdicional) {
+        const contents = await materialsService.getFolderContents(matAdicional.id);
+        const subfolders = contents.folders.map((f) => ({ ...f, visibleFrom: f.visibleFrom }));
+        setFolders(subfolders);
+        setSelectedFolderId(preselectedFolderId || subfolders[0]?.id || null);
+      } else {
+        // Fallback: use root folders
+        setFolders(rootFolders);
+        setSelectedFolderId(preselectedFolderId || rootFolders[0]?.id || null);
+      }
     } catch {
       setFolders([]);
     }
@@ -308,7 +318,7 @@ export default function EvaluationContent({
         {/* Upload Card */}
         <div className="p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col items-end gap-4">
           <div className="self-stretch flex items-center gap-1">
-            <Icon name="folder" size={20} className="text-icon-accent-primary" variant="rounded" />
+            <Icon name="add_circle" size={20} className="text-icon-accent-primary" variant="rounded" />
             <span className="text-text-primary text-base font-semibold leading-5">Nuevo Material</span>
           </div>
 
