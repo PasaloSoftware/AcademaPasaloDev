@@ -35,6 +35,8 @@ interface ExpandableFolderListProps {
   onDownloadMaterial: (material: FolderMaterial) => Promise<void>;
   onPreviewMaterial?: (materials: FolderMaterial[], index: number) => void;
   iconConfig?: FolderIconConfig;
+  /** Acción extra renderizada a la derecha de "Expandir Todo" */
+  headerAction?: React.ReactNode;
 }
 
 // ============================================
@@ -239,6 +241,7 @@ export default function ExpandableFolderList({
   onDownloadMaterial,
   onPreviewMaterial,
   iconConfig = defaultIconConfig,
+  headerAction,
 }: ExpandableFolderListProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
@@ -297,21 +300,24 @@ export default function ExpandableFolderList({
             {title}
           </span>
         )}
-        {folders.length > 0 && (
-          <button
-            onClick={allExpanded ? collapseAll : expandAll}
-            className="p-1 rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
-          >
-            <Icon
-              name={allExpanded ? "unfold_less" : "unfold_more"}
-              size={16}
-              className="text-icon-accent-primary"
-            />
-            <span className="text-text-accent-primary text-sm font-medium leading-4">
-              {allExpanded ? "Colapsar Todo" : "Expandir Todo"}
-            </span>
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {folders.length > 0 && (
+            <button
+              onClick={allExpanded ? collapseAll : expandAll}
+              className="p-1 rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
+            >
+              <Icon
+                name={allExpanded ? "unfold_less" : "unfold_more"}
+                size={16}
+                className="text-icon-accent-primary"
+              />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                {allExpanded ? "Colapsar Todo" : "Expandir Todo"}
+              </span>
+            </button>
+          )}
+          {headerAction}
+        </div>
       </div>
 
       <div className="self-stretch flex flex-col justify-start items-start gap-6">
