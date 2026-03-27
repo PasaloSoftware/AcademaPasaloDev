@@ -557,6 +557,8 @@ interface EvaluationPageContentProps {
   canUploadMaterials?: boolean;
   /** Callback al dar click en "Subir Material". Recibe folderId opcional para preseleccionar carpeta */
   onUploadMaterial?: (folderId?: string) => void;
+  /** Tab inicial (por defecto "sesiones") */
+  defaultTab?: EvalTabOption;
 }
 
 export function EvaluationPageContent({
@@ -565,8 +567,9 @@ export function EvaluationPageContent({
   onEvalNameDetected,
   canUploadMaterials,
   onUploadMaterial,
+  defaultTab = "sesiones",
 }: EvaluationPageContentProps) {
-  const [activeTab, setActiveTab] = useState<EvalTabOption>("sesiones");
+  const [activeTab, setActiveTab] = useState<EvalTabOption>(defaultTab);
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [errorEvents, setErrorEvents] = useState<string | null>(null);
