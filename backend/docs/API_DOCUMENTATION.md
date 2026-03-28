@@ -241,7 +241,7 @@ _Todos los endpoints requieren JWT y una sesión activa en BD._
     "lastName1": "string (opcional, max 50)",
     "lastName2": "string (opcional, max 50)",
     "phone": "string (opcional, max 20)",
-    "career": "string (opcional, max 100)",
+    "careerId": "number (opcional, id de /users/catalog/careers)",
     "profilePhotoUrl": "string (opcional, url)",
     "photoSource": "google | uploaded | none"
   }
@@ -264,7 +264,7 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
     "lastName1": "string (opcional, max 50, solo letras)",
     "lastName2": "string (opcional, max 50, solo letras)",
     "phone": "string (opcional, max 20, numeros y caracteres validos)",
-    "career": "string (opcional, max 100)",
+    "careerId": "number (opcional, id de /users/catalog/careers)",
     "profilePhotoUrl": "string (opcional, max 500)",
     "photoSource": "google | uploaded | none (opcional)"
   }
@@ -285,7 +285,8 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
       "lastName1": "Soto",
       "lastName2": "Perez",
       "phone": "999888777",
-      "career": "Ingenieria",
+      "careerId": 12,
+      "careerName": "Ingeniería Informática",
       "profilePhotoUrl": null,
       "photoSource": "none",
       "isActive": true,
@@ -325,7 +326,7 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
     "lastName1": "string (opcional, max 50, solo letras)",
     "lastName2": "string (opcional, max 50, solo letras)",
     "phone": "string (opcional, max 20, numeros y caracteres validos)",
-    "career": "string (opcional, max 100)",
+    "careerId": "number (opcional, id de /users/catalog/careers)",
     "profilePhotoUrl": "string (opcional, max 500)",
     "photoSource": "google | uploaded | none (opcional)"
   }
@@ -346,7 +347,8 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
       "lastName1": "Ramos",
       "lastName2": "Quispe",
       "phone": null,
-      "career": null,
+      "careerId": null,
+      "careerName": null,
       "profilePhotoUrl": null,
       "photoSource": "none",
       "isActive": true,
@@ -385,7 +387,7 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
     "lastName1": "string (opcional, max 50, solo letras)",
     "lastName2": "string (opcional, max 50, solo letras)",
     "phone": "string (opcional, max 20, numeros y caracteres validos)",
-    "career": "string (opcional, max 100)",
+    "careerId": "number (opcional, id de /users/catalog/careers)",
     "profilePhotoUrl": "string (opcional, max 500)",
     "photoSource": "google | uploaded | none (opcional)"
   }
@@ -406,7 +408,8 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
       "lastName1": "Lopez",
       "lastName2": null,
       "phone": null,
-      "career": null,
+      "careerId": null,
+      "careerName": null,
       "profilePhotoUrl": null,
       "photoSource": "none",
       "isActive": true,
@@ -445,24 +448,89 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
   - `lastName1?: string`
   - `lastName2?: string`
   - `phone?: string`
-  - `career?: string`
+  - `careerId?: number`
   - `profilePhotoUrl?: string`
   - `photoSource?: "google" | "uploaded" | "none"`
+- Para el campo `careerId`, frontend debe poblar opciones usando `GET /users/catalog/careers` y evitar texto libre no validado desde UI administrativa.
 - El frontend no debe enviar `roles`, `lastActiveRoleId`, `isActive`, `createdAt` ni `updatedAt` en estos endpoints.
 
-### 2. Listar Usuarios
+### 2. Catalogo de Carreras (para formularios de usuarios)
+
+- **Objetivo:** entregar al frontend un listado oficial de carreras para poblar selects/autocompletes sin hardcode.
+
+#### 2.1 Obtener catalogo de carreras
+
+- **Endpoint:** `GET /catalog/careers`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Auth:** Requiere `Authorization: Bearer <accessToken>`
+- **Response (`data`):** Array de objetos `{ id, name }` ordenado alfabeticamente por `name`.
+- **Contrato de respuesta:**
+  ```json
+  {
+    "statusCode": 200,
+    "message": "Carreras obtenidas exitosamente",
+    "data": [
+      { "id": 21, "name": "Ciencia Política y Gobierno" },
+      { "id": 1, "name": "Contabilidad" },
+      { "id": 26, "name": "Derecho" }
+    ],
+    "timestamp": "2026-03-28T17:10:00.000Z"
+  }
+  ```
+- **Reglas de frontend (importante):**
+  - No asumir IDs fijos por nombre.
+  - Siempre refrescar este listado al abrir el formulario de creacion/edicion de usuario.
+  - Guardar internamente `id` y `name` para UX, pero no inventar valores fuera del catalogo.
+  - Si el endpoint responde `403`, ocultar el formulario administrativo o redirigir.
+
+### 3. Listar Usuarios
 
 - **Endpoint:** `GET /`
 - **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Response:** Array de objetos User.
+- **Query Params:**
+  - `page` (opcional, entero >= 1, default `1`)
+  - `search` (opcional, string): busca por nombre completo y/o correo
+  - `roles` (opcional, CSV): `STUDENT,PROFESSOR,ADMIN,SUPER_ADMIN`
+  - `careerIds` (opcional, CSV de enteros): `1,2,5`
+  - `status` (opcional): `ACTIVE` | `INACTIVE`
+- **Filtros acumulativos:** AND entre tipos de filtro y OR dentro de cada CSV.
+- **Paginacion fija:** `10` filas por pagina.
+- **Order By aplicado en backend:** `created_at DESC, id DESC` (mas recientes primero).
+- **Cache selectivo:** variantes sin filtros por página (`page=N`) con TTL 60s; cualquier cambio de usuarios invalida ese grupo de cache base.
+- **Response (`data`):**
+  - `items`: array de filas para tabla administrativa
+  - `currentPage`
+  - `pageSize` (siempre `10`)
+  - `totalItems`
+  - `totalPages`
+- **Campos por fila (`items[]`):**
+  - `id`
+  - `fullName`
+  - `email`
+  - `roles` (labels de negocio y orden fijo)
+  - `careerId`
+  - `careerName`
+  - `isActive`
+- **Mapeo y orden de roles en UI/backend:**
+  - `STUDENT` -> `Alumno`
+  - `PROFESSOR` -> `Asesor`
+  - `ADMIN` -> `Administrador`
+  - `SUPER_ADMIN` -> `Superadministrador`
+  - Si un usuario tiene multiples roles, se devuelven en este orden: `Alumno`, `Asesor`, `Administrador`, `Superadministrador`.
 
-### 3. Obtener Usuario por ID
+### 3.1 Opciones de filtros para UI
+
+- **Roles:** `GET /filters/roles` (`ADMIN`, `SUPER_ADMIN`)
+- **Estados:** `GET /filters/statuses` (`ADMIN`, `SUPER_ADMIN`)
+- **Carreras:** `GET /catalog/careers` (`ADMIN`, `SUPER_ADMIN`)
+
+### 4. Obtener Usuario por ID
 
 - **Endpoint:** `GET /:id`
 - **Roles:** `ADMIN`, `SUPER_ADMIN` o el **Propietario** de la cuenta.
 - **Response:** Objeto User.
 
-### 4. Actualizar Usuario
+### 5. Actualizar Usuario
 
 - **Endpoint:** `PATCH /:id`
 - **Roles:** `ADMIN`, `SUPER_ADMIN` o el **Propietario** de la cuenta.
@@ -471,7 +539,7 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
   - `false` = cuenta inactiva (baneada)
   - `true` = cuenta activa
 
-### 5. Banear Usuario (Admin Action)
+### 6. Banear Usuario (Admin Action)
 
 - **Endpoint:** `PATCH /:id/ban`
 - **Roles:** `ADMIN`, `SUPER_ADMIN`
@@ -503,12 +571,12 @@ Estos endpoints existen para que frontend no tenga que crear un usuario base y l
 }
 ```
 
-### 6. Eliminar Usuario
+### 7. Eliminar Usuario
 
 - **Endpoint:** `DELETE /:id`
 - **Roles:** `ADMIN`, `SUPER_ADMIN`
 
-### 7. Gestion de Roles
+### 8. Gestion de Roles
 
 - **Asignar:** `POST /:id/roles/:roleCode`
   - **Roles:** `SUPER_ADMIN`

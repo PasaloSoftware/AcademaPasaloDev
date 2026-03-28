@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Expose, Transform, Type } from 'class-transformer';
 import { PhotoSource } from '@modules/users/domain/user.entity';
 
 class RoleDto {
@@ -29,7 +29,11 @@ export class UserResponseDto {
   phone: string | null;
 
   @Expose()
-  career: string | null;
+  careerId: number | null;
+
+  @Expose()
+  @Transform(({ obj }) => obj?.career?.name ?? null)
+  careerName: string | null;
 
   @Expose()
   profilePhotoUrl: string | null;

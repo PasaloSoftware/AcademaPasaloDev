@@ -8,6 +8,8 @@ import { UsersService } from '@modules/users/application/users.service';
 import { IdentitySecurityService } from '@modules/users/application/identity-security.service';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RoleRepository } from '@modules/users/infrastructure/role.repository';
+import { CareerRepository } from '@modules/users/infrastructure/career.repository';
+import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { PhotoSource } from '@modules/users/domain/user.entity';
 import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security.constants';
 import type { DatabaseError } from '@common/interfaces/database-error.interface';
@@ -38,6 +40,7 @@ describe('UsersService', () => {
     create: jest.fn(),
     delete: jest.fn(),
     findAll: jest.fn(),
+    findAdminUsersPage: jest.fn(),
   };
 
   const roleRepositoryMock = {
@@ -45,8 +48,19 @@ describe('UsersService', () => {
     findAll: jest.fn(),
   };
 
+  const careerRepositoryMock = {
+    findById: jest.fn().mockResolvedValue({ id: 1, name: 'Contabilidad' }),
+  };
+
   const identitySecurityServiceMock = {
     invalidateUserIdentity: jest.fn(),
+  };
+
+  const cacheServiceMock = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+    invalidateGroup: jest.fn().mockResolvedValue(undefined),
   };
 
   const mediaAccessQueueMock = {
@@ -68,6 +82,8 @@ describe('UsersService', () => {
         { provide: DataSource, useValue: dataSourceMock },
         { provide: UserRepository, useValue: userRepositoryMock },
         { provide: RoleRepository, useValue: roleRepositoryMock },
+        { provide: CareerRepository, useValue: careerRepositoryMock },
+        { provide: RedisCacheService, useValue: cacheServiceMock },
         {
           provide: IdentitySecurityService,
           useValue: identitySecurityServiceMock,
@@ -539,5 +555,38 @@ describe('UsersService', () => {
     await usersService.assignRole('1', ROLE_CODES.PROFESSOR);
 
     expect(mediaAccessQueueMock.add).not.toHaveBeenCalled();
+  });
+
+  it('findAdminUsersTable: usa cache base en page=1 sin filtros', async () => {
+    const cached = {
+      items: [],
+      currentPage: 1,
+      pageSize: 10,
+      totalItems: 0,
+      totalPages: 0,
+    };
+    cacheServiceMock.get.mockResolvedValue(cached);
+
+    const result = await usersService.findAdminUsersTable({ page: 1 });
+
+    expect(cacheServiceMock.get).toHaveBeenCalled();
+    expect(userRepositoryMock.findAdminUsersPage).not.toHaveBeenCalled();
+    expect(result).toEqual(cached);
+  });
+
+  it('create: invalida cache base de listado admin', async () => {
+    userRepositoryMock.findByEmail.mockResolvedValue(null);
+    userRepositoryMock.create.mockResolvedValue({
+      id: '500',
+      email: 'new@test.com',
+      firstName: 'Nuevo',
+    });
+
+    await usersService.create({
+      email: 'new@test.com',
+      firstName: 'Nuevo',
+    } as any);
+
+    expect(cacheServiceMock.invalidateGroup).toHaveBeenCalled();
   });
 });

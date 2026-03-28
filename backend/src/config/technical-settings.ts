@@ -167,6 +167,13 @@ export const technicalSettings = {
       // src/modules/notifications/infrastructure/user-notification.repository.ts
       unreadCountCacheTtlSeconds: 60,
     },
+
+    users: {
+      // src/modules/users/infrastructure/career.repository.ts
+      careersCatalogCacheTtlSeconds: 900, // 15m - catalogo casi estatico con refresco eventual
+      // src/modules/users/application/users.service.ts
+      adminUsersBaseListCacheTtlSeconds: 60, // 60s - primera pagina sin filtros
+    },
   },
 
   database: {

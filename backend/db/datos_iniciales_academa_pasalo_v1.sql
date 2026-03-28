@@ -110,6 +110,48 @@ INSERT INTO enrollment_type (code, name) VALUES
 ('FULL', 'Curso Completo'),
 ('PARTIAL', 'Por Evaluacion');
 
+INSERT INTO careers (name) VALUES
+('Contabilidad'),
+('Física'),
+('Ingeniería Civil'),
+('Matemáticas'),
+('Química'),
+('Ingeniería Ambiental y Sostenible'),
+('Ingeniería de las Telecomunicaciones'),
+('Ingeniería de Minas'),
+('Ingeniería Electrónica'),
+('Ingeniería Geológica'),
+('Ingeniería Industrial'),
+('Ingeniería Informática'),
+('Ingeniería Mecánica'),
+('Ingeniería Mecatrónica'),
+('Ingeniería Química'),
+('Comunicación Audiovisual'),
+('Comunicación para el Desarrollo'),
+('Periodismo'),
+('Publicidad'),
+('Antropología'),
+('Ciencia Política y Gobierno'),
+('Economía'),
+('Finanzas'),
+('Relaciones Internacionales'),
+('Sociología'),
+('Derecho'),
+('Educación Inicial'),
+('Educación Primaria'),
+('Educación Secundaria'),
+('Gestión'),
+('Gastronomía'),
+('Hotelería'),
+('Turismo'),
+('Arqueología'),
+('Filosofía'),
+('Geografía y Medio Ambiente'),
+('Historia'),
+('Humanidades'),
+('Lingüística y Literatura'),
+('Psicología');
+
 
 INSERT INTO notification_type (code, name) VALUES
 ('AUDIT_EXPORT_READY', 'Reporte de Auditoria Listo');

@@ -4,6 +4,7 @@ import {
   ConflictException,
   ServiceUnavailableException,
   InternalServerErrorException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -12,8 +13,19 @@ import { DataSource, EntityManager } from 'typeorm';
 import { User } from '@modules/users/domain/user.entity';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RoleRepository } from '@modules/users/infrastructure/role.repository';
+import { CareerRepository } from '@modules/users/infrastructure/career.repository';
+import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { technicalSettings } from '@config/technical-settings';
 import { CreateUserDto } from '@modules/users/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
+import {
+  AdminUserStatusFilter,
+  AdminUsersListQueryDto,
+  AdminUsersListItemDto,
+  AdminUsersListResponseDto,
+  AdminUsersRoleFilterOptionDto,
+  AdminUsersStatusFilterOptionDto,
+} from '@modules/users/dto/admin-users-list.dto';
 import { IdentitySecurityService } from '@modules/users/application/identity-security.service';
 import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security.constants';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
@@ -30,6 +42,27 @@ import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
 import { ADMIN_ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { USER_CACHE_KEYS } from '@modules/users/domain/user.constants';
+
+const ADMIN_USERS_PAGE_SIZE = 10;
+const ROLE_LABELS: Record<string, string> = {
+  [ROLE_CODES.STUDENT]: 'Alumno',
+  [ROLE_CODES.PROFESSOR]: 'Asesor',
+  [ROLE_CODES.ADMIN]: 'Administrador',
+  [ROLE_CODES.SUPER_ADMIN]: 'Superadministrador',
+};
+const ROLE_DISPLAY_ORDER: string[] = [
+  ROLE_CODES.STUDENT,
+  ROLE_CODES.PROFESSOR,
+  ROLE_CODES.ADMIN,
+  ROLE_CODES.SUPER_ADMIN,
+];
+const STATUS_FILTER_OPTIONS: AdminUsersStatusFilterOptionDto[] = [
+  { code: 'ACTIVE', label: 'Activo' },
+  { code: 'INACTIVE', label: 'Inactivo' },
+];
+const ADMIN_USERS_BASE_CACHE_TTL_SECONDS =
+  technicalSettings.cache.users.adminUsersBaseListCacheTtlSeconds;
 
 @Injectable()
 export class UsersService {
@@ -39,6 +72,8 @@ export class UsersService {
     private readonly dataSource: DataSource,
     private readonly userRepository: UserRepository,
     private readonly roleRepository: RoleRepository,
+    private readonly careerRepository: CareerRepository,
+    private readonly cacheService: RedisCacheService,
     private readonly identitySecurityService: IdentitySecurityService,
     private readonly mediaAccessMembershipDispatchService: MediaAccessMembershipDispatchService,
     @InjectQueue(QUEUES.MEDIA_ACCESS)
@@ -46,6 +81,8 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    await this.ensureCareerExistsIfProvided(createUserDto.careerId);
+
     const existingUser = await this.userRepository.findByEmail(
       createUserDto.email,
     );
@@ -55,8 +92,9 @@ export class UsersService {
     }
 
     const now = new Date();
+    let createdUser: User;
     try {
-      return await this.userRepository.create({
+      createdUser = await this.userRepository.create({
         ...createUserDto,
         createdAt: now,
         updatedAt: null,
@@ -68,6 +106,9 @@ export class UsersService {
       }
       throw error;
     }
+
+    await this.invalidateAdminUsersBaseCache();
+    return createdUser;
   }
 
   async createWithRole(
@@ -77,6 +118,8 @@ export class UsersService {
     const normalizedRoleCode = String(roleCode || '')
       .trim()
       .toUpperCase();
+
+    await this.ensureCareerExistsIfProvided(createUserDto.careerId);
 
     const createdUser = await this.dataSource.transaction(async (manager) => {
       const existingUser = await this.userRepository.findByEmail(
@@ -128,11 +171,80 @@ export class UsersService {
         this.shouldTriggerStaffReconciliationForRoleCode(normalizedRoleCode),
     });
 
+    await this.invalidateAdminUsersBaseCache();
     return createdUser;
   }
 
   async findAll(): Promise<User[]> {
     return await this.userRepository.findAll();
+  }
+
+  async findAdminUsersTable(
+    query: AdminUsersListQueryDto,
+  ): Promise<AdminUsersListResponseDto> {
+    const safePage = Math.max(1, Number(query.page) || 1);
+    const normalizedSearch = this.parseSearchFilter(query.search);
+    const roleCodes = this.parseRoleCodesFilter(query.roles);
+    const careerIds = this.parseCareerIdsFilter(query.careerIds);
+    const isActive = this.parseStatusFilter(query.status);
+    const shouldUseBaseCache = this.shouldUseAdminUsersBaseCache({
+      page: safePage,
+      search: normalizedSearch,
+      roleCodes,
+      careerIds,
+      isActive,
+    });
+
+    if (shouldUseBaseCache) {
+      const cacheKey = USER_CACHE_KEYS.ADMIN_USERS_TABLE_BASE_PAGE(safePage);
+      const cached = await this.cacheService.get<AdminUsersListResponseDto>(
+        cacheKey,
+      );
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const { rows, totalItems } = await this.userRepository.findAdminUsersPage({
+      page: safePage,
+      pageSize: ADMIN_USERS_PAGE_SIZE,
+      search: normalizedSearch,
+      roleCodes,
+      careerIds,
+      isActive,
+    });
+
+    const totalPages =
+      totalItems === 0 ? 0 : Math.ceil(totalItems / ADMIN_USERS_PAGE_SIZE);
+
+    const response: AdminUsersListResponseDto = {
+      items: rows.map((row) => this.mapUserToAdminListItem(row)),
+      currentPage: safePage,
+      pageSize: ADMIN_USERS_PAGE_SIZE,
+      totalItems,
+      totalPages,
+    };
+
+    if (shouldUseBaseCache) {
+      const cacheKey = USER_CACHE_KEYS.ADMIN_USERS_TABLE_BASE_PAGE(safePage);
+      await this.cacheService.set(
+        cacheKey,
+        response,
+        ADMIN_USERS_BASE_CACHE_TTL_SECONDS,
+      );
+    }
+    return response;
+  }
+
+  listAdminRoleFilterOptions(): AdminUsersRoleFilterOptionDto[] {
+    return ROLE_DISPLAY_ORDER.map((code) => ({
+      code,
+      label: ROLE_LABELS[code],
+    }));
+  }
+
+  listAdminStatusFilterOptions(): AdminUsersStatusFilterOptionDto[] {
+    return STATUS_FILTER_OPTIONS;
   }
 
   async findOne(id: string): Promise<User> {
@@ -176,6 +288,10 @@ export class UsersService {
               'El correo electrónico ya está registrado',
             );
           }
+        }
+
+        if (updateUserDto.careerId !== undefined && updateUserDto.careerId !== null) {
+          await this.ensureCareerExistsIfProvided(updateUserDto.careerId);
         }
 
         Object.assign(user, updateUserDto);
@@ -225,12 +341,14 @@ export class UsersService {
       });
     }
 
+    await this.invalidateAdminUsersBaseCache();
     return transactionResult.updatedUser;
   }
 
   async remove(id: string): Promise<void> {
     await this.findOne(id);
     await this.userRepository.delete(id);
+    await this.invalidateAdminUsersBaseCache();
   }
 
   async assignRole(userId: string, roleCode: string): Promise<User> {
@@ -296,6 +414,7 @@ export class UsersService {
       shouldEnqueue: transactionResult.shouldEnqueueStaffReconciliation,
     });
 
+    await this.invalidateAdminUsersBaseCache();
     return transactionResult.updatedUser;
   }
 
@@ -400,6 +519,7 @@ export class UsersService {
       ]);
     }
 
+    await this.invalidateAdminUsersBaseCache();
     return transactionResult.updatedUser;
   }
 
@@ -591,7 +711,7 @@ export class UsersService {
       'lastName1',
       'lastName2',
       'phone',
-      'career',
+      'careerId',
       'profilePhotoUrl',
       'isActive',
     ];
@@ -655,5 +775,134 @@ export class UsersService {
       `,
       [userId],
     );
+  }
+
+  private mapUserToAdminListItem(input: {
+    id: string;
+    firstName: string;
+    lastName1: string | null;
+    lastName2: string | null;
+    email: string;
+    roleCodes: string[];
+    careerId: number | null;
+    careerName: string | null;
+    isActive: boolean;
+  }): AdminUsersListItemDto {
+    const firstName = String(input.firstName || '').trim();
+    const lastName1 = String(input.lastName1 || '').trim();
+    const lastName2 = String(input.lastName2 || '').trim();
+    const fullName = [firstName, lastName1, lastName2]
+      .filter((part) => part.length > 0)
+      .join(' ');
+
+    const orderedRoles = ROLE_DISPLAY_ORDER.filter((code) =>
+      input.roleCodes.includes(code),
+    );
+    const roles = orderedRoles.map((code) => ROLE_LABELS[code]);
+
+    return {
+      id: input.id,
+      fullName,
+      email: input.email,
+      roles,
+      careerId: input.careerId ?? null,
+      careerName: input.careerName ?? null,
+      isActive: Boolean(input.isActive),
+    };
+  }
+
+  private parseRoleCodesFilter(rawRoles?: string): string[] {
+    if (!rawRoles) return [];
+    const requested = rawRoles
+      .split(',')
+      .map((item) => item.trim().toUpperCase())
+      .filter((item) => item.length > 0);
+    const uniqueRequested = Array.from(new Set(requested));
+    const valid = ROLE_DISPLAY_ORDER.filter((code) =>
+      uniqueRequested.includes(code),
+    );
+    if (valid.length !== uniqueRequested.length) {
+      throw new BadRequestException(
+        `roles debe contener solo: ${ROLE_DISPLAY_ORDER.join(', ')}`,
+      );
+    }
+    return valid;
+  }
+
+  private parseCareerIdsFilter(rawCareerIds?: string): number[] {
+    if (!rawCareerIds) return [];
+    const parsed = rawCareerIds
+      .split(',')
+      .map((item) => Number(item.trim()))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    const requestedCount = rawCareerIds
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0).length;
+    if (parsed.length !== requestedCount) {
+      throw new BadRequestException(
+        'careerIds debe ser una lista CSV de enteros positivos',
+      );
+    }
+    return Array.from(new Set(parsed));
+  }
+
+  private parseStatusFilter(
+    rawStatus?: AdminUserStatusFilter,
+  ): boolean | undefined {
+    if (!rawStatus) return undefined;
+    if (rawStatus === 'ACTIVE') return true;
+    if (rawStatus === 'INACTIVE') return false;
+    return undefined;
+  }
+
+  private async ensureCareerExistsIfProvided(
+    careerId?: number | null,
+  ): Promise<void> {
+    if (careerId == null) {
+      return;
+    }
+    const career = await this.careerRepository.findById(careerId);
+    if (!career) {
+      throw new NotFoundException(`Carrera ${careerId} no encontrada`);
+    }
+  }
+
+  private shouldUseAdminUsersBaseCache(input: {
+    page: number;
+    search?: string;
+    roleCodes: string[];
+    careerIds: number[];
+    isActive?: boolean;
+  }): boolean {
+    return (
+      input.page === 1 &&
+      !input.search &&
+      input.roleCodes.length === 0 &&
+      input.careerIds.length === 0 &&
+      input.isActive === undefined
+    );
+  }
+
+  private parseSearchFilter(rawSearch?: string): string | undefined {
+    if (rawSearch == null) return undefined;
+    const normalized = String(rawSearch).trim();
+    if (!normalized) return undefined;
+    return normalized;
+  }
+
+  private async invalidateAdminUsersBaseCache(): Promise<void> {
+    try {
+      await this.cacheService.invalidateGroup(
+        USER_CACHE_KEYS.ADMIN_USERS_TABLE_BASE_GROUP,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: UsersService.name,
+        message: 'No se pudo invalidar cache base de tabla admin de usuarios',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

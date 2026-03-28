@@ -96,6 +96,11 @@ CREATE TABLE enrollment_type (
     CONSTRAINT uq_enrollment_type_code UNIQUE (code)
 );
 
+CREATE TABLE careers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL UNIQUE
+);
+
 CREATE TABLE user (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   email VARCHAR(255) NOT NULL,
@@ -103,14 +108,27 @@ CREATE TABLE user (
   last_name_1 VARCHAR(50),
   last_name_2 VARCHAR(50),
   phone VARCHAR(20),
-  career VARCHAR(100),
+  career_id INT NULL,
+  search_text TEXT GENERATED ALWAYS AS (
+    LOWER(
+      CONCAT_WS(
+        ' ',
+        first_name,
+        last_name_1,
+        last_name_2,
+        email
+      )
+    )
+  ) STORED,
   profile_photo_url VARCHAR(500) NULL,
   photo_source ENUM('google', 'uploaded', 'none') NOT NULL DEFAULT 'none',
   last_active_role_id BIGINT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL,
   updated_at DATETIME,
-  FOREIGN KEY (last_active_role_id) REFERENCES role(id)
+  FOREIGN KEY (career_id) REFERENCES careers(id),
+  FOREIGN KEY (last_active_role_id) REFERENCES role(id),
+  FULLTEXT KEY ft_user_search_text (search_text)
 );
 
 CREATE TABLE user_role (

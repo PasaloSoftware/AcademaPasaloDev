@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ROLES_KEY } from '@common/decorators/roles.decorator';
+import { CareersCatalogService } from '@modules/users/application/careers-catalog.service';
 import { UsersService } from '@modules/users/application/users.service';
 import { PhotoSource } from '@modules/users/domain/user.entity';
 import { UsersController } from '@modules/users/presentation/users.controller';
@@ -30,12 +31,24 @@ describe('UsersController', () => {
   const usersServiceMock = {
     create: jest.fn(),
     createWithRole: jest.fn().mockResolvedValue(updatedUser),
-    findAll: jest.fn(),
+    findAdminUsersTable: jest.fn().mockResolvedValue({
+      items: [],
+      currentPage: 1,
+      pageSize: 10,
+      totalItems: 0,
+      totalPages: 0,
+    }),
     findOne: jest.fn(),
+    listAdminRoleFilterOptions: jest.fn().mockReturnValue([]),
+    listAdminStatusFilterOptions: jest.fn().mockReturnValue([]),
     update: jest.fn().mockResolvedValue(updatedUser),
     remove: jest.fn(),
     assignRole: jest.fn(),
     removeRole: jest.fn(),
+  };
+
+  const careersCatalogServiceMock = {
+    listCareers: jest.fn().mockResolvedValue([]),
   };
 
   beforeEach(async () => {
@@ -43,7 +56,13 @@ describe('UsersController', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [{ provide: UsersService, useValue: usersServiceMock }],
+      providers: [
+        { provide: UsersService, useValue: usersServiceMock },
+        {
+          provide: CareersCatalogService,
+          useValue: careersCatalogServiceMock,
+        },
+      ],
     }).compile();
 
     controller = moduleRef.get(UsersController);
@@ -53,6 +72,33 @@ describe('UsersController', () => {
     const requiredRoles = Reflect.getMetadata(
       ROLES_KEY,
       UsersController.prototype.update,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('listCareers debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.listCareers,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('listRoleFilters debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.listRoleFilters,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('listStatusFilters debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.listStatusFilters,
     );
 
     expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);

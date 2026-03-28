@@ -28,6 +28,7 @@ import { SecurityEventTypeRepository } from './../src/modules/auth/infrastructur
 import { SecurityEventRepository } from './../src/modules/auth/infrastructure/security-event.repository';
 import { UsersController } from './../src/modules/users/presentation/users.controller';
 import { UsersService } from './../src/modules/users/application/users.service';
+import { CareersCatalogService } from './../src/modules/users/application/careers-catalog.service';
 import { PhotoSource, User } from './../src/modules/users/domain/user.entity';
 import { RedisCacheService } from '../src/infrastructure/cache/redis-cache.service';
 
@@ -115,7 +116,30 @@ describe('IAM (e2e)', () => {
         createdAt: new Date(),
       }),
     ),
-    findAll: jest.fn().mockResolvedValue([adminUser, studentUser]),
+    findAdminUsersTable: jest.fn().mockResolvedValue({
+      items: [
+        {
+          id: adminUser.id,
+          fullName: 'Admin',
+          email: adminUser.email,
+          roles: ['Administrador'],
+          careerName: null,
+          isActive: true,
+        },
+        {
+          id: studentUser.id,
+          fullName: 'Student',
+          email: studentUser.email,
+          roles: ['Alumno'],
+          careerName: null,
+          isActive: true,
+        },
+      ],
+      currentPage: 1,
+      pageSize: 10,
+      totalItems: 2,
+      totalPages: 1,
+    }),
     update: jest.fn((id, dto) => {
       if (id === '1') {
         return Promise.resolve({
@@ -131,6 +155,11 @@ describe('IAM (e2e)', () => {
       }
       return Promise.resolve(null);
     }),
+  };
+
+  const careersCatalogServiceMock = {
+    listCareers: jest.fn().mockResolvedValue([]),
+    refreshCareersCache: jest.fn().mockResolvedValue([]),
   };
 
   const userSessionRepositoryMock = {
@@ -231,6 +260,10 @@ describe('IAM (e2e)', () => {
           },
         },
         { provide: UsersService, useValue: usersServiceMock },
+        {
+          provide: CareersCatalogService,
+          useValue: careersCatalogServiceMock,
+        },
         { provide: AuthService, useValue: authServiceMock },
         { provide: UserSessionRepository, useValue: userSessionRepositoryMock },
         {
@@ -389,7 +422,15 @@ describe('IAM (e2e)', () => {
 
       const body = response.body as StandardResponse;
       expect(body.statusCode).toBe(200);
-      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data).toMatchObject({
+        currentPage: 1,
+        pageSize: 10,
+        totalItems: 2,
+        totalPages: 1,
+      });
+      expect(Array.isArray((body.data as { items: unknown[] }).items)).toBe(
+        true,
+      );
     });
   });
 

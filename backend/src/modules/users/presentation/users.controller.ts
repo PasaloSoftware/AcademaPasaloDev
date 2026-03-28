@@ -6,14 +6,23 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   HttpCode,
   HttpStatus,
   ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from '@modules/users/application/users.service';
+import { CareersCatalogService } from '@modules/users/application/careers-catalog.service';
 import { CreateUserDto } from '@modules/users/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
 import { UserResponseDto } from '@modules/users/dto/user-response.dto';
+import { CareerCatalogItemDto } from '@modules/users/dto/career-catalog-item.dto';
+import {
+  AdminUsersListQueryDto,
+  AdminUsersRoleFilterOptionDto,
+  AdminUsersListResponseDto,
+  AdminUsersStatusFilterOptionDto,
+} from '@modules/users/dto/admin-users-list.dto';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { plainToInstance } from 'class-transformer';
 import { Auth } from '@common/decorators/auth.decorator';
@@ -28,7 +37,22 @@ import {
 @Controller('users')
 @Auth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly careersCatalogService: CareersCatalogService,
+  ) {}
+
+  @Get('catalog/careers')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Carreras obtenidas exitosamente')
+  async listCareers() {
+    const careers = await this.careersCatalogService.listCareers();
+    return careers.map((career) =>
+      plainToInstance(CareerCatalogItemDto, career, {
+        excludeExtraneousValues: true,
+      }),
+    );
+  }
 
   @Post()
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
@@ -86,12 +110,32 @@ export class UsersController {
   @Get()
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Usuarios obtenidos exitosamente')
-  async findAll() {
-    const users = await this.usersService.findAll();
-    return users.map((user) =>
-      plainToInstance(UserResponseDto, user, {
-        excludeExtraneousValues: true,
-      }),
+  async findAll(@Query() query: AdminUsersListQueryDto) {
+    const response = await this.usersService.findAdminUsersTable(query);
+    return plainToInstance(AdminUsersListResponseDto, response, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Get('filters/roles')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Filtros de roles obtenidos exitosamente')
+  listRoleFilters() {
+    return plainToInstance(
+      AdminUsersRoleFilterOptionDto,
+      this.usersService.listAdminRoleFilterOptions(),
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  @Get('filters/statuses')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Filtros de estado obtenidos exitosamente')
+  listStatusFilters() {
+    return plainToInstance(
+      AdminUsersStatusFilterOptionDto,
+      this.usersService.listAdminStatusFilterOptions(),
+      { excludeExtraneousValues: true },
     );
   }
 

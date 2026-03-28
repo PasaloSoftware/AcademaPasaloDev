@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsString,
@@ -6,6 +7,8 @@ import {
   Matches,
   IsEnum,
   MaxLength,
+  IsInt,
+  Min,
 } from 'class-validator';
 import { PhotoSource } from '@modules/users/domain/user.entity';
 
@@ -47,9 +50,10 @@ export class CreateUserDto {
   phone?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(100, { message: 'La carrera excede el tamaño máximo permitido' })
-  career?: string;
+  @Type(() => Number)
+  @IsInt({ message: 'careerId debe ser un entero' })
+  @Min(1, { message: 'careerId debe ser mayor o igual a 1' })
+  careerId?: number;
 
   @IsOptional()
   @IsString()

@@ -46,6 +46,7 @@ DROP TABLE IF EXISTS file_resource;
 DROP TABLE IF EXISTS course;
 DROP TABLE IF EXISTS academic_cycle;
 DROP TABLE IF EXISTS user;
+DROP TABLE IF EXISTS careers;
 DROP TABLE IF EXISTS system_setting;
 
 -- Tablas de tipos y estados (diccionarios)
