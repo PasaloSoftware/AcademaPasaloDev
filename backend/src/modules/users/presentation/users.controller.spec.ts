@@ -38,9 +38,27 @@ describe('UsersController', () => {
       totalItems: 0,
       totalPages: 0,
     }),
+    findAdminUserDetail: jest.fn().mockResolvedValue({
+      personalInfo: {
+        id: '1',
+        firstName: 'Admin',
+        lastName1: null,
+        lastName2: null,
+        email: 'admin@test.com',
+        phone: null,
+        careerId: null,
+        careerName: null,
+        roles: ['Administrador'],
+        isActive: true,
+        profilePhotoUrl: null,
+      },
+      enrolledCourses: [],
+      teachingCourses: [],
+    }),
     findOne: jest.fn(),
     listAdminRoleFilterOptions: jest.fn().mockReturnValue([]),
     listAdminStatusFilterOptions: jest.fn().mockReturnValue([]),
+    listAdminCourseOptions: jest.fn().mockResolvedValue([]),
     update: jest.fn().mockResolvedValue(updatedUser),
     remove: jest.fn(),
     assignRole: jest.fn(),
@@ -102,6 +120,29 @@ describe('UsersController', () => {
     );
 
     expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('findAdminDetail debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.findAdminDetail,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('listCoursesCatalog debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.listCoursesCatalog,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('listCoursesCatalog delega al servicio', async () => {
+    await controller.listCoursesCatalog();
+    expect(usersServiceMock.listAdminCourseOptions).toHaveBeenCalled();
   });
 
   it('update delega al servicio con el dto completo', async () => {

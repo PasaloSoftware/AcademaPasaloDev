@@ -1,4 +1,4 @@
-# Documentación API — Panel Administrativo
+﻿# Documentación API — Panel Administrativo
 
 > Estado: Activa  
 > Última actualización: 2026-03-28  
@@ -149,7 +149,39 @@ Si un usuario tiene múltiples roles, el orden de salida es fijo:
 
 ---
 
-### 3.3 Opciones de filtro de roles
+### 3.3 Catálogo de cursos (buscador por nombre)
+
+- **Endpoint:** `GET /users/catalog/courses`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Uso:** poblar buscador/autocomplete de cursos para vistas administrativas.
+
+#### Criterio del catálogo
+
+Actualmente la tabla `course` no tiene campo `is_active`.
+Por definición funcional del panel, el catálogo devuelve la **tabla maestra de cursos** (cursos institucionales), independientemente del ciclo.
+
+#### Respuesta (`data`)
+
+```json
+[
+  {
+    "courseId": "11",
+    "courseCode": "MAT101",
+    "courseName": "Matemática Básica"
+  }
+]
+```
+
+#### Reglas de integración frontend
+
+- Renderizar `courseName` como texto visible del buscador.
+- Usar `courseId` como identificador estable para acciones futuras.
+- Orden garantizado por backend: `courseName ASC, courseCode ASC, courseId ASC`.
+- El catálogo se cachea en backend con TTL para reducir latencia.
+
+---
+
+### 3.4 Opciones de filtro de roles
 
 - **Endpoint:** `GET /users/filters/roles`
 - **Roles:** `ADMIN`, `SUPER_ADMIN`
@@ -164,7 +196,7 @@ Si un usuario tiene múltiples roles, el orden de salida es fijo:
 ]
 ```
 
-### 3.4 Opciones de filtro de estado
+### 3.5 Opciones de filtro de estado
 
 - **Endpoint:** `GET /users/filters/statuses`
 - **Roles:** `ADMIN`, `SUPER_ADMIN`
@@ -176,6 +208,61 @@ Si un usuario tiene múltiples roles, el orden de salida es fijo:
   { "code": "INACTIVE", "label": "Inactivo" }
 ]
 ```
+
+---
+
+### 3.6 Detalle administrativo de usuario (vista "Ver usuario")
+
+- **Endpoint:** `GET /users/:id/admin-detail`
+- **Roles:** `ADMIN`, `SUPER_ADMIN`
+- **Objetivo:** obtener información personal + secciones de matrícula y cursos a cargo para ficha detallada.
+
+#### Response (`data`)
+
+```json
+{
+  "personalInfo": {
+    "id": "145",
+    "firstName": "Carlos",
+    "lastName1": "Soto",
+    "lastName2": "Perez",
+    "email": "carlos@academiapasalo.com",
+    "phone": "999888777",
+    "careerId": 12,
+    "careerName": "Ingeniería Informática",
+    "roles": ["Alumno", "Asesor"],
+    "isActive": true,
+    "profilePhotoUrl": "https://cdn.example.com/users/145.jpg"
+  },
+  "enrolledCourses": [
+    {
+      "relationId": "801",
+      "courseId": "11",
+      "courseCycleId": "41",
+      "courseCode": "MAT101",
+      "courseName": "Matemática Básica",
+      "academicCycleCode": "2026-0"
+    }
+  ],
+  "teachingCourses": [
+    {
+      "relationId": "41",
+      "courseId": "11",
+      "courseCycleId": "41",
+      "courseCode": "MAT101",
+      "courseName": "Matemática Básica",
+      "academicCycleCode": "2026-0"
+    }
+  ]
+}
+```
+
+#### Reglas de negocio
+
+- `enrolledCourses` puede venir vacío si el usuario no tiene matrículas activas.
+- `teachingCourses` puede venir vacío si el usuario no tiene cursos a cargo activos.
+- Ambos arreglos pueden tener múltiples registros.
+- Se incluyen IDs de relación y de curso/ciclo para acciones futuras (búsqueda y navegación cruzada).
 
 ---
 

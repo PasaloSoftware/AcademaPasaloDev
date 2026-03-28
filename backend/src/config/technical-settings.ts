@@ -172,6 +172,8 @@ export const technicalSettings = {
       // src/modules/users/infrastructure/career.repository.ts
       careersCatalogCacheTtlSeconds: 900, // 15m - catalogo casi estatico con refresco eventual
       // src/modules/users/application/users.service.ts
+      coursesCatalogCacheTtlSeconds: 900, // 15m - catalogo maestro de cursos para buscador admin
+      // src/modules/users/application/users.service.ts
       adminUsersBaseListCacheTtlSeconds: 60, // 60s - primera pagina sin filtros
     },
   },

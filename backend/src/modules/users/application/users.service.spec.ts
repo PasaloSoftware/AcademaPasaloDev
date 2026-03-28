@@ -589,4 +589,47 @@ describe('UsersService', () => {
 
     expect(cacheServiceMock.invalidateGroup).toHaveBeenCalled();
   });
+
+  it('listAdminCourseOptions: usa cache cuando existe', async () => {
+    const cached = [
+      {
+        courseId: '11',
+        courseCycleId: '41',
+        courseCode: 'MAT101',
+        courseName: 'Matematica Basica',
+        academicCycleCode: '2026-0',
+      },
+    ];
+    cacheServiceMock.get.mockResolvedValue(cached);
+
+    const result = await usersService.listAdminCourseOptions();
+
+    expect(result).toEqual(cached);
+    expect(dataSourceMock.query).not.toHaveBeenCalled();
+  });
+
+  it('listAdminCourseOptions: consulta BD y cachea', async () => {
+    cacheServiceMock.get.mockResolvedValue(null);
+    dataSourceMock.query.mockResolvedValue([
+      {
+        courseId: '11',
+        courseCode: 'MAT101',
+        courseName: 'Matematica Basica',
+      },
+    ]);
+
+    const result = await usersService.listAdminCourseOptions();
+
+    expect(dataSourceMock.query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM course c'),
+    );
+    expect(cacheServiceMock.set).toHaveBeenCalled();
+    expect(result).toEqual([
+      {
+        courseId: '11',
+        courseCode: 'MAT101',
+        courseName: 'Matematica Basica',
+      },
+    ]);
+  });
 });

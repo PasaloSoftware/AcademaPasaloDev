@@ -26,6 +26,10 @@ import {
   AdminUsersRoleFilterOptionDto,
   AdminUsersStatusFilterOptionDto,
 } from '@modules/users/dto/admin-users-list.dto';
+import {
+  AdminCourseOptionDto,
+  AdminUserDetailResponseDto,
+} from '@modules/users/dto/admin-user-detail.dto';
 import { IdentitySecurityService } from '@modules/users/application/identity-security.service';
 import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security.constants';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
@@ -63,6 +67,8 @@ const STATUS_FILTER_OPTIONS: AdminUsersStatusFilterOptionDto[] = [
 ];
 const ADMIN_USERS_BASE_CACHE_TTL_SECONDS =
   technicalSettings.cache.users.adminUsersBaseListCacheTtlSeconds;
+const COURSES_CATALOG_CACHE_TTL_SECONDS =
+  technicalSettings.cache.users.coursesCatalogCacheTtlSeconds;
 
 @Injectable()
 export class UsersService {
@@ -247,6 +253,46 @@ export class UsersService {
     return STATUS_FILTER_OPTIONS;
   }
 
+  async listAdminCourseOptions(): Promise<AdminCourseOptionDto[]> {
+    const cached = await this.cacheService.get<AdminCourseOptionDto[]>(
+      USER_CACHE_KEYS.COURSES_CATALOG,
+    );
+    if (cached) {
+      return cached;
+    }
+
+    const rows = await this.dataSource.query<
+      Array<{
+        courseId: string;
+        courseCode: string;
+        courseName: string;
+      }>
+    >(
+      `
+        SELECT
+          c.id AS courseId,
+          c.code AS courseCode,
+          c.name AS courseName
+        FROM course c
+        ORDER BY c.name ASC, c.code ASC, c.id ASC
+      `,
+    );
+
+    const response = rows.map((row) => ({
+      courseId: row.courseId,
+      courseCode: row.courseCode,
+      courseName: row.courseName,
+    }));
+
+    await this.cacheService.set(
+      USER_CACHE_KEYS.COURSES_CATALOG,
+      response,
+      COURSES_CATALOG_CACHE_TTL_SECONDS,
+    );
+
+    return response;
+  }
+
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
 
@@ -255,6 +301,94 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  async findAdminUserDetail(id: string): Promise<AdminUserDetailResponseDto> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const [enrolledCourses, teachingCourses] = await Promise.all([
+      this.dataSource.query<
+        Array<{
+          relationId: string;
+          courseId: string;
+          courseCycleId: string;
+          courseCode: string;
+          courseName: string;
+          academicCycleCode: string;
+        }>
+      >(
+        `
+          SELECT
+            e.id AS relationId,
+            c.id AS courseId,
+            cc.id AS courseCycleId,
+            c.code AS courseCode,
+            c.name AS courseName,
+            ac.code AS academicCycleCode
+          FROM enrollment e
+          INNER JOIN course_cycle cc ON cc.id = e.course_cycle_id
+          INNER JOIN course c ON c.id = cc.course_id
+          INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+          WHERE e.user_id = ?
+            AND e.cancelled_at IS NULL
+          ORDER BY ac.start_date DESC, c.name ASC, cc.id DESC
+        `,
+        [id],
+      ),
+      this.dataSource.query<
+        Array<{
+          relationId: string;
+          courseId: string;
+          courseCycleId: string;
+          courseCode: string;
+          courseName: string;
+          academicCycleCode: string;
+        }>
+      >(
+        `
+          SELECT
+            ccp.course_cycle_id AS relationId,
+            c.id AS courseId,
+            cc.id AS courseCycleId,
+            c.code AS courseCode,
+            c.name AS courseName,
+            ac.code AS academicCycleCode
+          FROM course_cycle_professor ccp
+          INNER JOIN course_cycle cc ON cc.id = ccp.course_cycle_id
+          INNER JOIN course c ON c.id = cc.course_id
+          INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+          WHERE ccp.professor_user_id = ?
+            AND ccp.revoked_at IS NULL
+          ORDER BY ac.start_date DESC, c.name ASC, cc.id DESC
+        `,
+        [id],
+      ),
+    ]);
+
+    const orderedRoles = ROLE_DISPLAY_ORDER.filter((code) =>
+      user.roles.some((role) => role.code === code),
+    );
+
+    return {
+      personalInfo: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName1: user.lastName1,
+        lastName2: user.lastName2,
+        email: user.email,
+        phone: user.phone,
+        careerId: user.careerId ?? null,
+        careerName: user.career?.name ?? null,
+        roles: orderedRoles.map((code) => ROLE_LABELS[code]),
+        isActive: Boolean(user.isActive),
+        profilePhotoUrl: user.profilePhotoUrl,
+      },
+      enrolledCourses,
+      teachingCourses,
+    };
   }
 
   async findByEmail(email: string): Promise<User | null> {

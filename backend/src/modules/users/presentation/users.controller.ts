@@ -23,6 +23,10 @@ import {
   AdminUsersListResponseDto,
   AdminUsersStatusFilterOptionDto,
 } from '@modules/users/dto/admin-users-list.dto';
+import {
+  AdminCourseOptionDto,
+  AdminUserDetailResponseDto,
+} from '@modules/users/dto/admin-user-detail.dto';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { plainToInstance } from 'class-transformer';
 import { Auth } from '@common/decorators/auth.decorator';
@@ -137,6 +141,26 @@ export class UsersController {
       this.usersService.listAdminStatusFilterOptions(),
       { excludeExtraneousValues: true },
     );
+  }
+
+  @Get('catalog/courses')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Cursos obtenidos exitosamente')
+  async listCoursesCatalog() {
+    const items = await this.usersService.listAdminCourseOptions();
+    return plainToInstance(AdminCourseOptionDto, items, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Get(':id/admin-detail')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Detalle administrativo de usuario obtenido exitosamente')
+  async findAdminDetail(@Param('id') id: string) {
+    const response = await this.usersService.findAdminUserDetail(id);
+    return plainToInstance(AdminUserDetailResponseDto, response, {
+      excludeExtraneousValues: true,
+    });
   }
 
   @Get(':id')
