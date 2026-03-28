@@ -480,6 +480,22 @@ Permite navegar la jerarquia de una evaluacion. Requiere acceso a la evaluacion 
     * `body: { file: Buffer, materialFolderId: string, displayName: string, classEventId?: string }`
 - **POST /materials/:id/versions:** Actualizar versión de archivo existente.
     * `body: { file: Buffer }`
+- **PATCH /materials/:id/display-name:** Actualizar nombre visible del material (sin renombrar archivo fisico en Drive/S3/Local).
+    * **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+    * **Path Params:**
+      - `id`: string (materialId)
+    * **Body:**
+      - `displayName`: string (obligatorio, max 255)
+    * **Validaciones:**
+      - `displayName` vacio o solo espacios => `400`
+      - si el material no existe => `404`
+      - si el profesor no tiene permisos sobre la evaluacion del material => `403`
+    * **Efecto:**
+      - actualiza `material.display_name`
+      - invalida cache de carpeta y cache de materiales por class-event (si aplica)
+      - dispara notificacion de material actualizado si el material pertenece a un `class_event`
+    * **Response (`data`):**
+      - objeto `Material` actualizado (mismo contrato que endpoints de subida/versionado)
 - **POST /materials/:id/restore-version/:versionId:** Restaurar una version previa creando una nueva version actual.
     * **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
     * **Path Params:**
