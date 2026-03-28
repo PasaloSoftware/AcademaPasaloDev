@@ -126,6 +126,8 @@ describe('MaterialsService', () => {
             get: jest.fn().mockResolvedValue(null),
             set: jest.fn().mockResolvedValue(null),
             del: jest.fn().mockResolvedValue(null),
+            addToIndex: jest.fn().mockResolvedValue(null),
+            invalidateIndex: jest.fn().mockResolvedValue(null),
           },
         },
         {

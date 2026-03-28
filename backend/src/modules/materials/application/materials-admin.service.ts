@@ -524,6 +524,11 @@ export class MaterialsAdminService {
         MATERIAL_CACHE_KEYS.CONTENTS(material.materialFolderId),
       ),
     );
+    promises.push(
+      this.cacheService.invalidateIndex(
+        MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION_INDEX(material.id),
+      ),
+    );
 
     if (material.classEventId) {
       promises.push(

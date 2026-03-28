@@ -330,6 +330,7 @@ CREATE TABLE material (
   current_version_id BIGINT NULL,
   material_status_id BIGINT NOT NULL,
   display_name VARCHAR(255) NOT NULL,
+  authorized_root_folder_id VARCHAR(128) NULL,
   visible_from DATETIME,
   visible_until DATETIME,
   created_by BIGINT NOT NULL,

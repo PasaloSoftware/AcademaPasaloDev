@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { technicalSettings } from '@config/technical-settings';
 import { AccessEngineService } from '@modules/enrollments/application/access-engine.service';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
@@ -34,6 +36,7 @@ import { DriveAccessScopeService } from '@modules/media-access/application/drive
 import { MaterialVersionHistoryDto } from '@modules/materials/dto/material-version-history.dto';
 import {
   DELETION_REQUEST_STATUS_CODES,
+  MATERIAL_CACHE_KEYS,
   STORAGE_PROVIDER_CODES,
 } from '@modules/materials/domain/material.constants';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
@@ -52,6 +55,7 @@ export class MaterialsReadService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
+    private readonly cacheService: RedisCacheService,
     private readonly accessEngine: AccessEngineService,
     private readonly folderRepository: MaterialFolderRepository,
     private readonly materialRepository: MaterialRepository,
@@ -126,43 +130,14 @@ export class MaterialsReadService {
       resource.storageProvider === STORAGE_PROVIDER_CODES.GDRIVE;
     const driveFileId = isDriveResource ? resource.storageKey : null;
     if (isDriveResource && driveFileId) {
-      const evaluationTypeCode =
-        this.getEvaluationTypeCodeFromLoadedContext(material) ||
-        (await this.getEvaluationTypeCode(folder.evaluationId));
-      const isBankEvaluation =
-        evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS;
-
-      let isInExpectedFolder = false;
-      if (isBankEvaluation) {
-        const bankDocumentsFolderId =
-          await this.resolveBankDocumentsFolderIdForEvaluationCached({
-            evaluationId: folder.evaluationId,
-            material,
-          });
-        if (!bankDocumentsFolderId) {
-          throw new ForbiddenException(
-            'El scope Drive del banco de enunciados no esta provisionado',
-          );
-        }
-        isInExpectedFolder = await this.storageService.isDriveFileInFolderTree(
+      const expectedRootFolderId =
+        await this.resolveExpectedAuthorizedRootFolderId(folder, material);
+      const isInExpectedFolder =
+        await this.isDriveFileInFolderTreeCached(
+          material.id,
           driveFileId,
-          bankDocumentsFolderId,
+          expectedRootFolderId,
         );
-      } else {
-        const scope = await this.driveAccessScopeService.resolveForEvaluation(
-          folder.evaluationId,
-        );
-        const expectedDocumentsFolderId = scope.persisted?.driveDocumentsFolderId;
-        if (!expectedDocumentsFolderId) {
-          throw new ForbiddenException(
-            'El scope Drive de la evaluacion no esta provisionado para documentos',
-          );
-        }
-        isInExpectedFolder = await this.storageService.isDriveFileInFolderTree(
-          driveFileId,
-          expectedDocumentsFolderId,
-        );
-      }
       if (!isInExpectedFolder) {
         throw new ForbiddenException(
           'El documento no pertenece al scope Drive autorizado para esta evaluacion',
@@ -193,6 +168,38 @@ export class MaterialsReadService {
       mimeType: resource.mimeType,
       storageProvider: resource.storageProvider,
     };
+  }
+
+  private async isDriveFileInFolderTreeCached(
+    materialId: string,
+    driveFileId: string,
+    rootFolderId: string,
+  ): Promise<boolean> {
+    const cacheKey = MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION(
+      materialId,
+      driveFileId,
+      rootFolderId,
+    );
+    const cachedResult = await this.cacheService.get<boolean>(cacheKey);
+    if (cachedResult === true) {
+      return true;
+    }
+
+    const isInExpectedFolder = await this.storageService.isDriveFileInFolderTree(
+      driveFileId,
+      rootFolderId,
+    );
+    if (isInExpectedFolder) {
+      const ttlSeconds =
+        technicalSettings.cache.materials.driveScopeValidationCacheTtlSeconds;
+      await this.cacheService.set(cacheKey, true, ttlSeconds);
+      await this.cacheService.addToIndex(
+        MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION_INDEX(materialId),
+        cacheKey,
+        ttlSeconds,
+      );
+    }
+    return isInExpectedFolder;
   }
 
   async getMaterialLastModified(
@@ -397,6 +404,51 @@ export class MaterialsReadService {
       expiresAt: now + MaterialsReadService.BANK_FOLDER_CACHE_TTL_MS,
     });
     return folderId;
+  }
+
+  private async resolveExpectedAuthorizedRootFolderId(
+    folder: MaterialFolder,
+    material: Material,
+  ): Promise<string> {
+    const persistedRootFolderId = String(
+      material.authorizedRootFolderId || '',
+    ).trim();
+    if (persistedRootFolderId) {
+      return persistedRootFolderId;
+    }
+
+    const evaluationTypeCode =
+      this.getEvaluationTypeCodeFromLoadedContext(material) ||
+      (await this.getEvaluationTypeCode(folder.evaluationId));
+    const isBankEvaluation =
+      evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS;
+
+    if (isBankEvaluation) {
+      const bankDocumentsFolderId =
+        await this.resolveBankDocumentsFolderIdForEvaluationCached({
+          evaluationId: folder.evaluationId,
+          material,
+        });
+      if (!bankDocumentsFolderId) {
+        throw new ForbiddenException(
+          'El scope Drive del banco de enunciados no esta provisionado',
+        );
+      }
+      return bankDocumentsFolderId;
+    }
+
+    const scope = await this.driveAccessScopeService.resolveForEvaluation(
+      folder.evaluationId,
+    );
+    const expectedDocumentsFolderId = String(
+      scope.persisted?.driveDocumentsFolderId || '',
+    ).trim();
+    if (!expectedDocumentsFolderId) {
+      throw new ForbiddenException(
+        'El scope Drive de la evaluacion no esta provisionado para documentos',
+      );
+    }
+    return expectedDocumentsFolderId;
   }
 
   private async checkAuthorizedAccess(

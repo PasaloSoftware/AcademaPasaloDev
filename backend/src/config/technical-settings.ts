@@ -155,6 +155,8 @@ export const technicalSettings = {
     materials: {
       // src/modules/materials/application/materials.service.ts
       materialsExplorerCacheTtlSeconds: 300, // 5m
+      // src/modules/materials/application/materials-read.service.ts
+      driveScopeValidationCacheTtlSeconds: 300, // 5m
     },
 
     notifications: {

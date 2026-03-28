@@ -40,9 +40,13 @@ import {
   MATERIAL_STATUS_CODES,
   STORAGE_PROVIDER_CODES,
 } from '@modules/materials/domain/material.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
 import { AuthorizedMediaLinkDto } from '@modules/media-access/dto/authorized-media-link.dto';
-import { MEDIA_DOCUMENT_LINK_MODES } from '@modules/media-access/domain/media-access.constants';
+import {
+  MEDIA_ACCESS_DRIVE_FOLDERS,
+  MEDIA_DOCUMENT_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
 import type { MediaDocumentLinkMode } from '@modules/media-access/domain/media-access.constants';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
 import { MaterialVersionHistoryDto } from '@modules/materials/dto/material-version-history.dto';
@@ -149,6 +153,9 @@ export class MaterialsService {
     const now = new Date();
     const documentsFolderId = this.storageService.isGoogleDriveStorageEnabled()
       ? await this.resolveDocumentsFolderIdForEvaluation(folder.evaluationId)
+      : null;
+    const authorizedRootFolderId = this.storageService.isGoogleDriveStorageEnabled()
+      ? await this.resolveAuthorizedRootFolderIdForEvaluation(folder.evaluationId)
       : null;
     let savedResource: {
       storageProvider: (typeof STORAGE_PROVIDER_CODES)[keyof typeof STORAGE_PROVIDER_CODES];
@@ -287,6 +294,7 @@ export class MaterialsService {
           fileVersionId: null,
           materialStatusId: activeStatus.id,
           displayName: dto.displayName,
+          authorizedRootFolderId,
           visibleFrom,
           visibleUntil,
           createdById: user.id,
@@ -651,6 +659,7 @@ export class MaterialsService {
         result.materialFolderId,
         result.classEventId,
       );
+      await this.invalidateMaterialDriveScopeValidationCache(result.id);
 
       if (result.classEventId) {
         void this.notificationsDispatchService.dispatchMaterialUpdated(
@@ -852,6 +861,7 @@ export class MaterialsService {
       result.materialFolderId,
       result.classEventId,
     );
+    await this.invalidateMaterialDriveScopeValidationCache(result.id);
     if (result.classEventId) {
       void this.notificationsDispatchService.dispatchMaterialUpdated(
         result.id,
@@ -1076,6 +1086,68 @@ export class MaterialsService {
     return documentsFolderId;
   }
 
+  private async resolveAuthorizedRootFolderIdForEvaluation(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const evaluationTypeCode = await this.getEvaluationTypeCode(evaluationId);
+
+    if (evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS) {
+      return await this.resolveBankDocumentsFolderIdForEvaluation(evaluationId);
+    }
+
+    return await this.resolveDocumentsFolderIdForEvaluation(evaluationId);
+  }
+
+  private async resolveBankDocumentsFolderIdForEvaluation(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const rows = await this.dataSource.query<
+      Array<{
+        courseCycleId: string;
+        courseCode: string;
+        cycleCode: string;
+      }>
+    >(
+      `
+      SELECT
+        cc.id AS courseCycleId,
+        c.code AS courseCode,
+        ac.code AS cycleCode
+      FROM evaluation e
+      INNER JOIN course_cycle cc ON cc.id = e.course_cycle_id
+      INNER JOIN course c ON c.id = cc.course_id
+      INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+      WHERE e.id = ?
+      LIMIT 1
+      `,
+      [evaluationId],
+    );
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+    return await this.storageService.resolveDriveFolderIdByPath([
+      MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+      String(row.cycleCode || '').trim(),
+      `cc_${String(row.courseCycleId || '').trim()}_${String(row.courseCode || '').trim()}`,
+      'bank_documents',
+    ]);
+  }
+
+  private async getEvaluationTypeCode(evaluationId: string): Promise<string> {
+    const rows = await this.dataSource.query<Array<{ evaluationTypeCode: string }>>(
+      `
+      SELECT UPPER(TRIM(et.code)) AS evaluationTypeCode
+      FROM evaluation e
+      INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+      WHERE e.id = ?
+      LIMIT 1
+      `,
+      [evaluationId],
+    );
+    return String(rows[0]?.evaluationTypeCode || '').trim().toUpperCase();
+  }
+
   private async invalidateFolderCache(folderId: string) {
     await this.cacheService.del(MATERIAL_CACHE_KEYS.CONTENTS(folderId));
   }
@@ -1099,6 +1171,14 @@ export class MaterialsService {
     }
 
     await Promise.all(operations);
+  }
+
+  private async invalidateMaterialDriveScopeValidationCache(
+    materialId: string,
+  ): Promise<void> {
+    await this.cacheService.invalidateIndex(
+      MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION_INDEX(materialId),
+    );
   }
 
   private async createNextMaterialVersion(

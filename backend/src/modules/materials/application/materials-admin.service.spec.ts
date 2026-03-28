@@ -69,7 +69,10 @@ describe('MaterialsAdminService', () => {
         },
         {
           provide: RedisCacheService,
-          useValue: { del: jest.fn() },
+          useValue: {
+            del: jest.fn(),
+            invalidateIndex: jest.fn(),
+          },
         },
         {
           provide: NotificationsDispatchService,

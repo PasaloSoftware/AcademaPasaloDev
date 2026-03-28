@@ -1969,6 +1969,17 @@ WHERE mf.evaluation_id = 120 AND root.name = 'Material adicional' AND mf.name = 
       AND mx.file_resource_id = fr.id
       AND mx.class_event_id IS NULL
   );
+
+-- Backfill de authorized_root_folder_id para materiales de evaluaciones
+UPDATE material m
+INNER JOIN material_folder mf
+  ON mf.id = m.material_folder_id
+INNER JOIN evaluation_drive_access eda
+  ON eda.evaluation_id = mf.evaluation_id
+SET m.authorized_root_folder_id = eda.drive_documents_folder_id
+WHERE m.authorized_root_folder_id IS NULL
+  AND m.id > 0
+  AND eda.drive_documents_folder_id IS NOT NULL;
 INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT mf.id, NULL, fr.id, NULL, @material_status_active, 'Fconstancia.doc', NULL, NULL, 1, NOW(), NOW()
 FROM material_folder mf
