@@ -58,4 +58,43 @@ export class DeletionRequestRepository {
       },
     });
   }
+
+  async existsPendingByMaterialId(
+    materialId: string,
+    pendingStatusId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const pending = await this.findPendingByMaterialId(
+      materialId,
+      pendingStatusId,
+      manager,
+    );
+    return !!pending;
+  }
+
+  async findPendingMaterialIds(
+    materialIds: string[],
+    pendingStatusId: string,
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    if (materialIds.length === 0) {
+      return [];
+    }
+
+    const repo = manager
+      ? manager.getRepository(DeletionRequest)
+      : this.ormRepository;
+
+    const rows = await repo
+      .createQueryBuilder('dr')
+      .select('dr.entityId', 'entityId')
+      .where('dr.entityType = :entityType', { entityType: 'material' })
+      .andWhere('dr.deletionRequestStatusId = :pendingStatusId', {
+        pendingStatusId,
+      })
+      .andWhere('dr.entityId IN (:...materialIds)', { materialIds })
+      .getRawMany<{ entityId: string }>();
+
+    return rows.map((row) => String(row.entityId));
+  }
 }

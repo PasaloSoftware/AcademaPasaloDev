@@ -263,30 +263,30 @@ BEGIN
             WHEN c_code = 'QUI101'  THEN 3
             ELSE 4 END;
 
-        -- Sesión 1: Semana 1, Día asignado, 18:00 - 20:00 (Noche)
+        -- Clase 1: Semana 1, Día asignado, 18:00 - 20:00 (Noche)
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 1, CONCAT('Sesión 1 - ', e_type, e_num), 'Introducción', 
+        VALUES (eval_id, 1, CONCAT('Clase 1 - ', e_type, e_num), 'Introducción', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 23 HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 25 HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
-        -- Sesión 2: Semana 1, Sábado, Bloque Rotativo desde 08:00 AM
+        -- Clase 2: Semana 1, Sábado, Bloque Rotativo desde 08:00 AM
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 2, CONCAT('Sesión 2 - ', e_type, e_num), 'Ejercicios', 
+        VALUES (eval_id, 2, CONCAT('Clase 2 - ', e_type, e_num), 'Ejercicios', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (13 + day_offset * 2) HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (15 + day_offset * 2) HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
-        -- Sesión 3: Semana 2, Día asignado, 19:00 - 21:00 (Noche)
+        -- Clase 3: Semana 2, Día asignado, 19:00 - 21:00 (Noche)
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 3, CONCAT('Sesión 3 - ', e_type, e_num), 'Avanzado', 
+        VALUES (eval_id, 3, CONCAT('Clase 3 - ', e_type, e_num), 'Avanzado', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 24 HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 26 HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
-        -- Sesión 4: Semana 2, Domingo, Bloque Rotativo desde 09:00 AM
+        -- Clase 4: Semana 2, Domingo, Bloque Rotativo desde 09:00 AM
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 4, CONCAT('Sesión 4 - ', e_type, e_num), 'Repaso', 
+        VALUES (eval_id, 4, CONCAT('Clase 4 - ', e_type, e_num), 'Repaso', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (14 + day_offset * 2) HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (16 + day_offset * 2) HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());

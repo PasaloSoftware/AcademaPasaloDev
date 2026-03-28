@@ -72,6 +72,15 @@ export class MaterialRepository {
       relations: {
         fileResource: true,
         fileVersion: true,
+        materialFolder: {
+          evaluation: {
+            evaluationType: true,
+            courseCycle: {
+              course: true,
+              academicCycle: true,
+            },
+          },
+        },
       },
     });
   }
@@ -172,6 +181,7 @@ export class MaterialRepository {
     folderIds: string[],
     materialStatusId: string,
     visibleAt?: Date,
+    pendingDeletionStatusId?: string,
   ): Promise<Record<string, number>> {
     if (folderIds.length === 0) {
       return {};
@@ -190,6 +200,22 @@ export class MaterialRepository {
       }).andWhere('(m.visibleUntil IS NULL OR m.visibleUntil >= :visibleAt)', {
         visibleAt,
       });
+    }
+
+    if (pendingDeletionStatusId) {
+      qb.andWhere(
+        `NOT EXISTS (
+          SELECT 1
+          FROM deletion_request dr
+          WHERE dr.entity_type = :materialEntityType
+            AND dr.entity_id = m.id
+            AND dr.deletion_request_status_id = :pendingDeletionStatusId
+        )`,
+        {
+          materialEntityType: 'material',
+          pendingDeletionStatusId,
+        },
+      );
     }
 
     const rows = await qb.groupBy('m.materialFolderId').getRawMany<{

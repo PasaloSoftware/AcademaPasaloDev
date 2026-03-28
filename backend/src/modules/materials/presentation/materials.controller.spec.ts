@@ -13,6 +13,7 @@ const mockMaterialsService = {
   getFolderContents: jest.fn(),
   getClassEventMaterials: jest.fn(),
   addVersion: jest.fn(),
+  updateMaterialDisplayName: jest.fn(),
   download: jest.fn(),
   getAuthorizedDocumentLink: jest.fn(),
   getMaterialLastModified: jest.fn(),
@@ -86,6 +87,17 @@ describe('MaterialsController RBAC Security', () => {
         materialsController.requestDeletion,
       );
       expect(roles).toContain(ROLE_CODES.PROFESSOR);
+      expect(roles).not.toContain(ROLE_CODES.STUDENT);
+    });
+
+    it('endpoint "updateDisplayName" should restrict access to ADMIN, PROFESSOR, SUPER_ADMIN', () => {
+      const roles = Reflect.getMetadata(
+        'roles',
+        materialsController.updateDisplayName,
+      );
+      expect(roles).toContain(ROLE_CODES.PROFESSOR);
+      expect(roles).toContain(ROLE_CODES.ADMIN);
+      expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
       expect(roles).not.toContain(ROLE_CODES.STUDENT);
     });
 

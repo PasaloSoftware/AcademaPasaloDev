@@ -310,6 +310,21 @@ describe('E2E: Materials Admin Full Flow', () => {
     expect(mat.materialStatus.code).toBe('ARCHIVED');
   });
 
+  it('archived material should not appear in professor folder listing after approval', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/materials/folders/${folderId}`)
+      .set('Authorization', `Bearer ${professor.token}`)
+      .expect(200);
+
+    const materialIds = (
+      res.body as GenericDataResponse<{
+        materials: Array<{ id: string }>;
+      }>
+    ).data.materials.map((item) => item.id);
+
+    expect(materialIds).not.toContain(materialToDeleteId);
+  });
+
   it('second review of same request should fail', async () => {
     await request(app.getHttpServer())
       .post(`/api/v1/admin/materials/requests/${requestIdToApprove}/review`)

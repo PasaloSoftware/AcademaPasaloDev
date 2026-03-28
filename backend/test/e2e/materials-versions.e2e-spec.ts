@@ -42,6 +42,7 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
   let superAdmin: { user: User; token: string };
 
   let folderId: string;
+  let secondEvaluationFolderId: string;
   let materialId: string;
   let originalFileResourceId: string;
   let restorableMaterialId: string;
@@ -139,6 +140,13 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
       formatDate(now),
       formatDate(nextMonth),
     );
+    const secondEvaluation = await seeder.createEvaluation(
+      courseCycle.id,
+      'EX',
+      1,
+      formatDate(now),
+      formatDate(nextMonth),
+    );
 
     professor = await seeder.createAuthenticatedUser(
       TestSeeder.generateUniqueEmail('prof_ver'),
@@ -170,6 +178,20 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
 
     const folderBody = folderRes.body as GenericDataResponse<{ id: string }>;
     folderId = folderBody.data.id;
+
+    const secondFolderRes = await request(app.getHttpServer())
+      .post('/api/v1/materials/folders')
+      .set('Authorization', `Bearer ${professor.token}`)
+      .send({
+        evaluationId: secondEvaluation.id,
+        name: 'Root Versioning EX',
+        visibleFrom: new Date().toISOString(),
+      })
+      .expect(201);
+    const secondFolderBody = secondFolderRes.body as GenericDataResponse<{
+      id: string;
+    }>;
+    secondEvaluationFolderId = secondFolderBody.data.id;
   });
 
   afterAll(async () => {
@@ -202,6 +224,17 @@ describe('E2E: Materials Full Flows (Dedup + Versions + Integrity)', () => {
         .field('materialFolderId', folderId)
         .field('displayName', 'Copy')
         .expect(409);
+    });
+
+    it('allows same binary in a different evaluation', async () => {
+      const buffer = Buffer.from('%PDF-1.4 duplicate');
+      await request(app.getHttpServer())
+        .post('/api/v1/materials')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .attach('file', buffer, 'same-binary-other-eval.pdf')
+        .field('materialFolderId', secondEvaluationFolderId)
+        .field('displayName', 'Copy other evaluation')
+        .expect(201);
     });
   });
 

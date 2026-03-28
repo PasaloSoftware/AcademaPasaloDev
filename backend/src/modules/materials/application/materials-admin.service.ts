@@ -272,6 +272,9 @@ export class MaterialsAdminService {
       }
 
       reviewedEntityId = lockedRequest.entityId;
+      materialToInvalidate = await this.materialRepository.findById(
+        lockedRequest.entityId,
+      );
 
       if (dto.action === DeletionReviewAction.APPROVE) {
         materialToInvalidate = await this.handleApproval(

@@ -637,7 +637,11 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           })
           .expect(200);
 
-        const updatedJob = await notificationsQueue.getJob(originalJobId);
+        let updatedJob = await notificationsQueue.getJob(originalJobId);
+        for (let attempt = 0; !updatedJob && attempt < 20; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          updatedJob = await notificationsQueue.getJob(originalJobId);
+        }
         expect(updatedJob).toBeDefined();
         expect(updatedJob?.id).toBe(originalJobId);
         expect(Number(updatedJob?.timestamp ?? 0)).toBeGreaterThanOrEqual(

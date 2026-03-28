@@ -899,6 +899,67 @@ export class MaterialsService {
 
     await this.assertCanManageEvaluation(user, folder.evaluationId);
     await this.materialsDeletionService.requestDeletion(user.id, dto);
+    await this.invalidateMaterialContextCaches(
+      material.materialFolderId,
+      material.classEventId,
+    );
+  }
+
+  async updateMaterialDisplayName(
+    user: UserWithSession,
+    materialId: string,
+    displayName: string,
+  ): Promise<Material> {
+    const trimmedDisplayName = String(displayName || '').trim();
+    if (!trimmedDisplayName) {
+      throw new BadRequestException('El nombre del material es obligatorio');
+    }
+
+    const material = await this.materialRepository.findById(materialId);
+    if (!material) {
+      throw new NotFoundException('Material no encontrado');
+    }
+
+    const folder = await this.folderRepository.findById(material.materialFolderId);
+    if (!folder) {
+      throw new InternalServerErrorException(
+        'Integridad de datos corrupta: Material sin carpeta contenedora',
+      );
+    }
+
+    await this.assertCanManageEvaluation(user, folder.evaluationId);
+
+    await this.dataSource.transaction(async (manager) => {
+      const lockedMaterial = await manager.findOne(Material, {
+        where: { id: materialId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedMaterial) {
+        throw new NotFoundException('Material no encontrado');
+      }
+
+      lockedMaterial.displayName = trimmedDisplayName;
+      lockedMaterial.updatedAt = new Date();
+      await manager.save(lockedMaterial);
+    });
+
+    await this.invalidateMaterialContextCaches(
+      material.materialFolderId,
+      material.classEventId,
+    );
+    if (material.classEventId) {
+      void this.notificationsDispatchService.dispatchMaterialUpdated(
+        material.id,
+        material.materialFolderId,
+      );
+    }
+
+    const updatedMaterial = await this.materialRepository.findById(materialId);
+    if (!updatedMaterial) {
+      throw new NotFoundException('Material no encontrado');
+    }
+
+    return updatedMaterial;
   }
 
   private parseVisibilityRange(

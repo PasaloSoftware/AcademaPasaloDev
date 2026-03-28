@@ -230,6 +230,12 @@ describe('MaterialsAdminService', () => {
         'FILE_EDIT',
         expect.anything(),
       );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        'cache:materials:contents:folder:folder-1',
+      );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        'cache:materials:class-event:event-1',
+      );
     });
   });
 

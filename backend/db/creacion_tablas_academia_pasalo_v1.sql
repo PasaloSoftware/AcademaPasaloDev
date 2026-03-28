@@ -547,7 +547,7 @@ ON material(material_folder_id, material_status_id);
 CREATE INDEX idx_material_visibility
 ON material(visible_from, visible_until);
 
-CREATE UNIQUE INDEX uq_file_resource_dedup
+CREATE INDEX idx_file_resource_hash_size
 ON file_resource(checksum_hash, size_bytes);
 
 CREATE UNIQUE INDEX uq_file_resource_provider_key
