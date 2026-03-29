@@ -41,6 +41,11 @@ import {
   AdminUserOnboardingResponseDto,
   AdminStudentEnrollmentInputDto,
 } from '@modules/users/dto/admin-user-onboarding.dto';
+import {
+  AdminEditPersonalInfoDto,
+  AdminUserEditDto,
+  AdminUserEditResponseDto,
+} from '@modules/users/dto/admin-user-edit.dto';
 import { IdentitySecurityService } from '@modules/users/application/identity-security.service';
 import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security.constants';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
@@ -57,6 +62,7 @@ import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
 import { ADMIN_ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { AUDIT_ACTION_CODES } from '@modules/audit/interfaces/audit.constants';
 import { USER_CACHE_KEYS } from '@modules/users/domain/user.constants';
 import {
   ENROLLMENT_STATUS_CODES,
@@ -343,6 +349,323 @@ export class UsersService {
     };
   }
 
+  async adminEdit(
+    userId: string,
+    dto: AdminUserEditDto,
+    performedByUserId: string,
+  ): Promise<AdminUserEditResponseDto> {
+    const finalRoleCodes = this.normalizeAdminOnboardingRoleCodes(
+      dto.roleCodesFinal,
+    );
+    const finalEnrollments = this.normalizeAdminEditFinalEnrollments(
+      dto.studentStateFinal?.enrollments || [],
+    );
+    const finalProfessorCourseCycleIds = this.normalizeAdminEditProfessorCycles(
+      dto.professorStateFinal?.courseCycleIds || [],
+    );
+
+    if (
+      !finalRoleCodes.includes(ROLE_CODES.STUDENT) &&
+      finalEnrollments.length > 0
+    ) {
+      throw new ConflictException(
+        'No se puede quitar rol STUDENT mientras existan matriculas activas en el estado final.',
+      );
+    }
+
+    if (
+      !finalRoleCodes.includes(ROLE_CODES.PROFESSOR) &&
+      finalProfessorCourseCycleIds.length > 0
+    ) {
+      throw new ConflictException(
+        'No se puede quitar rol PROFESSOR mientras existan cursos a cargo en el estado final.',
+      );
+    }
+
+    const transactionResult = await this.dataSource.transaction(
+      async (manager) => {
+        const user = await this.userRepository.findById(userId, manager);
+        if (!user) {
+          throw new NotFoundException('Usuario no encontrado');
+        }
+        await manager.query('SELECT id FROM `user` WHERE id = ? FOR UPDATE', [
+          userId,
+        ]);
+
+        const previousRoleCodes = Array.from(
+          new Set(
+            (user.roles || [])
+              .map((role) => String(role.code || '').trim().toUpperCase())
+              .filter((code) => code.length > 0),
+          ),
+        );
+        const previousEmail = String(user.email || '').trim().toLowerCase();
+
+        await this.applyPersonalInfoUpdatesForAdminEdit({
+          user,
+          personalInfo: dto.personalInfo,
+          manager,
+        });
+
+        const roleEntities = await manager.getRepository(Role).find({
+          where: { code: In(finalRoleCodes) },
+        });
+        const roleMap = new Map(roleEntities.map((role) => [role.code, role]));
+        const missingRoles = finalRoleCodes.filter((code) => !roleMap.has(code));
+        if (missingRoles.length > 0) {
+          throw new BadRequestException(
+            `Roles no validos: ${missingRoles.join(', ')}`,
+          );
+        }
+        user.roles = finalRoleCodes.map((code) => roleMap.get(code)!);
+        user.lastActiveRoleId = user.roles[0]?.id ?? null;
+        user.updatedAt = new Date();
+        await this.userRepository.save(user, manager);
+        const nextEmail = String(user.email || '').trim().toLowerCase();
+
+        const [beforeEvaluationIds, beforeCourseCycleIds] = await Promise.all([
+          this.listMediaAccessEvaluationIdsForUser(userId, manager),
+          this.listMediaAccessCourseCycleIdsForUser(userId, manager),
+        ]);
+
+        const enrollmentChanges =
+          await this.reconcileStudentEnrollmentsForAdminEdit({
+            userId,
+            finalRoleCodes,
+            finalEnrollments,
+            manager,
+          });
+
+        const currentProfessorCourseCycleRows = await manager.query<
+          Array<{ courseCycleId: string }>
+        >(
+          `
+            SELECT ccp.course_cycle_id AS courseCycleId
+            FROM course_cycle_professor ccp
+            WHERE ccp.professor_user_id = ?
+              AND ccp.revoked_at IS NULL
+          `,
+          [userId],
+        );
+        const currentProfessorCourseCycleIds = Array.from(
+          new Set(
+            currentProfessorCourseCycleRows
+              .map((row) => String(row.courseCycleId || '').trim())
+              .filter((id) => id.length > 0),
+          ),
+        );
+
+        if (finalProfessorCourseCycleIds.length > 0) {
+          const existingCycles = await manager.getRepository(CourseCycle).find({
+            where: { id: In(finalProfessorCourseCycleIds) },
+            select: ['id'],
+          });
+          if (existingCycles.length !== finalProfessorCourseCycleIds.length) {
+            throw new BadRequestException(
+              'Uno o mas ciclos de curso para asignacion de profesor no son validos.',
+            );
+          }
+        }
+
+        const desiredProfessorSet = new Set(
+          finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
+            ? finalProfessorCourseCycleIds
+            : [],
+        );
+        const currentProfessorSet = new Set(currentProfessorCourseCycleIds);
+
+        const removedProfessorCourseCycleIds = currentProfessorCourseCycleIds.filter(
+          (id) => !desiredProfessorSet.has(id),
+        );
+        const addedProfessorCourseCycleIds = (
+          finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
+            ? finalProfessorCourseCycleIds
+            : []
+        ).filter((id) => !currentProfessorSet.has(id));
+
+        if (removedProfessorCourseCycleIds.length > 0) {
+          await manager
+            .createQueryBuilder()
+            .update(CourseCycleProfessor)
+            .set({ revokedAt: new Date() })
+            .where('professor_user_id = :userId', { userId })
+            .andWhere('revoked_at IS NULL')
+            .andWhere('course_cycle_id IN (:...ids)', {
+              ids: removedProfessorCourseCycleIds,
+            })
+            .execute();
+        }
+
+        const now = new Date();
+        for (const courseCycleId of addedProfessorCourseCycleIds) {
+          await manager.getRepository(CourseCycleProfessor).upsert(
+            {
+              courseCycleId,
+              professorUserId: userId,
+              assignedAt: now,
+              revokedAt: null,
+            },
+            ['courseCycleId', 'professorUserId'],
+          );
+        }
+
+        const eventProfessorChanges =
+          await this.syncClassEventProfessorAssignmentsForAdminEdit({
+            userId,
+            removedCourseCycleIds: removedProfessorCourseCycleIds,
+            addedCourseCycleIds: addedProfessorCourseCycleIds,
+            manager,
+          });
+
+        await this.identitySecurityService.invalidateUserIdentity(userId, {
+          revokeSessions: false,
+          reason: IDENTITY_INVALIDATION_REASONS.PROFILE_UPDATE,
+          manager,
+        });
+
+        const [afterEvaluationIds, afterCourseCycleIds] = await Promise.all([
+          this.listMediaAccessEvaluationIdsForUser(userId, manager),
+          this.listMediaAccessCourseCycleIdsForUser(userId, manager),
+        ]);
+
+        const evaluationGrantIds = afterEvaluationIds.filter(
+          (id) => !beforeEvaluationIds.includes(id),
+        );
+        const evaluationRevokeIds = beforeEvaluationIds.filter(
+          (id) => !afterEvaluationIds.includes(id),
+        );
+        const courseCycleGrantIds = afterCourseCycleIds.filter(
+          (id) => !beforeCourseCycleIds.includes(id),
+        );
+        const courseCycleRevokeIds = beforeCourseCycleIds.filter(
+          (id) => !afterCourseCycleIds.includes(id),
+        );
+
+        await this.logAuditActionWithManager(
+          performedByUserId,
+          AUDIT_ACTION_CODES.USER_ADMIN_EDIT,
+          manager,
+        );
+
+        return {
+          userId,
+          previousRoleCodes,
+          finalRoleCodes,
+          cancelledEnrollmentIds: enrollmentChanges.cancelledEnrollmentIds,
+          createdEnrollmentIds: enrollmentChanges.createdEnrollmentIds,
+          baseCourseCycleIdsFinal: finalEnrollments.map(
+            (enrollment) => enrollment.courseCycleId,
+          ),
+          removedProfessorCourseCycleIds,
+          addedProfessorCourseCycleIds,
+          eventProfessorChanges,
+          evaluationGrantIds,
+          evaluationRevokeIds,
+          courseCycleGrantIds,
+          courseCycleRevokeIds,
+          shouldEnqueueStaffSyncOnEmailChange:
+            previousEmail !== nextEmail &&
+            finalRoleCodes.some((code) =>
+              this.shouldTriggerStaffReconciliationForRoleCode(code),
+            ),
+        };
+      },
+    );
+
+    if (transactionResult.evaluationGrantIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueGrantForUserEvaluations(
+        userId,
+        transactionResult.evaluationGrantIds,
+        MEDIA_ACCESS_SYNC_SOURCES.USER_STATUS_CHANGE,
+      );
+    }
+    if (transactionResult.evaluationRevokeIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserEvaluations(
+        userId,
+        transactionResult.evaluationRevokeIds,
+        MEDIA_ACCESS_SYNC_SOURCES.USER_STATUS_CHANGE,
+      );
+    }
+    if (transactionResult.courseCycleGrantIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
+        userId,
+        transactionResult.courseCycleGrantIds,
+        MEDIA_ACCESS_SYNC_SOURCES.USER_STATUS_CHANGE,
+      );
+    }
+    if (transactionResult.courseCycleRevokeIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
+        userId,
+        transactionResult.courseCycleRevokeIds,
+        MEDIA_ACCESS_SYNC_SOURCES.USER_STATUS_CHANGE,
+      );
+    }
+
+    await this.invalidateAdminUsersBaseCache();
+
+    const changedRoleCodes = transactionResult.previousRoleCodes.filter(
+      (code) => !transactionResult.finalRoleCodes.includes(code),
+    );
+    const addedRoleCodes = transactionResult.finalRoleCodes.filter(
+      (code) => !transactionResult.previousRoleCodes.includes(code),
+    );
+
+    const addedAdminRole = addedRoleCodes.find((code) =>
+      this.shouldTriggerStaffReconciliationForRoleCode(code),
+    );
+    if (addedAdminRole) {
+      await this.enqueueImmediateStaffReconciliationIfNeeded({
+        userId,
+        roleCode: addedAdminRole,
+        event: 'ASSIGN_ROLE',
+        shouldEnqueue: true,
+      });
+    }
+
+    const removedAdminRole = changedRoleCodes.find((code) =>
+      this.shouldTriggerStaffReconciliationForRoleCode(code),
+    );
+    if (removedAdminRole) {
+      await this.enqueueImmediateStaffReconciliationIfNeeded({
+        userId,
+        roleCode: removedAdminRole,
+        event: 'REMOVE_ROLE',
+        shouldEnqueue: true,
+      });
+    }
+
+    if (
+      transactionResult.shouldEnqueueStaffSyncOnEmailChange &&
+      !addedAdminRole &&
+      !removedAdminRole
+    ) {
+      await this.enqueueImmediateStaffReconciliationIfNeeded({
+        userId,
+        roleCode: 'EMAIL_CHANGE',
+        event: 'ASSIGN_ROLE',
+        shouldEnqueue: true,
+      });
+    }
+
+    return {
+      userId,
+      rolesFinal: transactionResult.finalRoleCodes,
+      enrollmentsChanged: {
+        cancelledEnrollmentIds: transactionResult.cancelledEnrollmentIds,
+        createdEnrollmentIds: transactionResult.createdEnrollmentIds,
+        baseCourseCycleIdsFinal: transactionResult.baseCourseCycleIdsFinal,
+      },
+      professorCourseCyclesChanged: {
+        added: transactionResult.addedProfessorCourseCycleIds,
+        removed: transactionResult.removedProfessorCourseCycleIds,
+      },
+      eventProfessorAssignmentsChanged: {
+        assignedCount: transactionResult.eventProfessorChanges.assignedCount,
+        revokedCount: transactionResult.eventProfessorChanges.revokedCount,
+      },
+    };
+  }
+
   async findAll(): Promise<User[]> {
     return await this.userRepository.findAll();
   }
@@ -565,6 +888,10 @@ export class UsersService {
           throw new NotFoundException('Usuario no encontrado');
         }
         const previousIsActive = Boolean(user.isActive);
+        const previousEmail = String(user.email || '').trim().toLowerCase();
+        const userHasAdminRole = (user.roles || []).some((role) =>
+          this.shouldTriggerStaffReconciliationForRoleCode(role.code),
+        );
 
         const shouldInvalidateIdentity = this.shouldInvalidateIdentityOnUpdate(
           user,
@@ -620,18 +947,30 @@ export class UsersService {
           updatedUser,
           previousIsActive,
           nextIsActive: Boolean(updatedUser.isActive),
+          shouldEnqueueStaffSyncOnEmailChange:
+            userHasAdminRole &&
+            previousEmail !==
+              String(updatedUser.email || '')
+                .trim()
+                .toLowerCase(),
         };
       },
     );
 
-    if (transactionResult.previousIsActive !== transactionResult.nextIsActive) {
+    const statusChanged =
+      transactionResult.previousIsActive !== transactionResult.nextIsActive;
+
+    if (statusChanged) {
       await this.enqueueUserStatusMediaAccessSync({
         userId: id,
         isActive: transactionResult.nextIsActive,
       });
+    }
+
+    if (statusChanged || transactionResult.shouldEnqueueStaffSyncOnEmailChange) {
       await this.enqueueImmediateStaffReconciliationIfNeeded({
         userId: id,
-        roleCode: 'STATUS_CHANGE',
+        roleCode: statusChanged ? 'STATUS_CHANGE' : 'EMAIL_CHANGE',
         event: 'ASSIGN_ROLE',
         shouldEnqueue: true,
       });
@@ -928,10 +1267,44 @@ export class UsersService {
     }
   }
 
+  private async logAuditActionWithManager(
+    actorUserId: string,
+    actionCode: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const normalizedUserId = String(actorUserId || '').trim();
+    const normalizedActionCode = String(actionCode || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedUserId || !normalizedActionCode) {
+      return;
+    }
+
+    const actionRows = await manager.query<Array<{ id: string }>>(
+      `SELECT id FROM audit_action WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
+      [normalizedActionCode],
+    );
+    if (!actionRows[0]?.id) {
+      throw new InternalServerErrorException(
+        'Error de configuracion del sistema.',
+      );
+    }
+
+    await manager.query(
+      `
+        INSERT INTO audit_log (user_id, audit_action_id, event_datetime)
+        VALUES (?, ?, NOW())
+      `,
+      [normalizedUserId, actionRows[0].id],
+    );
+  }
+
   private async listMediaAccessEvaluationIdsForUser(
     userId: string,
+    manager?: EntityManager,
   ): Promise<string[]> {
-    const rows = await this.dataSource.query<Array<{ id: string }>>(
+    const executor = manager ?? this.dataSource;
+    const rows = await executor.query<Array<{ id: string }>>(
       `
         SELECT DISTINCT source.id
         FROM (
@@ -963,8 +1336,10 @@ export class UsersService {
 
   private async listMediaAccessCourseCycleIdsForUser(
     userId: string,
+    manager?: EntityManager,
   ): Promise<string[]> {
-    const rows = await this.dataSource.query<Array<{ id: string }>>(
+    const executor = manager ?? this.dataSource;
+    const rows = await executor.query<Array<{ id: string }>>(
       `
         SELECT DISTINCT source.id
         FROM (
@@ -1091,6 +1466,418 @@ export class UsersService {
     return valid;
   }
 
+  private normalizeAdminEditProfessorCycles(rawIds: string[]): string[] {
+    return Array.from(
+      new Set(
+        (rawIds || [])
+          .map((id) => String(id || '').trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+  }
+
+  private normalizeAdminEditFinalEnrollments(
+    rawEnrollments: AdminStudentEnrollmentInputDto[],
+  ): AdminStudentEnrollmentInputDto[] {
+    const normalized = (rawEnrollments || []).map((item) => ({
+      courseCycleId: String(item?.courseCycleId || '').trim(),
+      enrollmentTypeCode: String(item?.enrollmentTypeCode || '')
+        .trim()
+        .toUpperCase(),
+      evaluationIds: Array.from(
+        new Set(
+          (item?.evaluationIds || [])
+            .map((id) => String(id || '').trim())
+            .filter((id) => id.length > 0),
+        ),
+      ),
+      historicalCourseCycleIds: Array.from(
+        new Set(
+          (item?.historicalCourseCycleIds || [])
+            .map((id) => String(id || '').trim())
+            .filter((id) => id.length > 0),
+        ),
+      ),
+    }));
+
+    const courseCycleIds = normalized.map((item) => item.courseCycleId);
+    const deduped = new Set(courseCycleIds);
+    if (deduped.size !== courseCycleIds.length) {
+      throw new BadRequestException(
+        'No se permite repetir courseCycleId en studentStateFinal.enrollments.',
+      );
+    }
+
+    return normalized;
+  }
+
+  private async applyPersonalInfoUpdatesForAdminEdit(input: {
+    user: User;
+    personalInfo?: AdminEditPersonalInfoDto;
+    manager: EntityManager;
+  }): Promise<void> {
+    const dto = input.personalInfo;
+    if (!dto) {
+      return;
+    }
+
+    if (dto.careerId !== undefined) {
+      await this.ensureCareerExistsIfProvided(dto.careerId ?? undefined);
+      input.user.careerId = dto.careerId ?? null;
+    }
+
+    if (dto.email !== undefined) {
+      const normalizedEmail = String(dto.email || '').trim().toLowerCase();
+      if (normalizedEmail !== input.user.email) {
+        const existing = await this.userRepository.findByEmail(
+          normalizedEmail,
+          input.manager,
+        );
+        if (existing && existing.id !== input.user.id) {
+          throw new ConflictException('El correo electrónico ya está registrado');
+        }
+      }
+      input.user.email = normalizedEmail;
+    }
+    if (dto.firstName !== undefined) input.user.firstName = dto.firstName;
+    if (dto.lastName1 !== undefined) input.user.lastName1 = dto.lastName1;
+    if (dto.lastName2 !== undefined) input.user.lastName2 = dto.lastName2;
+    if (dto.phone !== undefined) input.user.phone = dto.phone;
+    if (dto.profilePhotoUrl !== undefined) {
+      input.user.profilePhotoUrl = dto.profilePhotoUrl;
+    }
+    if (dto.photoSource !== undefined) input.user.photoSource = dto.photoSource;
+  }
+
+  private async reconcileStudentEnrollmentsForAdminEdit(input: {
+    userId: string;
+    finalRoleCodes: string[];
+    finalEnrollments: AdminStudentEnrollmentInputDto[];
+    manager: EntityManager;
+  }): Promise<{ cancelledEnrollmentIds: string[]; createdEnrollmentIds: string[] }> {
+    const shouldKeepStudentState = input.finalRoleCodes.includes(
+      ROLE_CODES.STUDENT,
+    );
+    const desiredEnrollments = shouldKeepStudentState ? input.finalEnrollments : [];
+
+    const currentEnrollmentRows = await input.manager.query<
+      Array<{ id: string; courseCycleId: string; enrollmentTypeCode: string }>
+    >(
+      `
+        SELECT
+          e.id AS id,
+          e.course_cycle_id AS courseCycleId,
+          UPPER(TRIM(et.code)) AS enrollmentTypeCode
+        FROM enrollment e
+        INNER JOIN enrollment_type et ON et.id = e.enrollment_type_id
+        WHERE e.user_id = ?
+          AND e.cancelled_at IS NULL
+        FOR UPDATE
+      `,
+      [input.userId],
+    );
+
+    const currentEnrollmentIds = currentEnrollmentRows
+      .map((row) => String(row.id || '').trim())
+      .filter((id) => id.length > 0);
+    const currentEvaluationRows =
+      currentEnrollmentIds.length > 0
+        ? await input.manager.query<
+            Array<{
+              enrollmentId: string;
+              evaluationId: string;
+              evaluationCourseCycleId: string;
+            }>
+          >(
+            `
+              SELECT
+                ee.enrollment_id AS enrollmentId,
+                ee.evaluation_id AS evaluationId,
+                ev.course_cycle_id AS evaluationCourseCycleId
+              FROM enrollment_evaluation ee
+              INNER JOIN evaluation ev ON ev.id = ee.evaluation_id
+              WHERE ee.enrollment_id IN (${currentEnrollmentIds
+                .map(() => '?')
+                .join(',')})
+                AND ee.revoked_at IS NULL
+            `,
+            currentEnrollmentIds,
+          )
+        : [];
+
+    const currentByCourseCycle = new Map<
+      string,
+      {
+        enrollmentId: string;
+        courseCycleId: string;
+        enrollmentTypeCode: string;
+        grantedEvaluationIds: string[];
+        historicalCourseCycleIds: string[];
+      }
+    >();
+    const evalSetByEnrollment = new Map<string, Set<string>>();
+    const historicalSetByEnrollment = new Map<string, Set<string>>();
+    const baseCycleByEnrollment = new Map<string, string>();
+
+    for (const row of currentEnrollmentRows) {
+      const enrollmentId = String(row.id || '').trim();
+      const courseCycleId = String(row.courseCycleId || '').trim();
+      if (!enrollmentId || !courseCycleId) {
+        continue;
+      }
+      baseCycleByEnrollment.set(enrollmentId, courseCycleId);
+      currentByCourseCycle.set(courseCycleId, {
+        enrollmentId,
+        courseCycleId,
+        enrollmentTypeCode: String(row.enrollmentTypeCode || '')
+          .trim()
+          .toUpperCase(),
+        grantedEvaluationIds: [],
+        historicalCourseCycleIds: [],
+      });
+    }
+
+    for (const row of currentEvaluationRows) {
+      const enrollmentId = String(row.enrollmentId || '').trim();
+      const evaluationId = String(row.evaluationId || '').trim();
+      const evaluationCourseCycleId = String(row.evaluationCourseCycleId || '').trim();
+      if (!enrollmentId || !evaluationId) {
+        continue;
+      }
+      if (!evalSetByEnrollment.has(enrollmentId)) {
+        evalSetByEnrollment.set(enrollmentId, new Set());
+      }
+      evalSetByEnrollment.get(enrollmentId)!.add(evaluationId);
+
+      const baseCourseCycleId = baseCycleByEnrollment.get(enrollmentId);
+      if (
+        baseCourseCycleId &&
+        evaluationCourseCycleId &&
+        evaluationCourseCycleId !== baseCourseCycleId
+      ) {
+        if (!historicalSetByEnrollment.has(enrollmentId)) {
+          historicalSetByEnrollment.set(enrollmentId, new Set());
+        }
+        historicalSetByEnrollment.get(enrollmentId)!.add(evaluationCourseCycleId);
+      }
+    }
+
+    for (const enrollment of currentByCourseCycle.values()) {
+      enrollment.grantedEvaluationIds = Array.from(
+        evalSetByEnrollment.get(enrollment.enrollmentId) || [],
+      ).sort();
+      enrollment.historicalCourseCycleIds = Array.from(
+        historicalSetByEnrollment.get(enrollment.enrollmentId) || [],
+      ).sort();
+    }
+
+    const cancelledEnrollmentIds: string[] = [];
+    const createdEnrollmentIds: string[] = [];
+    const desiredByCourseCycle = new Map(
+      desiredEnrollments.map((payload) => [payload.courseCycleId, payload]),
+    );
+
+    for (const current of currentByCourseCycle.values()) {
+      if (desiredByCourseCycle.has(current.courseCycleId)) {
+        continue;
+      }
+      await input.manager.query(
+        `
+          UPDATE enrollment
+          SET cancelled_at = NOW()
+          WHERE id = ?
+            AND cancelled_at IS NULL
+        `,
+        [current.enrollmentId],
+      );
+      cancelledEnrollmentIds.push(current.enrollmentId);
+    }
+
+    for (const payload of desiredEnrollments) {
+      const current = currentByCourseCycle.get(payload.courseCycleId);
+      if (!current) {
+        const created = await this.createEnrollmentForOnboarding({
+          userId: input.userId,
+          payload,
+          manager: input.manager,
+        });
+        createdEnrollmentIds.push(created.enrollmentId);
+        continue;
+      }
+
+      const desiredPlan = await this.resolveEnrollmentGrantPlanForOnboarding({
+        payload,
+        manager: input.manager,
+      });
+      const shouldReplace = this.shouldReplaceEnrollmentForAdminEdit({
+        current,
+        desiredPlan: {
+          enrollmentTypeCode: desiredPlan.enrollmentTypeCode,
+          grantedEvaluationIds: desiredPlan.grantedEvaluationIds,
+          historicalCourseCycleIds: desiredPlan.historicalCourseCycleIds,
+        },
+      });
+      if (!shouldReplace) {
+        continue;
+      }
+
+      await input.manager.query(
+        `
+          UPDATE enrollment
+          SET cancelled_at = NOW()
+          WHERE id = ?
+            AND cancelled_at IS NULL
+        `,
+        [current.enrollmentId],
+      );
+      cancelledEnrollmentIds.push(current.enrollmentId);
+
+      const created = await this.createEnrollmentForOnboarding({
+        userId: input.userId,
+        payload,
+        manager: input.manager,
+      });
+      createdEnrollmentIds.push(created.enrollmentId);
+    }
+
+    return { cancelledEnrollmentIds, createdEnrollmentIds };
+  }
+
+  private shouldReplaceEnrollmentForAdminEdit(input: {
+    current: {
+      enrollmentTypeCode: string;
+      grantedEvaluationIds: string[];
+      historicalCourseCycleIds: string[];
+    };
+    desiredPlan: {
+      enrollmentTypeCode: string;
+      grantedEvaluationIds: string[];
+      historicalCourseCycleIds: string[];
+    };
+  }): boolean {
+    if (input.current.enrollmentTypeCode !== input.desiredPlan.enrollmentTypeCode) {
+      return true;
+    }
+
+    if (
+      !this.areSameStringSet(
+        input.current.historicalCourseCycleIds,
+        input.desiredPlan.historicalCourseCycleIds,
+      )
+    ) {
+      return true;
+    }
+
+    if (input.desiredPlan.enrollmentTypeCode === ENROLLMENT_TYPE_CODES.FULL) {
+      return false;
+    }
+
+    return !this.areSameStringSet(
+      input.current.grantedEvaluationIds,
+      input.desiredPlan.grantedEvaluationIds,
+    );
+  }
+
+  private areSameStringSet(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+    const leftSet = new Set(left);
+    for (const value of right) {
+      if (!leftSet.has(value)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private async syncClassEventProfessorAssignmentsForAdminEdit(input: {
+    userId: string;
+    removedCourseCycleIds: string[];
+    addedCourseCycleIds: string[];
+    manager: EntityManager;
+  }): Promise<{ assignedCount: number; revokedCount: number }> {
+    let revokedCount = 0;
+    let assignedCount = 0;
+    const now = new Date();
+
+    if (input.removedCourseCycleIds.length > 0) {
+      const revokeResult = await input.manager.query<{ affectedRows?: number }>(
+        `
+          UPDATE class_event_professor cep
+          INNER JOIN class_event ce ON ce.id = cep.class_event_id
+          INNER JOIN evaluation ev ON ev.id = ce.evaluation_id
+          SET cep.revoked_at = NOW()
+          WHERE cep.professor_user_id = ?
+            AND cep.revoked_at IS NULL
+            AND ev.course_cycle_id IN (${input.removedCourseCycleIds
+              .map(() => '?')
+              .join(',')})
+        `,
+        [input.userId, ...input.removedCourseCycleIds],
+      );
+      const affected = Number(
+        (revokeResult as unknown as { affectedRows?: number })?.affectedRows ||
+          0,
+      );
+      revokedCount += Number.isNaN(affected) ? 0 : affected;
+    }
+
+    if (input.addedCourseCycleIds.length > 0) {
+      const reactivateResult = await input.manager.query<{ affectedRows?: number }>(
+        `
+          UPDATE class_event_professor cep
+          INNER JOIN class_event ce ON ce.id = cep.class_event_id
+          INNER JOIN evaluation ev ON ev.id = ce.evaluation_id
+          SET cep.revoked_at = NULL, cep.assigned_at = ?
+          WHERE cep.professor_user_id = ?
+            AND cep.revoked_at IS NOT NULL
+            AND ev.course_cycle_id IN (${input.addedCourseCycleIds
+              .map(() => '?')
+              .join(',')})
+        `,
+        [now, input.userId, ...input.addedCourseCycleIds],
+      );
+      const reactivated = Number(
+        (reactivateResult as unknown as { affectedRows?: number })
+          ?.affectedRows || 0,
+      );
+      assignedCount += Number.isNaN(reactivated) ? 0 : reactivated;
+
+      const insertResult = await input.manager.query<{ affectedRows?: number }>(
+        `
+          INSERT INTO class_event_professor (
+            class_event_id,
+            professor_user_id,
+            assigned_at,
+            revoked_at
+          )
+          SELECT
+            ce.id,
+            ?,
+            ?,
+            NULL
+          FROM class_event ce
+          INNER JOIN evaluation ev ON ev.id = ce.evaluation_id
+          LEFT JOIN class_event_professor cep
+            ON cep.class_event_id = ce.id
+           AND cep.professor_user_id = ?
+          WHERE ev.course_cycle_id IN (${input.addedCourseCycleIds
+            .map(() => '?')
+            .join(',')})
+            AND cep.class_event_id IS NULL
+        `,
+        [input.userId, now, input.userId, ...input.addedCourseCycleIds],
+      );
+      const inserted = Number(
+        (insertResult as unknown as { affectedRows?: number })?.affectedRows || 0,
+      );
+      assignedCount += Number.isNaN(inserted) ? 0 : inserted;
+    }
+
+    return { assignedCount, revokedCount };
+  }
+
   private isActiveEnrollmentDuplicateError(error: unknown): boolean {
     const errno = getErrnoFromDbError(error as DatabaseError);
     if (errno !== MySqlErrorCode.DUPLICATE_ENTRY) {
@@ -1107,17 +1894,19 @@ export class UsersService {
     return message.includes('uq_enrollment_active_user_course_cycle');
   }
 
-  private async createEnrollmentForOnboarding(input: {
-    userId: string;
+  private async resolveEnrollmentGrantPlanForOnboarding(input: {
     payload: AdminStudentEnrollmentInputDto;
     manager: EntityManager;
   }): Promise<{
-    enrollmentId: string;
+    enrollmentTypeCode: string;
+    enrollmentTypeId: string;
+    enrollmentStatusId: string;
+    baseCourseCycle: CourseCycle;
+    allowedCourseCycleIds: string[];
+    historicalCourseCycleIds: string[];
     grantedEvaluationIds: string[];
-    grantedCourseCycleIds: string[];
   }> {
-    const { userId, payload, manager } = input;
-    const enrollmentTypeCode = String(payload.enrollmentTypeCode || '')
+    const enrollmentTypeCode = String(input.payload.enrollmentTypeCode || '')
       .trim()
       .toUpperCase();
     if (
@@ -1126,48 +1915,35 @@ export class UsersService {
     ) {
       throw new BadRequestException('Tipo de matricula no valido.');
     }
-
     if (
       enrollmentTypeCode === ENROLLMENT_TYPE_CODES.PARTIAL &&
-      (!payload.evaluationIds || payload.evaluationIds.length === 0)
+      (!input.payload.evaluationIds || input.payload.evaluationIds.length === 0)
     ) {
       throw new BadRequestException(
         'Las matriculas parciales deben especificar al menos una evaluacion.',
       );
     }
 
-    const activeEnrollment = await manager.getRepository(Enrollment).findOne({
-      where: {
-        userId,
-        courseCycleId: payload.courseCycleId,
-        cancelledAt: null,
-      },
-    });
-    if (activeEnrollment) {
-      throw new ConflictException(
-        'El usuario ya cuenta con una matricula activa en este curso.',
-      );
-    }
+    const [enrollmentTypeRows, enrollmentStatusRows, baseCourseCycle] =
+      await Promise.all([
+        input.manager.query<Array<{ id: string }>>(
+          `SELECT id FROM enrollment_type WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
+          [enrollmentTypeCode],
+        ),
+        input.manager.query<Array<{ id: string }>>(
+          `SELECT id FROM enrollment_status WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
+          [ENROLLMENT_STATUS_CODES.ACTIVE],
+        ),
+        input.manager.getRepository(CourseCycle).findOne({
+          where: { id: input.payload.courseCycleId },
+          relations: { academicCycle: true },
+        }),
+      ]);
 
-    const [enrollmentType, enrollmentStatus, baseCourseCycle] = await Promise.all([
-      manager.query<Array<{ id: string; code: string }>>(
-        `SELECT id, code FROM enrollment_type WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
-        [enrollmentTypeCode],
-      ),
-      manager.query<Array<{ id: string }>>(
-        `SELECT id FROM enrollment_status WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
-        [ENROLLMENT_STATUS_CODES.ACTIVE],
-      ),
-      manager.getRepository(CourseCycle).findOne({
-        where: { id: payload.courseCycleId },
-        relations: { academicCycle: true },
-      }),
-    ]);
-
-    if (!enrollmentType[0]) {
+    if (!enrollmentTypeRows[0]) {
       throw new BadRequestException('Tipo de matricula no valido.');
     }
-    if (!enrollmentStatus[0]) {
+    if (!enrollmentStatusRows[0]) {
       throw new InternalServerErrorException('Error de configuracion del sistema.');
     }
     if (!baseCourseCycle?.academicCycle) {
@@ -1182,25 +1958,26 @@ export class UsersService {
       );
     }
 
-    const historicalIds = Array.from(
+    const historicalCourseCycleIds = Array.from(
       new Set(
-        (payload.historicalCourseCycleIds || [])
+        (input.payload.historicalCourseCycleIds || [])
           .map((id) => String(id || '').trim())
           .filter((id) => id.length > 0),
       ),
-    );
-    const allowedCourseCycleIds = [payload.courseCycleId];
-    if (historicalIds.length > 0) {
-      const pastCycles = await manager.getRepository(CourseCycle).find({
+    ).sort();
+
+    const allowedCourseCycleIds = [input.payload.courseCycleId];
+    if (historicalCourseCycleIds.length > 0) {
+      const pastCycles = await input.manager.getRepository(CourseCycle).find({
         where: {
-          id: In(historicalIds),
+          id: In(historicalCourseCycleIds),
           courseId: baseCourseCycle.courseId,
           academicCycle: {
             startDate: LessThan(baseCourseCycle.academicCycle.startDate),
           },
         },
       });
-      if (pastCycles.length !== historicalIds.length) {
+      if (pastCycles.length !== historicalCourseCycleIds.length) {
         throw new BadRequestException(
           'Uno o mas ciclos historicos no son validos o no pertenecen al curso.',
         );
@@ -1208,18 +1985,24 @@ export class UsersService {
       allowedCourseCycleIds.push(...pastCycles.map((cycle) => cycle.id));
     }
 
-    const allEvaluations = await manager.getRepository(Evaluation).find({
+    const allEvaluations = await input.manager.getRepository(Evaluation).find({
       where: { courseCycleId: In(allowedCourseCycleIds) },
       relations: { evaluationType: true },
     });
 
-    let evaluationsToGrant: Evaluation[] = [];
+    let grantedEvaluationIds: string[] = [];
     if (enrollmentTypeCode === ENROLLMENT_TYPE_CODES.FULL) {
-      evaluationsToGrant = allEvaluations;
+      grantedEvaluationIds = Array.from(
+        new Set(
+          allEvaluations
+            .map((evaluation) => String(evaluation.id || '').trim())
+            .filter((id) => id.length > 0),
+        ),
+      );
     } else {
       const requestedIds = Array.from(
         new Set(
-          (payload.evaluationIds || [])
+          (input.payload.evaluationIds || [])
             .map((id) => String(id || '').trim())
             .filter((id) => id.length > 0),
         ),
@@ -1230,29 +2013,69 @@ export class UsersService {
         );
       }
       const requestedSet = new Set(requestedIds);
-      const selectedEvaluations = allEvaluations.filter((evaluation) =>
-        requestedSet.has(evaluation.id),
-      );
-      if (selectedEvaluations.length !== requestedIds.length) {
+      const selectedEvaluationIds = allEvaluations
+        .filter((evaluation) => requestedSet.has(evaluation.id))
+        .map((evaluation) => String(evaluation.id || '').trim())
+        .filter((id) => id.length > 0);
+      if (selectedEvaluationIds.length !== requestedIds.length) {
         throw new BadRequestException(
           'Las evaluaciones solicitadas no son validas para el curso/ciclo seleccionado.',
         );
       }
-      evaluationsToGrant = selectedEvaluations;
+      grantedEvaluationIds = selectedEvaluationIds;
       const bankEvaluation = allEvaluations.find(
         (evaluation) =>
-          evaluation.courseCycleId === payload.courseCycleId &&
+          evaluation.courseCycleId === input.payload.courseCycleId &&
           String(evaluation.evaluationType?.code || '')
             .trim()
             .toUpperCase() === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
       );
-      if (
-        bankEvaluation &&
-        !evaluationsToGrant.some((evaluation) => evaluation.id === bankEvaluation.id)
-      ) {
-        evaluationsToGrant.push(bankEvaluation);
+      if (bankEvaluation) {
+        grantedEvaluationIds = Array.from(
+          new Set([...grantedEvaluationIds, String(bankEvaluation.id || '').trim()]),
+        );
       }
     }
+
+    return {
+      enrollmentTypeCode,
+      enrollmentTypeId: enrollmentTypeRows[0].id,
+      enrollmentStatusId: enrollmentStatusRows[0].id,
+      baseCourseCycle,
+      allowedCourseCycleIds: Array.from(new Set(allowedCourseCycleIds)),
+      historicalCourseCycleIds,
+      grantedEvaluationIds: Array.from(new Set(grantedEvaluationIds)).sort(),
+    };
+  }
+
+  private async createEnrollmentForOnboarding(input: {
+    userId: string;
+    payload: AdminStudentEnrollmentInputDto;
+    manager: EntityManager;
+  }): Promise<{
+    enrollmentId: string;
+    grantedEvaluationIds: string[];
+    grantedCourseCycleIds: string[];
+  }> {
+    const { userId, payload, manager } = input;
+    const activeEnrollment = await manager.getRepository(Enrollment).findOne({
+      where: {
+        userId,
+        courseCycleId: payload.courseCycleId,
+        cancelledAt: null,
+      },
+    });
+    if (activeEnrollment) {
+      throw new ConflictException(
+        'El usuario ya cuenta con una matricula activa en este curso.',
+      );
+    }
+
+    const plan = await this.resolveEnrollmentGrantPlanForOnboarding({
+      payload,
+      manager,
+    });
+    const now = new Date();
 
     let enrollment: Enrollment;
     try {
@@ -1260,8 +2083,8 @@ export class UsersService {
         manager.getRepository(Enrollment).create({
           userId,
           courseCycleId: payload.courseCycleId,
-          enrollmentStatusId: enrollmentStatus[0].id,
-          enrollmentTypeId: enrollmentType[0].id,
+          enrollmentStatusId: plan.enrollmentStatusId,
+          enrollmentTypeId: plan.enrollmentTypeId,
           enrolledAt: now,
           cancelledAt: null,
         }),
@@ -1275,10 +2098,14 @@ export class UsersService {
       throw error;
     }
 
-    const grantedEvaluationIds = evaluationsToGrant.map((evaluation) => evaluation.id);
+    const grantedEvaluationIds = plan.grantedEvaluationIds;
     if (grantedEvaluationIds.length > 0) {
-      const accessStartDate = toBusinessDayStartUtc(baseCourseCycle.academicCycle.startDate);
-      const accessEndDate = toBusinessDayEndUtc(baseCourseCycle.academicCycle.endDate);
+      const accessStartDate = toBusinessDayStartUtc(
+        plan.baseCourseCycle.academicCycle.startDate,
+      );
+      const accessEndDate = toBusinessDayEndUtc(
+        plan.baseCourseCycle.academicCycle.endDate,
+      );
       const records = grantedEvaluationIds.map((evaluationId) =>
         manager.getRepository(EnrollmentEvaluation).create({
           enrollmentId: enrollment.id,
@@ -1296,7 +2123,7 @@ export class UsersService {
     return {
       enrollmentId: enrollment.id,
       grantedEvaluationIds,
-      grantedCourseCycleIds: allowedCourseCycleIds,
+      grantedCourseCycleIds: plan.allowedCourseCycleIds,
     };
   }
 

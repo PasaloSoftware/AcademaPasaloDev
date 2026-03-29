@@ -37,6 +37,17 @@ describe('UsersController', () => {
       assignedRoleCodes: [ROLE_CODES.STUDENT],
       professorCourseCycleIds: [],
     }),
+    adminEdit: jest.fn().mockResolvedValue({
+      userId: '1',
+      rolesFinal: [ROLE_CODES.STUDENT],
+      enrollmentsChanged: {
+        cancelledEnrollmentIds: [],
+        createdEnrollmentIds: [],
+        baseCourseCycleIdsFinal: [],
+      },
+      professorCourseCyclesChanged: { added: [], removed: [] },
+      eventProfessorAssignmentsChanged: { assignedCount: 0, revokedCount: 0 },
+    }),
     findAdminUsersTable: jest.fn().mockResolvedValue({
       items: [],
       currentPage: 1,
@@ -258,6 +269,15 @@ describe('UsersController', () => {
     const requiredRoles = Reflect.getMetadata(
       ROLES_KEY,
       UsersController.prototype.adminOnboarding,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('adminEdit debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.adminEdit,
     );
 
     expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);

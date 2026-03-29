@@ -376,7 +376,7 @@ describe('Enrollments E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           userId: '2',
-          courseCycleId: 'course-cycle-1',
+          courseCycleId: '1',
           enrollmentTypeCode: 'FULL',
         })
         .expect(201);

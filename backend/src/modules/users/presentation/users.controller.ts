@@ -31,6 +31,10 @@ import {
   AdminUserOnboardingDto,
   AdminUserOnboardingResponseDto,
 } from '@modules/users/dto/admin-user-onboarding.dto';
+import {
+  AdminUserEditDto,
+  AdminUserEditResponseDto,
+} from '@modules/users/dto/admin-user-edit.dto';
 import { UpdateUserStatusDto } from '@modules/users/dto/update-user-status.dto';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { plainToInstance } from 'class-transformer';
@@ -194,6 +198,20 @@ export class UsersController {
 
     const user = await this.usersService.findOne(id);
     return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Patch(':id/admin-edit')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Usuario editado integralmente exitosamente')
+  async adminEdit(
+    @Param('id') id: string,
+    @Body() dto: AdminUserEditDto,
+    @CurrentUser() currentUser: User,
+  ) {
+    const response = await this.usersService.adminEdit(id, dto, currentUser.id);
+    return plainToInstance(AdminUserEditResponseDto, response, {
       excludeExtraneousValues: true,
     });
   }

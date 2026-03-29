@@ -161,6 +161,17 @@ describe('IAM (e2e)', () => {
       assignedRoleCodes: ['STUDENT'],
       professorCourseCycleIds: [],
     }),
+    adminEdit: jest.fn().mockResolvedValue({
+      userId: '900',
+      rolesFinal: ['STUDENT'],
+      enrollmentsChanged: {
+        cancelledEnrollmentIds: [],
+        createdEnrollmentIds: [],
+        baseCourseCycleIdsFinal: [],
+      },
+      professorCourseCyclesChanged: { added: [], removed: [] },
+      eventProfessorAssignmentsChanged: { assignedCount: 0, revokedCount: 0 },
+    }),
   };
 
   const careersCatalogServiceMock = {
@@ -615,6 +626,44 @@ describe('IAM (e2e)', () => {
         userId: '900',
         assignedRoleCodes: ['STUDENT'],
       });
+    });
+  });
+
+  describe('PATCH /api/v1/users/:id/admin-edit', () => {
+    it('con token STUDENT -> 403', async () => {
+      const token = getStudentToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2/admin-edit')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          roleCodesFinal: ['STUDENT'],
+          studentStateFinal: { enrollments: [] },
+          professorStateFinal: { courseCycleIds: [] },
+        })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 200', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2/admin-edit')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          roleCodesFinal: ['STUDENT'],
+          studentStateFinal: { enrollments: [] },
+          professorStateFinal: { courseCycleIds: [] },
+        })
+        .expect(200);
+
+      expect(usersServiceMock.adminEdit).toHaveBeenCalledWith(
+        '2',
+        expect.objectContaining({
+          roleCodesFinal: ['STUDENT'],
+        }),
+        '1',
+      );
     });
   });
 });

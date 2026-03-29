@@ -79,6 +79,9 @@ INSERT INTO audit_action (code, name) VALUES
 INSERT INTO audit_action (code, name) VALUES
 ('FILE_DELETE', 'Eliminacion permanente de archivo o recurso');
 
+INSERT INTO audit_action (code, name) VALUES
+('USER_ADMIN_EDIT', 'Edicion administrativa integral de usuario');
+
 INSERT INTO system_setting (setting_key, setting_value, description, created_at)
 VALUES (
   'AUDIT_CLEANUP_RETENTION_DAYS',

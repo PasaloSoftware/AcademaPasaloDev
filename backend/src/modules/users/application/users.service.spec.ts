@@ -295,7 +295,7 @@ describe('UsersService', () => {
       isActive: true,
       createdAt: new Date(),
       updatedAt: null,
-      roles: [],
+      roles: [{ id: '2', code: ROLE_CODES.ADMIN, name: 'Admin' }],
     };
 
     userRepositoryMock.findById.mockResolvedValue(existing);
@@ -314,6 +314,18 @@ describe('UsersService', () => {
       expect.objectContaining({
         revokeSessions: false,
         reason: IDENTITY_INVALIDATION_REASONS.SENSITIVE_UPDATE,
+      }),
+    );
+    expect(mediaAccessQueueMock.add).toHaveBeenCalledWith(
+      MEDIA_ACCESS_JOB_NAMES.SYNC_STAFF_VIEWERS,
+      expect.objectContaining({
+        source: MEDIA_ACCESS_SYNC_SOURCES.USERS_ROLE_CHANGE_IMMEDIATE,
+        roleCode: 'EMAIL_CHANGE',
+        event: 'ASSIGN_ROLE',
+        userId: '1',
+      }),
+      expect.objectContaining({
+        removeOnComplete: true,
       }),
     );
   });
@@ -707,6 +719,33 @@ describe('UsersService', () => {
           enrollmentTypeCode: 'FULL',
         },
       } as any),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('adminEdit: rechaza quitar STUDENT si studentStateFinal no esta vacio', async () => {
+    await expect(
+      usersService.adminEdit('1', {
+        roleCodesFinal: [ROLE_CODES.ADMIN],
+        studentStateFinal: {
+          enrollments: [
+            {
+              courseCycleId: '100',
+              enrollmentTypeCode: 'FULL',
+            },
+          ],
+        },
+        professorStateFinal: { courseCycleIds: [] },
+      } as any, '999'),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('adminEdit: rechaza quitar PROFESSOR si professorStateFinal no esta vacio', async () => {
+    await expect(
+      usersService.adminEdit('1', {
+        roleCodesFinal: [ROLE_CODES.STUDENT],
+        studentStateFinal: { enrollments: [] },
+        professorStateFinal: { courseCycleIds: ['100'] },
+      } as any, '999'),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 });
