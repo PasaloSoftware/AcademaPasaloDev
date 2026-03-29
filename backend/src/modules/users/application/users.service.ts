@@ -9,8 +9,14 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In, LessThan } from 'typeorm';
 import { User } from '@modules/users/domain/user.entity';
+import { Role } from '@modules/users/domain/role.entity';
+import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
+import { EnrollmentEvaluation } from '@modules/enrollments/domain/enrollment-evaluation.entity';
+import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
+import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
+import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
 import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RoleRepository } from '@modules/users/infrastructure/role.repository';
 import { CareerRepository } from '@modules/users/infrastructure/career.repository';
@@ -30,6 +36,11 @@ import {
   AdminCourseOptionDto,
   AdminUserDetailResponseDto,
 } from '@modules/users/dto/admin-user-detail.dto';
+import {
+  AdminUserOnboardingDto,
+  AdminUserOnboardingResponseDto,
+  AdminStudentEnrollmentInputDto,
+} from '@modules/users/dto/admin-user-onboarding.dto';
 import { IdentitySecurityService } from '@modules/users/application/identity-security.service';
 import { IDENTITY_INVALIDATION_REASONS } from '@modules/auth/interfaces/security.constants';
 import { QUEUES } from '@infrastructure/queue/queue.constants';
@@ -47,6 +58,15 @@ import { ADMIN_ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { USER_CACHE_KEYS } from '@modules/users/domain/user.constants';
+import {
+  ENROLLMENT_STATUS_CODES,
+  ENROLLMENT_TYPE_CODES,
+} from '@modules/enrollments/domain/enrollment.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import {
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
 
 const ADMIN_USERS_PAGE_SIZE = 10;
 const ROLE_LABELS: Record<string, string> = {
@@ -179,6 +199,148 @@ export class UsersService {
 
     await this.invalidateAdminUsersBaseCache();
     return createdUser;
+  }
+
+  async adminOnboard(
+    dto: AdminUserOnboardingDto,
+  ): Promise<AdminUserOnboardingResponseDto> {
+    const roleCodes = this.normalizeAdminOnboardingRoleCodes(dto.roleCodes);
+    await this.ensureCareerExistsIfProvided(dto.careerId);
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      const existingUser = await this.userRepository.findByEmail(dto.email, manager);
+      if (existingUser) {
+        throw new ConflictException('El correo electrÃƒÂ³nico ya estÃƒÂ¡ registrado');
+      }
+
+      const roleEntities = await manager.getRepository(Role).find({
+        where: { code: In(roleCodes) },
+      });
+      const roleMap = new Map(roleEntities.map((role) => [role.code, role]));
+      const missingRoles = roleCodes.filter((code) => !roleMap.has(code));
+      if (missingRoles.length > 0) {
+        throw new BadRequestException(
+          `Roles no validos: ${missingRoles.join(', ')}`,
+        );
+      }
+
+      const now = new Date();
+      const orderedRoleEntities = roleCodes.map((code) => roleMap.get(code)!);
+      const createdUser = await this.userRepository.create(
+        {
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName1: dto.lastName1 ?? null,
+          lastName2: dto.lastName2 ?? null,
+          phone: dto.phone ?? null,
+          careerId: dto.careerId,
+          profilePhotoUrl: dto.profilePhotoUrl ?? null,
+          photoSource: dto.photoSource ?? undefined,
+          createdAt: now,
+          updatedAt: null,
+          roles: orderedRoleEntities,
+          lastActiveRoleId: orderedRoleEntities[0]?.id ?? null,
+        },
+        manager,
+      );
+
+      let enrollmentId: string | null = null;
+      let grantedEnrollmentEvaluationIds: string[] = [];
+      let grantedEnrollmentCourseCycleIds: string[] = [];
+      let professorCourseCycleIds: string[] = [];
+      let professorEvaluationIds: string[] = [];
+
+      if (dto.studentEnrollment) {
+        if (!roleCodes.includes(ROLE_CODES.STUDENT)) {
+          throw new BadRequestException(
+            'Para registrar matricula, el usuario debe incluir el rol STUDENT',
+          );
+        }
+        const enrollmentResult = await this.createEnrollmentForOnboarding({
+          userId: createdUser.id,
+          payload: dto.studentEnrollment,
+          manager,
+        });
+        enrollmentId = enrollmentResult.enrollmentId;
+        grantedEnrollmentEvaluationIds = enrollmentResult.grantedEvaluationIds;
+        grantedEnrollmentCourseCycleIds = enrollmentResult.grantedCourseCycleIds;
+      }
+
+      if (dto.professorAssignments?.courseCycleIds?.length) {
+        if (!roleCodes.includes(ROLE_CODES.PROFESSOR)) {
+          throw new BadRequestException(
+            'Para asignar cursos a cargo, el usuario debe incluir el rol PROFESSOR',
+          );
+        }
+        const assignmentResult = await this.assignProfessorCourseCyclesForOnboarding(
+          {
+            userId: createdUser.id,
+            courseCycleIds: dto.professorAssignments.courseCycleIds,
+            manager,
+          },
+        );
+        professorCourseCycleIds = assignmentResult.courseCycleIds;
+        professorEvaluationIds = assignmentResult.evaluationIds;
+      }
+
+      return {
+        userId: createdUser.id,
+        enrollmentId,
+        assignedRoleCodes: roleCodes,
+        professorCourseCycleIds,
+        enrollmentEvaluationIds: grantedEnrollmentEvaluationIds,
+        enrollmentCourseCycleIds: grantedEnrollmentCourseCycleIds,
+        professorEvaluationIds,
+      };
+    });
+
+    if (result.enrollmentEvaluationIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueGrantForUserEvaluations(
+        result.userId,
+        result.enrollmentEvaluationIds,
+        MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CREATED,
+      );
+    }
+    if (result.enrollmentCourseCycleIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
+        result.userId,
+        result.enrollmentCourseCycleIds,
+        MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CREATED_COURSE_CYCLE,
+      );
+    }
+    if (result.professorEvaluationIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueGrantForUserEvaluations(
+        result.userId,
+        result.professorEvaluationIds,
+        MEDIA_ACCESS_SYNC_SOURCES.PROFESSOR_ASSIGNED_COURSE_CYCLE,
+      );
+    }
+    if (result.professorCourseCycleIds.length > 0) {
+      await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
+        result.userId,
+        result.professorCourseCycleIds,
+        MEDIA_ACCESS_SYNC_SOURCES.PROFESSOR_ASSIGNED_COURSE_CYCLE,
+      );
+    }
+
+    const adminRoleForReconciliation = result.assignedRoleCodes.find((code) =>
+      this.shouldTriggerStaffReconciliationForRoleCode(code),
+    );
+    await this.enqueueImmediateStaffReconciliationIfNeeded({
+      userId: result.userId,
+      roleCode: adminRoleForReconciliation || ROLE_CODES.ADMIN,
+      event: 'ASSIGN_ROLE',
+      shouldEnqueue: Boolean(adminRoleForReconciliation),
+    });
+
+    await this.invalidateAdminUsersBaseCache();
+
+    return {
+      userId: result.userId,
+      enrollmentId: result.enrollmentId,
+      assignedRoleCodes: result.assignedRoleCodes,
+      professorCourseCycleIds: result.professorCourseCycleIds,
+    };
   }
 
   async findAll(): Promise<User[]> {
@@ -909,6 +1071,281 @@ export class UsersService {
       `,
       [userId],
     );
+  }
+
+  private normalizeAdminOnboardingRoleCodes(rawRoleCodes: string[]): string[] {
+    const requested = Array.isArray(rawRoleCodes) ? rawRoleCodes : [];
+    const normalized = requested
+      .map((code) => String(code || '').trim().toUpperCase())
+      .filter((code) => code.length > 0);
+    const deduped = Array.from(new Set(normalized));
+    if (deduped.length === 0) {
+      throw new BadRequestException('Debe enviar al menos un rol');
+    }
+    const valid = ROLE_DISPLAY_ORDER.filter((code) => deduped.includes(code));
+    if (valid.length !== deduped.length) {
+      throw new BadRequestException(
+        `roleCodes debe contener solo: ${ROLE_DISPLAY_ORDER.join(', ')}`,
+      );
+    }
+    return valid;
+  }
+
+  private isActiveEnrollmentDuplicateError(error: unknown): boolean {
+    const errno = getErrnoFromDbError(error as DatabaseError);
+    if (errno !== MySqlErrorCode.DUPLICATE_ENTRY) {
+      return false;
+    }
+
+    const message = String(
+      (error as { message?: unknown })?.message ??
+        (error as { driverError?: { message?: unknown } })?.driverError
+          ?.message ??
+        '',
+    ).toLowerCase();
+
+    return message.includes('uq_enrollment_active_user_course_cycle');
+  }
+
+  private async createEnrollmentForOnboarding(input: {
+    userId: string;
+    payload: AdminStudentEnrollmentInputDto;
+    manager: EntityManager;
+  }): Promise<{
+    enrollmentId: string;
+    grantedEvaluationIds: string[];
+    grantedCourseCycleIds: string[];
+  }> {
+    const { userId, payload, manager } = input;
+    const enrollmentTypeCode = String(payload.enrollmentTypeCode || '')
+      .trim()
+      .toUpperCase();
+    if (
+      enrollmentTypeCode !== ENROLLMENT_TYPE_CODES.FULL &&
+      enrollmentTypeCode !== ENROLLMENT_TYPE_CODES.PARTIAL
+    ) {
+      throw new BadRequestException('Tipo de matricula no valido.');
+    }
+
+    if (
+      enrollmentTypeCode === ENROLLMENT_TYPE_CODES.PARTIAL &&
+      (!payload.evaluationIds || payload.evaluationIds.length === 0)
+    ) {
+      throw new BadRequestException(
+        'Las matriculas parciales deben especificar al menos una evaluacion.',
+      );
+    }
+
+    const activeEnrollment = await manager.getRepository(Enrollment).findOne({
+      where: {
+        userId,
+        courseCycleId: payload.courseCycleId,
+        cancelledAt: null,
+      },
+    });
+    if (activeEnrollment) {
+      throw new ConflictException(
+        'El usuario ya cuenta con una matricula activa en este curso.',
+      );
+    }
+
+    const [enrollmentType, enrollmentStatus, baseCourseCycle] = await Promise.all([
+      manager.query<Array<{ id: string; code: string }>>(
+        `SELECT id, code FROM enrollment_type WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
+        [enrollmentTypeCode],
+      ),
+      manager.query<Array<{ id: string }>>(
+        `SELECT id FROM enrollment_status WHERE UPPER(TRIM(code)) = ? LIMIT 1`,
+        [ENROLLMENT_STATUS_CODES.ACTIVE],
+      ),
+      manager.getRepository(CourseCycle).findOne({
+        where: { id: payload.courseCycleId },
+        relations: { academicCycle: true },
+      }),
+    ]);
+
+    if (!enrollmentType[0]) {
+      throw new BadRequestException('Tipo de matricula no valido.');
+    }
+    if (!enrollmentStatus[0]) {
+      throw new InternalServerErrorException('Error de configuracion del sistema.');
+    }
+    if (!baseCourseCycle?.academicCycle) {
+      throw new BadRequestException('Ciclo de curso no valido para matricula.');
+    }
+
+    const now = new Date();
+    const cycleEndDate = toBusinessDayEndUtc(baseCourseCycle.academicCycle.endDate);
+    if (cycleEndDate.getTime() < now.getTime()) {
+      throw new BadRequestException(
+        `No se puede matricular en el ciclo ${baseCourseCycle.academicCycle.code} porque ya ha finalizado.`,
+      );
+    }
+
+    const historicalIds = Array.from(
+      new Set(
+        (payload.historicalCourseCycleIds || [])
+          .map((id) => String(id || '').trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+    const allowedCourseCycleIds = [payload.courseCycleId];
+    if (historicalIds.length > 0) {
+      const pastCycles = await manager.getRepository(CourseCycle).find({
+        where: {
+          id: In(historicalIds),
+          courseId: baseCourseCycle.courseId,
+          academicCycle: {
+            startDate: LessThan(baseCourseCycle.academicCycle.startDate),
+          },
+        },
+      });
+      if (pastCycles.length !== historicalIds.length) {
+        throw new BadRequestException(
+          'Uno o mas ciclos historicos no son validos o no pertenecen al curso.',
+        );
+      }
+      allowedCourseCycleIds.push(...pastCycles.map((cycle) => cycle.id));
+    }
+
+    const allEvaluations = await manager.getRepository(Evaluation).find({
+      where: { courseCycleId: In(allowedCourseCycleIds) },
+      relations: { evaluationType: true },
+    });
+
+    let evaluationsToGrant: Evaluation[] = [];
+    if (enrollmentTypeCode === ENROLLMENT_TYPE_CODES.FULL) {
+      evaluationsToGrant = allEvaluations;
+    } else {
+      const requestedIds = Array.from(
+        new Set(
+          (payload.evaluationIds || [])
+            .map((id) => String(id || '').trim())
+            .filter((id) => id.length > 0),
+        ),
+      );
+      if (requestedIds.length === 0) {
+        throw new BadRequestException(
+          'Las matriculas parciales deben especificar al menos una evaluacion.',
+        );
+      }
+      const requestedSet = new Set(requestedIds);
+      const selectedEvaluations = allEvaluations.filter((evaluation) =>
+        requestedSet.has(evaluation.id),
+      );
+      if (selectedEvaluations.length !== requestedIds.length) {
+        throw new BadRequestException(
+          'Las evaluaciones solicitadas no son validas para el curso/ciclo seleccionado.',
+        );
+      }
+      evaluationsToGrant = selectedEvaluations;
+      const bankEvaluation = allEvaluations.find(
+        (evaluation) =>
+          evaluation.courseCycleId === payload.courseCycleId &&
+          String(evaluation.evaluationType?.code || '')
+            .trim()
+            .toUpperCase() === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+      );
+      if (
+        bankEvaluation &&
+        !evaluationsToGrant.some((evaluation) => evaluation.id === bankEvaluation.id)
+      ) {
+        evaluationsToGrant.push(bankEvaluation);
+      }
+    }
+
+    let enrollment: Enrollment;
+    try {
+      enrollment = await manager.getRepository(Enrollment).save(
+        manager.getRepository(Enrollment).create({
+          userId,
+          courseCycleId: payload.courseCycleId,
+          enrollmentStatusId: enrollmentStatus[0].id,
+          enrollmentTypeId: enrollmentType[0].id,
+          enrolledAt: now,
+          cancelledAt: null,
+        }),
+      );
+    } catch (error) {
+      if (this.isActiveEnrollmentDuplicateError(error)) {
+        throw new ConflictException(
+          'El usuario ya cuenta con una matricula activa en este curso.',
+        );
+      }
+      throw error;
+    }
+
+    const grantedEvaluationIds = evaluationsToGrant.map((evaluation) => evaluation.id);
+    if (grantedEvaluationIds.length > 0) {
+      const accessStartDate = toBusinessDayStartUtc(baseCourseCycle.academicCycle.startDate);
+      const accessEndDate = toBusinessDayEndUtc(baseCourseCycle.academicCycle.endDate);
+      const records = grantedEvaluationIds.map((evaluationId) =>
+        manager.getRepository(EnrollmentEvaluation).create({
+          enrollmentId: enrollment.id,
+          evaluationId,
+          accessStartDate: new Date(accessStartDate),
+          accessEndDate: new Date(accessEndDate),
+          isActive: true,
+          revokedAt: null,
+          revokedBy: null,
+        }),
+      );
+      await manager.getRepository(EnrollmentEvaluation).save(records);
+    }
+
+    return {
+      enrollmentId: enrollment.id,
+      grantedEvaluationIds,
+      grantedCourseCycleIds: allowedCourseCycleIds,
+    };
+  }
+
+  private async assignProfessorCourseCyclesForOnboarding(input: {
+    userId: string;
+    courseCycleIds: string[];
+    manager: EntityManager;
+  }): Promise<{ courseCycleIds: string[]; evaluationIds: string[] }> {
+    const normalizedIds = Array.from(
+      new Set(
+        (input.courseCycleIds || [])
+          .map((id) => String(id || '').trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+    if (normalizedIds.length === 0) {
+      return { courseCycleIds: [], evaluationIds: [] };
+    }
+
+    const existingCycles = await input.manager.getRepository(CourseCycle).find({
+      where: { id: In(normalizedIds) },
+    });
+    if (existingCycles.length !== normalizedIds.length) {
+      throw new BadRequestException(
+        'Uno o mas ciclos de curso para asignacion de profesor no son validos.',
+      );
+    }
+
+    const now = new Date();
+    const professorAssignments = normalizedIds.map((courseCycleId) => ({
+      courseCycleId,
+      professorUserId: input.userId,
+      assignedAt: now,
+      revokedAt: null as Date | null,
+    }));
+    await input.manager
+      .getRepository(CourseCycleProfessor)
+      .insert(professorAssignments);
+
+    const evaluationRows = await input.manager.getRepository(Evaluation).find({
+      where: { courseCycleId: In(normalizedIds) },
+      select: ['id'],
+    });
+    return {
+      courseCycleIds: normalizedIds,
+      evaluationIds: Array.from(
+        new Set(evaluationRows.map((evaluation) => String(evaluation.id || '').trim())),
+      ).filter((id) => id.length > 0),
+    };
   }
 
   private mapUserToAdminListItem(input: {

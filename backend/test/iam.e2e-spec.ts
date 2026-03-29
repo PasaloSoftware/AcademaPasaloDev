@@ -155,6 +155,12 @@ describe('IAM (e2e)', () => {
       }
       return Promise.resolve(null);
     }),
+    adminOnboard: jest.fn().mockResolvedValue({
+      userId: '900',
+      enrollmentId: 'enr-900',
+      assignedRoleCodes: ['STUDENT'],
+      professorCourseCycleIds: [],
+    }),
   };
 
   const careersCatalogServiceMock = {
@@ -534,6 +540,43 @@ describe('IAM (e2e)', () => {
         { email: 'prof2@test.com', firstName: 'Professor' },
         'PROFESSOR',
       );
+    });
+  });
+
+  describe('POST /api/v1/users/admin-onboarding', () => {
+    it('con token STUDENT -> 403', async () => {
+      const token = getStudentToken();
+      await request(app.getHttpServer())
+        .post('/api/v1/users/admin-onboarding')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          email: 'nuevo@test.com',
+          firstName: 'Nuevo',
+          roleCodes: ['STUDENT'],
+        })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 201', async () => {
+      const token = getAdminToken();
+      const payload = {
+        email: 'nuevo@test.com',
+        firstName: 'Nuevo',
+        roleCodes: ['STUDENT'],
+      };
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/admin-onboarding')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(201);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(201);
+      expect(usersServiceMock.adminOnboard).toHaveBeenCalledWith(payload);
+      expect(body.data).toMatchObject({
+        userId: '900',
+        assignedRoleCodes: ['STUDENT'],
+      });
     });
   });
 });

@@ -71,6 +71,8 @@ describe('UsersService', () => {
   const mediaAccessMembershipDispatchServiceMock = {
     enqueueRevokeForUserCourseCycles: jest.fn(),
     enqueueRevokeForUserEvaluations: jest.fn(),
+    enqueueGrantForUserEvaluations: jest.fn(),
+    enqueueGrantForUserCourseCycles: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -631,5 +633,80 @@ describe('UsersService', () => {
         courseName: 'Matematica Basica',
       },
     ]);
+  });
+
+  it('adminOnboard: duplicate de matricula activa se traduce a conflicto', async () => {
+    userRepositoryMock.findByEmail.mockResolvedValue(null);
+    userRepositoryMock.create.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+    });
+
+    const managerRoleRepo = {
+      find: jest.fn().mockResolvedValue([
+        { id: 'r-student', code: ROLE_CODES.STUDENT, name: 'Alumno' },
+      ]),
+    };
+    const managerCourseCycleRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: '100',
+        courseId: '10',
+        academicCycle: {
+          code: '2026-1',
+          startDate: new Date('2026-01-01T00:00:00.000Z'),
+          endDate: new Date('2026-12-31T00:00:00.000Z'),
+        },
+      }),
+      find: jest.fn().mockResolvedValue([]),
+    };
+    const managerEvaluationRepo = {
+      find: jest.fn().mockResolvedValue([]),
+    };
+    const managerEnrollmentRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((data) => data),
+      save: jest.fn().mockRejectedValue({
+        driverError: {
+          errno: MySqlErrorCode.DUPLICATE_ENTRY,
+          message:
+            "Duplicate entry for key 'uq_enrollment_active_user_course_cycle'",
+        },
+      }),
+    };
+
+    const managerMock = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce([{ id: 'type-full', code: 'FULL' }])
+        .mockResolvedValueOnce([{ id: 'status-active' }]),
+      getRepository: jest.fn().mockImplementation((entity: { name?: string }) => {
+        if (entity?.name === 'Role') return managerRoleRepo;
+        if (entity?.name === 'CourseCycle') return managerCourseCycleRepo;
+        if (entity?.name === 'Evaluation') return managerEvaluationRepo;
+        if (entity?.name === 'Enrollment') return managerEnrollmentRepo;
+        return {
+          find: jest.fn().mockResolvedValue([]),
+          findOne: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockImplementation((data) => data),
+          save: jest.fn().mockResolvedValue(null),
+        };
+      }),
+    } as unknown as EntityManager;
+
+    dataSourceMock.transaction.mockImplementationOnce(
+      async (cb: (manager: EntityManager) => unknown) => await cb(managerMock),
+    );
+
+    await expect(
+      usersService.adminOnboard({
+        firstName: 'Alumno',
+        email: 'alumno@test.com',
+        roleCodes: [ROLE_CODES.STUDENT],
+        studentEnrollment: {
+          courseCycleId: '100',
+          enrollmentTypeCode: 'FULL',
+        },
+      } as any),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

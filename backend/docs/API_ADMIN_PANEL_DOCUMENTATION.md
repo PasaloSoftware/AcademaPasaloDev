@@ -6,26 +6,16 @@
 
 ---
 
-## 1) Propósito de este documento
+## 1) Propósito
 
-Este documento concentra **exclusivamente** endpoints orientados al **panel administrativo** (backoffice), para evitar sobrecargar la documentación general.
-
-Aquí se documentarán todos los endpoints nuevos del panel con nivel de detalle suficiente para que frontend integre sin asumir comportamientos implícitos.
+Documento exclusivo para endpoints del panel admin/backoffice, con contratos explícitos para frontend.
 
 ---
 
-## 2) Convenciones transversales del panel
+## 2) Convenciones
 
-### 2.1 Autenticación y autorización
-
-- Todos los endpoints de este documento requieren:
-  - `Authorization: Bearer <accessToken>`
-  - Sesión activa y válida en backend.
-- Cada endpoint define explícitamente sus roles permitidos.
-
-### 2.2 Formato de respuesta estándar
-
-El backend responde bajo el interceptor global:
+- Requiere `Authorization: Bearer <accessToken>`.
+- Respuesta estándar:
 
 ```json
 {
@@ -36,132 +26,63 @@ El backend responde bajo el interceptor global:
 }
 ```
 
-### 2.3 Errores frecuentes en panel admin
-
-- `401`: token ausente/inválido.
-- `403`: usuario autenticado sin permisos para ese endpoint.
-- `404`: recurso no encontrado.
-- `409`: conflicto de negocio (ej. correo duplicado).
-
 ---
 
-## 3) Endpoints de Usuarios para tabla administrativa
+## 3) Endpoints base de usuarios (tabla admin)
 
-Base del módulo: `/users`
+### 3.1 `GET /users` (ADMIN, SUPER_ADMIN)
+- Objetivo: tabla de usuarios para panel admin.
+- Orden: `created_at DESC, id DESC`.
 
-### 3.1 Listado paginado para tabla de usuarios
+#### Query params
+- `page` (number, opcional, default `1`, min `1`)
+- `search` (string, opcional) -> busca por nombre completo/email
+- `roles` (string CSV, opcional) -> valores: `STUDENT,PROFESSOR,ADMIN,SUPER_ADMIN`
+- `careerIds` (string CSV, opcional) -> IDs de carrera
+- `status` (string, opcional) -> `ACTIVE` | `INACTIVE`
 
-- **Endpoint:** `GET /users`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Query Params:**
-  - `page` (opcional, entero >= 1, default `1`)
-- **Filtros opcionales y acumulativos:**
-  - `search` (string): busca por nombre completo y/o correo (recomendado con debounce 400-500ms)
-  - `roles` (CSV): ejemplo `roles=STUDENT,ADMIN`
-  - `careerIds` (CSV): ejemplo `careerIds=1,4,9`
-  - `status`: `ACTIVE` | `INACTIVE`
-- **Paginación fija backend:** `10` filas por página.
-- **Orden del listado:** `created_at DESC, id DESC` (más recientes primero).
-- **Cache selectivo (backend):**
-  - Se cachean variantes base sin filtros por página (`page=N`, sin `roles`, `careerIds`, `status`).
-  - TTL del cache base por página: `60` segundos.
-  - Cualquier mutación de usuarios (crear, editar, ban/unban, eliminar, asignar/remover roles) invalida esta key base.
-  - Si se consulta con filtros, siempre se consulta BD (sin cache de respuesta).
-
-#### Semántica de filtros
-
-- Entre tipos de filtro se aplica **AND**.
-- Dentro de `roles` y `careerIds` (multiselección) se aplica **OR**.
-- `search` se combina con los demás filtros vía **AND**.
-- Ejemplo:
-  - `GET /users?page=1&roles=STUDENT,PROFESSOR&careerIds=2,7&status=ACTIVE`
-  - Resultado: usuarios activos, con al menos uno de esos roles y con al menos una de esas carreras.
-
-#### Respuesta (`data`)
-
+#### Response `data`
 ```json
 {
   "items": [
     {
-      "id": "145",
-      "fullName": "Carlos Soto Perez",
-      "email": "carlos@academiapasalo.com",
+      "id": "1205",
+      "fullName": "Ana Perez Lopez",
+      "email": "ana.perez@correo.com",
       "roles": ["Alumno", "Asesor"],
-      "careerId": 12,
-      "careerName": "Ingeniería Informática",
+      "careerId": 40,
+      "careerName": "Psicología",
       "isActive": true
     }
   ],
   "currentPage": 1,
   "pageSize": 10,
-  "totalItems": 57,
-  "totalPages": 6
+  "totalItems": 125,
+  "totalPages": 13
 }
 ```
 
-#### Contrato funcional para frontend
+### 3.2 `GET /users/catalog/careers` (ADMIN, SUPER_ADMIN)
+- Objetivo: poblar selector de carrera.
 
-- `id` se usa para acciones de fila (ver detalle, editar, etc.).
-- `fullName` ya viene compuesto por backend usando:
-  - `firstName + lastName1 + lastName2` (omitiendo vacíos).
-- `roles` ya viene traducido y ordenado para UI.
-- `careerId` se incluye para trazabilidad y acciones del frontend que requieran identificador.
-- `careerName` puede ser `null`.
-- `isActive` representa estado operativo de la cuenta.
+#### Query params
+- Sin query params.
 
-#### Mapeo de roles aplicado por backend
-
-- `STUDENT` -> `Alumno`
-- `PROFESSOR` -> `Asesor`
-- `ADMIN` -> `Administrador`
-- `SUPER_ADMIN` -> `Superadministrador`
-
-Si un usuario tiene múltiples roles, el orden de salida es fijo:
-
-1. Alumno
-2. Asesor
-3. Administrador
-4. Superadministrador
-
----
-
-### 3.2 Catálogo de carreras para formularios admin
-
-- **Endpoint:** `GET /users/catalog/careers`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Uso:** poblar select/autocomplete de carrera en formularios administrativos.
-
-#### Respuesta (`data`)
-
+#### Response `data`
 ```json
 [
-  { "id": 21, "name": "Ciencia Política y Gobierno" },
   { "id": 1, "name": "Contabilidad" },
-  { "id": 26, "name": "Derecho" }
+  { "id": 40, "name": "Psicología" }
 ]
 ```
 
-#### Reglas de integración frontend
+### 3.3 `GET /users/catalog/courses` (ADMIN, SUPER_ADMIN)
+- Objetivo: poblar buscador de cursos (catálogo maestro).
 
-- No hardcodear IDs de carrera.
-- Usar siempre este endpoint para poblar opciones.
-- Tratar `name` como etiqueta visible y `id` como identificador persistible en flujos futuros.
+#### Query params
+- Sin query params.
 
----
-
-### 3.3 Catálogo de cursos (buscador por nombre)
-
-- **Endpoint:** `GET /users/catalog/courses`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Uso:** poblar buscador/autocomplete de cursos para vistas administrativas.
-
-#### Criterio del catálogo
-
-Actualmente la tabla `course` no tiene campo `is_active`.
-Por definición funcional del panel, el catálogo devuelve la **tabla maestra de cursos** (cursos institucionales), independientemente del ciclo.
-
-#### Respuesta (`data`)
-
+#### Response `data`
 ```json
 [
   {
@@ -172,21 +93,13 @@ Por definición funcional del panel, el catálogo devuelve la **tabla maestra de
 ]
 ```
 
-#### Reglas de integración frontend
+### 3.4 `GET /users/filters/roles` (ADMIN, SUPER_ADMIN)
+- Objetivo: opciones de filtro por roles en tabla admin.
 
-- Renderizar `courseName` como texto visible del buscador.
-- Usar `courseId` como identificador estable para acciones futuras.
-- Orden garantizado por backend: `courseName ASC, courseCode ASC, courseId ASC`.
-- El catálogo se cachea en backend con TTL para reducir latencia.
+#### Query params
+- Sin query params.
 
----
-
-### 3.4 Opciones de filtro de roles
-
-- **Endpoint:** `GET /users/filters/roles`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Response (`data`):**
-
+#### Response `data`
 ```json
 [
   { "code": "STUDENT", "label": "Alumno" },
@@ -196,12 +109,13 @@ Por definición funcional del panel, el catálogo devuelve la **tabla maestra de
 ]
 ```
 
-### 3.5 Opciones de filtro de estado
+### 3.5 `GET /users/filters/statuses` (ADMIN, SUPER_ADMIN)
+- Objetivo: opciones de filtro por estado en tabla admin.
 
-- **Endpoint:** `GET /users/filters/statuses`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Response (`data`):**
+#### Query params
+- Sin query params.
 
+#### Response `data`
 ```json
 [
   { "code": "ACTIVE", "label": "Activo" },
@@ -209,68 +123,174 @@ Por definición funcional del panel, el catálogo devuelve la **tabla maestra de
 ]
 ```
 
----
+### 3.6 `GET /users/:id/admin-detail` (ADMIN, SUPER_ADMIN)
+- Objetivo: ficha de "Ver usuario" para panel admin.
 
-### 3.6 Detalle administrativo de usuario (vista "Ver usuario")
+#### Path params
+- `id` (string) -> `user.id`
 
-- **Endpoint:** `GET /users/:id/admin-detail`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Objetivo:** obtener información personal + secciones de matrícula y cursos a cargo para ficha detallada.
-
-#### Response (`data`)
-
+#### Response `data`
 ```json
 {
   "personalInfo": {
-    "id": "145",
-    "firstName": "Carlos",
-    "lastName1": "Soto",
-    "lastName2": "Perez",
-    "email": "carlos@academiapasalo.com",
-    "phone": "999888777",
-    "careerId": 12,
-    "careerName": "Ingeniería Informática",
+    "id": "1205",
+    "firstName": "Ana",
+    "lastName1": "Perez",
+    "lastName2": "Lopez",
+    "email": "ana.perez@correo.com",
+    "phone": "+51999111222",
+    "careerId": 40,
+    "careerName": "Psicología",
     "roles": ["Alumno", "Asesor"],
     "isActive": true,
-    "profilePhotoUrl": "https://cdn.example.com/users/145.jpg"
+    "profilePhotoUrl": "https://..."
   },
   "enrolledCourses": [
     {
-      "relationId": "801",
+      "relationId": "4501",
       "courseId": "11",
-      "courseCycleId": "41",
+      "courseCycleId": "101",
       "courseCode": "MAT101",
       "courseName": "Matemática Básica",
-      "academicCycleCode": "2026-0"
+      "academicCycleCode": "2026-1"
     }
   ],
   "teachingCourses": [
     {
-      "relationId": "41",
+      "relationId": "9901",
       "courseId": "11",
-      "courseCycleId": "41",
+      "courseCycleId": "101",
       "courseCode": "MAT101",
       "courseName": "Matemática Básica",
-      "academicCycleCode": "2026-0"
+      "academicCycleCode": "2026-1"
     }
   ]
 }
 ```
 
-#### Reglas de negocio
+---
 
-- `enrolledCourses` puede venir vacío si el usuario no tiene matrículas activas.
-- `teachingCourses` puede venir vacío si el usuario no tiene cursos a cargo activos.
-- Ambos arreglos pueden tener múltiples registros.
-- Se incluyen IDs de relación y de curso/ciclo para acciones futuras (búsqueda y navegación cruzada).
+## 4) Flujo oficial recomendado (orden de llamados) para registro admin
+
+> Este orden es obligatorio para evitar inconsistencias de IDs y reglas.
+
+### Paso 1 — Catálogos de formulario
+1. `GET /users/catalog/careers`
+2. `GET /users/filters/roles`
+3. `GET /users/catalog/courses`
+
+### Paso 2 — Al seleccionar curso en matrícula
+4. `GET /enrollments/options/course/:courseId/cycles`
+   - Devuelve ciclo actual del curso (con `courseCycleId`) y solo históricos de ese curso.
+
+### Paso 3 — Si matrícula será PARTIAL
+5. `GET /enrollments/options/course-cycle/:courseCycleId`
+   - Devuelve evaluaciones seleccionables del ciclo base (ej. `PC1`, `EX1`) + `id` técnico.
+
+### Paso 4 — Guardado final (orquestado)
+6. `POST /users/admin-onboarding`
+   - Persiste usuario + roles + matrícula + cursos a cargo en una sola operación.
 
 ---
 
-## 4) Notas de evolución del documento
+## 5) Registro administrativo integral
 
-- Cada endpoint nuevo del panel debe agregarse aquí con:
-  1. Roles permitidos
-  2. Request completo
-  3. Response completa
-  4. Reglas de negocio relevantes
-  5. Errores esperados y manejo sugerido en frontend
+### 5.1 `POST /users/admin-onboarding` (ADMIN, SUPER_ADMIN)
+
+#### Request ejemplo
+```json
+{
+  "email": "nuevo.usuario@academiapasalo.com",
+  "firstName": "Juan",
+  "lastName1": "Perez",
+  "lastName2": "Lopez",
+  "phone": "999888777",
+  "careerId": 12,
+  "roleCodes": ["STUDENT", "PROFESSOR"],
+  "studentEnrollment": {
+    "courseCycleId": "100",
+    "enrollmentTypeCode": "PARTIAL",
+    "evaluationIds": ["200", "201"],
+    "historicalCourseCycleIds": ["90", "80"]
+  },
+  "professorAssignments": {
+    "courseCycleIds": ["100", "101"]
+  }
+}
+```
+
+#### Reglas
+- `roleCodes` obligatorio y multiselección.
+- `studentEnrollment` requiere rol `STUDENT`.
+- `professorAssignments` requiere rol `PROFESSOR`.
+- `FULL`: otorga todas las evaluaciones del ciclo base + históricos válidos.
+- `PARTIAL`: exige `evaluationIds` válidos.
+- Se sincroniza acceso Drive por evaluación y por course-cycle (incluye históricos).
+
+#### Response ejemplo
+```json
+{
+  "userId": "501",
+  "enrollmentId": "9001",
+  "assignedRoleCodes": ["STUDENT", "PROFESSOR"],
+  "professorCourseCycleIds": ["100", "101"]
+}
+```
+
+---
+
+## 6) Endpoints de opciones para matrícula (UI)
+
+### 6.1 `GET /enrollments/options/course/:courseId/cycles` (ADMIN, SUPER_ADMIN)
+
+#### Response ejemplo
+```json
+{
+  "courseId": "10",
+  "courseCode": "MAT101",
+  "courseName": "Matemática Básica",
+  "currentCycle": {
+    "courseCycleId": "100",
+    "academicCycleCode": "2026-1"
+  },
+  "historicalCycles": [
+    {
+      "courseCycleId": "90",
+      "academicCycleCode": "2025-2"
+    },
+    {
+      "courseCycleId": "80",
+      "academicCycleCode": "2025-1"
+    }
+  ]
+}
+```
+
+### 6.2 `GET /enrollments/options/course-cycle/:courseCycleId` (ADMIN, SUPER_ADMIN)
+
+#### Response ejemplo
+```json
+{
+  "baseCourseCycleId": "100",
+  "courseId": "10",
+  "courseCode": "MAT101",
+  "courseName": "Matemática Básica",
+  "academicCycleCode": "2026-1",
+  "evaluations": [
+    {
+      "id": "200",
+      "evaluationTypeCode": "PC",
+      "shortName": "PC1",
+      "fullName": "Practica Calificada 1"
+    }
+  ],
+  "historicalCycles": [
+    {
+      "courseCycleId": "90",
+      "academicCycleCode": "2025-2"
+    }
+  ]
+}
+```
+
+Regla frontend: mostrar etiquetas (`shortName`) pero guardar siempre IDs (`evaluationIds`, `courseCycleId`, `historicalCourseCycleIds`).

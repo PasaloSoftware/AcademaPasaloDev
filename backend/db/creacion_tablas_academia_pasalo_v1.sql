@@ -235,6 +235,10 @@ CREATE TABLE enrollment (
   enrollment_type_id BIGINT NOT NULL,
   enrolled_at DATETIME NOT NULL,
   cancelled_at DATETIME,
+  active_enrollment_guard TINYINT
+    GENERATED ALWAYS AS (
+      CASE WHEN cancelled_at IS NULL THEN 1 ELSE NULL END
+    ) STORED,
   FOREIGN KEY (user_id) REFERENCES user(id),
   FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
   FOREIGN KEY (enrollment_status_id) REFERENCES enrollment_status(id),
@@ -514,6 +518,9 @@ ON security_event(event_datetime, id);
 
 CREATE INDEX idx_enrollment_user_course_cycle
 ON enrollment(user_id, course_cycle_id);
+
+CREATE UNIQUE INDEX uq_enrollment_active_user_course_cycle
+ON enrollment(user_id, course_cycle_id, active_enrollment_guard);
 
 CREATE INDEX idx_enrollment_status
 ON enrollment(enrollment_status_id);

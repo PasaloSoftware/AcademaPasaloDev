@@ -31,6 +31,12 @@ describe('UsersController', () => {
   const usersServiceMock = {
     create: jest.fn(),
     createWithRole: jest.fn().mockResolvedValue(updatedUser),
+    adminOnboard: jest.fn().mockResolvedValue({
+      userId: '1',
+      enrollmentId: null,
+      assignedRoleCodes: [ROLE_CODES.STUDENT],
+      professorCourseCycleIds: [],
+    }),
     findAdminUsersTable: jest.fn().mockResolvedValue({
       items: [],
       currentPage: 1,
@@ -211,5 +217,14 @@ describe('UsersController', () => {
       dto,
       ROLE_CODES.ADMIN,
     );
+  });
+
+  it('adminOnboarding debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.adminOnboarding,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
   });
 });

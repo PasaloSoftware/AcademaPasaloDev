@@ -9,6 +9,7 @@ import {
   MaxLength,
   IsInt,
   Min,
+  Max,
 } from 'class-validator';
 import { PhotoSource } from '@modules/users/domain/user.entity';
 
@@ -53,6 +54,7 @@ export class CreateUserDto {
   @Type(() => Number)
   @IsInt({ message: 'careerId debe ser un entero' })
   @Min(1, { message: 'careerId debe ser mayor o igual a 1' })
+  @Max(2147483647, { message: 'careerId excede el rango permitido' })
   careerId?: number;
 
   @IsOptional()

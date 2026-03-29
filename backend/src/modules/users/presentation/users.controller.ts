@@ -27,6 +27,10 @@ import {
   AdminCourseOptionDto,
   AdminUserDetailResponseDto,
 } from '@modules/users/dto/admin-user-detail.dto';
+import {
+  AdminUserOnboardingDto,
+  AdminUserOnboardingResponseDto,
+} from '@modules/users/dto/admin-user-onboarding.dto';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { plainToInstance } from 'class-transformer';
 import { Auth } from '@common/decorators/auth.decorator';
@@ -107,6 +111,17 @@ export class UsersController {
       ROLE_CODES.ADMIN,
     );
     return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Post('admin-onboarding')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Usuario registrado integralmente exitosamente')
+  async adminOnboarding(@Body() dto: AdminUserOnboardingDto) {
+    const response = await this.usersService.adminOnboard(dto);
+    return plainToInstance(AdminUserOnboardingResponseDto, response, {
       excludeExtraneousValues: true,
     });
   }
