@@ -31,6 +31,7 @@ import {
   AdminUserOnboardingDto,
   AdminUserOnboardingResponseDto,
 } from '@modules/users/dto/admin-user-onboarding.dto';
+import { UpdateUserStatusDto } from '@modules/users/dto/update-user-status.dto';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { plainToInstance } from 'class-transformer';
 import { Auth } from '@common/decorators/auth.decorator';
@@ -202,6 +203,24 @@ export class UsersController {
   @ResponseMessage('Usuario actualizado exitosamente')
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     const user = await this.usersService.update(id, updateUserDto);
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Patch(':id/status')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Estado de usuario actualizado exitosamente')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserStatusDto,
+    @CurrentUser() currentUser: User,
+  ) {
+    if (currentUser.id === id && dto.isActive === false) {
+      throw new ForbiddenException('No puedes desactivar tu propia cuenta');
+    }
+
+    const user = await this.usersService.update(id, { isActive: dto.isActive });
     return plainToInstance(UserResponseDto, user, {
       excludeExtraneousValues: true,
     });

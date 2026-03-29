@@ -482,6 +482,44 @@ describe('IAM (e2e)', () => {
     });
   });
 
+  describe('PATCH /api/v1/users/:id/status', () => {
+    it('con token sin rol ADMIN/SUPER_ADMIN -> 403', async () => {
+      const token = getStudentToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2/status')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 200', async () => {
+      const token = getAdminToken();
+
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/users/2/status')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(200);
+      expect(usersServiceMock.update).toHaveBeenCalledWith('2', {
+        isActive: false,
+      });
+    });
+
+    it('con token ADMIN desactivando su propia cuenta -> 403', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/1/status')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
+        .expect(403);
+    });
+  });
+
   describe('POST /api/v1/users/admins', () => {
     it('con token ADMIN -> 403', async () => {
       const token = getAdminToken();

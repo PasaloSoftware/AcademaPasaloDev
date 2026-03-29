@@ -26,6 +26,27 @@ Documento exclusivo para endpoints del panel admin/backoffice, con contratos exp
 }
 ```
 
+### 3.7 `PATCH /users/:id/status` (ADMIN, SUPER_ADMIN)
+- Objetivo: activar/desactivar usuario sin tocar otros campos.
+
+#### Path params
+- `id` (string) -> `user.id`
+
+#### Request body
+```json
+{
+  "isActive": false
+}
+```
+
+#### Reglas
+- Solo permite cambiar el estado (`isActive`).
+- No permite autodesactivación (un admin no puede desactivar su propia cuenta).
+- Invalida cache de tabla admin y ejecuta invalidación de identidad/sesiones según política del servicio.
+
+#### Response `data`
+Mismo contrato de `UserResponseDto` (usuario actualizado).
+
 ---
 
 ## 3) Endpoints base de usuarios (tabla admin)

@@ -168,6 +168,41 @@ describe('UsersController', () => {
     });
   });
 
+  it('updateStatus debe requerir roles ADMIN y SUPER_ADMIN', () => {
+    const requiredRoles = Reflect.getMetadata(
+      ROLES_KEY,
+      UsersController.prototype.updateStatus,
+    );
+
+    expect(requiredRoles).toEqual([ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]);
+  });
+
+  it('updateStatus delega al servicio solo con isActive', async () => {
+    const result = await controller.updateStatus(
+      '10',
+      { isActive: false } as any,
+      { id: '99' } as any,
+    );
+
+    expect(usersServiceMock.update).toHaveBeenCalledWith('10', {
+      isActive: false,
+    });
+    expect(result).toMatchObject({
+      id: '1',
+      firstName: 'Admin',
+    });
+  });
+
+  it('updateStatus impide autodesactivación', async () => {
+    await expect(
+      controller.updateStatus(
+        '10',
+        { isActive: false } as any,
+        { id: '10' } as any,
+      ),
+    ).rejects.toThrow('No puedes desactivar tu propia cuenta');
+  });
+
   it('createAdmin debe requerir rol SUPER_ADMIN', () => {
     const requiredRoles = Reflect.getMetadata(
       ROLES_KEY,
