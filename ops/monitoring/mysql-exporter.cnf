@@ -1,5 +1,6 @@
 [client]
 user=academia
 password=${DB_PASSWORD}
-host=172.31.65.82
+host=mysql
 port=3306
+EOF
