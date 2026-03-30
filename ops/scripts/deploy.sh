@@ -4,8 +4,7 @@ APP_DIR="/home/ubuntu/academia-pasalo"
 COMPOSE_FILE="$APP_DIR/ops/compose/docker-compose.prod.yml"
 COMPOSE_ENV_FILE="$APP_DIR/ops/compose/.env"
 COMPOSE_PROJECT_NAME="academia-pasalo"
-DB_HOST="172.31.65.82"
-DB_PORT="3306"
+
 # --- Leer secretos desde AWS SSM Parameter Store ---
 echo "Leyendo secretos desde AWS SSM..."
 SSM_PATH="/academia-pasalo"
@@ -25,47 +24,53 @@ GRAFANA_PASSWORD=$(echo "$PARAMS" | python3 -c "import sys,json; params=json.loa
 echo "✅ Secretos cargados desde SSM"
 
 export DB_PASSWORD JWT_SECRET GOOGLE_CLIENT_SECRET MAXMIND_LICENSE_KEY GRAFANA_PASSWORD
-export DB_HOST DB_PORT DB_USER DB_NAME DOCKER_USERNAME GOOGLE_CLIENT_ID GOOGLE_REDIRECT_URI CORS_ORIGINS
+export DB_USER DB_NAME DOCKER_USERNAME GOOGLE_CLIENT_ID GOOGLE_REDIRECT_URI CORS_ORIGINS
 export GOOGLE_DRIVE_ROOT_FOLDER_ID STORAGE_PROVIDER GOOGLE_WORKSPACE_ADMIN_EMAIL GOOGLE_WORKSPACE_GROUP_DOMAIN
 export GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL
 
-MYSQL="mysql -u \"$DB_USER\" -p\"$DB_PASSWORD\" -h \"$DB_HOST\" -P \"$DB_PORT\""
 cd "$APP_DIR"
 git fetch origin
 git reset --hard origin/main
 git clean -fd -e letsencrypt/ -e certbot/ || true
-# 1) Runtime dirs (certbot)
+
+# 1) Runtime dirs
 mkdir -p "$APP_DIR/certbot/www/.well-known/acme-challenge" "$APP_DIR/letsencrypt"
 chown -R ubuntu:ubuntu "$APP_DIR/certbot" || true
 chmod -R 755 "$APP_DIR/certbot" || true
-# --- Google SA key (Drive) ---
+
+# 2) Directorios en host
 sudo mkdir -p /opt/academia/secrets
 sudo chown ubuntu:ubuntu /opt/academia/secrets
 sudo chmod 700 /opt/academia/secrets
+sudo mkdir -p /opt/academia/uploads
+sudo chown ubuntu:ubuntu /opt/academia/uploads
+
+# 3) Google SA key
 umask 077
 cat > /opt/academia/secrets/google-drive-sa.json <<EOF
 ${GOOGLE_DRIVE_SA_JSON}
 EOF
 sudo chown ubuntu:ubuntu /opt/academia/secrets/google-drive-sa.json
 sudo chmod 600 /opt/academia/secrets/google-drive-sa.json
-# --- MySQL Exporter config ---
+
+# 4) MySQL Exporter config
 cat > "$APP_DIR/ops/monitoring/mysql-exporter.cnf" <<EOF
 [client]
 user=academia
 password=${DB_PASSWORD}
-host=172.31.65.82
+host=mysql
 port=3306
 EOF
-# 2) Validar compose
+
+# 5) Validar compose
 [ -f "$COMPOSE_FILE" ] || { echo "ERROR: No existe $COMPOSE_FILE"; ls -la "$APP_DIR/ops/compose" || true; exit 1; }
-# 3) Login Docker
+
+# 6) Login Docker
 echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-# 4) Crear .env backend
-cat > "$APP_DIR/backend/.env" <<EOF
-GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+
+# 7) Crear .env compose
+cat > "$COMPOSE_ENV_FILE" <<EOF
 DOCKER_USERNAME=$DOCKER_USERNAME
-DB_HOST=$DB_HOST
-DB_PORT=$DB_PORT
 DB_USER=$DB_USER
 DB_PASSWORD=$DB_PASSWORD
 DB_NAME=$DB_NAME
@@ -84,58 +89,45 @@ GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=$GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP
 GRAFANA_PASSWORD=$GRAFANA_PASSWORD
 EOF
 
-# 5) Crear .env para interpolacion de variables en docker-compose
-cat > "$COMPOSE_ENV_FILE" <<EOF
-DOCKER_USERNAME=$DOCKER_USERNAME
-DB_USER=$DB_USER
-DB_PASSWORD=$DB_PASSWORD
-DB_NAME=$DB_NAME
-JWT_SECRET=$JWT_SECRET
-GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI
-MAXMIND_LICENSE_KEY=$MAXMIND_LICENSE_KEY
-CORS_ORIGINS=$CORS_ORIGINS
-GOOGLE_DRIVE_ROOT_FOLDER_ID=$GOOGLE_DRIVE_ROOT_FOLDER_ID
-STORAGE_PROVIDER=$STORAGE_PROVIDER
-GOOGLE_WORKSPACE_ADMIN_EMAIL=$GOOGLE_WORKSPACE_ADMIN_EMAIL
-GOOGLE_WORKSPACE_GROUP_DOMAIN=$GOOGLE_WORKSPACE_GROUP_DOMAIN
-GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=$GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL
-GRAFANA_PASSWORD=$GRAFANA_PASSWORD
-EOF
-# 6) Deploy
+# 8) Deploy
 docker-compose -p "$COMPOSE_PROJECT_NAME" --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" pull
 docker-compose -p "$COMPOSE_PROJECT_NAME" --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" down --remove-orphans
 docker-compose -p "$COMPOSE_PROJECT_NAME" --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d
-# 6) Esperar MySQL host
-for i in $(seq 1 60); do
-  if eval "$MYSQL -D \"$DB_NAME\" -e \"SELECT 1;\" >/dev/null 2>&1"; then
-    echo "✅ MySQL host disponible"
+
+# 9) Esperar MySQL contenedor
+echo "Esperando MySQL..."
+for i in $(seq 1 30); do
+  if docker exec academia-pasalo-mysql mysqladmin ping -h localhost -u root -p"${DB_PASSWORD}" --silent 2>/dev/null; then
+    echo "✅ MySQL disponible"
     break
   fi
-  sleep 2
+  sleep 3
 done
-eval "$MYSQL -D \"$DB_NAME\" -e \"SELECT 1;\" >/dev/null 2>&1" || { echo "❌ MySQL host no responde"; sudo systemctl status mysql --no-pager || true; exit 1; }
-# 7) Scripts SQL
-eval "$MYSQL \"$DB_NAME\" < \"$APP_DIR/backend/db/eliminar_tablas_academia_pasalo_v1.sql\""
-eval "$MYSQL \"$DB_NAME\" < \"$APP_DIR/backend/db/creacion_tablas_academia_pasalo_v1.sql\""
-eval "$MYSQL \"$DB_NAME\" < \"$APP_DIR/backend/db/datos_iniciales_academa_pasalo_v1.sql\""
-eval "$MYSQL \"$DB_NAME\" < \"$APP_DIR/backend/db/datos_prueba_cursos_y_matriculas.sql\""
-# 8) Verificar BD
-TABLES_COUNT=$(eval "$MYSQL -D \"$DB_NAME\" -sN -e \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$DB_NAME';\" 2>/dev/null" || echo "0")
+
+# 10) Scripts SQL
+docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/eliminar_tablas_academia_pasalo_v1.sql"
+docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/creacion_tablas_academia_pasalo_v1.sql"
+docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/datos_iniciales_academa_pasalo_v1.sql"
+docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/datos_prueba_cursos_y_matriculas.sql"
+
+# 11) Verificar BD
+TABLES_COUNT=$(docker exec academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" -sN -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null || echo "0")
 [ "$TABLES_COUNT" -gt 0 ] || { echo "❌ Error en scripts SQL"; exit 1; }
 echo "✅ BD inicializada: $TABLES_COUNT tablas"
-# 9) Verificar contenedores clave
-for c in academia-pasalo-nginx academia-pasalo-backend academia-pasalo-frontend academia-pasalo-grafana; do
+
+# 12) Verificar contenedores clave
+for c in academia-pasalo-nginx academia-pasalo-backend academia-pasalo-frontend academia-pasalo-grafana academia-pasalo-mysql; do
   docker inspect "$c" >/dev/null 2>&1 || { echo "❌ $c no existe"; docker ps; exit 1; }
   [ "$(docker inspect -f '{{.State.Status}}' "$c")" = "running" ] || { echo "❌ $c no está running"; docker logs --tail=200 "$c"; exit 1; }
 done
-# 10) Verificación del archivo dentro del contenedor
+
+# 13) Verificación google SA dentro del contenedor
 docker exec academia-pasalo-backend sh -lc 'ls -l /opt/academia/secrets/google-drive-sa.json && test -s /opt/academia/secrets/google-drive-sa.json' >/dev/null 2>&1 || {
   echo "❌ El backend no ve /opt/academia/secrets/google-drive-sa.json o está vacío"
   docker inspect academia-pasalo-backend --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}' | grep -n 'google-drive-sa' || true
   exit 1
 }
+
 docker image prune -f
 echo "✅ Deploy completado"
 docker ps

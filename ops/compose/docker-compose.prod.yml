@@ -30,7 +30,7 @@ services:
     expose:
       - "3001"
     environment:
-      - DB_HOST=172.31.65.82
+      - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -54,8 +54,11 @@ services:
       - GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=${GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL}
     volumes:
       - /opt/academia/secrets/google-drive-sa.json:/opt/academia/secrets/google-drive-sa.json:ro
+      - /opt/academia/uploads:/app/uploads
     depends_on:
       redis:
+        condition: service_healthy
+      mysql:
         condition: service_healthy
     networks:
       - academia-network
@@ -75,7 +78,26 @@ services:
       - backend
     networks:
       - academia-network
-
+  mysql:
+    image: mysql:8.0
+    container_name: academia-pasalo-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    expose:
+      - "3306"
+    networks:
+      - academia-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
   redis:
     image: redis:8.0-alpine
     container_name: academia-pasalo-redis
@@ -178,6 +200,9 @@ services:
 networks:
   academia-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
 
 volumes:
   redis_data:
@@ -185,4 +210,6 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  mysql_data:
     driver: local
