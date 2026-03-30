@@ -40,7 +40,10 @@ import {
   DatabaseError,
   MySqlErrorCode,
 } from '@common/interfaces/database-error.interface';
-import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
+import {
+  getErrnoFromDbError,
+  getMessageFromDbError,
+} from '@common/utils/mysql-error.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -504,7 +507,10 @@ export class EnrollmentsService {
     courseCode: string;
     courseName: string;
     currentCycle: { courseCycleId: string; academicCycleCode: string } | null;
-    historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>;
+    historicalCycles: Array<{
+      courseCycleId: string;
+      academicCycleCode: string;
+    }>;
   }> {
     const normalizedCourseId = String(courseId || '').trim();
     if (!normalizedCourseId) {
@@ -530,7 +536,8 @@ export class EnrollmentsService {
       throw new BadRequestException('Curso no encontrado');
     }
 
-    const activeCycleId = await this.settingsService.getString('ACTIVE_CYCLE_ID');
+    const activeCycleId =
+      await this.settingsService.getString('ACTIVE_CYCLE_ID');
     const currentRows = await this.dataSource.query<
       Array<{
         courseCycleId: string;
@@ -639,12 +646,7 @@ export class EnrollmentsService {
       return false;
     }
 
-    const message = String(
-      (error as { message?: unknown })?.message ??
-        (error as { driverError?: { message?: unknown } })?.driverError
-          ?.message ??
-        '',
-    ).toLowerCase();
+    const message = getMessageFromDbError(error).toLowerCase();
 
     return message.includes('uq_enrollment_active_user_course_cycle');
   }

@@ -11,8 +11,8 @@ import { FeedbackService } from '@modules/feedback/application/feedback.service'
 import { CreateTestimonyDto } from '@modules/feedback/dto/create-testimony.dto';
 import { FeatureTestimonyDto } from '@modules/feedback/dto/feature-testimony.dto';
 import {
+  PublicTestimonyResponseDto,
   TestimonyResponseDto,
-  FeaturedTestimonyResponseDto,
 } from '@modules/feedback/dto/feedback-response.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -48,22 +48,35 @@ export class FeedbackController {
     @Param('id') testimonyId: string,
     @Body() dto: FeatureTestimonyDto,
   ) {
-    const featured = await this.feedbackService.featureTestimony(
+    const testimony = await this.feedbackService.featureTestimony(
       user.id,
       testimonyId,
       dto,
     );
-    return plainToInstance(FeaturedTestimonyResponseDto, featured, {
+    return plainToInstance(TestimonyResponseDto, testimony, {
       excludeExtraneousValues: true,
     });
   }
 
-  @Get('public/course-cycle/:id')
+  @Get('public')
   @ResponseMessage('Testimonios destacados obtenidos')
-  async getPublic(@Param('id') courseCycleId: string) {
-    const testimonies =
-      await this.feedbackService.getPublicTestimonies(courseCycleId);
-    return plainToInstance(FeaturedTestimonyResponseDto, testimonies, {
+  async getPublic() {
+    const testimonies = await this.feedbackService.getPublicTestimonies();
+    const payload = testimonies.map((testimony) => ({
+      id: testimony.id,
+      rating: testimony.rating,
+      comment: testimony.comment,
+      createdAt: testimony.createdAt,
+      user: {
+        firstName: testimony.user?.firstName,
+        lastName1: testimony.user?.lastName1,
+        profilePhotoUrl: testimony.user?.profilePhotoUrl ?? null,
+        careerName: testimony.user?.career?.name ?? null,
+      },
+      courseName: testimony.courseCycle?.course?.name ?? '',
+    }));
+
+    return plainToInstance(PublicTestimonyResponseDto, payload, {
       excludeExtraneousValues: true,
     });
   }

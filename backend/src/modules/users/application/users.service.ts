@@ -58,7 +58,10 @@ import {
   DatabaseError,
   MySqlErrorCode,
 } from '@common/interfaces/database-error.interface';
-import { getErrnoFromDbError } from '@common/utils/mysql-error.util';
+import {
+  getErrnoFromDbError,
+  getMessageFromDbError,
+} from '@common/utils/mysql-error.util';
 import { ADMIN_ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
@@ -214,9 +217,14 @@ export class UsersService {
     await this.ensureCareerExistsIfProvided(dto.careerId);
 
     const result = await this.dataSource.transaction(async (manager) => {
-      const existingUser = await this.userRepository.findByEmail(dto.email, manager);
+      const existingUser = await this.userRepository.findByEmail(
+        dto.email,
+        manager,
+      );
       if (existingUser) {
-        throw new ConflictException('El correo electrÃƒÂ³nico ya estÃƒÂ¡ registrado');
+        throw new ConflictException(
+          'El correo electrÃƒÂ³nico ya estÃƒÂ¡ registrado',
+        );
       }
 
       const roleEntities = await manager.getRepository(Role).find({
@@ -231,7 +239,7 @@ export class UsersService {
       }
 
       const now = new Date();
-      const orderedRoleEntities = roleCodes.map((code) => roleMap.get(code)!);
+      const orderedRoleEntities = roleCodes.map((code) => roleMap.get(code));
       const createdUser = await this.userRepository.create(
         {
           email: dto.email,
@@ -269,7 +277,8 @@ export class UsersService {
         });
         enrollmentId = enrollmentResult.enrollmentId;
         grantedEnrollmentEvaluationIds = enrollmentResult.grantedEvaluationIds;
-        grantedEnrollmentCourseCycleIds = enrollmentResult.grantedCourseCycleIds;
+        grantedEnrollmentCourseCycleIds =
+          enrollmentResult.grantedCourseCycleIds;
       }
 
       if (dto.professorAssignments?.courseCycleIds?.length) {
@@ -278,13 +287,12 @@ export class UsersService {
             'Para asignar cursos a cargo, el usuario debe incluir el rol PROFESSOR',
           );
         }
-        const assignmentResult = await this.assignProfessorCourseCyclesForOnboarding(
-          {
+        const assignmentResult =
+          await this.assignProfessorCourseCyclesForOnboarding({
             userId: createdUser.id,
             courseCycleIds: dto.professorAssignments.courseCycleIds,
             manager,
-          },
-        );
+          });
         professorCourseCycleIds = assignmentResult.courseCycleIds;
         professorEvaluationIds = assignmentResult.evaluationIds;
       }
@@ -395,11 +403,17 @@ export class UsersService {
         const previousRoleCodes = Array.from(
           new Set(
             (user.roles || [])
-              .map((role) => String(role.code || '').trim().toUpperCase())
+              .map((role) =>
+                String(role.code || '')
+                  .trim()
+                  .toUpperCase(),
+              )
               .filter((code) => code.length > 0),
           ),
         );
-        const previousEmail = String(user.email || '').trim().toLowerCase();
+        const previousEmail = String(user.email || '')
+          .trim()
+          .toLowerCase();
 
         await this.applyPersonalInfoUpdatesForAdminEdit({
           user,
@@ -411,17 +425,21 @@ export class UsersService {
           where: { code: In(finalRoleCodes) },
         });
         const roleMap = new Map(roleEntities.map((role) => [role.code, role]));
-        const missingRoles = finalRoleCodes.filter((code) => !roleMap.has(code));
+        const missingRoles = finalRoleCodes.filter(
+          (code) => !roleMap.has(code),
+        );
         if (missingRoles.length > 0) {
           throw new BadRequestException(
             `Roles no validos: ${missingRoles.join(', ')}`,
           );
         }
-        user.roles = finalRoleCodes.map((code) => roleMap.get(code)!);
+        user.roles = finalRoleCodes.map((code) => roleMap.get(code));
         user.lastActiveRoleId = user.roles[0]?.id ?? null;
         user.updatedAt = new Date();
         await this.userRepository.save(user, manager);
-        const nextEmail = String(user.email || '').trim().toLowerCase();
+        const nextEmail = String(user.email || '')
+          .trim()
+          .toLowerCase();
 
         const [beforeEvaluationIds, beforeCourseCycleIds] = await Promise.all([
           this.listMediaAccessEvaluationIdsForUser(userId, manager),
@@ -474,9 +492,10 @@ export class UsersService {
         );
         const currentProfessorSet = new Set(currentProfessorCourseCycleIds);
 
-        const removedProfessorCourseCycleIds = currentProfessorCourseCycleIds.filter(
-          (id) => !desiredProfessorSet.has(id),
-        );
+        const removedProfessorCourseCycleIds =
+          currentProfessorCourseCycleIds.filter(
+            (id) => !desiredProfessorSet.has(id),
+          );
         const addedProfessorCourseCycleIds = (
           finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
             ? finalProfessorCourseCycleIds
@@ -688,9 +707,8 @@ export class UsersService {
 
     if (shouldUseBaseCache) {
       const cacheKey = USER_CACHE_KEYS.ADMIN_USERS_TABLE_BASE_PAGE(safePage);
-      const cached = await this.cacheService.get<AdminUsersListResponseDto>(
-        cacheKey,
-      );
+      const cached =
+        await this.cacheService.get<AdminUsersListResponseDto>(cacheKey);
       if (cached) {
         return cached;
       }
@@ -888,7 +906,9 @@ export class UsersService {
           throw new NotFoundException('Usuario no encontrado');
         }
         const previousIsActive = Boolean(user.isActive);
-        const previousEmail = String(user.email || '').trim().toLowerCase();
+        const previousEmail = String(user.email || '')
+          .trim()
+          .toLowerCase();
         const userHasAdminRole = (user.roles || []).some((role) =>
           this.shouldTriggerStaffReconciliationForRoleCode(role.code),
         );
@@ -913,7 +933,10 @@ export class UsersService {
           }
         }
 
-        if (updateUserDto.careerId !== undefined && updateUserDto.careerId !== null) {
+        if (
+          updateUserDto.careerId !== undefined &&
+          updateUserDto.careerId !== null
+        ) {
           await this.ensureCareerExistsIfProvided(updateUserDto.careerId);
         }
 
@@ -967,7 +990,10 @@ export class UsersService {
       });
     }
 
-    if (statusChanged || transactionResult.shouldEnqueueStaffSyncOnEmailChange) {
+    if (
+      statusChanged ||
+      transactionResult.shouldEnqueueStaffSyncOnEmailChange
+    ) {
       await this.enqueueImmediateStaffReconciliationIfNeeded({
         userId: id,
         roleCode: statusChanged ? 'STATUS_CHANGE' : 'EMAIL_CHANGE',
@@ -1451,7 +1477,11 @@ export class UsersService {
   private normalizeAdminOnboardingRoleCodes(rawRoleCodes: string[]): string[] {
     const requested = Array.isArray(rawRoleCodes) ? rawRoleCodes : [];
     const normalized = requested
-      .map((code) => String(code || '').trim().toUpperCase())
+      .map((code) =>
+        String(code || '')
+          .trim()
+          .toUpperCase(),
+      )
       .filter((code) => code.length > 0);
     const deduped = Array.from(new Set(normalized));
     if (deduped.length === 0) {
@@ -1527,14 +1557,18 @@ export class UsersService {
     }
 
     if (dto.email !== undefined) {
-      const normalizedEmail = String(dto.email || '').trim().toLowerCase();
+      const normalizedEmail = String(dto.email || '')
+        .trim()
+        .toLowerCase();
       if (normalizedEmail !== input.user.email) {
         const existing = await this.userRepository.findByEmail(
           normalizedEmail,
           input.manager,
         );
         if (existing && existing.id !== input.user.id) {
-          throw new ConflictException('El correo electrónico ya está registrado');
+          throw new ConflictException(
+            'El correo electrónico ya está registrado',
+          );
         }
       }
       input.user.email = normalizedEmail;
@@ -1554,11 +1588,16 @@ export class UsersService {
     finalRoleCodes: string[];
     finalEnrollments: AdminStudentEnrollmentInputDto[];
     manager: EntityManager;
-  }): Promise<{ cancelledEnrollmentIds: string[]; createdEnrollmentIds: string[] }> {
+  }): Promise<{
+    cancelledEnrollmentIds: string[];
+    createdEnrollmentIds: string[];
+  }> {
     const shouldKeepStudentState = input.finalRoleCodes.includes(
       ROLE_CODES.STUDENT,
     );
-    const desiredEnrollments = shouldKeepStudentState ? input.finalEnrollments : [];
+    const desiredEnrollments = shouldKeepStudentState
+      ? input.finalEnrollments
+      : [];
 
     const currentEnrollmentRows = await input.manager.query<
       Array<{ id: string; courseCycleId: string; enrollmentTypeCode: string }>
@@ -1640,14 +1679,16 @@ export class UsersService {
     for (const row of currentEvaluationRows) {
       const enrollmentId = String(row.enrollmentId || '').trim();
       const evaluationId = String(row.evaluationId || '').trim();
-      const evaluationCourseCycleId = String(row.evaluationCourseCycleId || '').trim();
+      const evaluationCourseCycleId = String(
+        row.evaluationCourseCycleId || '',
+      ).trim();
       if (!enrollmentId || !evaluationId) {
         continue;
       }
       if (!evalSetByEnrollment.has(enrollmentId)) {
         evalSetByEnrollment.set(enrollmentId, new Set());
       }
-      evalSetByEnrollment.get(enrollmentId)!.add(evaluationId);
+      evalSetByEnrollment.get(enrollmentId).add(evaluationId);
 
       const baseCourseCycleId = baseCycleByEnrollment.get(enrollmentId);
       if (
@@ -1658,7 +1699,9 @@ export class UsersService {
         if (!historicalSetByEnrollment.has(enrollmentId)) {
           historicalSetByEnrollment.set(enrollmentId, new Set());
         }
-        historicalSetByEnrollment.get(enrollmentId)!.add(evaluationCourseCycleId);
+        historicalSetByEnrollment
+          .get(enrollmentId)
+          .add(evaluationCourseCycleId);
       }
     }
 
@@ -1755,7 +1798,9 @@ export class UsersService {
       historicalCourseCycleIds: string[];
     };
   }): boolean {
-    if (input.current.enrollmentTypeCode !== input.desiredPlan.enrollmentTypeCode) {
+    if (
+      input.current.enrollmentTypeCode !== input.desiredPlan.enrollmentTypeCode
+    ) {
       return true;
     }
 
@@ -1824,7 +1869,9 @@ export class UsersService {
     }
 
     if (input.addedCourseCycleIds.length > 0) {
-      const reactivateResult = await input.manager.query<{ affectedRows?: number }>(
+      const reactivateResult = await input.manager.query<{
+        affectedRows?: number;
+      }>(
         `
           UPDATE class_event_professor cep
           INNER JOIN class_event ce ON ce.id = cep.class_event_id
@@ -1870,7 +1917,8 @@ export class UsersService {
         [input.userId, now, input.userId, ...input.addedCourseCycleIds],
       );
       const inserted = Number(
-        (insertResult as unknown as { affectedRows?: number })?.affectedRows || 0,
+        (insertResult as unknown as { affectedRows?: number })?.affectedRows ||
+          0,
       );
       assignedCount += Number.isNaN(inserted) ? 0 : inserted;
     }
@@ -1884,12 +1932,7 @@ export class UsersService {
       return false;
     }
 
-    const message = String(
-      (error as { message?: unknown })?.message ??
-        (error as { driverError?: { message?: unknown } })?.driverError
-          ?.message ??
-        '',
-    ).toLowerCase();
+    const message = getMessageFromDbError(error).toLowerCase();
 
     return message.includes('uq_enrollment_active_user_course_cycle');
   }
@@ -1944,14 +1987,18 @@ export class UsersService {
       throw new BadRequestException('Tipo de matricula no valido.');
     }
     if (!enrollmentStatusRows[0]) {
-      throw new InternalServerErrorException('Error de configuracion del sistema.');
+      throw new InternalServerErrorException(
+        'Error de configuracion del sistema.',
+      );
     }
     if (!baseCourseCycle?.academicCycle) {
       throw new BadRequestException('Ciclo de curso no valido para matricula.');
     }
 
     const now = new Date();
-    const cycleEndDate = toBusinessDayEndUtc(baseCourseCycle.academicCycle.endDate);
+    const cycleEndDate = toBusinessDayEndUtc(
+      baseCourseCycle.academicCycle.endDate,
+    );
     if (cycleEndDate.getTime() < now.getTime()) {
       throw new BadRequestException(
         `No se puede matricular en el ciclo ${baseCourseCycle.academicCycle.code} porque ya ha finalizado.`,
@@ -2032,7 +2079,10 @@ export class UsersService {
       );
       if (bankEvaluation) {
         grantedEvaluationIds = Array.from(
-          new Set([...grantedEvaluationIds, String(bankEvaluation.id || '').trim()]),
+          new Set([
+            ...grantedEvaluationIds,
+            String(bankEvaluation.id || '').trim(),
+          ]),
         );
       }
     }
@@ -2170,7 +2220,11 @@ export class UsersService {
     return {
       courseCycleIds: normalizedIds,
       evaluationIds: Array.from(
-        new Set(evaluationRows.map((evaluation) => String(evaluation.id || '').trim())),
+        new Set(
+          evaluationRows.map((evaluation) =>
+            String(evaluation.id || '').trim(),
+          ),
+        ),
       ).filter((id) => id.length > 0),
     };
   }

@@ -9,4 +9,3 @@ describe('formatCycleLevelName', () => {
     expect(formatCycleLevelName(' 2 ')).toBe('2° CICLO');
   });
 });
-

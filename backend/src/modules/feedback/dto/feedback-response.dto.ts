@@ -31,6 +31,9 @@ export class TestimonyResponseDto {
   photoSource: string;
 
   @Expose()
+  isActive: boolean;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()
@@ -38,14 +41,37 @@ export class TestimonyResponseDto {
   user: TestimonyAuthorDto;
 }
 
-export class FeaturedTestimonyResponseDto {
+export class PublicTestimonyAuthorDto {
+  @Expose()
+  firstName: string;
+
+  @Expose()
+  lastName1: string;
+
+  @Expose()
+  profilePhotoUrl: string | null;
+
+  @Expose()
+  careerName: string | null;
+}
+
+export class PublicTestimonyResponseDto {
   @Expose()
   id: string;
 
   @Expose()
-  displayOrder: number;
+  rating: number;
 
   @Expose()
-  @Type(() => TestimonyResponseDto)
-  courseTestimony: TestimonyResponseDto;
+  comment: string;
+
+  @Expose()
+  createdAt: Date;
+
+  @Expose()
+  @Type(() => PublicTestimonyAuthorDto)
+  user: PublicTestimonyAuthorDto;
+
+  @Expose()
+  courseName: string;
 }

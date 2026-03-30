@@ -1105,10 +1105,11 @@ export class CoursesService {
     cards: BankCardMeta[],
   ): Promise<Record<string, StudentBankFolderEntry[]>> {
     const activeFolderStatus = await this.getActiveFolderStatus();
-    const rootFolders = await this.materialFolderRepository.findRootsByEvaluation(
-      bankEvaluationId,
-      activeFolderStatus.id,
-    );
+    const rootFolders =
+      await this.materialFolderRepository.findRootsByEvaluation(
+        bankEvaluationId,
+        activeFolderStatus.id,
+      );
 
     const leafFolderByCompositeKey = new Map<string, MaterialFolder>();
     for (const root of rootFolders) {

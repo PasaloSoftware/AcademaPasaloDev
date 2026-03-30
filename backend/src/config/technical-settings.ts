@@ -100,6 +100,16 @@ export const technicalSettings = {
     ),
   },
 
+  feedback: {
+    // src/modules/feedback/application/feedback.service.ts
+    maxPublicVisibleTestimonies: Math.max(
+      1,
+      Math.floor(
+        envNumberOrDefault('FEEDBACK_MAX_PUBLIC_VISIBLE_TESTIMONIES', 3),
+      ),
+    ),
+  },
+
   cache: {
     redis: {
       // src/infrastructure/cache/redis-cache.service.ts

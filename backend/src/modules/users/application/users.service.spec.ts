@@ -655,9 +655,11 @@ describe('UsersService', () => {
     });
 
     const managerRoleRepo = {
-      find: jest.fn().mockResolvedValue([
-        { id: 'r-student', code: ROLE_CODES.STUDENT, name: 'Alumno' },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'r-student', code: ROLE_CODES.STUDENT, name: 'Alumno' },
+        ]),
     };
     const managerCourseCycleRepo = {
       findOne: jest.fn().mockResolvedValue({
@@ -691,18 +693,20 @@ describe('UsersService', () => {
         .fn()
         .mockResolvedValueOnce([{ id: 'type-full', code: 'FULL' }])
         .mockResolvedValueOnce([{ id: 'status-active' }]),
-      getRepository: jest.fn().mockImplementation((entity: { name?: string }) => {
-        if (entity?.name === 'Role') return managerRoleRepo;
-        if (entity?.name === 'CourseCycle') return managerCourseCycleRepo;
-        if (entity?.name === 'Evaluation') return managerEvaluationRepo;
-        if (entity?.name === 'Enrollment') return managerEnrollmentRepo;
-        return {
-          find: jest.fn().mockResolvedValue([]),
-          findOne: jest.fn().mockResolvedValue(null),
-          create: jest.fn().mockImplementation((data) => data),
-          save: jest.fn().mockResolvedValue(null),
-        };
-      }),
+      getRepository: jest
+        .fn()
+        .mockImplementation((entity: { name?: string }) => {
+          if (entity?.name === 'Role') return managerRoleRepo;
+          if (entity?.name === 'CourseCycle') return managerCourseCycleRepo;
+          if (entity?.name === 'Evaluation') return managerEvaluationRepo;
+          if (entity?.name === 'Enrollment') return managerEnrollmentRepo;
+          return {
+            find: jest.fn().mockResolvedValue([]),
+            findOne: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockImplementation((data) => data),
+            save: jest.fn().mockResolvedValue(null),
+          };
+        }),
     } as unknown as EntityManager;
 
     dataSourceMock.transaction.mockImplementationOnce(
@@ -724,28 +728,36 @@ describe('UsersService', () => {
 
   it('adminEdit: rechaza quitar STUDENT si studentStateFinal no esta vacio', async () => {
     await expect(
-      usersService.adminEdit('1', {
-        roleCodesFinal: [ROLE_CODES.ADMIN],
-        studentStateFinal: {
-          enrollments: [
-            {
-              courseCycleId: '100',
-              enrollmentTypeCode: 'FULL',
-            },
-          ],
-        },
-        professorStateFinal: { courseCycleIds: [] },
-      } as any, '999'),
+      usersService.adminEdit(
+        '1',
+        {
+          roleCodesFinal: [ROLE_CODES.ADMIN],
+          studentStateFinal: {
+            enrollments: [
+              {
+                courseCycleId: '100',
+                enrollmentTypeCode: 'FULL',
+              },
+            ],
+          },
+          professorStateFinal: { courseCycleIds: [] },
+        } as any,
+        '999',
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('adminEdit: rechaza quitar PROFESSOR si professorStateFinal no esta vacio', async () => {
     await expect(
-      usersService.adminEdit('1', {
-        roleCodesFinal: [ROLE_CODES.STUDENT],
-        studentStateFinal: { enrollments: [] },
-        professorStateFinal: { courseCycleIds: ['100'] },
-      } as any, '999'),
+      usersService.adminEdit(
+        '1',
+        {
+          roleCodesFinal: [ROLE_CODES.STUDENT],
+          studentStateFinal: { enrollments: [] },
+          professorStateFinal: { courseCycleIds: ['100'] },
+        } as any,
+        '999',
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 });

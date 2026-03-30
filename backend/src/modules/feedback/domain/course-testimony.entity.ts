@@ -53,6 +53,9 @@ export class CourseTestimony {
   })
   photoSource: PhotoSource;
 
+  @Column({ name: 'is_active', type: 'boolean', default: false })
+  isActive: boolean;
+
   @Column({ name: 'created_at', type: 'datetime' })
   createdAt: Date;
 

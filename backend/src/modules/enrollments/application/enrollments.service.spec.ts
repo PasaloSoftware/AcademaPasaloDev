@@ -156,7 +156,9 @@ describe('EnrollmentsService', () => {
     enrollmentRepositoryMock.findActiveByUserAndCourseCycle.mockResolvedValue(
       null,
     );
-    (managerMock.query as jest.Mock).mockResolvedValue([{ isActiveStudent: 1 }]);
+    (managerMock.query as jest.Mock).mockResolvedValue([
+      { isActiveStudent: 1 },
+    ]);
     enrollmentTypeRepositoryMock.findByCode.mockResolvedValue({
       id: 'type-full',
       code: 'FULL',
@@ -194,7 +196,8 @@ describe('EnrollmentsService', () => {
     };
 
     (managerMock.getRepository as jest.Mock).mockImplementation((entity) => {
-      if (entity && entity.name === 'CourseCycle') return managerCourseCycleRepo;
+      if (entity && entity.name === 'CourseCycle')
+        return managerCourseCycleRepo;
       if (entity && entity.name === 'Evaluation') return managerEvaluationRepo;
       return { findOne: jest.fn(), find: jest.fn() };
     });
@@ -225,7 +228,9 @@ describe('EnrollmentsService', () => {
     enrollmentRepositoryMock.findActiveByUserAndCourseCycle.mockResolvedValue(
       null,
     );
-    (managerMock.query as jest.Mock).mockResolvedValue([{ isActiveStudent: 1 }]);
+    (managerMock.query as jest.Mock).mockResolvedValue([
+      { isActiveStudent: 1 },
+    ]);
     enrollmentTypeRepositoryMock.findByCode.mockResolvedValue({
       id: 'type-full',
       code: 'FULL',
@@ -341,7 +346,9 @@ describe('EnrollmentsService', () => {
 
     const result = await service.getEnrollmentCourseCycleOptions('10');
 
-    expect(settingsServiceMock.getString).toHaveBeenCalledWith('ACTIVE_CYCLE_ID');
+    expect(settingsServiceMock.getString).toHaveBeenCalledWith(
+      'ACTIVE_CYCLE_ID',
+    );
     expect(result.currentCycle).toEqual({
       courseCycleId: '100',
       academicCycleCode: '2026-1',

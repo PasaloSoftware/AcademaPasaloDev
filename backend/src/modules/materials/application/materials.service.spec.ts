@@ -978,10 +978,9 @@ describe('MaterialsService', () => {
       expect(cacheService.del).toHaveBeenCalledWith(
         MATERIAL_CACHE_KEYS.CLASS_EVENT('ce-1'),
       );
-      expect(notificationsDispatchService.dispatchMaterialUpdated).toHaveBeenCalledWith(
-        'mat-1',
-        'folder-1',
-      );
+      expect(
+        notificationsDispatchService.dispatchMaterialUpdated,
+      ).toHaveBeenCalledWith('mat-1', 'folder-1');
     });
 
     it('should reject empty displayName', async () => {

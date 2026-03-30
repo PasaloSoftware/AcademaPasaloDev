@@ -32,7 +32,15 @@ export class UserResponseDto {
   careerId: number | null;
 
   @Expose()
-  @Transform(({ obj }) => obj?.career?.name ?? null)
+  @Transform(({ obj }: { obj: unknown }) => {
+    if (!obj || typeof obj !== 'object') return null;
+
+    const career = (obj as { career?: unknown }).career;
+    if (!career || typeof career !== 'object') return null;
+
+    const name = (career as { name?: unknown }).name;
+    return typeof name === 'string' ? name : null;
+  })
   careerName: string | null;
 
   @Expose()

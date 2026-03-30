@@ -651,7 +651,8 @@ describeLive('E2E Live: Materials + Google Drive', () => {
     getRequiredEnv('GOOGLE_APPLICATION_CREDENTIALS');
     getRequiredEnv('GOOGLE_DRIVE_ROOT_FOLDER_ID');
     const workspaceAdminEmail = getRequiredEnv('GOOGLE_WORKSPACE_ADMIN_EMAIL');
-    const workspaceDomain = getWorkspaceDomainFromAdminEmail(workspaceAdminEmail);
+    const workspaceDomain =
+      getWorkspaceDomainFromAdminEmail(workspaceAdminEmail);
     await cleanupResidualQaArtifacts(workspaceDomain);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -734,8 +735,9 @@ describeLive('E2E Live: Materials + Google Drive', () => {
       }
       await cleanupSandboxScopeForEvaluation(evaluation.id);
       try {
-        const workspaceAdminEmail =
-          getRequiredEnv('GOOGLE_WORKSPACE_ADMIN_EMAIL');
+        const workspaceAdminEmail = getRequiredEnv(
+          'GOOGLE_WORKSPACE_ADMIN_EMAIL',
+        );
         const workspaceDomain =
           getWorkspaceDomainFromAdminEmail(workspaceAdminEmail);
         await cleanupResidualQaArtifacts(workspaceDomain);

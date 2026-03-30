@@ -154,9 +154,12 @@ export class MaterialsService {
     const documentsFolderId = this.storageService.isGoogleDriveStorageEnabled()
       ? await this.resolveDocumentsFolderIdForEvaluation(folder.evaluationId)
       : null;
-    const authorizedRootFolderId = this.storageService.isGoogleDriveStorageEnabled()
-      ? await this.resolveAuthorizedRootFolderIdForEvaluation(folder.evaluationId)
-      : null;
+    const authorizedRootFolderId =
+      this.storageService.isGoogleDriveStorageEnabled()
+        ? await this.resolveAuthorizedRootFolderIdForEvaluation(
+            folder.evaluationId,
+          )
+        : null;
     let savedResource: {
       storageProvider: (typeof STORAGE_PROVIDER_CODES)[keyof typeof STORAGE_PROVIDER_CODES];
       storageKey: string;
@@ -930,7 +933,9 @@ export class MaterialsService {
       throw new NotFoundException('Material no encontrado');
     }
 
-    const folder = await this.folderRepository.findById(material.materialFolderId);
+    const folder = await this.folderRepository.findById(
+      material.materialFolderId,
+    );
     if (!folder) {
       throw new InternalServerErrorException(
         'Integridad de datos corrupta: Material sin carpeta contenedora',
@@ -1135,7 +1140,9 @@ export class MaterialsService {
   }
 
   private async getEvaluationTypeCode(evaluationId: string): Promise<string> {
-    const rows = await this.dataSource.query<Array<{ evaluationTypeCode: string }>>(
+    const rows = await this.dataSource.query<
+      Array<{ evaluationTypeCode: string }>
+    >(
       `
       SELECT UPPER(TRIM(et.code)) AS evaluationTypeCode
       FROM evaluation e
@@ -1145,7 +1152,9 @@ export class MaterialsService {
       `,
       [evaluationId],
     );
-    return String(rows[0]?.evaluationTypeCode || '').trim().toUpperCase();
+    return String(rows[0]?.evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
   }
 
   private async invalidateFolderCache(folderId: string) {

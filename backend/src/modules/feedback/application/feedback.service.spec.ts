@@ -1,21 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { FeedbackService } from '@modules/feedback/application/feedback.service';
 import { CourseTestimonyRepository } from '@modules/feedback/infrastructure/course-testimony.repository';
-import { FeaturedTestimonyRepository } from '@modules/feedback/infrastructure/featured-testimony.repository';
 import { EnrollmentRepository } from '@modules/enrollments/infrastructure/enrollment.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import {
   PhotoSource,
   CourseTestimony,
 } from '@modules/feedback/domain/course-testimony.entity';
-import { FeaturedTestimony } from '@modules/feedback/domain/featured-testimony.entity';
 import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
 
 describe('FeedbackService', () => {
   let service: FeedbackService;
   let testimonyRepo: CourseTestimonyRepository;
-  let featuredRepo: FeaturedTestimonyRepository;
   let enrollmentRepo: EnrollmentRepository;
   let cacheService: RedisCacheService;
 
@@ -29,15 +30,9 @@ describe('FeedbackService', () => {
             create: jest.fn(),
             findById: jest.fn(),
             findByCycleId: jest.fn(),
-          },
-        },
-        {
-          provide: FeaturedTestimonyRepository,
-          useValue: {
-            create: jest.fn(),
             save: jest.fn(),
-            findByTestimonyId: jest.fn(),
-            findActiveByCycle: jest.fn(),
+            countActive: jest.fn(),
+            findActivePublic: jest.fn(),
           },
         },
         {
@@ -60,9 +55,6 @@ describe('FeedbackService', () => {
     service = module.get<FeedbackService>(FeedbackService);
     testimonyRepo = module.get<CourseTestimonyRepository>(
       CourseTestimonyRepository,
-    );
-    featuredRepo = module.get<FeaturedTestimonyRepository>(
-      FeaturedTestimonyRepository,
     );
     enrollmentRepo = module.get<EnrollmentRepository>(EnrollmentRepository);
     cacheService = module.get<RedisCacheService>(RedisCacheService);
@@ -96,6 +88,7 @@ describe('FeedbackService', () => {
           comment: 'Excelente curso',
           photoSource: PhotoSource.NONE,
           photoUrl: null,
+          isActive: false,
         }),
       );
       expect(result).toBeDefined();
@@ -113,45 +106,43 @@ describe('FeedbackService', () => {
   });
 
   describe('featureTestimony (Admin)', () => {
-    const featureDto = { displayOrder: 1, isActive: true };
+    const featureDto = { isActive: true };
 
-    it('should create new featured record if not exists', async () => {
-      jest.spyOn(testimonyRepo, 'findById').mockResolvedValue({
+    it('should activate testimony when limit is not reached', async () => {
+      const testimony = {
         id: 't1',
+        isActive: false,
         courseCycleId: '100',
-      } as CourseTestimony);
-      jest.spyOn(featuredRepo, 'findByTestimonyId').mockResolvedValue(null);
+      } as CourseTestimony;
+      jest.spyOn(testimonyRepo, 'findById').mockResolvedValue(testimony);
+      jest.spyOn(testimonyRepo, 'countActive').mockResolvedValue(2);
       jest
-        .spyOn(featuredRepo, 'create')
-        .mockResolvedValue({ id: 'f1' } as FeaturedTestimony);
+        .spyOn(testimonyRepo, 'save')
+        .mockResolvedValue({ ...testimony, isActive: true });
 
       const result = await service.featureTestimony('admin1', 't1', featureDto);
 
-      expect(featuredRepo.create).toHaveBeenCalled();
-      expect(result).toBeDefined();
+      expect(testimonyRepo.save).toHaveBeenCalled();
+      expect(result.isActive).toBe(true);
       expect(cacheService.del).toHaveBeenCalled();
     });
 
-    it('should update existing featured record', async () => {
-      const existing = {
-        id: 'f1',
-        isActive: false,
-        displayOrder: 99,
-      } as FeaturedTestimony;
-      jest.spyOn(testimonyRepo, 'findById').mockResolvedValue({
+    it('should allow deactivation without validating limit', async () => {
+      const testimony = {
         id: 't1',
+        isActive: true,
         courseCycleId: '100',
-      } as CourseTestimony);
-      jest.spyOn(featuredRepo, 'findByTestimonyId').mockResolvedValue(existing);
+      } as CourseTestimony;
+      jest.spyOn(testimonyRepo, 'findById').mockResolvedValue(testimony);
       jest
-        .spyOn(featuredRepo, 'save')
-        .mockResolvedValue({ ...existing, ...featureDto });
+        .spyOn(testimonyRepo, 'save')
+        .mockResolvedValue({ ...testimony, isActive: false });
 
-      const result = await service.featureTestimony('admin1', 't1', featureDto);
+      const result = await service.featureTestimony('admin1', 't1', {
+        isActive: false,
+      });
 
-      expect(featuredRepo.save).toHaveBeenCalled();
-      expect(result.isActive).toBe(true);
-      expect(result.displayOrder).toBe(1);
+      expect(result.isActive).toBe(false);
       expect(cacheService.del).toHaveBeenCalled();
     });
 
@@ -162,27 +153,40 @@ describe('FeedbackService', () => {
         service.featureTestimony('admin1', '999', featureDto),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw BadRequest when active limit is reached', async () => {
+      jest.spyOn(testimonyRepo, 'findById').mockResolvedValue({
+        id: 't1',
+        isActive: false,
+      } as CourseTestimony);
+      jest.spyOn(testimonyRepo, 'countActive').mockResolvedValue(3);
+
+      await expect(
+        service.featureTestimony('admin1', 't1', featureDto),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('getPublicTestimonies', () => {
     it('should return from cache if available', async () => {
-      const cached = [{ id: 'f1' }] as FeaturedTestimony[];
+      const cached = [{ id: 'f1' }] as CourseTestimony[];
       jest.spyOn(cacheService, 'get').mockResolvedValue(cached);
 
-      const result = await service.getPublicTestimonies('100');
+      const result = await service.getPublicTestimonies();
 
       expect(result).toEqual(cached);
       expect(cacheService.get).toHaveBeenCalled();
     });
 
     it('should return from DB and set cache if not available', async () => {
-      const items = [{ id: 'f1' }] as FeaturedTestimony[];
+      const items = [{ id: 'f1' }] as CourseTestimony[];
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
-      jest.spyOn(featuredRepo, 'findActiveByCycle').mockResolvedValue(items);
+      jest.spyOn(testimonyRepo, 'findActivePublic').mockResolvedValue(items);
 
-      const result = await service.getPublicTestimonies('100');
+      const result = await service.getPublicTestimonies();
 
       expect(result).toEqual(items);
+      expect(testimonyRepo.findActivePublic).toHaveBeenCalledWith(3);
       expect(cacheService.set).toHaveBeenCalled();
     });
   });

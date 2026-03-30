@@ -19,9 +19,10 @@ export class CareerRepository {
 
   async findAll(): Promise<Career[]> {
     const cacheKey = USER_CACHE_KEYS.CAREERS_CATALOG;
-    const cached = await this.cacheService.get<Array<{ id: number; name: string }>>(
-      cacheKey,
-    );
+    const cached =
+      await this.cacheService.get<Array<{ id: number; name: string }>>(
+        cacheKey,
+      );
 
     if (cached) {
       return cached.map((item) => this.repository.create(item));

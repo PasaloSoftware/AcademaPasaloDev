@@ -905,10 +905,14 @@ describe('CoursesService student views', () => {
         evaluationType: { code: 'EX', name: 'Examen' },
       },
     ]);
-    (materialCatalogRepository.findFolderStatusByCode as jest.Mock).mockResolvedValue({
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({
       id: 'folder-active',
     });
-    (materialFolderRepository.findRootsByEvaluation as jest.Mock).mockResolvedValue([
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([
       { id: 'root-pc', name: 'Practicas Calificadas' },
       { id: 'root-ex', name: 'Examenes' },
     ]);
@@ -1010,10 +1014,14 @@ describe('CoursesService student views', () => {
         evaluationType: { code: 'PC', name: 'Practica Calificada' },
       },
     ]);
-    (materialCatalogRepository.findFolderStatusByCode as jest.Mock).mockResolvedValue({
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({
       id: 'folder-active',
     });
-    (materialFolderRepository.findRootsByEvaluation as jest.Mock).mockResolvedValue([]);
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([]);
 
     const result = await service.getStudentBankStructure('100', '501');
 

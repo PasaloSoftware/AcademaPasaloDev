@@ -483,23 +483,11 @@ CREATE TABLE course_testimony (
   comment TEXT NOT NULL,
   photo_url VARCHAR(500) NULL,
   photo_source ENUM('profile', 'uploaded', 'none') NOT NULL DEFAULT 'none',
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
   created_at DATETIME NOT NULL,
   updated_at DATETIME,
   FOREIGN KEY (user_id) REFERENCES user(id),
   FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id)
-);
-
-CREATE TABLE featured_testimony (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  course_cycle_id BIGINT NOT NULL,
-  course_testimony_id BIGINT NOT NULL,
-  display_order INT NOT NULL,
-  is_active BOOLEAN NOT NULL,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME,
-  FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
-  FOREIGN KEY (course_testimony_id) REFERENCES course_testimony(id),
-  CONSTRAINT uq_featured_testimony_course_cycle_testimony UNIQUE (course_cycle_id, course_testimony_id)
 );
 
 CREATE UNIQUE INDEX idx_user_email ON user(email);
@@ -624,11 +612,8 @@ ON course_testimony(rating);
 CREATE INDEX idx_course_testimony_created
 ON course_testimony(created_at);
 
-CREATE INDEX idx_featured_testimony_course_active
-ON featured_testimony(course_cycle_id, is_active);
-
-CREATE INDEX idx_featured_testimony_order
-ON featured_testimony(course_cycle_id, display_order);
+CREATE INDEX idx_course_testimony_active
+ON course_testimony(is_active);
 
 CREATE INDEX idx_enrollment_eval_eval_active_dates
 ON enrollment_evaluation (evaluation_id, is_active, access_start_date, access_end_date);

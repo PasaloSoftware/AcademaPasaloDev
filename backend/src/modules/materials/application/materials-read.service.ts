@@ -132,12 +132,11 @@ export class MaterialsReadService {
     if (isDriveResource && driveFileId) {
       const expectedRootFolderId =
         await this.resolveExpectedAuthorizedRootFolderId(folder, material);
-      const isInExpectedFolder =
-        await this.isDriveFileInFolderTreeCached(
-          material.id,
-          driveFileId,
-          expectedRootFolderId,
-        );
+      const isInExpectedFolder = await this.isDriveFileInFolderTreeCached(
+        material.id,
+        driveFileId,
+        expectedRootFolderId,
+      );
       if (!isInExpectedFolder) {
         throw new ForbiddenException(
           'El documento no pertenece al scope Drive autorizado para esta evaluacion',
@@ -185,10 +184,11 @@ export class MaterialsReadService {
       return true;
     }
 
-    const isInExpectedFolder = await this.storageService.isDriveFileInFolderTree(
-      driveFileId,
-      rootFolderId,
-    );
+    const isInExpectedFolder =
+      await this.storageService.isDriveFileInFolderTree(
+        driveFileId,
+        rootFolderId,
+      );
     if (isInExpectedFolder) {
       const ttlSeconds =
         technicalSettings.cache.materials.driveScopeValidationCacheTtlSeconds;
@@ -302,7 +302,9 @@ export class MaterialsReadService {
   }
 
   private async getEvaluationTypeCode(evaluationId: string): Promise<string> {
-    const rows = await this.dataSource.query<Array<{ evaluationTypeCode: string }>>(
+    const rows = await this.dataSource.query<
+      Array<{ evaluationTypeCode: string }>
+    >(
       `
       SELECT UPPER(TRIM(et.code)) AS evaluationTypeCode
       FROM evaluation e
@@ -312,15 +314,15 @@ export class MaterialsReadService {
       `,
       [evaluationId],
     );
-    return String(rows[0]?.evaluationTypeCode || '').trim().toUpperCase();
+    return String(rows[0]?.evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
   }
 
-  private async resolveBankDocumentsFolderIdForEvaluation(
-    params: {
-      evaluationId: string;
-      material?: Material;
-    },
-  ): Promise<string | null> {
+  private async resolveBankDocumentsFolderIdForEvaluation(params: {
+    evaluationId: string;
+    material?: Material;
+  }): Promise<string | null> {
     const loaded = this.getBankScopeFromLoadedContext(params.material);
     const cycleCode = loaded?.cycleCode || '';
     const courseCycleId = loaded?.courseCycleId || '';
@@ -374,12 +376,10 @@ export class MaterialsReadService {
     ]);
   }
 
-  private async resolveBankDocumentsFolderIdForEvaluationCached(
-    params: {
-      evaluationId: string;
-      material?: Material;
-    },
-  ): Promise<string | null> {
+  private async resolveBankDocumentsFolderIdForEvaluationCached(params: {
+    evaluationId: string;
+    material?: Material;
+  }): Promise<string | null> {
     const key = String(params.evaluationId || '').trim();
     if (!key) {
       return null;
@@ -391,9 +391,8 @@ export class MaterialsReadService {
       return cached.folderId;
     }
 
-    const folderId = await this.resolveBankDocumentsFolderIdForEvaluation(
-      params,
-    );
+    const folderId =
+      await this.resolveBankDocumentsFolderIdForEvaluation(params);
     if (!folderId) {
       this.bankDocumentsFolderCache.delete(key);
       return null;
@@ -601,7 +600,9 @@ export class MaterialsReadService {
       evaluation.courseCycle?.academicCycle?.code || '',
     ).trim();
     const courseCycleId = String(evaluation.courseCycleId || '').trim();
-    const courseCode = String(evaluation.courseCycle?.course?.code || '').trim();
+    const courseCode = String(
+      evaluation.courseCycle?.course?.code || '',
+    ).trim();
     if (!cycleCode || !courseCycleId || !courseCode) {
       return null;
     }

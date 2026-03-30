@@ -61,7 +61,9 @@ export class UserRepository {
     const page = Math.max(1, params.page);
     const pageSize = Math.max(1, params.pageSize);
     const roleCodes = (params.roleCodes ?? []).map((code) =>
-      String(code || '').trim().toUpperCase(),
+      String(code || '')
+        .trim()
+        .toUpperCase(),
     );
     const search = String(params.search || '').trim();
     const careerIds = (params.careerIds ?? [])

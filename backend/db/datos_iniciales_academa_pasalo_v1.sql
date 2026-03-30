@@ -215,3 +215,63 @@ INSERT INTO notification_type (code, name) VALUES
 INSERT INTO system_setting (setting_key, setting_value, description, created_at) VALUES
 ('NOTIFICATION_CLEANUP_RETENTION_DAYS', '180', 'Dias de retencion de notificaciones antes de la depuracion automatica mensual.', NOW()),
 ('NOTIFICATION_REMINDER_MINUTES',       '1440', 'Minutos de antelacion con los que se envia el recordatorio de clase (default: 24h).', NOW());
+
+INSERT INTO user (
+  email,
+  first_name,
+  last_name_1,
+  last_name_2,
+  career_id,
+  profile_photo_url,
+  photo_source,
+  created_at,
+  updated_at
+) VALUES
+  ('camila.rojas@demo.local', 'Camila', 'Rojas', 'Mendoza', 1,  NULL, 'none', NOW(), NULL),
+  ('diego.salazar@demo.local', 'Diego', 'Salazar', 'Paredes', 11, NULL, 'none', NOW(), NULL),
+  ('valeria.quispe@demo.local', 'Valeria', 'Quispe', 'Huaman', 40, NULL, 'none', NOW(), NULL);
+
+INSERT INTO course_testimony (
+  user_id,
+  course_cycle_id,
+  rating,
+  comment,
+  photo_url,
+  photo_source,
+  is_active,
+  created_at,
+  updated_at
+) VALUES
+(
+  (SELECT id FROM user WHERE email = 'camila.rojas@demo.local' LIMIT 1),
+  (SELECT id FROM course_cycle ORDER BY id ASC LIMIT 1 OFFSET 0),
+  5,
+  'Con Pasalo logre mejorar muchisimo en Algebra y cerre el ciclo con buena nota. Las clases son claras y muy practicas.',
+  NULL,
+  'none',
+  TRUE,
+  DATE_SUB(NOW(), INTERVAL 3 MONTH),
+  DATE_SUB(NOW(), INTERVAL 3 MONTH)
+),
+(
+  (SELECT id FROM user WHERE email = 'diego.salazar@demo.local' LIMIT 1),
+  (SELECT id FROM course_cycle ORDER BY id ASC LIMIT 1 OFFSET 1),
+  4,
+  'La forma de explicar en Pasalo me ayudo a entender temas que antes se me hacian dificiles. Termine el curso con mas confianza.',
+  NULL,
+  'none',
+  TRUE,
+  DATE_SUB(NOW(), INTERVAL 1 MONTH),
+  DATE_SUB(NOW(), INTERVAL 1 MONTH)
+),
+(
+  (SELECT id FROM user WHERE email = 'valeria.quispe@demo.local' LIMIT 1),
+  (SELECT id FROM course_cycle ORDER BY id ASC LIMIT 1 OFFSET 2),
+  5,
+  'Gracias a Pasalo pude organizar mejor mi estudio y resolver ejercicios mas rapido. La metodologia realmente funciona.',
+  NULL,
+  'none',
+  TRUE,
+  DATE_SUB(NOW(), INTERVAL 2 WEEK),
+  DATE_SUB(NOW(), INTERVAL 2 WEEK)
+);

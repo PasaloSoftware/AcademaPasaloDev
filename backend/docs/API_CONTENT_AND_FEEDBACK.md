@@ -592,43 +592,53 @@ Permite navegar la jerarquia de una evaluacion. Requiere acceso a la evaluacion 
     * **Roles:** `SUPER_ADMIN`
 ---
 
-## ÉPICA: FEEDBACK Y REPUTACIÓN (`/feedback`)
+## EPICA: FEEDBACK Y REPUTACION (`/feedback`)
 
 ### 1. Enviar Testimonio (Alumno)
 - **Endpoint:** `POST /feedback`
-- **Roles:** `STUDENT` (con matr�cula activa)
+- **Roles:** `STUDENT` (con matricula activa)
 - **Content-Type:** `application/json`
 - **Request Body:**
     * `courseCycleId`: string
     * `rating`: number (1-5)
     * `comment`: string (min 3, max 500)
-- **Validaci�n:** Se permiten m�ltiples opiniones del mismo alumno para el mismo curso/ciclo.
+- **Notas:**
+    * Se permiten multiples opiniones del mismo alumno para el mismo curso/ciclo.
+    * Todo testimonio nuevo se crea con `isActive = false` (no visible publicamente por defecto).
 
-### 2. Listar Destacados (Público/Web)
-- **Endpoint:** `GET /feedback/public/course-cycle/:id`
+### 2. Listar Testimonios Publicos (Web)
+- **Endpoint:** `GET /feedback/public`
 - **Auth:** No requerida.
-- **Caché:** 10 minutos.
+- **Cache:** 10 minutos.
+- **Logica de seleccion:**
+    * Solo devuelve testimonios con `isActive = true`.
+    * Ordena por `createdAt DESC` (mas recientes primero).
+    * Devuelve como maximo `N` registros, donde `N = FEEDBACK_MAX_PUBLIC_VISIBLE_TESTIMONIES` (default: `3`).
 - **Data (Response):**
     ```json
     [
       {
-        "id": string,
-        "displayOrder": number,
-        "courseTestimony": {
-          "rating": number,
-          "comment": string,
-          "photoUrl": string | null,
-          "user": { "firstName": string, "lastName1": string, "profilePhotoUrl": string | null }
-        }
+        "id": "123",
+        "rating": 5,
+        "comment": "Excelente curso",
+        "createdAt": "2026-03-29T20:15:22.000Z",
+        "user": {
+          "firstName": "Ana",
+          "lastName1": "Perez",
+          "profilePhotoUrl": null,
+          "careerName": "Ingenieria de Sistemas"
+        },
+        "courseName": "Matematica I"
       }
     ]
     ```
 
-### 3. Moderación (Administrador)
-- **GET /feedback/admin/course-cycle/:id:** Listado completo para gestión.
-- **POST /feedback/admin/:testimonyId/feature:** Destacar testimonio en la web.
-    * `body: { isActive: boolean, displayOrder: number }`
-    * **Efecto:** Invalida automáticamente el caché público.
+### 3. Moderacion (Administrador)
+- **GET /feedback/admin/course-cycle/:id:** listado completo para gestion del curso/ciclo (incluye activos e inactivos).
+- **POST /feedback/admin/:testimonyId/feature:** activar/desactivar visibilidad de un testimonio.
+    * `body: { isActive: boolean }`
+    * Si `isActive = true` y ya existe el maximo permitido de activos, responde `400`.
+    * **Efecto:** invalida automaticamente el cache publico.
 
 
 
