@@ -19,8 +19,7 @@ INSERT INTO cycle_level (level_number, name) VALUES
 (7, 'Septimo Ciclo'),
 (8, 'Octavo Ciclo'),
 (9, 'Noveno Ciclo'),
-(10, 'Decimo Ciclo'),
-(10, 'Decimo Ciclo');
+(10, 'Décimo Ciclo');
 
 INSERT INTO enrollment_status (code, name) VALUES
 ('ACTIVE', 'Matricula Activa'),
