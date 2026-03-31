@@ -147,10 +147,35 @@ export interface BankStructureItem {
   evaluationTypeId: string;
   evaluationTypeCode: string;
   evaluationTypeName: string;
+  entries?: BankStructureEntry[];
+}
+
+export interface BankStructureEntry {
+  evaluationId: string;
+  evaluationTypeCode: string;
+  evaluationTypeName: string;
+  evaluationNumber: number;
+  label: string;
+  folderId: string | null;
+  folderName: string | null;
 }
 
 export interface BankStructureResponse {
   courseCycleId: string;
   cycleCode: string;
+  bankEvaluationId?: string;
   items: BankStructureItem[];
+}
+
+export interface IntroVideoLinkResponse {
+  contentKind: string;
+  accessMode: string;
+  courseCycleId: string;
+  driveFileId: string;
+  url: string;
+  expiresAt: string | null;
+  requestedMode: string;
+  fileName: string | null;
+  mimeType: string | null;
+  storageProvider: string;
 }

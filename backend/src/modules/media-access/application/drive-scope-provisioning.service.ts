@@ -8,6 +8,7 @@ import { GoogleAuth } from 'google-auth-library';
 
 type DriveFolderLookupResponse = {
   id?: string;
+  name?: string;
   mimeType?: string;
   trashed?: boolean;
 };
@@ -111,6 +112,21 @@ export class DriveScopeProvisioningService {
     folderId: string,
     groupEmail: string,
   ): Promise<void> {
+    await this.ensureGroupPermission(folderId, groupEmail, 'reader');
+  }
+
+  async ensureGroupWriterPermission(
+    folderId: string,
+    groupEmail: string,
+  ): Promise<void> {
+    await this.ensureGroupPermission(folderId, groupEmail, 'writer');
+  }
+
+  private async ensureGroupPermission(
+    folderId: string,
+    groupEmail: string,
+    role: 'reader' | 'writer',
+  ): Promise<void> {
     const normalizedGroupEmail = groupEmail.trim().toLowerCase();
     const permissions = await this.listPermissions(folderId);
     const existingPermission = permissions.find(
@@ -129,7 +145,7 @@ export class DriveScopeProvisioningService {
         method: 'POST',
         data: {
           type: 'group',
-          role: 'reader',
+          role,
           emailAddress: normalizedGroupEmail,
         },
         headers: {
@@ -145,9 +161,10 @@ export class DriveScopeProvisioningService {
     }
 
     this.logger.log({
-      message: 'Permiso reader de grupo aplicado en carpeta Drive',
+      message: 'Permiso de grupo aplicado en carpeta Drive',
       folderId,
       groupEmail: normalizedGroupEmail,
+      role,
     });
   }
 
@@ -208,6 +225,31 @@ export class DriveScopeProvisioningService {
         `Conflicto al crear carpeta ${folderName} y no fue posible resolver estado final`,
       );
     }
+  }
+
+  async getDriveFolderMetadata(folderId: string): Promise<{
+    id: string;
+    name: string;
+    mimeType: string;
+    trashed: boolean;
+  }> {
+    const normalizedFolderId = String(folderId || '').trim();
+    if (!normalizedFolderId) {
+      throw new InternalServerErrorException('folderId invalido para Drive');
+    }
+
+    const client = await this.getDriveClient();
+    const response = await client.request<DriveFolderLookupResponse>({
+      url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFolderId)}?fields=id,name,mimeType,trashed&supportsAllDrives=true`,
+      method: 'GET',
+    });
+
+    return {
+      id: String(response.data.id || ''),
+      name: String(response.data.name || ''),
+      mimeType: String(response.data.mimeType || ''),
+      trashed: Boolean(response.data.trashed),
+    };
   }
 
   getRootFolderId(): string {

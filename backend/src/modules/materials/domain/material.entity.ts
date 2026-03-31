@@ -71,6 +71,14 @@ export class Material {
   @Column({ name: 'display_name', type: 'varchar', length: 255 })
   displayName: string;
 
+  @Column({
+    name: 'authorized_root_folder_id',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  authorizedRootFolderId: string | null;
+
   @Column({ name: 'visible_from', type: 'datetime', nullable: true })
   visibleFrom: Date | null;
 

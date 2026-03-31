@@ -69,7 +69,10 @@ describe('MaterialsAdminService', () => {
         },
         {
           provide: RedisCacheService,
-          useValue: { del: jest.fn() },
+          useValue: {
+            del: jest.fn(),
+            invalidateIndex: jest.fn(),
+          },
         },
         {
           provide: NotificationsDispatchService,
@@ -229,6 +232,12 @@ describe('MaterialsAdminService', () => {
         'admin-1',
         'FILE_EDIT',
         expect.anything(),
+      );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        'cache:materials:contents:folder:folder-1',
+      );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        'cache:materials:class-event:event-1',
       );
     });
   });

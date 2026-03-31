@@ -11,6 +11,7 @@ import { EnrollmentStatusRepository } from '@modules/enrollments/infrastructure/
 import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastructure/enrollment-evaluation.repository';
 import { EnrollmentTypeRepository } from '@modules/enrollments/infrastructure/enrollment-type.repository';
 import { CreateEnrollmentDto } from '@modules/enrollments/dto/create-enrollment.dto';
+import { EnrollmentOptionsResponseDto } from '@modules/enrollments/dto/enrollment-options.dto';
 import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
@@ -33,6 +34,16 @@ import {
   toBusinessDayEndUtc,
   toBusinessDayStartUtc,
 } from '@common/utils/peru-time.util';
+import { formatCycleLevelName } from '@common/utils/cycle-level-format.util';
+import { SettingsService } from '@modules/settings/application/settings.service';
+import {
+  DatabaseError,
+  MySqlErrorCode,
+} from '@common/interfaces/database-error.interface';
+import {
+  getErrnoFromDbError,
+  getMessageFromDbError,
+} from '@common/utils/mysql-error.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -48,6 +59,7 @@ export class EnrollmentsService {
     private readonly enrollmentTypeRepository: EnrollmentTypeRepository,
     private readonly cacheService: RedisCacheService,
     private readonly mediaAccessMembershipDispatchService: MediaAccessMembershipDispatchService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findMyEnrollments(userId: string): Promise<MyEnrollmentsResponseDto[]> {
@@ -86,7 +98,9 @@ export class EnrollmentsService {
               name: enrollment.courseCycle.course.courseType.name,
             },
             cycleLevel: {
-              name: `${enrollment.courseCycle.course.cycleLevel.levelNumber} Ciclo`,
+              name: formatCycleLevelName(
+                enrollment.courseCycle.course.cycleLevel.levelNumber,
+              ),
             },
           },
           academicCycle: {
@@ -186,16 +200,26 @@ export class EnrollmentsService {
           );
         }
 
-        const enrollment = await this.enrollmentRepository.create(
-          {
-            userId: dto.userId,
-            courseCycleId: dto.courseCycleId,
-            enrollmentStatusId: status.id,
-            enrollmentTypeId: type.id,
-            enrolledAt: new Date(),
-          },
-          manager,
-        );
+        let enrollment: Enrollment;
+        try {
+          enrollment = await this.enrollmentRepository.create(
+            {
+              userId: dto.userId,
+              courseCycleId: dto.courseCycleId,
+              enrollmentStatusId: status.id,
+              enrollmentTypeId: type.id,
+              enrolledAt: new Date(),
+            },
+            manager,
+          );
+        } catch (error) {
+          if (this.isActiveEnrollmentDuplicateError(error)) {
+            throw new ConflictException(
+              'El usuario ya cuenta con una matricula activa en este curso.',
+            );
+          }
+          throw error;
+        }
 
         const courseCycleIdsToFetch: string[] = [dto.courseCycleId];
 
@@ -310,6 +334,7 @@ export class EnrollmentsService {
         return {
           enrollment,
           grantedEvaluationIds,
+          grantedCourseCycleIds: Array.from(new Set(courseCycleIdsToFetch)),
         };
       },
     );
@@ -321,7 +346,7 @@ export class EnrollmentsService {
     );
     await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
       dto.userId,
-      [dto.courseCycleId],
+      transactionResult.grantedCourseCycleIds,
       MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CREATED_COURSE_CYCLE,
     );
 
@@ -335,6 +360,11 @@ export class EnrollmentsService {
     }
     const evaluationIdsToRevoke =
       await this.enrollmentEvaluationRepository.findEvaluationIdsToRevokeAfterEnrollmentCancellation(
+        enrollment.userId,
+        enrollmentId,
+      );
+    const courseCycleIdsToRevoke =
+      await this.enrollmentEvaluationRepository.findCourseCycleIdsToRevokeAfterEnrollmentCancellation(
         enrollment.userId,
         enrollmentId,
       );
@@ -359,7 +389,9 @@ export class EnrollmentsService {
     );
     await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
       enrollment.userId,
-      [enrollment.courseCycleId],
+      courseCycleIdsToRevoke.length > 0
+        ? courseCycleIdsToRevoke
+        : [enrollment.courseCycleId],
       MEDIA_ACCESS_SYNC_SOURCES.ENROLLMENT_CANCELLED_COURSE_CYCLE,
     );
 
@@ -368,8 +400,201 @@ export class EnrollmentsService {
       userId: enrollment.userId,
       enrollmentId,
       revokedEvaluations: evaluationIdsToRevoke.length,
+      revokedCourseCycles: courseCycleIdsToRevoke.length,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  async getEnrollmentOptionsByCourseCycle(
+    courseCycleId: string,
+  ): Promise<EnrollmentOptionsResponseDto> {
+    const baseRows = await this.dataSource.query<
+      Array<{
+        baseCourseCycleId: string;
+        courseId: string;
+        courseCode: string;
+        courseName: string;
+        academicCycleCode: string;
+        academicCycleStartDate: Date;
+      }>
+    >(
+      `
+        SELECT
+          cc.id AS baseCourseCycleId,
+          c.id AS courseId,
+          c.code AS courseCode,
+          c.name AS courseName,
+          ac.code AS academicCycleCode,
+          ac.start_date AS academicCycleStartDate
+        FROM course_cycle cc
+        INNER JOIN course c ON c.id = cc.course_id
+        INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+        WHERE cc.id = ?
+        LIMIT 1
+      `,
+      [courseCycleId],
+    );
+
+    const base = baseRows[0];
+    if (!base) {
+      throw new BadRequestException('Ciclo de curso no encontrado.');
+    }
+
+    const [evaluationRows, historicalRows] = await Promise.all([
+      this.dataSource.query<
+        Array<{
+          id: string;
+          evaluationTypeCode: string;
+          evaluationTypeName: string;
+          evaluationNumber: number;
+        }>
+      >(
+        `
+          SELECT
+            e.id AS id,
+            et.code AS evaluationTypeCode,
+            et.name AS evaluationTypeName,
+            e.number AS evaluationNumber
+          FROM evaluation e
+          INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+          WHERE e.course_cycle_id = ?
+            AND UPPER(TRIM(et.code)) <> ?
+          ORDER BY e.start_date ASC, e.number ASC, e.id ASC
+        `,
+        [courseCycleId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+      ),
+      this.dataSource.query<
+        Array<{
+          courseCycleId: string;
+          academicCycleCode: string;
+        }>
+      >(
+        `
+          SELECT
+            cc.id AS courseCycleId,
+            ac.code AS academicCycleCode
+          FROM course_cycle cc
+          INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+          WHERE cc.course_id = ?
+            AND ac.start_date < ?
+          ORDER BY ac.start_date DESC, cc.id DESC
+        `,
+        [base.courseId, base.academicCycleStartDate],
+      ),
+    ]);
+
+    return {
+      baseCourseCycleId: base.baseCourseCycleId,
+      courseId: base.courseId,
+      courseCode: base.courseCode,
+      courseName: base.courseName,
+      academicCycleCode: base.academicCycleCode,
+      evaluations: evaluationRows.map((row) => ({
+        id: row.id,
+        evaluationTypeCode: row.evaluationTypeCode,
+        shortName: `${row.evaluationTypeCode}${row.evaluationNumber}`,
+        fullName: `${row.evaluationTypeName} ${row.evaluationNumber}`,
+      })),
+      historicalCycles: historicalRows.map((row) => ({
+        courseCycleId: row.courseCycleId,
+        academicCycleCode: row.academicCycleCode,
+      })),
+    };
+  }
+
+  async getEnrollmentCourseCycleOptions(courseId: string): Promise<{
+    courseId: string;
+    courseCode: string;
+    courseName: string;
+    currentCycle: { courseCycleId: string; academicCycleCode: string } | null;
+    historicalCycles: Array<{
+      courseCycleId: string;
+      academicCycleCode: string;
+    }>;
+  }> {
+    const normalizedCourseId = String(courseId || '').trim();
+    if (!normalizedCourseId) {
+      throw new BadRequestException('courseId es requerido');
+    }
+
+    const courseRows = await this.dataSource.query<
+      Array<{ courseId: string; courseCode: string; courseName: string }>
+    >(
+      `
+        SELECT
+          c.id AS courseId,
+          c.code AS courseCode,
+          c.name AS courseName
+        FROM course c
+        WHERE c.id = ?
+        LIMIT 1
+      `,
+      [normalizedCourseId],
+    );
+    const course = courseRows[0];
+    if (!course) {
+      throw new BadRequestException('Curso no encontrado');
+    }
+
+    const activeCycleId =
+      await this.settingsService.getString('ACTIVE_CYCLE_ID');
+    const currentRows = await this.dataSource.query<
+      Array<{
+        courseCycleId: string;
+        academicCycleCode: string;
+        academicCycleStartDate: Date;
+      }>
+    >(
+      `
+        SELECT
+          cc.id AS courseCycleId,
+          ac.code AS academicCycleCode,
+          ac.start_date AS academicCycleStartDate
+        FROM course_cycle cc
+        INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+        WHERE cc.course_id = ?
+          AND cc.academic_cycle_id = ?
+        ORDER BY cc.id ASC
+        LIMIT 1
+      `,
+      [normalizedCourseId, activeCycleId],
+    );
+    const current = currentRows[0] || null;
+
+    let historicalCycles: Array<{
+      courseCycleId: string;
+      academicCycleCode: string;
+    }> = [];
+    if (current) {
+      historicalCycles = await this.dataSource.query<
+        Array<{ courseCycleId: string; academicCycleCode: string }>
+      >(
+        `
+          SELECT
+            cc.id AS courseCycleId,
+            ac.code AS academicCycleCode
+          FROM course_cycle cc
+          INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+          WHERE cc.course_id = ?
+            AND ac.start_date < ?
+          ORDER BY ac.start_date DESC, cc.id DESC
+        `,
+        [normalizedCourseId, current.academicCycleStartDate],
+      );
+    }
+
+    return {
+      courseId: course.courseId,
+      courseCode: course.courseCode,
+      courseName: course.courseName,
+      currentCycle: current
+        ? {
+            courseCycleId: current.courseCycleId,
+            academicCycleCode: current.academicCycleCode,
+          }
+        : null,
+      historicalCycles,
+    };
   }
 
   private async assertUserIsActiveStudent(
@@ -413,5 +638,16 @@ export class EnrollmentsService {
     throw new BadRequestException(
       'El usuario debe ser un alumno activo para matricularse.',
     );
+  }
+
+  private isActiveEnrollmentDuplicateError(error: unknown): boolean {
+    const errno = getErrnoFromDbError(error as DatabaseError);
+    if (errno !== MySqlErrorCode.DUPLICATE_ENTRY) {
+      return false;
+    }
+
+    const message = getMessageFromDbError(error).toLowerCase();
+
+    return message.includes('uq_enrollment_active_user_course_cycle');
   }
 }

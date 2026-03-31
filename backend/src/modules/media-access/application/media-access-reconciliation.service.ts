@@ -228,20 +228,8 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
            AND u.email IS NOT NULL
            AND TRIM(u.email) <> ''
 
-         UNION
-
-         SELECT LOWER(TRIM(u.email)) AS email
-         FROM evaluation ev
-         INNER JOIN course_cycle_professor ccp
-           ON ccp.course_cycle_id = ev.course_cycle_id
-          AND ccp.revoked_at IS NULL
-         INNER JOIN user u ON u.id = ccp.professor_user_id
-         WHERE ev.id = ?
-           AND u.is_active = 1
-           AND u.email IS NOT NULL
-           AND TRIM(u.email) <> ''
        ) expected_members`,
-      [evaluationId, now, now, evaluationId],
+      [evaluationId, now, now],
     );
 
     const expectedEmailSet = new Set<string>();

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Get,
   Param,
@@ -19,6 +20,7 @@ import { CreateMaterialFolderDto } from '@modules/materials/dto/create-material-
 import { CreateFolderTemplateDto } from '@modules/materials/dto/create-folder-template.dto';
 import { RequestDeletionDto } from '@modules/materials/dto/request-deletion.dto';
 import { GetAuthorizedDocumentLinkQueryDto } from '@modules/materials/dto/get-authorized-document-link-query.dto';
+import { UpdateMaterialDisplayNameDto } from '@modules/materials/dto/update-material-display-name.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -77,6 +79,22 @@ export class MaterialsController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.materialsService.addVersion(user, materialId, file);
+  }
+
+  @Patch(':id/display-name')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.PROFESSOR, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Nombre de material actualizado exitosamente')
+  async updateDisplayName(
+    @CurrentUser() user: UserWithSession,
+    @Param('id') materialId: string,
+    @Body() dto: UpdateMaterialDisplayNameDto,
+  ) {
+    return await this.materialsService.updateMaterialDisplayName(
+      user,
+      materialId,
+      dto.displayName,
+    );
   }
 
   @Post(':id/restore-version/:versionId')

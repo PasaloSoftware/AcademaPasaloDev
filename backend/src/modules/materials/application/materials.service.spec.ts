@@ -111,6 +111,8 @@ describe('MaterialsService', () => {
             deleteFile: jest.fn(),
             getFileStream: jest.fn(),
             isDriveFileDirectlyInFolder: jest.fn(),
+            isDriveFileInFolderTree: jest.fn(),
+            resolveDriveFolderIdByPath: jest.fn(),
             isGoogleDriveStorageEnabled: jest.fn().mockReturnValue(true),
           },
         },
@@ -124,6 +126,8 @@ describe('MaterialsService', () => {
             get: jest.fn().mockResolvedValue(null),
             set: jest.fn().mockResolvedValue(null),
             del: jest.fn().mockResolvedValue(null),
+            addToIndex: jest.fn().mockResolvedValue(null),
+            invalidateIndex: jest.fn().mockResolvedValue(null),
           },
         },
         {
@@ -171,6 +175,8 @@ describe('MaterialsService', () => {
           useValue: {
             create: jest.fn(),
             findPendingByMaterialId: jest.fn().mockResolvedValue(null),
+            existsPendingByMaterialId: jest.fn().mockResolvedValue(false),
+            findPendingMaterialIds: jest.fn().mockResolvedValue([]),
           },
         },
         {
@@ -221,6 +227,11 @@ describe('MaterialsService', () => {
     driveAccessScopeService = module.get(DriveAccessScopeService);
     notificationsDispatchService = module.get(NotificationsDispatchService);
     materialVersionHistoryRepo = module.get(MaterialVersionHistoryRepository);
+    dataSource.query.mockResolvedValue([{ hasAccess: 0 }]);
+    catalogRepo.findDeletionRequestStatusByCode.mockImplementation(
+      async (code: string) =>
+        code === 'PENDING' ? ({ id: 'status-pending' } as any) : null,
+    );
     (
       courseCycleProfessorRepo.canProfessorReadEvaluation as jest.Mock
     ).mockResolvedValue(true);
@@ -232,7 +243,8 @@ describe('MaterialsService', () => {
         driveDocumentsFolderId: 'docs-folder-100',
       },
     } as any);
-    storageService.isDriveFileDirectlyInFolder.mockResolvedValue(true);
+    storageService.isDriveFileInFolderTree.mockResolvedValue(true);
+    storageService.resolveDriveFolderIdByPath.mockResolvedValue(null);
 
     dataSource.transaction.mockImplementation(
       (arg1: unknown, arg2?: unknown) => {
@@ -455,7 +467,7 @@ describe('MaterialsService', () => {
       );
     });
 
-    it('should deduplicate when resource already exists and avoid physical upload', async () => {
+    it('should reject upload when the same file already exists in the evaluation and avoid physical upload', async () => {
       const file = mockFile();
       catalogRepo.findMaterialStatusByCode.mockResolvedValue({
         id: '1',
@@ -469,10 +481,14 @@ describe('MaterialsService', () => {
         storageUrl: null,
       } as unknown as FileResource);
 
-      await service.uploadMaterial(
-        mockProfessor,
-        { materialFolderId: '1', displayName: 'Doc' },
-        file,
+      await expect(
+        service.uploadMaterial(
+          mockProfessor,
+          { materialFolderId: '1', displayName: 'Doc' },
+          file,
+        ),
+      ).rejects.toThrow(
+        'Ya existe un material con el mismo archivo en esta evaluacion',
       );
 
       expect(storageService.saveFile).not.toHaveBeenCalled();
@@ -519,7 +535,7 @@ describe('MaterialsService', () => {
       );
     });
 
-    it('should recover from concurrent dedup collision on file_resource and clean orphan physical file', async () => {
+    it('should reject upload on concurrent dedup collision and clean orphan physical file', async () => {
       const file = mockFile();
       catalogRepo.findMaterialStatusByCode.mockResolvedValue({
         id: '1',
@@ -555,13 +571,15 @@ describe('MaterialsService', () => {
         return await cb(manager);
       });
 
-      const result = await service.uploadMaterial(
-        mockProfessor,
-        { materialFolderId: '1', displayName: 'Doc' },
-        file,
+      await expect(
+        service.uploadMaterial(
+          mockProfessor,
+          { materialFolderId: '1', displayName: 'Doc' },
+          file,
+        ),
+      ).rejects.toThrow(
+        'Ya existe un material con el mismo archivo en esta evaluacion',
       );
-
-      expect(result).toBeDefined();
       expect(storageService.deleteFile).toHaveBeenCalledWith(
         'collision.pdf',
         'LOCAL',
@@ -931,6 +949,47 @@ describe('MaterialsService', () => {
     });
   });
 
+  describe('updateMaterialDisplayName', () => {
+    it('should update displayName and invalidate related caches', async () => {
+      materialRepo.findById
+        .mockResolvedValueOnce({
+          id: 'mat-1',
+          materialFolderId: 'folder-1',
+          classEventId: 'ce-1',
+        } as Material)
+        .mockResolvedValueOnce({
+          id: 'mat-1',
+          materialFolderId: 'folder-1',
+          classEventId: 'ce-1',
+          displayName: 'Nuevo nombre',
+        } as Material);
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+
+      const result = await service.updateMaterialDisplayName(
+        mockProfessor,
+        'mat-1',
+        '  Nuevo nombre  ',
+      );
+
+      expect(result.displayName).toBe('Nuevo nombre');
+      expect(cacheService.del).toHaveBeenCalledWith(
+        MATERIAL_CACHE_KEYS.CONTENTS('folder-1'),
+      );
+      expect(cacheService.del).toHaveBeenCalledWith(
+        MATERIAL_CACHE_KEYS.CLASS_EVENT('ce-1'),
+      );
+      expect(
+        notificationsDispatchService.dispatchMaterialUpdated,
+      ).toHaveBeenCalledWith('mat-1', 'folder-1');
+    });
+
+    it('should reject empty displayName', async () => {
+      await expect(
+        service.updateMaterialDisplayName(mockProfessor, 'mat-1', '   '),
+      ).rejects.toThrow('obligatorio');
+    });
+  });
+
   describe('getClassEventMaterials', () => {
     it('should return class event materials with access control', async () => {
       classEventRepo.findByIdSimple.mockResolvedValue({
@@ -949,6 +1008,26 @@ describe('MaterialsService', () => {
 
       expect(result).toHaveLength(1);
       expect(materialRepo.findByClassEventId).toHaveBeenCalledWith('55', '1');
+    });
+
+    it('should hide pending deletion materials for student in class-event listing', async () => {
+      classEventRepo.findByIdSimple.mockResolvedValue({
+        id: '55',
+        evaluationId: '100',
+      } as ClassEvent);
+      catalogRepo.findMaterialStatusByCode.mockResolvedValue({
+        id: '1',
+      } as MaterialStatus);
+      accessEngine.hasAccess.mockResolvedValue(true);
+      materialRepo.findByClassEventId.mockResolvedValue([
+        { id: 'mat-1', displayName: 'Sesion 1' } as Material,
+        { id: 'mat-2', displayName: 'Sesion 2' } as Material,
+      ]);
+      deletionRepo.findPendingMaterialIds.mockResolvedValue(['mat-1']);
+
+      const result = await service.getClassEventMaterials(mockStudent, '55');
+
+      expect(result.map((material) => material.id)).toEqual(['mat-2']);
     });
 
     it('should throw NotFound when class event does not exist', async () => {
@@ -1296,6 +1375,27 @@ describe('MaterialsService', () => {
       ).rejects.toThrow('No tienes acceso a este contenido educativo');
     });
 
+    it('should deny authorized-link when material has pending deletion request for student', async () => {
+      materialRepo.findById.mockResolvedValue({
+        id: 'mat-1',
+        materialFolderId: 'folder-1',
+        fileResource: {
+          originalName: 'guia-1.pdf',
+          mimeType: 'application/pdf',
+          storageProvider: 'GDRIVE',
+          storageKey: 'drive-file-1',
+          storageUrl: null,
+        },
+      } as unknown as Material);
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      accessEngine.hasAccess.mockResolvedValue(true);
+      deletionRepo.existsPendingByMaterialId.mockResolvedValue(true);
+
+      await expect(
+        service.getAuthorizedDocumentLink(mockStudent, 'mat-1'),
+      ).rejects.toThrow('temporalmente');
+    });
+
     it('should reject drive document when evaluation scope has no documents folder provisioned', async () => {
       materialRepo.findById.mockResolvedValue({
         id: 'mat-1',
@@ -1339,7 +1439,7 @@ describe('MaterialsService', () => {
       } as unknown as Material);
       folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
       accessEngine.hasAccess.mockResolvedValue(true);
-      storageService.isDriveFileDirectlyInFolder.mockResolvedValueOnce(false);
+      storageService.isDriveFileInFolderTree.mockResolvedValueOnce(false);
 
       await expect(
         service.getAuthorizedDocumentLink(mockStudent, 'mat-1'),

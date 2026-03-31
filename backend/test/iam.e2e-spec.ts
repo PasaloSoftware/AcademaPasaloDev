@@ -28,6 +28,7 @@ import { SecurityEventTypeRepository } from './../src/modules/auth/infrastructur
 import { SecurityEventRepository } from './../src/modules/auth/infrastructure/security-event.repository';
 import { UsersController } from './../src/modules/users/presentation/users.controller';
 import { UsersService } from './../src/modules/users/application/users.service';
+import { CareersCatalogService } from './../src/modules/users/application/careers-catalog.service';
 import { PhotoSource, User } from './../src/modules/users/domain/user.entity';
 import { RedisCacheService } from '../src/infrastructure/cache/redis-cache.service';
 
@@ -115,7 +116,30 @@ describe('IAM (e2e)', () => {
         createdAt: new Date(),
       }),
     ),
-    findAll: jest.fn().mockResolvedValue([adminUser, studentUser]),
+    findAdminUsersTable: jest.fn().mockResolvedValue({
+      items: [
+        {
+          id: adminUser.id,
+          fullName: 'Admin',
+          email: adminUser.email,
+          roles: ['Administrador'],
+          careerName: null,
+          isActive: true,
+        },
+        {
+          id: studentUser.id,
+          fullName: 'Student',
+          email: studentUser.email,
+          roles: ['Alumno'],
+          careerName: null,
+          isActive: true,
+        },
+      ],
+      currentPage: 1,
+      pageSize: 10,
+      totalItems: 2,
+      totalPages: 1,
+    }),
     update: jest.fn((id, dto) => {
       if (id === '1') {
         return Promise.resolve({
@@ -131,6 +155,28 @@ describe('IAM (e2e)', () => {
       }
       return Promise.resolve(null);
     }),
+    adminOnboard: jest.fn().mockResolvedValue({
+      userId: '900',
+      enrollmentId: 'enr-900',
+      assignedRoleCodes: ['STUDENT'],
+      professorCourseCycleIds: [],
+    }),
+    adminEdit: jest.fn().mockResolvedValue({
+      userId: '900',
+      rolesFinal: ['STUDENT'],
+      enrollmentsChanged: {
+        cancelledEnrollmentIds: [],
+        createdEnrollmentIds: [],
+        baseCourseCycleIdsFinal: [],
+      },
+      professorCourseCyclesChanged: { added: [], removed: [] },
+      eventProfessorAssignmentsChanged: { assignedCount: 0, revokedCount: 0 },
+    }),
+  };
+
+  const careersCatalogServiceMock = {
+    listCareers: jest.fn().mockResolvedValue([]),
+    refreshCareersCache: jest.fn().mockResolvedValue([]),
   };
 
   const userSessionRepositoryMock = {
@@ -231,6 +277,10 @@ describe('IAM (e2e)', () => {
           },
         },
         { provide: UsersService, useValue: usersServiceMock },
+        {
+          provide: CareersCatalogService,
+          useValue: careersCatalogServiceMock,
+        },
         { provide: AuthService, useValue: authServiceMock },
         { provide: UserSessionRepository, useValue: userSessionRepositoryMock },
         {
@@ -389,7 +439,15 @@ describe('IAM (e2e)', () => {
 
       const body = response.body as StandardResponse;
       expect(body.statusCode).toBe(200);
-      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data).toMatchObject({
+        currentPage: 1,
+        pageSize: 10,
+        totalItems: 2,
+        totalPages: 1,
+      });
+      expect(Array.isArray((body.data as { items: unknown[] }).items)).toBe(
+        true,
+      );
     });
   });
 
@@ -432,6 +490,44 @@ describe('IAM (e2e)', () => {
         id: '2',
         firstName: 'Nuevo Nombre',
       });
+    });
+  });
+
+  describe('PATCH /api/v1/users/:id/status', () => {
+    it('con token sin rol ADMIN/SUPER_ADMIN -> 403', async () => {
+      const token = getStudentToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2/status')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 200', async () => {
+      const token = getAdminToken();
+
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/users/2/status')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(200);
+      expect(usersServiceMock.update).toHaveBeenCalledWith('2', {
+        isActive: false,
+      });
+    });
+
+    it('con token ADMIN desactivando su propia cuenta -> 403', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/1/status')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
+        .expect(403);
     });
   });
 
@@ -492,6 +588,81 @@ describe('IAM (e2e)', () => {
       expect(usersServiceMock.createWithRole).toHaveBeenCalledWith(
         { email: 'prof2@test.com', firstName: 'Professor' },
         'PROFESSOR',
+      );
+    });
+  });
+
+  describe('POST /api/v1/users/admin-onboarding', () => {
+    it('con token STUDENT -> 403', async () => {
+      const token = getStudentToken();
+      await request(app.getHttpServer())
+        .post('/api/v1/users/admin-onboarding')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          email: 'nuevo@test.com',
+          firstName: 'Nuevo',
+          roleCodes: ['STUDENT'],
+        })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 201', async () => {
+      const token = getAdminToken();
+      const payload = {
+        email: 'nuevo@test.com',
+        firstName: 'Nuevo',
+        roleCodes: ['STUDENT'],
+      };
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/admin-onboarding')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(201);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(201);
+      expect(usersServiceMock.adminOnboard).toHaveBeenCalledWith(payload);
+      expect(body.data).toMatchObject({
+        userId: '900',
+        assignedRoleCodes: ['STUDENT'],
+      });
+    });
+  });
+
+  describe('PATCH /api/v1/users/:id/admin-edit', () => {
+    it('con token STUDENT -> 403', async () => {
+      const token = getStudentToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2/admin-edit')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          roleCodesFinal: ['STUDENT'],
+          studentStateFinal: { enrollments: [] },
+          professorStateFinal: { courseCycleIds: [] },
+        })
+        .expect(403);
+    });
+
+    it('con token ADMIN -> 200', async () => {
+      const token = getAdminToken();
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/users/2/admin-edit')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          roleCodesFinal: ['STUDENT'],
+          studentStateFinal: { enrollments: [] },
+          professorStateFinal: { courseCycleIds: [] },
+        })
+        .expect(200);
+
+      expect(usersServiceMock.adminEdit).toHaveBeenCalledWith(
+        '2',
+        expect.objectContaining({
+          roleCodesFinal: ['STUDENT'],
+        }),
+        '1',
       );
     });
   });

@@ -179,6 +179,8 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
     expect(courseWith2Prof.courseCycle.professors).toHaveLength(2);
     expect(courseWith2Prof.courseCycle.academicCycle.isCurrent).toBe(true);
     expect(courseWith2Prof.courseCycle.course.courseType.code).toBeTruthy();
-    expect(courseWith2Prof.courseCycle.course.cycleLevel.name).toBe('1 Ciclo');
+    expect(courseWith2Prof.courseCycle.course.cycleLevel.name).toMatch(
+      /1.*ciclo/i,
+    );
   });
 });

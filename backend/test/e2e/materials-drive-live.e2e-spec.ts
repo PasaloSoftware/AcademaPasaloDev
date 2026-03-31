@@ -41,6 +41,17 @@ interface MaterialResponse {
   };
 }
 
+type EvaluationDriveAccessRow = {
+  scopeKey: string;
+  driveScopeFolderId: string;
+  driveVideosFolderId: string;
+  driveDocumentsFolderId: string;
+  driveArchivedFolderId: string;
+  viewerGroupEmail: string;
+  viewerGroupId: string | null;
+  isActive: number;
+};
+
 describeLive('E2E Live: Materials + Google Drive', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -61,6 +72,7 @@ describeLive('E2E Live: Materials + Google Drive', () => {
   let qaRunFolderId: string;
   let tempViewerGroupEmail: string;
   let tempViewerGroupId: string | null = null;
+  let originalEvaluationScope: EvaluationDriveAccessRow | null = null;
 
   const createdMaterials = new Set<string>();
   const runId = `drive-live-${Date.now()}`;
@@ -253,6 +265,91 @@ describeLive('E2E Live: Materials + Google Drive', () => {
     return { id, email };
   }
 
+  async function listChildFolders(
+    client: GoogleRequestClient,
+    parentFolderId: string,
+  ): Promise<Array<{ id: string; name: string }>> {
+    const query = `'${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const res = await client.request<{
+      files?: Array<{ id?: string; name?: string }>;
+    }>({
+      url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      method: 'GET',
+    });
+    return (res.data.files || [])
+      .map((item) => ({
+        id: String(item.id || '').trim(),
+        name: String(item.name || '').trim(),
+      }))
+      .filter((item) => item.id && item.name);
+  }
+
+  async function findFolderUnderParent(
+    client: GoogleRequestClient,
+    parentFolderId: string,
+    folderName: string,
+  ): Promise<string | null> {
+    const query = `'${parentFolderId}' in parents and name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const res = await client.request<{
+      files?: Array<{ id?: string }>;
+    }>({
+      url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=2&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      method: 'GET',
+    });
+    const files = res.data.files || [];
+    if (files.length !== 1) {
+      return null;
+    }
+    const id = String(files[0].id || '').trim();
+    return id || null;
+  }
+
+  async function cleanupResidualQaArtifacts(
+    workspaceDomain: string,
+  ): Promise<void> {
+    const driveClient = await getDriveClient();
+    const rootFolderId = getRequiredEnv('GOOGLE_DRIVE_ROOT_FOLDER_ID');
+    const qaParentFolderId = await findFolderUnderParent(
+      driveClient,
+      rootFolderId,
+      'qa_drive_live',
+    );
+
+    if (qaParentFolderId) {
+      const children = await listChildFolders(driveClient, qaParentFolderId);
+      for (const child of children) {
+        if (!child.name.startsWith('run_drive-live-')) {
+          continue;
+        }
+        await deleteDriveFileIfExists(driveClient, child.id);
+      }
+    }
+
+    const workspaceClient = await getWorkspaceClient();
+    try {
+      const groupsRes = await workspaceClient.request<{
+        groups?: Array<{ email?: string }>;
+      }>({
+        url: `https://admin.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=200&domain=${encodeURIComponent(
+          workspaceDomain,
+        )}`,
+        method: 'GET',
+      });
+      const groups = groupsRes.data.groups || [];
+      for (const group of groups) {
+        const email = String(group.email || '')
+          .trim()
+          .toLowerCase();
+        if (!email.startsWith('e2e-drive-live-')) {
+          continue;
+        }
+        await deleteWorkspaceGroupIfExists(workspaceClient, email);
+      }
+    } catch {
+      // best effort cleanup
+    }
+  }
+
   async function deleteWorkspaceGroupIfExists(
     workspaceClient: JWT,
     groupEmail: string,
@@ -355,6 +452,25 @@ describeLive('E2E Live: Materials + Google Drive', () => {
       groupEmail: group.email,
     });
 
+    const existingScopeRows = (await dataSource.query(
+      `
+      SELECT
+        scope_key AS scopeKey,
+        drive_scope_folder_id AS driveScopeFolderId,
+        drive_videos_folder_id AS driveVideosFolderId,
+        drive_documents_folder_id AS driveDocumentsFolderId,
+        drive_archived_folder_id AS driveArchivedFolderId,
+        viewer_group_email AS viewerGroupEmail,
+        viewer_group_id AS viewerGroupId,
+        is_active AS isActive
+      FROM evaluation_drive_access
+      WHERE evaluation_id = ?
+      LIMIT 1
+      `,
+      [evaluationId],
+    )) as EvaluationDriveAccessRow[];
+    originalEvaluationScope = existingScopeRows[0] || null;
+
     await dataSource.query(
       'DELETE FROM evaluation_drive_access WHERE evaluation_id = ?',
       [evaluationId],
@@ -401,6 +517,36 @@ describeLive('E2E Live: Materials + Google Drive', () => {
         'DELETE FROM evaluation_drive_access WHERE evaluation_id = ?',
         [evaluationId],
       );
+      if (originalEvaluationScope) {
+        await dataSource.query(
+          `
+          INSERT INTO evaluation_drive_access (
+            evaluation_id,
+            scope_key,
+            drive_scope_folder_id,
+            drive_videos_folder_id,
+            drive_documents_folder_id,
+            drive_archived_folder_id,
+            viewer_group_email,
+            viewer_group_id,
+            is_active,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          `,
+          [
+            evaluationId,
+            originalEvaluationScope.scopeKey,
+            originalEvaluationScope.driveScopeFolderId,
+            originalEvaluationScope.driveVideosFolderId,
+            originalEvaluationScope.driveDocumentsFolderId,
+            originalEvaluationScope.driveArchivedFolderId,
+            originalEvaluationScope.viewerGroupEmail,
+            originalEvaluationScope.viewerGroupId,
+            Number(originalEvaluationScope.isActive) ? 1 : 0,
+          ],
+        );
+      }
     } catch (error) {
       errors.push(
         `No se pudo limpiar evaluation_drive_access: ${
@@ -504,7 +650,10 @@ describeLive('E2E Live: Materials + Google Drive', () => {
   beforeAll(async () => {
     getRequiredEnv('GOOGLE_APPLICATION_CREDENTIALS');
     getRequiredEnv('GOOGLE_DRIVE_ROOT_FOLDER_ID');
-    getRequiredEnv('GOOGLE_WORKSPACE_ADMIN_EMAIL');
+    const workspaceAdminEmail = getRequiredEnv('GOOGLE_WORKSPACE_ADMIN_EMAIL');
+    const workspaceDomain =
+      getWorkspaceDomainFromAdminEmail(workspaceAdminEmail);
+    await cleanupResidualQaArtifacts(workspaceDomain);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -585,6 +734,16 @@ describeLive('E2E Live: Materials + Google Drive', () => {
         }
       }
       await cleanupSandboxScopeForEvaluation(evaluation.id);
+      try {
+        const workspaceAdminEmail = getRequiredEnv(
+          'GOOGLE_WORKSPACE_ADMIN_EMAIL',
+        );
+        const workspaceDomain =
+          getWorkspaceDomainFromAdminEmail(workspaceAdminEmail);
+        await cleanupResidualQaArtifacts(workspaceDomain);
+      } catch {
+        // best effort cleanup
+      }
       await app.close();
     }
   });

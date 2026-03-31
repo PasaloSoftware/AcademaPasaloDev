@@ -72,6 +72,15 @@ export class MaterialRepository {
       relations: {
         fileResource: true,
         fileVersion: true,
+        materialFolder: {
+          evaluation: {
+            evaluationType: true,
+            courseCycle: {
+              course: true,
+              academicCycle: true,
+            },
+          },
+        },
       },
     });
   }
@@ -143,10 +152,36 @@ export class MaterialRepository {
     });
   }
 
+  async findByFolderIds(
+    folderIds: string[],
+    materialStatusId?: string,
+  ): Promise<Material[]> {
+    if (folderIds.length === 0) {
+      return [];
+    }
+
+    const qb = this.ormRepository
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.fileResource', 'fr')
+      .leftJoinAndSelect('m.fileVersion', 'fv')
+      .where('m.materialFolderId IN (:...folderIds)', { folderIds })
+      .orderBy('m.displayName', 'ASC')
+      .addOrderBy('m.id', 'ASC');
+
+    if (materialStatusId) {
+      qb.andWhere('m.materialStatusId = :materialStatusId', {
+        materialStatusId,
+      });
+    }
+
+    return await qb.getMany();
+  }
+
   async countByFolderIds(
     folderIds: string[],
     materialStatusId: string,
     visibleAt?: Date,
+    pendingDeletionStatusId?: string,
   ): Promise<Record<string, number>> {
     if (folderIds.length === 0) {
       return {};
@@ -165,6 +200,22 @@ export class MaterialRepository {
       }).andWhere('(m.visibleUntil IS NULL OR m.visibleUntil >= :visibleAt)', {
         visibleAt,
       });
+    }
+
+    if (pendingDeletionStatusId) {
+      qb.andWhere(
+        `NOT EXISTS (
+          SELECT 1
+          FROM deletion_request dr
+          WHERE dr.entity_type = :materialEntityType
+            AND dr.entity_id = m.id
+            AND dr.deletion_request_status_id = :pendingDeletionStatusId
+        )`,
+        {
+          materialEntityType: 'material',
+          pendingDeletionStatusId,
+        },
+      );
     }
 
     const rows = await qb.groupBy('m.materialFolderId').getRawMany<{

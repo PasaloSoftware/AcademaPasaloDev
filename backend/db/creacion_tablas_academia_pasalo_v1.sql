@@ -96,6 +96,11 @@ CREATE TABLE enrollment_type (
     CONSTRAINT uq_enrollment_type_code UNIQUE (code)
 );
 
+CREATE TABLE careers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL UNIQUE
+);
+
 CREATE TABLE user (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   email VARCHAR(255) NOT NULL,
@@ -103,14 +108,27 @@ CREATE TABLE user (
   last_name_1 VARCHAR(50),
   last_name_2 VARCHAR(50),
   phone VARCHAR(20),
-  career VARCHAR(100),
+  career_id INT NULL,
+  search_text TEXT GENERATED ALWAYS AS (
+    LOWER(
+      CONCAT_WS(
+        ' ',
+        first_name,
+        last_name_1,
+        last_name_2,
+        email
+      )
+    )
+  ) STORED,
   profile_photo_url VARCHAR(500) NULL,
   photo_source ENUM('google', 'uploaded', 'none') NOT NULL DEFAULT 'none',
   last_active_role_id BIGINT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL,
   updated_at DATETIME,
-  FOREIGN KEY (last_active_role_id) REFERENCES role(id)
+  FOREIGN KEY (career_id) REFERENCES careers(id),
+  FOREIGN KEY (last_active_role_id) REFERENCES role(id),
+  FULLTEXT KEY ft_user_search_text (search_text)
 );
 
 CREATE TABLE user_role (
@@ -217,6 +235,10 @@ CREATE TABLE enrollment (
   enrollment_type_id BIGINT NOT NULL,
   enrolled_at DATETIME NOT NULL,
   cancelled_at DATETIME,
+  active_enrollment_guard TINYINT
+    GENERATED ALWAYS AS (
+      CASE WHEN cancelled_at IS NULL THEN 1 ELSE NULL END
+    ) STORED,
   FOREIGN KEY (user_id) REFERENCES user(id),
   FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
   FOREIGN KEY (enrollment_status_id) REFERENCES enrollment_status(id),
@@ -330,6 +352,7 @@ CREATE TABLE material (
   current_version_id BIGINT NULL,
   material_status_id BIGINT NOT NULL,
   display_name VARCHAR(255) NOT NULL,
+  authorized_root_folder_id VARCHAR(128) NULL,
   visible_from DATETIME,
   visible_until DATETIME,
   created_by BIGINT NOT NULL,
@@ -456,28 +479,15 @@ CREATE TABLE course_testimony (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT NOT NULL,
   course_cycle_id BIGINT NOT NULL,
-  rating TINYINT NOT NULL CHECK (rating BETWEEN 0 AND 5),
+  rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment TEXT NOT NULL,
   photo_url VARCHAR(500) NULL,
   photo_source ENUM('profile', 'uploaded', 'none') NOT NULL DEFAULT 'none',
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
   created_at DATETIME NOT NULL,
   updated_at DATETIME,
   FOREIGN KEY (user_id) REFERENCES user(id),
-  FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
-  CONSTRAINT uq_course_testimony_user_course_cycle UNIQUE (user_id, course_cycle_id)
-);
-
-CREATE TABLE featured_testimony (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  course_cycle_id BIGINT NOT NULL,
-  course_testimony_id BIGINT NOT NULL,
-  display_order INT NOT NULL,
-  is_active BOOLEAN NOT NULL,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME,
-  FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
-  FOREIGN KEY (course_testimony_id) REFERENCES course_testimony(id),
-  CONSTRAINT uq_featured_testimony_course_cycle_testimony UNIQUE (course_cycle_id, course_testimony_id)
+  FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id)
 );
 
 CREATE UNIQUE INDEX idx_user_email ON user(email);
@@ -496,6 +506,9 @@ ON security_event(event_datetime, id);
 
 CREATE INDEX idx_enrollment_user_course_cycle
 ON enrollment(user_id, course_cycle_id);
+
+CREATE UNIQUE INDEX uq_enrollment_active_user_course_cycle
+ON enrollment(user_id, course_cycle_id, active_enrollment_guard);
 
 CREATE INDEX idx_enrollment_status
 ON enrollment(enrollment_status_id);
@@ -548,7 +561,7 @@ ON material(material_folder_id, material_status_id);
 CREATE INDEX idx_material_visibility
 ON material(visible_from, visible_until);
 
-CREATE UNIQUE INDEX uq_file_resource_dedup
+CREATE INDEX idx_file_resource_hash_size
 ON file_resource(checksum_hash, size_bytes);
 
 CREATE UNIQUE INDEX uq_file_resource_provider_key
@@ -599,11 +612,8 @@ ON course_testimony(rating);
 CREATE INDEX idx_course_testimony_created
 ON course_testimony(created_at);
 
-CREATE INDEX idx_featured_testimony_course_active
-ON featured_testimony(course_cycle_id, is_active);
-
-CREATE INDEX idx_featured_testimony_order
-ON featured_testimony(course_cycle_id, display_order);
+CREATE INDEX idx_course_testimony_active
+ON course_testimony(is_active);
 
 CREATE INDEX idx_enrollment_eval_eval_active_dates
 ON enrollment_evaluation (evaluation_id, is_active, access_start_date, access_end_date);

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { classEventService } from "@/services/classEvent.service";
 import { evaluationsService } from "@/services/evaluations.service";
-import type { CourseCycle, Evaluation } from "@/types/api";
+import type { Evaluation } from "@/types/api";
+import type { CourseCycle } from "@/types/enrollment";
 import Modal from "@/components/ui/Modal";
 
 interface CreateEventModalProps {

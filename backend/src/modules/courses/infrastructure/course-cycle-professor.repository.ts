@@ -285,16 +285,14 @@ export class CourseCycleProfessorRepository {
     const repo = manager
       ? manager.getRepository(CourseCycleProfessor)
       : this.ormRepository;
-    await repo.update(
-      {
-        courseCycleId,
-        professorUserId,
-        revokedAt: null,
-      },
-      {
-        revokedAt: new Date(),
-      },
-    );
+    await repo
+      .createQueryBuilder()
+      .update(CourseCycleProfessor)
+      .set({ revokedAt: new Date() })
+      .where('course_cycle_id = :courseCycleId', { courseCycleId })
+      .andWhere('professor_user_id = :professorUserId', { professorUserId })
+      .andWhere('revoked_at IS NULL')
+      .execute();
   }
 
   async findByCourseCycleId(

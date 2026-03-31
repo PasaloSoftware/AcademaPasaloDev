@@ -138,4 +138,15 @@ export const materialsService = {
     const json = await response.json();
     return json.data;
   },
+
+  /**
+   * Solicitar eliminación de un material (soft-delete, requiere aprobación admin)
+   */
+  async requestDeletion(materialId: string, reason: string): Promise<void> {
+    await apiClient.post('/materials/request-deletion', {
+      entityType: 'material',
+      entityId: materialId,
+      reason,
+    });
+  },
 };

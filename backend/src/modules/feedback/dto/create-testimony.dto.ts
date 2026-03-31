@@ -4,11 +4,10 @@ import {
   Min,
   Max,
   IsString,
+  MinLength,
   MaxLength,
-  IsEnum,
   IsNumberString,
 } from 'class-validator';
-import { PhotoSource } from '@modules/feedback/domain/course-testimony.entity';
 
 export class CreateTestimonyDto {
   @IsNotEmpty()
@@ -17,16 +16,13 @@ export class CreateTestimonyDto {
 
   @IsNotEmpty()
   @IsInt()
-  @Min(0)
+  @Min(1)
   @Max(5)
   rating: number;
 
   @IsNotEmpty()
   @IsString()
-  @MaxLength(1000)
+  @MinLength(3)
+  @MaxLength(500)
   comment: string;
-
-  @IsNotEmpty()
-  @IsEnum(PhotoSource)
-  photoSource: PhotoSource;
 }

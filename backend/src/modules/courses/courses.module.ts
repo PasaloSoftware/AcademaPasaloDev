@@ -6,6 +6,13 @@ import { CycleLevel } from '@modules/courses/domain/cycle-level.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
 import { CourseCycleProfessor } from '@modules/courses/domain/course-cycle-professor.entity';
 import { CourseCycleAllowedEvaluationType } from '@modules/courses/domain/course-cycle-allowed-evaluation-type.entity';
+import { MaterialFolder } from '@modules/materials/domain/material-folder.entity';
+import { Material } from '@modules/materials/domain/material.entity';
+import { FileResource } from '@modules/materials/domain/file-resource.entity';
+import { MaterialVersion } from '@modules/materials/domain/material-version.entity';
+import { FolderStatus } from '@modules/materials/domain/folder-status.entity';
+import { MaterialStatus } from '@modules/materials/domain/material-status.entity';
+import { DeletionRequestStatus } from '@modules/materials/domain/deletion-request-status.entity';
 import { CourseRepository } from '@modules/courses/infrastructure/course.repository';
 import { CourseTypeRepository } from '@modules/courses/infrastructure/course-type.repository';
 import { CycleLevelRepository } from '@modules/courses/infrastructure/cycle-level.repository';
@@ -19,6 +26,11 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { EvaluationsModule } from '@modules/evaluations/evaluations.module';
 import { CyclesModule } from '@modules/cycles/cycles.module';
 import { MediaAccessModule } from '@modules/media-access/media-access.module';
+import { StorageModule } from '@infrastructure/storage/storage.module';
+import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
+import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
+import { FileResourceRepository } from '@modules/materials/infrastructure/file-resource.repository';
+import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
 
 @Module({
   imports: [
@@ -29,11 +41,19 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
       CourseCycle,
       CourseCycleProfessor,
       CourseCycleAllowedEvaluationType,
+      MaterialFolder,
+      Material,
+      FileResource,
+      MaterialVersion,
+      FolderStatus,
+      MaterialStatus,
+      DeletionRequestStatus,
     ]),
     AuthModule,
     forwardRef(() => EvaluationsModule),
     CyclesModule,
     MediaAccessModule,
+    StorageModule,
   ],
   controllers: [CoursesController],
   providers: [
@@ -43,6 +63,10 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
     CourseCycleRepository,
     CourseCycleProfessorRepository,
     CourseCycleAllowedEvaluationTypeRepository,
+    MaterialFolderRepository,
+    MaterialRepository,
+    FileResourceRepository,
+    MaterialCatalogRepository,
     CoursesService,
     CourseSetupService,
   ],
@@ -53,6 +77,10 @@ import { MediaAccessModule } from '@modules/media-access/media-access.module';
     CourseCycleRepository,
     CourseCycleProfessorRepository,
     CourseCycleAllowedEvaluationTypeRepository,
+    MaterialFolderRepository,
+    MaterialRepository,
+    FileResourceRepository,
+    MaterialCatalogRepository,
     CoursesService,
     CourseSetupService,
   ],

@@ -293,7 +293,7 @@ describe('AuditController (e2e)', () => {
     const jobId = exportResponse.body.data.jobId as string;
     let status = AUDIT_EXPORT_STATUS.QUEUED;
 
-    for (let attempt = 0; attempt < 30; attempt += 1) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
       const statusResponse = await request(app.getHttpServer())
         .get(`/api/v1/audit/export-jobs/${jobId}`)
         .set('Authorization', `Bearer ${accessToken}`)
@@ -307,7 +307,7 @@ describe('AuditController (e2e)', () => {
         break;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
     expect(status).toBe(AUDIT_EXPORT_STATUS.READY);

@@ -47,6 +47,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       label: 'Calendario',
       href: '/plataforma/calendario'
     },
+    {
+      icon: 'notifications',
+      label: 'Notificaciones',
+      href: '/plataforma/notificaciones'
+    },
   ],
 
   TEACHER: [
@@ -67,6 +72,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       label: 'Calendario',
       href: '/plataforma/calendario'
     },
+    {
+      icon: 'notifications',
+      label: 'Notificaciones',
+      href: '/plataforma/notificaciones'
+    },
   ],
 
   ADMIN: [
@@ -79,6 +89,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       icon: 'shield',
       label: 'Auditoría',
       href: '/plataforma/admin/auditoria'
+    },
+    {
+      icon: 'notifications',
+      label: 'Notificaciones',
+      href: '/plataforma/notificaciones'
     }
   ],
 
@@ -92,6 +107,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       icon: 'shield',
       label: 'Auditoría',
       href: '/plataforma/admin/auditoria'
+    },
+    {
+      icon: 'notifications',
+      label: 'Notificaciones',
+      href: '/plataforma/notificaciones'
     }
   ]
 };

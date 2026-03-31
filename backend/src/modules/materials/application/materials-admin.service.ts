@@ -272,6 +272,9 @@ export class MaterialsAdminService {
       }
 
       reviewedEntityId = lockedRequest.entityId;
+      materialToInvalidate = await this.materialRepository.findById(
+        lockedRequest.entityId,
+      );
 
       if (dto.action === DeletionReviewAction.APPROVE) {
         materialToInvalidate = await this.handleApproval(
@@ -519,6 +522,11 @@ export class MaterialsAdminService {
     promises.push(
       this.cacheService.del(
         MATERIAL_CACHE_KEYS.CONTENTS(material.materialFolderId),
+      ),
+    );
+    promises.push(
+      this.cacheService.invalidateIndex(
+        MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION_INDEX(material.id),
       ),
     );
 

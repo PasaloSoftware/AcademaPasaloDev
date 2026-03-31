@@ -16,6 +16,11 @@ import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { User } from '@modules/users/domain/user.entity';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
+import {
+  EnrollmentCourseCycleOptionsResponseDto,
+  EnrollmentOptionsResponseDto,
+} from '@modules/enrollments/dto/enrollment-options.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Controller('enrollments')
 @Auth()
@@ -29,6 +34,30 @@ export class EnrollmentsController {
   async enroll(@Body() dto: CreateEnrollmentDto) {
     const enrollment = await this.enrollmentsService.enroll(dto);
     return enrollment;
+  }
+
+  @Get('options/course-cycle/:courseCycleId')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Opciones de matricula obtenidas exitosamente')
+  async getEnrollmentOptions(@Param('courseCycleId') courseCycleId: string) {
+    const data =
+      await this.enrollmentsService.getEnrollmentOptionsByCourseCycle(
+        courseCycleId,
+      );
+    return plainToInstance(EnrollmentOptionsResponseDto, data, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Get('options/course/:courseId/cycles')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Opciones de ciclo por curso obtenidas exitosamente')
+  async getCourseCycleOptionsByCourse(@Param('courseId') courseId: string) {
+    const data =
+      await this.enrollmentsService.getEnrollmentCourseCycleOptions(courseId);
+    return plainToInstance(EnrollmentCourseCycleOptionsResponseDto, data, {
+      excludeExtraneousValues: true,
+    });
   }
 
   @Get('my-courses')

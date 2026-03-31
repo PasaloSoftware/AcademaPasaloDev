@@ -16,12 +16,19 @@ import { QUEUES } from '@infrastructure/queue/queue.constants';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.constants';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import { ClassEventRecordingDriveService } from '@modules/events/application/class-event-recording-drive.service';
+import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
+
+jest.setTimeout(60000);
 
 describe('E2E: Class Events (Eventos de Clase)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let seeder: TestSeeder;
   let notificationsQueue: Queue;
+  let cacheService: RedisCacheService;
+  let recordingDriveService: ClassEventRecordingDriveService;
+  let driveAccessScopeService: DriveAccessScopeService;
 
   let admin: { user: User; token: string };
   let professor: { user: User; token: string };
@@ -84,7 +91,9 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
 
     dataSource = app.get(DataSource);
     notificationsQueue = app.get<Queue>(getQueueToken(QUEUES.NOTIFICATIONS));
-    const cacheService = app.get(RedisCacheService);
+    cacheService = app.get(RedisCacheService);
+    recordingDriveService = app.get(ClassEventRecordingDriveService);
+    driveAccessScopeService = app.get(DriveAccessScopeService);
 
     await cacheService.invalidateGroup('*');
     seeder = new TestSeeder(dataSource, app);
@@ -285,6 +294,32 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
       [historicalEvaluation.id],
     );
     historicalEventId = String(historicalEventRows[0].id);
+
+    await dataSource.query(
+      `INSERT INTO evaluation_drive_access (
+        evaluation_id,
+        scope_key,
+        drive_scope_folder_id,
+        drive_videos_folder_id,
+        drive_documents_folder_id,
+        drive_archived_folder_id,
+        viewer_group_email,
+        viewer_group_id,
+        is_active,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NULL)`,
+      [
+        evaluation.id,
+        `ev-scope-${evaluation.id}`,
+        'drive-scope-folder-1',
+        'drive-videos-folder-1',
+        'drive-documents-folder-1',
+        'drive-archived-folder-1',
+        `ev-${evaluation.id}-viewers@test.com`,
+        `group-${evaluation.id}`,
+      ],
+    );
   });
 
   afterAll(async () => {
@@ -602,7 +637,11 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           })
           .expect(200);
 
-        const updatedJob = await notificationsQueue.getJob(originalJobId);
+        let updatedJob = await notificationsQueue.getJob(originalJobId);
+        for (let attempt = 0; !updatedJob && attempt < 20; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          updatedJob = await notificationsQueue.getJob(originalJobId);
+        }
         expect(updatedJob).toBeDefined();
         expect(updatedJob?.id).toBe(originalJobId);
         expect(Number(updatedJob?.timestamp ?? 0)).toBeGreaterThanOrEqual(
@@ -661,6 +700,292 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     });
   });
 
+  describe('RECORDING UPLOAD FLOW', () => {
+    const createEventForRecording = async (sessionNumber: number) => {
+      const slotIndex = sessionNumber - 300;
+      const startDate = new Date(tomorrow);
+      startDate.setDate(tomorrow.getDate() + (slotIndex + 2));
+      const startDatetime = formatPeruLocalDatetime(startDate, 6);
+      const endDatetime = formatPeruLocalDatetime(startDate, 7);
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber,
+          title: `Clase Grabacion ${sessionNumber}`,
+          topic: 'Grabacion',
+          startDatetime,
+          endDatetime,
+          liveMeetingUrl: `https://zoom.us/j/${sessionNumber}`,
+        })
+        .expect(201);
+
+      return String(response.body.data.id);
+    };
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('inicia upload, consulta status, refresca heartbeat y finaliza publicando la grabacion', async () => {
+      const classEventId = await createEventForRecording(301);
+      jest
+        .spyOn(driveAccessScopeService, 'resolveForEvaluation')
+        .mockResolvedValue({
+          names: {
+            evaluationId: evaluation.id,
+            scopeKey: `ev-scope-${evaluation.id}`,
+            baseFolderName: 'scope-folder',
+            viewerGroupEmail: `ev-${evaluation.id}-viewers@test.com`,
+          },
+          persisted: {
+            evaluationId: evaluation.id,
+            scopeKey: `ev-scope-${evaluation.id}`,
+            driveScopeFolderId: 'drive-scope-folder-1',
+            driveVideosFolderId: 'drive-videos-folder-1',
+            driveDocumentsFolderId: 'drive-documents-folder-1',
+            driveArchivedFolderId: 'drive-archived-folder-1',
+            viewerGroupEmail: `ev-${evaluation.id}-viewers@test.com`,
+            viewerGroupId: `group-${evaluation.id}`,
+            isActive: true,
+          } as never,
+        });
+
+      jest
+        .spyOn(recordingDriveService, 'createResumableUploadSession')
+        .mockResolvedValue({
+          resumableSessionUrl: 'https://upload-session.example/resumable-301',
+          fileId: 'drive-file-301',
+        });
+      jest
+        .spyOn(recordingDriveService, 'getUploadedFileMetadata')
+        .mockResolvedValue({
+          fileId: 'drive-file-301',
+          name: 'clase-301.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 1024,
+          parents: ['drive-videos-folder-1'],
+          webViewLink: 'https://drive.google.com/file/d/drive-file-301/view',
+          trashed: false,
+        });
+
+      const startResponse = await request(app.getHttpServer())
+        .post(`/api/v1/class-events/${classEventId}/recording-upload/start`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          fileName: 'clase-301.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 1024,
+        })
+        .expect(201);
+
+      expect(startResponse.body.data.recordingStatus).toBe('PROCESSING');
+      expect(startResponse.body.data.activeUploadMode).toBe('initial');
+      expect(startResponse.body.data.uploadToken).toBeDefined();
+      expect(startResponse.body.data.resumableSessionUrl).toBeNull();
+
+      const statusResponse = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/${classEventId}/recording-upload/status`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(statusResponse.body.data.hasActiveRecordingUpload).toBe(true);
+      expect(statusResponse.body.data.resumableSessionUrl).toBeNull();
+
+      const previousExpiresAt = new Date(
+        statusResponse.body.data.uploadExpiresAt,
+      ).getTime();
+
+      const heartbeatResponse = await request(app.getHttpServer())
+        .post(`/api/v1/class-events/${classEventId}/recording-upload/heartbeat`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({ uploadToken: startResponse.body.data.uploadToken })
+        .expect(200);
+
+      expect(
+        new Date(heartbeatResponse.body.data.uploadExpiresAt).getTime(),
+      ).toBeGreaterThanOrEqual(previousExpiresAt);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/class-events/${classEventId}/recording-upload/finalize`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          uploadToken: startResponse.body.data.uploadToken,
+          fileId: 'drive-file-301',
+        })
+        .expect(200);
+
+      const detailResponse = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/${classEventId}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(detailResponse.body.data.recordingStatus).toBe('READY');
+      expect(detailResponse.body.data.recordingUrl).toBe(
+        'https://drive.google.com/file/d/drive-file-301/preview',
+      );
+
+      const uploadContext = await cacheService.get(
+        `class-event-recording-upload:context:${classEventId}`,
+      );
+      expect(uploadContext).toBeNull();
+
+      const auditRows = await dataSource.query<Array<{ code: string }>>(
+        `SELECT aa.code
+         FROM audit_log al
+         INNER JOIN audit_action aa ON aa.id = al.audit_action_id
+         WHERE al.user_id = ?
+         ORDER BY al.id DESC
+         LIMIT 5`,
+        [professor.user.id],
+      );
+      expect(
+        auditRows.some((row) => row.code === 'CLASS_RECORDING_PUBLISHED'),
+      ).toBe(true);
+    });
+
+    it('mantiene READY durante reemplazo y conserva la grabacion anterior si finalize falla', async () => {
+      const classEventId = await createEventForRecording(302);
+      jest
+        .spyOn(driveAccessScopeService, 'resolveForEvaluation')
+        .mockResolvedValue({
+          names: {
+            evaluationId: evaluation.id,
+            scopeKey: `ev-scope-${evaluation.id}`,
+            baseFolderName: 'scope-folder',
+            viewerGroupEmail: `ev-${evaluation.id}-viewers@test.com`,
+          },
+          persisted: {
+            evaluationId: evaluation.id,
+            scopeKey: `ev-scope-${evaluation.id}`,
+            driveScopeFolderId: 'drive-scope-folder-1',
+            driveVideosFolderId: 'drive-videos-folder-1',
+            driveDocumentsFolderId: 'drive-documents-folder-1',
+            driveArchivedFolderId: 'drive-archived-folder-1',
+            viewerGroupEmail: `ev-${evaluation.id}-viewers@test.com`,
+            viewerGroupId: `group-${evaluation.id}`,
+            isActive: true,
+          } as never,
+        });
+      const readyStatusRows = await dataSource.query<Array<{ id: string }>>(
+        `SELECT id FROM class_event_recording_status WHERE code = 'READY' LIMIT 1`,
+      );
+      await dataSource.query(
+        `UPDATE class_event
+         SET recording_url = ?, recording_file_id = ?, recording_status_id = ?
+         WHERE id = ?`,
+        [
+          'https://drive.google.com/file/d/old-drive-file/view',
+          'old-drive-file',
+          readyStatusRows[0].id,
+          classEventId,
+        ],
+      );
+
+      jest
+        .spyOn(recordingDriveService, 'createResumableUploadSession')
+        .mockResolvedValue({
+          resumableSessionUrl: 'https://upload-session.example/resumable-302',
+          fileId: 'drive-file-302',
+        });
+      jest
+        .spyOn(recordingDriveService, 'getUploadedFileMetadata')
+        .mockResolvedValue({
+          fileId: 'drive-file-302',
+          name: 'clase-302.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 1024,
+          parents: ['otra-carpeta'],
+          webViewLink: null,
+          trashed: false,
+        });
+      const deleteSpy = jest
+        .spyOn(recordingDriveService, 'deleteUploadedFile')
+        .mockResolvedValue(undefined);
+
+      const startResponse = await request(app.getHttpServer())
+        .post(`/api/v1/class-events/${classEventId}/recording-upload/start`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          fileName: 'clase-302.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 1024,
+        })
+        .expect(201);
+
+      expect(startResponse.body.data.recordingStatus).toBe('READY');
+      expect(startResponse.body.data.activeUploadMode).toBe('replacement');
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/class-events/${classEventId}/recording-upload/finalize`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          uploadToken: startResponse.body.data.uploadToken,
+          fileId: 'drive-file-302',
+        })
+        .expect(403);
+
+      const detailResponse = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/${classEventId}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(detailResponse.body.data.recordingStatus).toBe('READY');
+      expect(detailResponse.body.data.recordingUrl).toBe(
+        'https://drive.google.com/file/d/old-drive-file/preview',
+      );
+      expect(deleteSpy).toHaveBeenCalledWith('drive-file-302');
+    });
+
+    it('rechaza el status de upload a un alumno por tratarse de un endpoint de mutacion operativa', async () => {
+      const classEventId = await createEventForRecording(303);
+      jest
+        .spyOn(driveAccessScopeService, 'resolveForEvaluation')
+        .mockResolvedValue({
+          names: {
+            evaluationId: evaluation.id,
+            scopeKey: `ev-scope-${evaluation.id}`,
+            baseFolderName: 'scope-folder',
+            viewerGroupEmail: `ev-${evaluation.id}-viewers@test.com`,
+          },
+          persisted: {
+            evaluationId: evaluation.id,
+            scopeKey: `ev-scope-${evaluation.id}`,
+            driveScopeFolderId: 'drive-scope-folder-1',
+            driveVideosFolderId: 'drive-videos-folder-1',
+            driveDocumentsFolderId: 'drive-documents-folder-1',
+            driveArchivedFolderId: 'drive-archived-folder-1',
+            viewerGroupEmail: `ev-${evaluation.id}-viewers@test.com`,
+            viewerGroupId: `group-${evaluation.id}`,
+            isActive: true,
+          } as never,
+        });
+
+      jest
+        .spyOn(recordingDriveService, 'createResumableUploadSession')
+        .mockResolvedValue({
+          resumableSessionUrl: 'https://upload-session.example/resumable-303',
+          fileId: 'drive-file-303',
+        });
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/class-events/${classEventId}/recording-upload/start`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          fileName: 'clase-303.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 1024,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/class-events/${classEventId}/recording-upload/status`)
+        .set('Authorization', `Bearer ${student.token}`)
+        .expect(403);
+    });
+  });
+
   describe('GET /api/v1/class-events/my-schedule - Calendario Unificado', () => {
     it('debe retornar el horario para el profesor (Staff bypass)', async () => {
       const res = await request(app.getHttpServer())
@@ -676,6 +1001,8 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     it('debe invalidar el cachÃ© del calendario cuando se actualiza un evento', async () => {
       const start = formatDate(yesterday);
       const end = formatDate(nextWeek);
+      const cacheEventDate = new Date(tomorrow);
+      cacheEventDate.setDate(tomorrow.getDate() + 5);
 
       const createRes = await request(app.getHttpServer())
         .post('/api/v1/class-events')
@@ -685,8 +1012,8 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           sessionNumber: 99,
           title: 'Evento Cache',
           topic: 'Cache',
-          startDatetime: tomorrow.toISOString(),
-          endDatetime: new Date(tomorrow.getTime() + 3600000).toISOString(),
+          startDatetime: formatPeruLocalDatetime(cacheEventDate, 13),
+          endDatetime: formatPeruLocalDatetime(cacheEventDate, 14),
           liveMeetingUrl: 'https://zoom.us/cache',
         })
         .expect(201);

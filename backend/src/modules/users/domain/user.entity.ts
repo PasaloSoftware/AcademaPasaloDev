@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Role } from './role.entity';
+import { Career } from './career.entity';
 import { PHOTO_SOURCES } from '@modules/auth/interfaces/security.constants';
 
 export const PhotoSource = {
@@ -21,25 +22,29 @@ export type PhotoSource = (typeof PhotoSource)[keyof typeof PhotoSource];
 @Entity('user')
 export class User {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 255, nullable: false, unique: true })
-  email: string;
+  email!: string;
 
   @Column({ type: 'varchar', length: 50, nullable: false, name: 'first_name' })
-  firstName: string;
+  firstName!: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'last_name_1' })
-  lastName1: string | null;
+  lastName1!: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'last_name_2' })
-  lastName2: string | null;
+  lastName2!: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  phone: string | null;
+  phone!: string | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  career: string | null;
+  @Column({ type: 'int', name: 'career_id', nullable: true })
+  careerId?: number | null;
+
+  @ManyToOne(() => Career, { nullable: true })
+  @JoinColumn({ name: 'career_id' })
+  career?: Career | null;
 
   @Column({
     type: 'varchar',
@@ -59,20 +64,20 @@ export class User {
   photoSource: PhotoSource;
 
   @Column({ type: 'bigint', name: 'last_active_role_id', nullable: true })
-  lastActiveRoleId: string | null;
+  lastActiveRoleId!: string | null;
 
   @ManyToOne(() => Role)
   @JoinColumn({ name: 'last_active_role_id' })
-  lastActiveRole: Role | null;
+  lastActiveRole!: Role | null;
 
   @Column({ type: 'boolean', name: 'is_active', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Column({ type: 'datetime', nullable: false, name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ type: 'datetime', nullable: true, name: 'updated_at' })
-  updatedAt: Date | null;
+  updatedAt!: Date | null;
 
   @ManyToMany(() => Role)
   @JoinTable({
@@ -80,5 +85,5 @@ export class User {
     joinColumn: { name: 'user_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
-  roles: Role[];
+  roles!: Role[];
 }

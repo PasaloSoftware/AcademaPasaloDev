@@ -188,6 +188,108 @@ export class StorageService implements OnModuleInit {
     return parents.includes(normalizedExpectedParent);
   }
 
+  async isDriveFileInFolderTree(
+    fileId: string,
+    ancestorFolderId: string,
+    maxDepth = 12,
+  ): Promise<boolean> {
+    const normalizedFileId = String(fileId || '').trim();
+    const normalizedAncestor = String(ancestorFolderId || '').trim();
+    if (!normalizedFileId || !normalizedAncestor) {
+      return false;
+    }
+
+    const client = await this.getGoogleAuth().getClient();
+    const visited = new Set<string>();
+    let frontier: string[] = [normalizedFileId];
+
+    for (let depth = 0; depth <= maxDepth; depth += 1) {
+      if (frontier.length === 0) {
+        return false;
+      }
+
+      const nextFrontier: string[] = [];
+      for (const currentId of frontier) {
+        if (!currentId || visited.has(currentId)) {
+          continue;
+        }
+        visited.add(currentId);
+
+        const response = await client.request<{ parents?: string[] }>({
+          url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(currentId)}?fields=parents&supportsAllDrives=true`,
+          method: 'GET',
+        });
+        const parents = Array.isArray(response.data.parents)
+          ? response.data.parents
+          : [];
+        if (parents.includes(normalizedAncestor)) {
+          return true;
+        }
+        for (const parentId of parents) {
+          if (parentId && !visited.has(parentId)) {
+            nextFrontier.push(parentId);
+          }
+        }
+      }
+
+      frontier = nextFrontier;
+    }
+
+    return false;
+  }
+
+  async findDriveFolderIdUnderParentByName(
+    parentFolderId: string,
+    folderName: string,
+  ): Promise<string | null> {
+    if (!this.isGoogleDriveEnabled()) {
+      return null;
+    }
+
+    const normalizedParent = String(parentFolderId || '').trim();
+    const normalizedName = String(folderName || '').trim();
+    if (!normalizedParent || !normalizedName) {
+      return null;
+    }
+
+    const client = await this.getGoogleAuth().getClient();
+    const escapedName = normalizedName.replace(/'/g, "\\'");
+    const query = `'${normalizedParent}' in parents and name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const response = await client.request<{ files?: Array<{ id?: string }> }>({
+      url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=2&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      method: 'GET',
+    });
+
+    const files = response.data.files || [];
+    if (files.length !== 1) {
+      return null;
+    }
+
+    const id = String(files[0]?.id || '').trim();
+    return id || null;
+  }
+
+  async resolveDriveFolderIdByPath(
+    pathSegments: string[],
+  ): Promise<string | null> {
+    if (!this.isGoogleDriveEnabled()) {
+      return null;
+    }
+
+    let currentParent = await this.getDriveRootFolderId();
+    for (const segment of pathSegments) {
+      const next = await this.findDriveFolderIdUnderParentByName(
+        currentParent,
+        segment,
+      );
+      if (!next) {
+        return null;
+      }
+      currentParent = next;
+    }
+    return currentParent;
+  }
+
   calculateHash(buffer: Buffer): Promise<string> {
     const hash = crypto.createHash('sha256').update(buffer).digest('hex');
     return Promise.resolve(hash);
@@ -247,6 +349,13 @@ export class StorageService implements OnModuleInit {
     ).trim();
     const folderId =
       explicitTargetFolderId || (await this.getDriveObjectsFolderId());
+    this.logger.log({
+      message: 'Iniciando carga de archivo a Google Drive',
+      fileName,
+      mimeType,
+      sizeBytes: String(buffer.byteLength),
+      targetDriveFolderId: folderId,
+    });
 
     const metadata = {
       name: fileName,
@@ -261,24 +370,60 @@ export class StorageService implements OnModuleInit {
     const footer = Buffer.from(`\r\n--${boundary}--`, 'utf8');
     const body = Buffer.concat([header, buffer, footer]);
 
-    const response = await client.request<{
-      id: string;
-      webViewLink?: string;
-      webContentLink?: string;
-    }>({
-      url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink&supportsAllDrives=true',
-      method: 'POST',
-      headers: {
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
-      data: body,
-    });
+    let response: {
+      data: {
+        id: string;
+        webViewLink?: string;
+        webContentLink?: string;
+      };
+    };
+    try {
+      response = await client.request<{
+        id: string;
+        webViewLink?: string;
+        webContentLink?: string;
+      }>({
+        url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink&supportsAllDrives=true',
+        method: 'POST',
+        headers: {
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        data: body,
+      });
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      this.logger.error({
+        message: 'Fallo la carga de archivo a Google Drive',
+        fileName,
+        mimeType,
+        sizeBytes: String(buffer.byteLength),
+        targetDriveFolderId: folderId,
+        status: maybeError.response?.status ?? maybeError.code ?? null,
+        error: maybeError.message || String(error),
+      });
+      throw error;
+    }
 
     if (!response.data.id) {
       throw new InternalServerErrorException(
         'Google Drive no devolvió ID de archivo',
       );
     }
+
+    this.logger.log({
+      message: 'Archivo cargado exitosamente a Google Drive',
+      fileName,
+      mimeType,
+      sizeBytes: String(buffer.byteLength),
+      targetDriveFolderId: folderId,
+      driveFileId: response.data.id,
+      storageUrl:
+        response.data.webContentLink ?? response.data.webViewLink ?? null,
+    });
 
     return {
       storageProvider: STORAGE_PROVIDER_CODES.GDRIVE,

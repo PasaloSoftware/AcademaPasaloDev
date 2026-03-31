@@ -1,4 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
+import { MySqlErrorCode } from '@common/interfaces/database-error.interface';
 import { Test } from '@nestjs/testing';
 import type { EntityManager } from 'typeorm';
 import { DataSource } from 'typeorm';
@@ -9,6 +10,7 @@ import { EnrollmentEvaluationRepository } from '@modules/enrollments/infrastruct
 import { EnrollmentTypeRepository } from '@modules/enrollments/infrastructure/enrollment-type.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { SettingsService } from '@modules/settings/application/settings.service';
 
 describe('EnrollmentsService', () => {
   let service: EnrollmentsService;
@@ -19,6 +21,7 @@ describe('EnrollmentsService', () => {
   } as unknown as EntityManager;
 
   const dataSourceMock = {
+    query: jest.fn(),
     transaction: jest.fn(async (cb: (manager: EntityManager) => unknown) => {
       return await cb(managerMock);
     }),
@@ -39,6 +42,7 @@ describe('EnrollmentsService', () => {
   const enrollmentEvaluationRepositoryMock = {
     createMany: jest.fn(),
     findEvaluationIdsToRevokeAfterEnrollmentCancellation: jest.fn(),
+    findCourseCycleIdsToRevokeAfterEnrollmentCancellation: jest.fn(),
   };
 
   const enrollmentTypeRepositoryMock = {
@@ -57,6 +61,10 @@ describe('EnrollmentsService', () => {
     enqueueGrantForUserCourseCycles: jest.fn(),
     enqueueRevokeForUserEvaluations: jest.fn(),
     enqueueRevokeForUserCourseCycles: jest.fn(),
+  };
+
+  const settingsServiceMock = {
+    getString: jest.fn().mockResolvedValue('ac-2026-1'),
   };
 
   beforeEach(async () => {
@@ -84,6 +92,10 @@ describe('EnrollmentsService', () => {
           provide: MediaAccessMembershipDispatchService,
           useValue: mediaAccessMembershipDispatchServiceMock,
         },
+        {
+          provide: SettingsService,
+          useValue: settingsServiceMock,
+        },
       ],
     }).compile();
 
@@ -107,5 +119,245 @@ describe('EnrollmentsService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(enrollmentTypeRepositoryMock.findByCode).not.toHaveBeenCalled();
+  });
+
+  it('findMyEnrollments retorna cycleLevel en formato ordinal uppercase', async () => {
+    cacheServiceMock.get.mockResolvedValue(null);
+    enrollmentRepositoryMock.findMyEnrollments.mockResolvedValue([
+      {
+        id: 'enr-1',
+        enrolledAt: new Date('2026-01-10T10:00:00.000Z'),
+        courseCycle: {
+          id: 'cc-1',
+          course: {
+            id: 'c-1',
+            code: 'MAT101',
+            name: 'Matematica',
+            courseType: { code: 'REGULAR', name: 'Regular' },
+            cycleLevel: { levelNumber: 1 },
+          },
+          academicCycle: {
+            id: 'ac-1',
+            code: '2026-1',
+            startDate: new Date('2026-01-01T00:00:00.000Z'),
+            endDate: new Date('2026-06-30T00:00:00.000Z'),
+          },
+          professors: [],
+        },
+      },
+    ]);
+
+    const result = await service.findMyEnrollments('user-1');
+
+    expect(result[0].courseCycle.course.cycleLevel.name).toBe('1° CICLO');
+  });
+
+  it('enroll FULL con historicos encola grant de course_cycle para base e historicos', async () => {
+    enrollmentRepositoryMock.findActiveByUserAndCourseCycle.mockResolvedValue(
+      null,
+    );
+    (managerMock.query as jest.Mock).mockResolvedValue([
+      { isActiveStudent: 1 },
+    ]);
+    enrollmentTypeRepositoryMock.findByCode.mockResolvedValue({
+      id: 'type-full',
+      code: 'FULL',
+    });
+    enrollmentStatusRepositoryMock.findByCode.mockResolvedValue({
+      id: 'status-active',
+      code: 'ACTIVE',
+    });
+
+    const managerCourseCycleRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: '100',
+        courseId: '10',
+        academicCycle: {
+          code: '2026-1',
+          startDate: new Date('2026-01-01T00:00:00.000Z'),
+          endDate: new Date('2026-06-30T00:00:00.000Z'),
+        },
+      }),
+      find: jest.fn().mockResolvedValue([{ id: '90' }, { id: '80' }]),
+    };
+    const managerEvaluationRepo = {
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'ev-1',
+          courseCycleId: '100',
+          evaluationType: { code: 'PC' },
+        },
+        {
+          id: 'ev-2',
+          courseCycleId: '90',
+          evaluationType: { code: 'EX' },
+        },
+      ]),
+    };
+
+    (managerMock.getRepository as jest.Mock).mockImplementation((entity) => {
+      if (entity && entity.name === 'CourseCycle')
+        return managerCourseCycleRepo;
+      if (entity && entity.name === 'Evaluation') return managerEvaluationRepo;
+      return { findOne: jest.fn(), find: jest.fn() };
+    });
+
+    enrollmentRepositoryMock.create.mockResolvedValue({
+      id: 'enr-1',
+      userId: '9',
+      courseCycleId: '100',
+    });
+
+    await service.enroll({
+      userId: '9',
+      courseCycleId: '100',
+      enrollmentTypeCode: 'FULL',
+      historicalCourseCycleIds: ['90', '80'],
+    });
+
+    expect(
+      mediaAccessMembershipDispatchServiceMock.enqueueGrantForUserCourseCycles,
+    ).toHaveBeenCalledWith(
+      '9',
+      expect.arrayContaining(['100', '90', '80']),
+      expect.any(String),
+    );
+  });
+
+  it('enroll traduce duplicate key de matricula activa a conflicto de negocio', async () => {
+    enrollmentRepositoryMock.findActiveByUserAndCourseCycle.mockResolvedValue(
+      null,
+    );
+    (managerMock.query as jest.Mock).mockResolvedValue([
+      { isActiveStudent: 1 },
+    ]);
+    enrollmentTypeRepositoryMock.findByCode.mockResolvedValue({
+      id: 'type-full',
+      code: 'FULL',
+    });
+    enrollmentStatusRepositoryMock.findByCode.mockResolvedValue({
+      id: 'status-active',
+      code: 'ACTIVE',
+    });
+
+    (managerMock.getRepository as jest.Mock).mockImplementation((entity) => {
+      if (entity && entity.name === 'CourseCycle') {
+        return {
+          findOne: jest.fn().mockResolvedValue({
+            id: '100',
+            courseId: '10',
+            academicCycle: {
+              code: '2026-1',
+              startDate: new Date('2026-01-01T00:00:00.000Z'),
+              endDate: new Date('2026-06-30T00:00:00.000Z'),
+            },
+          }),
+          find: jest.fn().mockResolvedValue([]),
+        };
+      }
+      if (entity && entity.name === 'Evaluation') {
+        return {
+          find: jest.fn().mockResolvedValue([]),
+        };
+      }
+      return { findOne: jest.fn(), find: jest.fn() };
+    });
+
+    enrollmentRepositoryMock.create.mockRejectedValue({
+      driverError: {
+        errno: MySqlErrorCode.DUPLICATE_ENTRY,
+        message:
+          "Duplicate entry for key 'uq_enrollment_active_user_course_cycle'",
+      },
+    });
+
+    await expect(
+      service.enroll({
+        userId: '9',
+        courseCycleId: '100',
+        enrollmentTypeCode: 'FULL',
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('getEnrollmentOptionsByCourseCycle retorna evaluaciones y ciclos historicos', async () => {
+    (dataSourceMock.query as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          baseCourseCycleId: '100',
+          courseId: '10',
+          courseCode: 'MAT101',
+          courseName: 'Matematica',
+          academicCycleCode: '2026-1',
+          academicCycleStartDate: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: '200',
+          evaluationTypeCode: 'PC',
+          evaluationTypeName: 'Practica Calificada',
+          evaluationNumber: 1,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          courseCycleId: '90',
+          academicCycleCode: '2025-2',
+        },
+      ]);
+
+    const result = await service.getEnrollmentOptionsByCourseCycle('100');
+
+    expect(result.baseCourseCycleId).toBe('100');
+    expect(result.evaluations[0]).toMatchObject({
+      id: '200',
+      evaluationTypeCode: 'PC',
+      shortName: 'PC1',
+    });
+    expect(result.historicalCycles[0]).toMatchObject({
+      courseCycleId: '90',
+      academicCycleCode: '2025-2',
+    });
+  });
+
+  it('getEnrollmentCourseCycleOptions retorna ciclo actual y historicos del curso', async () => {
+    (dataSourceMock.query as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          courseId: '10',
+          courseCode: 'MAT101',
+          courseName: 'Matematica',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          courseCycleId: '100',
+          academicCycleCode: '2026-1',
+          academicCycleStartDate: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          courseCycleId: '90',
+          academicCycleCode: '2025-2',
+        },
+      ]);
+
+    const result = await service.getEnrollmentCourseCycleOptions('10');
+
+    expect(settingsServiceMock.getString).toHaveBeenCalledWith(
+      'ACTIVE_CYCLE_ID',
+    );
+    expect(result.currentCycle).toEqual({
+      courseCycleId: '100',
+      academicCycleCode: '2026-1',
+    });
+    expect(result.historicalCycles).toEqual([
+      {
+        courseCycleId: '90',
+        academicCycleCode: '2025-2',
+      },
+    ]);
   });
 });

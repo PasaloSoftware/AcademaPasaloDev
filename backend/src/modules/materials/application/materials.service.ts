@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -39,9 +40,13 @@ import {
   MATERIAL_STATUS_CODES,
   STORAGE_PROVIDER_CODES,
 } from '@modules/materials/domain/material.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
 import { AuthorizedMediaLinkDto } from '@modules/media-access/dto/authorized-media-link.dto';
-import { MEDIA_DOCUMENT_LINK_MODES } from '@modules/media-access/domain/media-access.constants';
+import {
+  MEDIA_ACCESS_DRIVE_FOLDERS,
+  MEDIA_DOCUMENT_LINK_MODES,
+} from '@modules/media-access/domain/media-access.constants';
 import type { MediaDocumentLinkMode } from '@modules/media-access/domain/media-access.constants';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
 import { MaterialVersionHistoryDto } from '@modules/materials/dto/material-version-history.dto';
@@ -112,6 +117,19 @@ export class MaterialsService {
       }
     }
 
+    const normalizedOriginalName = this.normalizeUploadedOriginalName(
+      file.originalname,
+    );
+    if (normalizedOriginalName !== file.originalname) {
+      this.logger.warn({
+        message: 'Nombre de archivo normalizado antes de subir material',
+        originalName: file.originalname,
+        normalizedOriginalName,
+        userId: user.id,
+        materialFolderId: dto.materialFolderId,
+      });
+    }
+
     const activeStatus = await this.getActiveMaterialStatus();
     const folder = await this.folderRepository.findById(dto.materialFolderId);
     if (!folder) throw new NotFoundException('Carpeta destino no encontrada');
@@ -120,11 +138,28 @@ export class MaterialsService {
       dto.visibleFrom,
       dto.visibleUntil,
     );
+    this.logger.log({
+      message: 'Iniciando carga de material',
+      userId: user.id,
+      evaluationId: folder.evaluationId,
+      materialFolderId: folder.id,
+      classEventId: dto.classEventId || null,
+      displayName: dto.displayName,
+      originalName: normalizedOriginalName,
+      mimeType: file.mimetype,
+      sizeBytes: String(file.size),
+    });
 
     const now = new Date();
     const documentsFolderId = this.storageService.isGoogleDriveStorageEnabled()
       ? await this.resolveDocumentsFolderIdForEvaluation(folder.evaluationId)
       : null;
+    const authorizedRootFolderId =
+      this.storageService.isGoogleDriveStorageEnabled()
+        ? await this.resolveAuthorizedRootFolderIdForEvaluation(
+            folder.evaluationId,
+          )
+        : null;
     let savedResource: {
       storageProvider: (typeof STORAGE_PROVIDER_CODES)[keyof typeof STORAGE_PROVIDER_CODES];
       storageKey: string;
@@ -150,68 +185,109 @@ export class MaterialsService {
             folder.evaluationId,
           );
 
-        let finalResource: FileResource;
-        if (!existingResource) {
-          const uniqueName = this.buildStorageObjectName(file.originalname);
-          savedResource = await this.storageService.saveFile(
-            uniqueName,
-            file.buffer,
-            file.mimetype,
-            documentsFolderId
-              ? { targetDriveFolderId: documentsFolderId }
-              : undefined,
-          );
-          isNewFile = true;
-
-          const resourceEntity = manager.create(FileResource, {
-            checksumHash: hash,
-            originalName: file.originalname,
+        if (existingResource) {
+          this.logger.warn({
+            message:
+              'Carga de material rechazada por archivo duplicado dentro de la evaluacion',
+            evaluationId: folder.evaluationId,
+            materialFolderId: folder.id,
+            classEventId: dto.classEventId || null,
+            existingFileResourceId: existingResource.id,
+            storageProvider: existingResource.storageProvider,
+            storageKey: existingResource.storageKey,
+            originalName: normalizedOriginalName,
             mimeType: file.mimetype,
             sizeBytes: String(file.size),
-            storageProvider: savedResource.storageProvider,
-            storageKey: savedResource.storageKey,
-            storageUrl: savedResource.storageUrl,
-            createdAt: now,
+            userId: user.id,
           });
-          try {
-            finalResource = await manager.save(resourceEntity);
-          } catch (error) {
-            const dbErrno = getErrnoFromDbError(error);
-            if (dbErrno !== MySqlErrorCode.DUPLICATE_ENTRY) {
-              throw error;
-            }
+          throw new ConflictException(
+            'Ya existe un material con el mismo archivo en esta evaluacion',
+          );
+        }
 
-            const dedupResource =
-              await this.fileResourceRepository.findByHashAndSizeWithinEvaluation(
-                hash,
-                String(file.size),
-                folder.evaluationId,
-              );
-            if (!dedupResource) {
-              throw error;
-            }
+        let finalResource: FileResource;
+        const uniqueName = this.buildStorageObjectName(normalizedOriginalName);
+        savedResource = await this.storageService.saveFile(
+          uniqueName,
+          file.buffer,
+          file.mimetype,
+          documentsFolderId
+            ? { targetDriveFolderId: documentsFolderId }
+            : undefined,
+        );
+        isNewFile = true;
 
-            finalResource = dedupResource;
-            if (savedResource) {
-              try {
-                await this.rollbackFile(savedResource);
-              } catch (cleanupError) {
-                this.logger.warn({
-                  message:
-                    'No se pudo limpiar archivo huérfano tras colisión de deduplicación',
-                  storageKey: savedResource.storageKey,
-                  error:
-                    cleanupError instanceof Error
-                      ? cleanupError.message
-                      : String(cleanupError),
-                });
-              }
-              savedResource = null;
-              isNewFile = false;
-            }
+        const resourceEntity = manager.create(FileResource, {
+          checksumHash: hash,
+          originalName: normalizedOriginalName,
+          mimeType: file.mimetype,
+          sizeBytes: String(file.size),
+          storageProvider: savedResource.storageProvider,
+          storageKey: savedResource.storageKey,
+          storageUrl: savedResource.storageUrl,
+          createdAt: now,
+        });
+        try {
+          finalResource = await manager.save(resourceEntity);
+          this.logger.log({
+            message: 'Recurso fisico de material persistido',
+            evaluationId: folder.evaluationId,
+            materialFolderId: folder.id,
+            storageProvider: finalResource.storageProvider,
+            storageKey: finalResource.storageKey,
+            fileResourceId: finalResource.id,
+            deduplicated: false,
+          });
+        } catch (error) {
+          const dbErrno = getErrnoFromDbError(error);
+          if (dbErrno !== MySqlErrorCode.DUPLICATE_ENTRY) {
+            throw error;
           }
-        } else {
-          finalResource = existingResource;
+
+          const dedupResource =
+            await this.fileResourceRepository.findByHashAndSizeWithinEvaluation(
+              hash,
+              String(file.size),
+              folder.evaluationId,
+            );
+          if (!dedupResource) {
+            throw error;
+          }
+
+          this.logger.warn({
+            message:
+              'Carga de material rechazada por colision concurrente de duplicado dentro de la evaluacion',
+            evaluationId: folder.evaluationId,
+            materialFolderId: folder.id,
+            classEventId: dto.classEventId || null,
+            existingFileResourceId: dedupResource.id,
+            storageProvider: dedupResource.storageProvider,
+            storageKey: dedupResource.storageKey,
+            originalName: normalizedOriginalName,
+            mimeType: file.mimetype,
+            sizeBytes: String(file.size),
+            userId: user.id,
+          });
+          if (savedResource) {
+            try {
+              await this.rollbackFile(savedResource);
+            } catch (cleanupError) {
+              this.logger.warn({
+                message:
+                  'No se pudo limpiar archivo huérfano tras colisión de deduplicación',
+                storageKey: savedResource.storageKey,
+                error:
+                  cleanupError instanceof Error
+                    ? cleanupError.message
+                    : String(cleanupError),
+              });
+            }
+            savedResource = null;
+            isNewFile = false;
+          }
+          throw new ConflictException(
+            'Ya existe un material con el mismo archivo en esta evaluacion',
+          );
         }
 
         const materialEntity = manager.create(Material, {
@@ -221,6 +297,7 @@ export class MaterialsService {
           fileVersionId: null,
           materialStatusId: activeStatus.id,
           displayName: dto.displayName,
+          authorizedRootFolderId,
           visibleFrom,
           visibleUntil,
           createdById: user.id,
@@ -228,6 +305,15 @@ export class MaterialsService {
           updatedAt: now,
         });
         const savedMaterial = await manager.save(materialEntity);
+        this.logger.log({
+          message: 'Material persistido en base de datos',
+          materialId: savedMaterial.id,
+          evaluationId: folder.evaluationId,
+          materialFolderId: folder.id,
+          classEventId: savedMaterial.classEventId,
+          fileResourceId: savedMaterial.fileResourceId,
+          createdById: user.id,
+        });
         const versionEntity = manager.create(MaterialVersion, {
           materialId: savedMaterial.id,
           fileResourceId: finalResource.id,
@@ -247,6 +333,14 @@ export class MaterialsService {
           );
         }
         savedMaterial.fileVersionId = savedVersion.id;
+        this.logger.log({
+          message: 'Version inicial de material creada',
+          materialId: savedMaterial.id,
+          materialVersionId: savedVersion.id,
+          versionNumber: savedVersion.versionNumber,
+          fileResourceId: savedVersion.fileResourceId,
+          createdById: user.id,
+        });
 
         return (await manager.save(savedMaterial)) || savedMaterial;
       });
@@ -263,8 +357,36 @@ export class MaterialsService {
         );
       }
 
+      this.logger.log({
+        message: 'Carga de material completada',
+        materialId: result.id,
+        evaluationId: folder.evaluationId,
+        materialFolderId: result.materialFolderId,
+        classEventId: result.classEventId,
+        fileResourceId: result.fileResourceId,
+        currentVersionId: result.fileVersionId,
+        storageProvider: savedResource?.storageProvider || 'REUSED_EXISTING',
+        storageKey: savedResource?.storageKey || null,
+        uploadedNewBinary: isNewFile,
+        userId: user.id,
+      });
+
       return result;
     } catch (error) {
+      this.logger.error({
+        message: 'Fallo la carga de material',
+        userId: user.id,
+        materialFolderId: dto.materialFolderId,
+        classEventId: dto.classEventId || null,
+        originalName: file.originalname,
+        normalizedOriginalName,
+        mimeType: file.mimetype,
+        sizeBytes: String(file.size),
+        uploadedNewBinary: isNewFile,
+        storageProvider: savedResource?.storageProvider || null,
+        storageKey: savedResource?.storageKey || null,
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (isNewFile && savedResource) await this.rollbackFile(savedResource);
       throw error;
     }
@@ -292,6 +414,20 @@ export class MaterialsService {
       }
     }
 
+    const normalizedOriginalName = this.normalizeUploadedOriginalName(
+      file.originalname,
+    );
+    if (normalizedOriginalName !== file.originalname) {
+      this.logger.warn({
+        message:
+          'Nombre de archivo normalizado antes de subir nueva version de material',
+        originalName: file.originalname,
+        normalizedOriginalName,
+        userId: user.id,
+        materialId,
+      });
+    }
+
     const now = new Date();
     let savedResource: {
       storageProvider: (typeof STORAGE_PROVIDER_CODES)[keyof typeof STORAGE_PROVIDER_CODES];
@@ -299,6 +435,14 @@ export class MaterialsService {
       storageUrl: string | null;
     } | null = null;
     let isNewFile = false;
+    this.logger.log({
+      message: 'Iniciando carga de nueva version de material',
+      materialId,
+      userId: user.id,
+      originalName: normalizedOriginalName,
+      mimeType: file.mimetype,
+      sizeBytes: String(file.size),
+    });
 
     try {
       const result = await this.dataSource.transaction(async (manager) => {
@@ -338,7 +482,9 @@ export class MaterialsService {
         let finalResource: FileResource;
 
         if (!existingResource) {
-          const uniqueName = this.buildStorageObjectName(file.originalname);
+          const uniqueName = this.buildStorageObjectName(
+            normalizedOriginalName,
+          );
           savedResource = await this.storageService.saveFile(
             uniqueName,
             file.buffer,
@@ -351,7 +497,7 @@ export class MaterialsService {
 
           const resourceEntity = manager.create(FileResource, {
             checksumHash: hash,
-            originalName: file.originalname,
+            originalName: normalizedOriginalName,
             mimeType: file.mimetype,
             sizeBytes: String(file.size),
             storageProvider: savedResource.storageProvider,
@@ -361,6 +507,16 @@ export class MaterialsService {
           });
           try {
             finalResource = await manager.save(resourceEntity);
+            this.logger.log({
+              message: 'Recurso fisico persistido para nueva version',
+              materialId: freshMaterial.id,
+              evaluationId: freshMaterial.materialFolder.evaluationId,
+              materialFolderId: freshMaterial.materialFolderId,
+              fileResourceId: finalResource.id,
+              storageProvider: finalResource.storageProvider,
+              storageKey: finalResource.storageKey,
+              deduplicated: false,
+            });
           } catch (error) {
             const dbErrno = getErrnoFromDbError(error);
             if (dbErrno !== MySqlErrorCode.DUPLICATE_ENTRY) {
@@ -378,6 +534,17 @@ export class MaterialsService {
             }
 
             finalResource = dedupResource;
+            this.logger.log({
+              message:
+                'Reutilizando recurso fisico existente tras colision de deduplicacion para nueva version',
+              materialId: freshMaterial.id,
+              evaluationId: freshMaterial.materialFolder.evaluationId,
+              materialFolderId: freshMaterial.materialFolderId,
+              fileResourceId: finalResource.id,
+              storageProvider: finalResource.storageProvider,
+              storageKey: finalResource.storageKey,
+              deduplicated: true,
+            });
             if (savedResource) {
               try {
                 await this.rollbackFile(savedResource);
@@ -398,6 +565,16 @@ export class MaterialsService {
           }
         } else {
           finalResource = existingResource;
+          this.logger.log({
+            message: 'Reutilizando recurso fisico existente para nueva version',
+            materialId: freshMaterial.id,
+            evaluationId: freshMaterial.materialFolder.evaluationId,
+            materialFolderId: freshMaterial.materialFolderId,
+            fileResourceId: finalResource.id,
+            storageProvider: finalResource.storageProvider,
+            storageKey: finalResource.storageKey,
+            deduplicated: true,
+          });
         }
 
         const lockedResource = await manager.findOne(FileResource, {
@@ -439,6 +616,14 @@ export class MaterialsService {
 
           try {
             savedVersion = await manager.save(versionEntity);
+            this.logger.log({
+              message: 'Nueva version de material creada',
+              materialId: freshMaterial.id,
+              materialVersionId: savedVersion.id,
+              versionNumber: savedVersion.versionNumber,
+              fileResourceId: savedVersion.fileResourceId,
+              createdById: user.id,
+            });
             break;
           } catch (error) {
             const dbErrno = getErrnoFromDbError(error);
@@ -460,6 +645,15 @@ export class MaterialsService {
         freshMaterial.updatedAt = now;
 
         const updatedMaterial = await manager.save(freshMaterial);
+        this.logger.log({
+          message: 'Material actualizado con nueva version',
+          materialId: updatedMaterial.id,
+          materialFolderId: updatedMaterial.materialFolderId,
+          classEventId: updatedMaterial.classEventId,
+          fileResourceId: updatedMaterial.fileResourceId,
+          currentVersionId: updatedMaterial.fileVersionId,
+          updatedById: user.id,
+        });
 
         return updatedMaterial;
       });
@@ -468,6 +662,7 @@ export class MaterialsService {
         result.materialFolderId,
         result.classEventId,
       );
+      await this.invalidateMaterialDriveScopeValidationCache(result.id);
 
       if (result.classEventId) {
         void this.notificationsDispatchService.dispatchMaterialUpdated(
@@ -476,8 +671,34 @@ export class MaterialsService {
         );
       }
 
+      this.logger.log({
+        message: 'Carga de nueva version completada',
+        materialId: result.id,
+        materialFolderId: result.materialFolderId,
+        classEventId: result.classEventId,
+        fileResourceId: result.fileResourceId,
+        currentVersionId: result.fileVersionId,
+        storageProvider: savedResource?.storageProvider || 'REUSED_EXISTING',
+        storageKey: savedResource?.storageKey || null,
+        uploadedNewBinary: isNewFile,
+        userId: user.id,
+      });
+
       return result;
     } catch (error) {
+      this.logger.error({
+        message: 'Fallo la carga de nueva version de material',
+        materialId,
+        userId: user.id,
+        originalName: file.originalname,
+        normalizedOriginalName,
+        mimeType: file.mimetype,
+        sizeBytes: String(file.size),
+        uploadedNewBinary: isNewFile,
+        storageProvider: savedResource?.storageProvider || null,
+        storageKey: savedResource?.storageKey || null,
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (isNewFile && savedResource) await this.rollbackFile(savedResource);
       throw error;
     }
@@ -570,6 +791,12 @@ export class MaterialsService {
     versionId: string,
   ): Promise<Material> {
     const now = new Date();
+    this.logger.log({
+      message: 'Iniciando restauracion de version de material',
+      materialId,
+      targetVersionId: versionId,
+      userId: user.id,
+    });
 
     const result = await this.dataSource.transaction(async (manager) => {
       const freshMaterial = await manager.findOne(Material, {
@@ -621,6 +848,14 @@ export class MaterialsService {
       freshMaterial.fileResourceId = targetVersion.fileResourceId;
       freshMaterial.fileVersionId = restoredVersion.id;
       freshMaterial.updatedAt = now;
+      this.logger.log({
+        message: 'Version de material restaurada dentro de transaccion',
+        materialId: freshMaterial.id,
+        restoredFromVersionId: targetVersion.id,
+        newCurrentVersionId: restoredVersion.id,
+        fileResourceId: targetVersion.fileResourceId,
+        updatedById: user.id,
+      });
 
       return await manager.save(freshMaterial);
     });
@@ -629,12 +864,24 @@ export class MaterialsService {
       result.materialFolderId,
       result.classEventId,
     );
+    await this.invalidateMaterialDriveScopeValidationCache(result.id);
     if (result.classEventId) {
       void this.notificationsDispatchService.dispatchMaterialUpdated(
         result.id,
         result.materialFolderId,
       );
     }
+
+    this.logger.log({
+      message: 'Restauracion de version completada',
+      materialId: result.id,
+      materialFolderId: result.materialFolderId,
+      classEventId: result.classEventId,
+      fileResourceId: result.fileResourceId,
+      currentVersionId: result.fileVersionId,
+      restoredFromVersionId: versionId,
+      userId: user.id,
+    });
 
     return result;
   }
@@ -665,6 +912,69 @@ export class MaterialsService {
 
     await this.assertCanManageEvaluation(user, folder.evaluationId);
     await this.materialsDeletionService.requestDeletion(user.id, dto);
+    await this.invalidateMaterialContextCaches(
+      material.materialFolderId,
+      material.classEventId,
+    );
+  }
+
+  async updateMaterialDisplayName(
+    user: UserWithSession,
+    materialId: string,
+    displayName: string,
+  ): Promise<Material> {
+    const trimmedDisplayName = String(displayName || '').trim();
+    if (!trimmedDisplayName) {
+      throw new BadRequestException('El nombre del material es obligatorio');
+    }
+
+    const material = await this.materialRepository.findById(materialId);
+    if (!material) {
+      throw new NotFoundException('Material no encontrado');
+    }
+
+    const folder = await this.folderRepository.findById(
+      material.materialFolderId,
+    );
+    if (!folder) {
+      throw new InternalServerErrorException(
+        'Integridad de datos corrupta: Material sin carpeta contenedora',
+      );
+    }
+
+    await this.assertCanManageEvaluation(user, folder.evaluationId);
+
+    await this.dataSource.transaction(async (manager) => {
+      const lockedMaterial = await manager.findOne(Material, {
+        where: { id: materialId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedMaterial) {
+        throw new NotFoundException('Material no encontrado');
+      }
+
+      lockedMaterial.displayName = trimmedDisplayName;
+      lockedMaterial.updatedAt = new Date();
+      await manager.save(lockedMaterial);
+    });
+
+    await this.invalidateMaterialContextCaches(
+      material.materialFolderId,
+      material.classEventId,
+    );
+    if (material.classEventId) {
+      void this.notificationsDispatchService.dispatchMaterialUpdated(
+        material.id,
+        material.materialFolderId,
+      );
+    }
+
+    const updatedMaterial = await this.materialRepository.findById(materialId);
+    if (!updatedMaterial) {
+      throw new NotFoundException('Material no encontrado');
+    }
+
+    return updatedMaterial;
   }
 
   private parseVisibilityRange(
@@ -781,6 +1091,72 @@ export class MaterialsService {
     return documentsFolderId;
   }
 
+  private async resolveAuthorizedRootFolderIdForEvaluation(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const evaluationTypeCode = await this.getEvaluationTypeCode(evaluationId);
+
+    if (evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS) {
+      return await this.resolveBankDocumentsFolderIdForEvaluation(evaluationId);
+    }
+
+    return await this.resolveDocumentsFolderIdForEvaluation(evaluationId);
+  }
+
+  private async resolveBankDocumentsFolderIdForEvaluation(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const rows = await this.dataSource.query<
+      Array<{
+        courseCycleId: string;
+        courseCode: string;
+        cycleCode: string;
+      }>
+    >(
+      `
+      SELECT
+        cc.id AS courseCycleId,
+        c.code AS courseCode,
+        ac.code AS cycleCode
+      FROM evaluation e
+      INNER JOIN course_cycle cc ON cc.id = e.course_cycle_id
+      INNER JOIN course c ON c.id = cc.course_id
+      INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+      WHERE e.id = ?
+      LIMIT 1
+      `,
+      [evaluationId],
+    );
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+    return await this.storageService.resolveDriveFolderIdByPath([
+      MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+      String(row.cycleCode || '').trim(),
+      `cc_${String(row.courseCycleId || '').trim()}_${String(row.courseCode || '').trim()}`,
+      'bank_documents',
+    ]);
+  }
+
+  private async getEvaluationTypeCode(evaluationId: string): Promise<string> {
+    const rows = await this.dataSource.query<
+      Array<{ evaluationTypeCode: string }>
+    >(
+      `
+      SELECT UPPER(TRIM(et.code)) AS evaluationTypeCode
+      FROM evaluation e
+      INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+      WHERE e.id = ?
+      LIMIT 1
+      `,
+      [evaluationId],
+    );
+    return String(rows[0]?.evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+  }
+
   private async invalidateFolderCache(folderId: string) {
     await this.cacheService.del(MATERIAL_CACHE_KEYS.CONTENTS(folderId));
   }
@@ -804,6 +1180,14 @@ export class MaterialsService {
     }
 
     await Promise.all(operations);
+  }
+
+  private async invalidateMaterialDriveScopeValidationCache(
+    materialId: string,
+  ): Promise<void> {
+    await this.cacheService.invalidateIndex(
+      MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION_INDEX(materialId),
+    );
   }
 
   private async createNextMaterialVersion(
@@ -867,5 +1251,33 @@ export class MaterialsService {
 
     const extension = path.extname(normalizedOriginalName).trim();
     return extension ? `${randomUUID()}${extension}` : randomUUID();
+  }
+
+  private normalizeUploadedOriginalName(originalName: string): string {
+    const normalized = String(originalName || '').trim();
+    if (!normalized) {
+      return normalized;
+    }
+
+    if (!/[ÃÂâ]/.test(normalized)) {
+      return normalized;
+    }
+
+    try {
+      const candidate = Buffer.from(normalized, 'latin1')
+        .toString('utf8')
+        .trim();
+      if (!candidate || candidate.includes('\uFFFD')) {
+        return normalized;
+      }
+
+      const originalMojibakeCount = (normalized.match(/[ÃÂâ]/g) || []).length;
+      const candidateMojibakeCount = (candidate.match(/[ÃÂâ]/g) || []).length;
+      return candidateMojibakeCount < originalMojibakeCount
+        ? candidate
+        : normalized;
+    } catch {
+      return normalized;
+    }
   }
 }

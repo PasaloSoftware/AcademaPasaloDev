@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Expose, Transform, Type } from 'class-transformer';
 import { PhotoSource } from '@modules/users/domain/user.entity';
 
 class RoleDto {
@@ -29,7 +29,19 @@ export class UserResponseDto {
   phone: string | null;
 
   @Expose()
-  career: string | null;
+  careerId: number | null;
+
+  @Expose()
+  @Transform(({ obj }: { obj: unknown }) => {
+    if (!obj || typeof obj !== 'object') return null;
+
+    const career = (obj as { career?: unknown }).career;
+    if (!career || typeof career !== 'object') return null;
+
+    const name = (career as { name?: unknown }).name;
+    return typeof name === 'string' ? name : null;
+  })
+  careerName: string | null;
 
   @Expose()
   profilePhotoUrl: string | null;

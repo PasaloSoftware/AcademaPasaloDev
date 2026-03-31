@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { getEpoch } from '@common/utils/date.util';
 import { technicalSettings } from '@config/technical-settings';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
@@ -18,6 +19,7 @@ import {
 import { MaterialFolder } from '@modules/materials/domain/material-folder.entity';
 import { Material } from '@modules/materials/domain/material.entity';
 import {
+  DELETION_REQUEST_STATUS_CODES,
   FOLDER_STATUS_CODES,
   MATERIAL_CACHE_KEYS,
   MATERIAL_STATUS_CODES,
@@ -26,6 +28,8 @@ import { MaterialFolderRepository } from '@modules/materials/infrastructure/mate
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import { DeletionRequestRepository } from '@modules/materials/infrastructure/deletion-request.repository';
 
 @Injectable()
 export class MaterialsExplorerService {
@@ -33,11 +37,13 @@ export class MaterialsExplorerService {
     technicalSettings.cache.materials.materialsExplorerCacheTtlSeconds;
 
   constructor(
+    private readonly dataSource: DataSource,
     private readonly accessEngine: AccessEngineService,
     private readonly cacheService: RedisCacheService,
     private readonly folderRepository: MaterialFolderRepository,
     private readonly materialRepository: MaterialRepository,
     private readonly catalogRepository: MaterialCatalogRepository,
+    private readonly deletionRequestRepository: DeletionRequestRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
     private readonly classEventRepository: ClassEventRepository,
   ) {}
@@ -101,16 +107,25 @@ export class MaterialsExplorerService {
       contents.folders,
       contents.materials,
     );
+    const visibleMaterials =
+      await this.filterPendingDeletionForStudentMaterials(
+        user,
+        visibleContents.materials,
+      );
 
     const materialStatus = await this.getActiveMaterialStatus();
     const isStudent = user.activeRole === ROLE_CODES.STUDENT;
     const now = isStudent ? new Date() : undefined;
+    const pendingStatusId = isStudent
+      ? (await this.getPendingDeletionRequestStatus()).id
+      : undefined;
 
     const subfolderMaterialCountRaw =
       await this.materialRepository.countByFolderIds(
         visibleContents.folders.map((item) => item.id),
         materialStatus.id,
         now,
+        pendingStatusId,
       );
 
     const subfolderMaterialCount = visibleContents.folders.reduce<
@@ -122,8 +137,8 @@ export class MaterialsExplorerService {
 
     return {
       folders: visibleContents.folders,
-      materials: visibleContents.materials,
-      totalMaterials: visibleContents.materials.length,
+      materials: visibleMaterials,
+      totalMaterials: visibleMaterials.length,
       subfolderMaterialCount,
     };
   }
@@ -143,7 +158,11 @@ export class MaterialsExplorerService {
     const cacheKey = MATERIAL_CACHE_KEYS.CLASS_EVENT(classEventId);
     const cached = await this.cacheService.get<Material[]>(cacheKey);
     if (cached) {
-      return this.applyVisibilityFilter(user, [], cached).materials;
+      const visibleCached = this.applyVisibilityFilter(user, [], cached);
+      return await this.filterPendingDeletionForStudentMaterials(
+        user,
+        visibleCached.materials,
+      );
     }
 
     const materialStatus = await this.getActiveMaterialStatus();
@@ -153,7 +172,11 @@ export class MaterialsExplorerService {
     );
     await this.cacheService.set(cacheKey, materials, this.cacheTtl);
 
-    return this.applyVisibilityFilter(user, [], materials).materials;
+    const visibleMaterials = this.applyVisibilityFilter(user, [], materials);
+    return await this.filterPendingDeletionForStudentMaterials(
+      user,
+      visibleMaterials.materials,
+    );
   }
 
   private applyVisibilityFilter(
@@ -222,6 +245,13 @@ export class MaterialsExplorerService {
       evaluationId,
     );
     if (!hasEnrollment) {
+      const hasBankAccess = await this.hasStudentBankAccess(
+        user.id,
+        evaluationId,
+      );
+      if (hasBankAccess) {
+        return;
+      }
       throw new ForbiddenException(
         'No tienes acceso a este contenido educativo',
       );
@@ -248,6 +278,30 @@ export class MaterialsExplorerService {
     }
   }
 
+  private async hasStudentBankAccess(
+    userId: string,
+    evaluationId: string,
+  ): Promise<boolean> {
+    const rows = await this.dataSource.query<Array<{ hasAccess: number }>>(
+      `SELECT EXISTS(
+        SELECT 1
+        FROM evaluation ev
+        INNER JOIN evaluation_type et
+          ON et.id = ev.evaluation_type_id
+        INNER JOIN enrollment e
+          ON e.course_cycle_id = ev.course_cycle_id
+        WHERE ev.id = ?
+          AND e.user_id = ?
+          AND e.cancelled_at IS NULL
+          AND UPPER(TRIM(et.code)) = ?
+        LIMIT 1
+      ) AS hasAccess`,
+      [evaluationId, userId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+    );
+
+    return Number(rows[0]?.hasAccess || 0) === 1;
+  }
+
   private async getActiveFolderStatus() {
     const status = await this.catalogRepository.findFolderStatusByCode(
       FOLDER_STATUS_CODES.ACTIVE,
@@ -270,6 +324,47 @@ export class MaterialsExplorerService {
       );
     }
     return status;
+  }
+
+  private async getPendingDeletionRequestStatus() {
+    const pendingStatus =
+      await this.catalogRepository.findDeletionRequestStatusByCode(
+        DELETION_REQUEST_STATUS_CODES.PENDING,
+      );
+    if (!pendingStatus) {
+      throw new InternalServerErrorException(
+        `Error de configuracion: Estado ${DELETION_REQUEST_STATUS_CODES.PENDING} de solicitud de eliminacion faltante`,
+      );
+    }
+    return pendingStatus;
+  }
+
+  private async filterPendingDeletionForStudentMaterials(
+    user: User | UserWithSession,
+    materials: Material[],
+  ): Promise<Material[]> {
+    const activeRole = (user as UserWithSession).activeRole;
+    if (this.normalizeRole(activeRole) !== ROLE_CODES.STUDENT) {
+      return materials;
+    }
+
+    if (materials.length === 0) {
+      return materials;
+    }
+
+    const pendingStatus = await this.getPendingDeletionRequestStatus();
+    const pendingMaterialIds = new Set(
+      await this.deletionRequestRepository.findPendingMaterialIds(
+        materials.map((material) => material.id),
+        pendingStatus.id,
+      ),
+    );
+
+    if (pendingMaterialIds.size === 0) {
+      return materials;
+    }
+
+    return materials.filter((material) => !pendingMaterialIds.has(material.id));
   }
 
   private normalizeRole(activeRole?: string): string {

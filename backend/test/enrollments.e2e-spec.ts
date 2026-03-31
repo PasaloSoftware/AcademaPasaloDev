@@ -35,6 +35,7 @@ import { EnrollmentTypeRepository } from './../src/modules/enrollments/infrastru
 import { MediaAccessMembershipDispatchService } from './../src/modules/media-access/application/media-access-membership-dispatch.service';
 import { PhotoSource } from './../src/modules/users/domain/user.entity';
 import { User } from './../src/modules/users/domain/user.entity';
+import { SettingsService } from './../src/modules/settings/application/settings.service';
 
 const JWT_SECRET = 'test-jwt-secret';
 
@@ -128,6 +129,9 @@ describe('Enrollments E2E', () => {
     findEvaluationIdsToRevokeAfterEnrollmentCancellation: jest
       .fn()
       .mockResolvedValue([]),
+    findCourseCycleIdsToRevokeAfterEnrollmentCancellation: jest
+      .fn()
+      .mockResolvedValue([]),
   };
 
   const enrollmentTypeRepositoryMock = {
@@ -171,6 +175,7 @@ describe('Enrollments E2E', () => {
   };
 
   const mockDataSource = {
+    query: jest.fn(),
     transaction: jest.fn((cb) => cb(mockManager)),
   };
 
@@ -314,6 +319,12 @@ describe('Enrollments E2E', () => {
               .mockResolvedValue(undefined),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            getString: jest.fn().mockResolvedValue('ac-1'),
+          },
+        },
       ],
     }).compile();
 
@@ -365,7 +376,7 @@ describe('Enrollments E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           userId: '2',
-          courseCycleId: 'course-cycle-1',
+          courseCycleId: '1',
           enrollmentTypeCode: 'FULL',
         })
         .expect(201);
@@ -398,6 +409,86 @@ describe('Enrollments E2E', () => {
         .delete('/api/v1/enrollments/enrollment-1')
         .set('Authorization', `Bearer ${token}`)
         .expect(204);
+    });
+  });
+
+  describe('GET /api/v1/enrollments/options/course/:courseId/cycles', () => {
+    it('debería retornar ciclo actual e históricos del curso seleccionado', async () => {
+      const token = getAdminToken();
+      (mockDataSource.query as jest.Mock)
+        .mockResolvedValueOnce([
+          { courseId: 'c-1', courseCode: 'MAT101', courseName: 'Matematica' },
+        ])
+        .mockResolvedValueOnce([
+          {
+            courseCycleId: 'course-cycle-1',
+            academicCycleCode: '2026-1',
+            academicCycleStartDate: new Date('2026-01-01'),
+          },
+        ])
+        .mockResolvedValueOnce([
+          { courseCycleId: 'course-cycle-0', academicCycleCode: '2025-2' },
+        ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/enrollments/options/course/c-1/cycles')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(200);
+      expect(body.data).toMatchObject({
+        courseId: 'c-1',
+        currentCycle: {
+          courseCycleId: 'course-cycle-1',
+          academicCycleCode: '2026-1',
+        },
+      });
+    });
+  });
+
+  describe('GET /api/v1/enrollments/options/course-cycle/:courseCycleId', () => {
+    it('debería retornar evaluaciones seleccionables e históricos', async () => {
+      const token = getAdminToken();
+      (mockDataSource.query as jest.Mock)
+        .mockResolvedValueOnce([
+          {
+            baseCourseCycleId: 'course-cycle-1',
+            courseId: 'c-1',
+            courseCode: 'MAT101',
+            courseName: 'Matematica',
+            academicCycleCode: '2026-1',
+            academicCycleStartDate: new Date('2026-01-01'),
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'ev-1',
+            evaluationTypeCode: 'PC',
+            evaluationTypeName: 'Practica Calificada',
+            evaluationNumber: 1,
+          },
+        ])
+        .mockResolvedValueOnce([
+          { courseCycleId: 'course-cycle-0', academicCycleCode: '2025-2' },
+        ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/enrollments/options/course-cycle/course-cycle-1')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const body = response.body as StandardResponse;
+      expect(body.statusCode).toBe(200);
+      expect(body.data).toMatchObject({
+        baseCourseCycleId: 'course-cycle-1',
+        evaluations: [
+          expect.objectContaining({
+            id: 'ev-1',
+            shortName: 'PC1',
+          }),
+        ],
+      });
     });
   });
 });

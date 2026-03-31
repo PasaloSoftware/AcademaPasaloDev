@@ -12,76 +12,76 @@ SET @actor_user_id = 1;
 
 -- 1) Scopes Drive por evaluacion (ciclo activo)
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 17, 'ev_17', '1p9Y6244WJLdFDHiwMod3dg5lszU0EnAk', '1QSAZ66dt4PAeLs-9OG_vvozRbf5kgjGR', '1QDHzg3WL3cfSlo4Ly33wMceXHoczzLCz', '1JnPIlAQdUo-3ae85-GxJcg93uyDqPWjV', 'ev-17-viewers@academiapasalo.com', '00upglbi2al8x8k', 1, NOW(), NOW()
+SELECT 17, 'ev_17', '1NF87WUWPeu8MBL4t03DPdbWksOQjuqSl', '1DgjDz0ZrnxjgAFj2ULLqiL_GTx9Zig78', '1bH8tcGJKu4uFgvtJ9099l1-b0gLLXMZi', '1NYvVjfALq1IfjyYT-o_xSM4djL0fleRo', 'ev-17-viewers@academiapasalo.com', '00upglbi2al8x8k', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 17);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 18, 'ev_18', '1o-LrEPLyvCCulCnWJKa2N9dJRAOTALhb', '1EFxVr1hDfQ-nr5jpcDXAtnRtNnGUVgf6', '1e2hMfH2prIFj8qklE3juB0A0CJMtQ-I0', '1dM5zEWTpHVRVGPl_OhbrkCttr5z0-bbh', 'ev-18-viewers@academiapasalo.com', '035nkun20jntf4r', 1, NOW(), NOW()
+SELECT 18, 'ev_18', '1Vqmx_oiQKF3D9AhH-NnPRQ0cICrV0jDY', '11NUTMF8c8rB5EPNlq8DbrIuHXWKRmbcG', '1Ex8L8jVmSC1wWkhxM9E4EUppHMbTzRjK', '1iUl9WNXNakkK58gOl7K4CmQOBF6UPkI5', 'ev-18-viewers@academiapasalo.com', '035nkun20jntf4r', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 18);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 19, 'ev_19', '1SzC2lSQrYVOe_RYnMcZycf_5DGbtHx4T', '1lE7AHR_4V0cpQeWJv86crX8w-zd4Ylj7', '1R9Wode_H5OcbRC8RsAI6jPSASa94dt25', '1VSE4pEmvvhevbW87ipI6cQxMUOW0R1jn', 'ev-19-viewers@academiapasalo.com', '00sqyw641qbosxy', 1, NOW(), NOW()
+SELECT 19, 'ev_19', '1q7BjCKNDMku-G2jqy0WW-PRJiOBXYa_2', '1m_sS1JPdBo4NEvHclt2pyKlF3FTlB05R', '1egkKVyxKzBr4L2_3KIoCOBXS6b3G2s9L', '1OdZHMsiFQXb-IkuqTsDsV4V6UJVWb0PF', 'ev-19-viewers@academiapasalo.com', '00sqyw641qbosxy', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 19);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 20, 'ev_20', '1oN4nmhaIXgLED1oB0a-OZPTYfRiXFxYO', '1d0_9iT386Aqpo060pdI-23horQS_R6Ci', '1LFPmYL16fzaSu_ro91NDKCK-pZxHwPCC', '1-MS_ap2aI7ZMwsLANSmxezuSlt5lnojJ', 'ev-20-viewers@academiapasalo.com', '045jfvxd0nf2kb8', 1, NOW(), NOW()
+SELECT 20, 'ev_20', '1bnUvHGHSqtoXJP8v3dFX7ULnvKGf1bRL', '16NWpcdqsGi2PQ5NdWF8KFZQs6QNUarl8', '1BAVCNHyo4QQ1g_2MIAv9Aro0nfBXjFEY', '18vl5AnAsDMwRBPpAW6KBqqFzIl9Rbcny', 'ev-20-viewers@academiapasalo.com', '045jfvxd0nf2kb8', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 20);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 37, 'ev_37', '1nDTpVEtZ1vDPp87UhZZn7ynIowp8t_8t', '13JOxOWEmw-9yq4CBbzu52V_XqhSI_W7M', '1U3yCnwIKUv79OviDlifHNgapkzASQvlE', '1W4_JBKp8giollSGJveBjDA73SWzhNrSX', 'ev-37-viewers@academiapasalo.com', '04d34og80v2tm4u', 1, NOW(), NOW()
+SELECT 37, 'ev_37', '1JmdZwGuZNDYAVMCslMm_Ily9hzDQaumm', '1qAwy_zifjT-x0sTH8FDfnxGIH6gMDfV1', '1NiCeNfjGTaLJZo6E7PSPLf2uRvfR6FgQ', '1bnxvI9G38-ILFAWCAD-nQDvXxi_C3ZUL', 'ev-37-viewers@academiapasalo.com', '04d34og80v2tm4u', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 37);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 38, 'ev_38', '1DWA5mqQu-IABg_qXfaZktzmAfZ4K8kvh', '14Y0R-laXmtUO07DHVfXgna1tDDE3b5VX', '1qlry6FvKYAOPL9JOqYOEyVu_Ats05zE2', '13YtuY8YBLJUFppdCc_--HqJvd9AbQGnn', 'ev-38-viewers@academiapasalo.com', '02p2csry46fytig', 1, NOW(), NOW()
+SELECT 38, 'ev_38', '1x_Jhaf5QDRD2C-dicRGrKCUU14dusy7e', '11BczBDwozWpCXvK3oJTKKHm6ql-h7oQV', '1oqCiriOxmFRu3tzGDf96b6ZtjD9vHQwD', '1CoMARrPjrQjfnokSSx7wHcSBSRiDe5pm', 'ev-38-viewers@academiapasalo.com', '02p2csry46fytig', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 38);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 39, 'ev_39', '1iPeh459bHHwrJniEt0Ow2cbUtzZWp0ZV', '16-edMmujxkO6O27n4AIoxLrV3cU8Nfls', '1oalhdIUOK78XfwTPffJPu1m5_ChXrkTV', '10bogTpapW4tjVuTxCIHx86Efn0T1um7u', 'ev-39-viewers@academiapasalo.com', '01302m920rj3ssl', 1, NOW(), NOW()
+SELECT 39, 'ev_39', '1N4T21YFB5O1-Aue__SrUQJPrkx301iow', '1HmY5Ev7aHBeoxWui_PCVY9acZKpcpghF', '1TMEhuJca0npRAU9eKmiXDflSVOpIcQ8q', '1JneoHhZrnOIQT6TvETOYyACgjvJ22acr', 'ev-39-viewers@academiapasalo.com', '01302m920rj3ssl', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 39);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 40, 'ev_40', '11GS7jEQ5ci0rDIH6vkJlvJdPCStLnDha', '1xzGbtcjJWEcvkX4qU2zkBv384rt3KVmx', '1K7w2kJLsWpZp_0om-tzQkzNRolYPSfiT', '1ZnH5JDLK088joGsUu3Z_I8mByX5JPDxM', 'ev-40-viewers@academiapasalo.com', '01d96cc01iry76p', 1, NOW(), NOW()
+SELECT 40, 'ev_40', '1Hm08BYCow8RT1b7c53OGR7-pSPGoK84u', '1PaXal7cqPd5Bxw-cCVcskpXM1olxtZWB', '1rVy8JUdRB0rqfXC3MQbSYJ7UuoG5txzj', '1Dk8jH8MS6XP6sZprpMyUkJ5y1VgGag3U', 'ev-40-viewers@academiapasalo.com', '01d96cc01iry76p', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 40);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 57, 'ev_57', '14pWIzIgfM4FkcE1QazYSc5pc55aW1nlK', '1dM5dL_YLZTAzIca5rdRRGGmaTdHth4Qa', '1PsucN32xGu31kjO1Uz7atR7t41kDZspO', '1SK4TKSQmDMqkjkzRepFoYDsFR5Qwruc7', 'ev-57-viewers@academiapasalo.com', '028h4qwu37o7lyv', 1, NOW(), NOW()
+SELECT 57, 'ev_57', '1Hk8t_eZPA5qf6d_fWnnPMCptj2BHGNDA', '1d3_MdWb2b2VO_-HtLmZT5Ig39CbiZXZC', '1jjYxWFYtatDvhMVZQhmSRRg49bT4N8uT', '1nbeg90phDQIji1m82sqo9wktKIOBGdky', 'ev-57-viewers@academiapasalo.com', '028h4qwu37o7lyv', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 57);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 58, 'ev_58', '1Js5hzPR3XQqQ4uaHgNNJZjO3W7fT1eA8', '17jdDJW66GjhVMU5dOPYx0osai4ZW3C8X', '1fAKAt7Ooq_isEr7ukhu1wT-eGojUfgYi', '1eOk0_Ygs2WrC9bZBrpk2Oa_W_eXpDBoO', 'ev-58-viewers@academiapasalo.com', '00haapch24zcg39', 1, NOW(), NOW()
+SELECT 58, 'ev_58', '1qWPoueS-ptqBw8a_F1kCdjWbIY2QkNW_', '18fDhoopdz9OSnXCnySnZA9sbmzktzM0o', '1t3D_BI4PyNgLTh9ePgOsgaUi1J0Am7MG', '18V8uYBTpsjDCFWcpAyMT3WzQCCWYM2GW', 'ev-58-viewers@academiapasalo.com', '00haapch24zcg39', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 58);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 59, 'ev_59', '1EuFcktJ4ACQrqFO0me3E3dqODvuVxzAU', '1qARSoUs1G85qf23rxapdXLxS8XQzFqjp', '1o9ivsRTxDX7XPGHmBlGhwaMfFpS7_C2n', '1JPtDp0DeFXYaGq6fR2k2XqpjNykdTcN3', 'ev-59-viewers@academiapasalo.com', '03jtnz0s3ee59m2', 1, NOW(), NOW()
+SELECT 59, 'ev_59', '1Rk8eH2Yelsn6YJChP6pn1ewpNeoczHFa', '1C1k3MfIbMZkAJCOdjaDcs2o8wLu9BUA_', '1KiWNslZjZYYLeSlY5WEYMi7zf3RqCleg', '167WDUCBJwjQx7qu-Lvc0CTEiWy4wQ7AI', 'ev-59-viewers@academiapasalo.com', '03jtnz0s3ee59m2', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 59);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 60, 'ev_60', '15BEApfx5LiRBVWT4jBs6i_ufCs_TUOQ1', '1WMb48mq2uU_6xchb8uyDt54QBLsx7mMh', '1fHsapM_8cqprIVWYZq5ke0usIQdd_Q8f', '1RovEfOGIAPnDMKZsyqsNDyfX6OyRULo2', 'ev-60-viewers@academiapasalo.com', '01ksv4uv3on7k80', 1, NOW(), NOW()
+SELECT 60, 'ev_60', '11BXJ5ZKVFSR4sPTjHjp11ZUEsC84o4gE', '1QdDrYVp8r7Ovnzd52sNb11gqpaI1hOH-', '1gsW7EbL35r1jkh64qXZW3HQi-hAqmp1e', '1blKCveBLNyJd7o9BdHU2DNiN6AOCGI_W', 'ev-60-viewers@academiapasalo.com', '01ksv4uv3on7k80', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 60);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 77, 'ev_77', '1c3jf5AyVxkYk3NuSdDv71zwOupZrf5Ux', '1kZj5qyVD1XcTxGua4kXM-mqevILNRrUX', '1wI4dTwXB92g4NWpZV7A_BVYTJvH92Bz-', '1s54On6oTjEE7LPmGCrUHC33rgikl5LrS', 'ev-77-viewers@academiapasalo.com', '02250f4o1ek8hkh', 1, NOW(), NOW()
+SELECT 77, 'ev_77', '1zifWFKSxDeuIzJj1aeMK3ZDT0BmPXcgY', '1-kb6hSSwom-YrG9IJAvx6iZMnm6MRJUM', '1_7riLKuS5aew4HNlS9lvEOmzgi6LdjTy', '1n0H4df7nYJ5O2D2X6vEvvAfcDyAhQnar', 'ev-77-viewers@academiapasalo.com', '02250f4o1ek8hkh', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 77);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 78, 'ev_78', '10n9Eq7PTyCHqqiiYgqZHXhFLPCVdR6Lw', '1mHm2Jj_JHYUcInL7WkS1MEC85tLBqwfc', '1QjBquQvsKmnVrAWilaYuaFkbrL_I5atz', '1Gao3rjz318jsnM4aveJEIyodcEXdgf5X', 'ev-78-viewers@academiapasalo.com', '00nmf14n2t83553', 1, NOW(), NOW()
+SELECT 78, 'ev_78', '1nqc4Ere-3nIR6MLrQTxGSvhCYcbB0y2P', '1xy-WOl6BpNZm9EbIF5jWaWjrxzCTF_zl', '1IrCSm1KR5BIFX8owpQKkAYqPRwJqWEn1', '1ZDYaqq7wE1vBmIOx4LszLNvVvcv5RdBB', 'ev-78-viewers@academiapasalo.com', '00nmf14n2t83553', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 78);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 79, 'ev_79', '1pwiVTpBrPYGeb9zk-kf_xqL6GLM1Mb1o', '1W1bY3jtOsN7rIYZKZG1SCIfoMSoDQ2eb', '1fWoZCOFKvR-HIzSXFFC8IViMRgLWKAxj', '1PQsin-jGOYEA9pzbaOrgPe_Irz5rcQM_', 'ev-79-viewers@academiapasalo.com', '0279ka651r0r0f7', 1, NOW(), NOW()
+SELECT 79, 'ev_79', '1l8U-2sV9hHFxJHlXPzHx7Bwdt4W2iUzW', '1igYoahXJhsJMfxL4bCO4F4OefP5nm3wk', '15upwWLXN6qyW1XJSafLlMLybogCIqx4_', '1Qlr40M43ZEUjgoVeu7vgaRzNG2PfatrE', 'ev-79-viewers@academiapasalo.com', '0279ka651r0r0f7', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 79);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 80, 'ev_80', '1C6gGxLQnDpK7HHsnJ0mNw3ePUpX3d60f', '1KYNdbfAzF-XvaVdbUtHrDQbCvKoPNEpA', '1Fr50rjIefiPdNcq_FryjkjYUeqizPbG5', '1PsazyoiFkuJsldqN4QdsvGApRLcbXM7Z', 'ev-80-viewers@academiapasalo.com', '01jlao461qb1hkf', 1, NOW(), NOW()
+SELECT 80, 'ev_80', '1rQ3tWX4AfQuFsOVxvJI_aYYAhul6HEyj', '180wVhPGs8RTOKTPMz0OtpeAv2FPB5Vhn', '1iSA8EzeAQ2dtfQcs-1LdGdu2cpdxe0r2', '1sOKF1Rp6sMGj1YWZ_UzHYqtZzHVrT_J5', 'ev-80-viewers@academiapasalo.com', '01jlao461qb1hkf', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 80);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 97, 'ev_97', '1aSgWh88mrRvxktXw1jF72gp5JEurUEY_', '1kWmUBVK4jKLDDLFBoOjJOjAIsYemG9-G', '1ZPo3n-53hsw-o35AtTr8fxVejoQEXSVY', '1lDgxzuW6SqGo2E3nV602YlXgmk3ycio7', 'ev-97-viewers@academiapasalo.com', '025b2l0r0sfe438', 1, NOW(), NOW()
+SELECT 97, 'ev_97', '11548eGr8VpAyrEf3C13tqJ1de0VuXTcl', '1VcfU0NTUI9W2_iQ_DK4YKoKzBOTILl4Y', '1oj6JPxN-pY_xoysLT8uq8sF_9fsgvsOf', '1U3a7ZGu0e8t69Zct9jt2n0s05nGDKmlP', 'ev-97-viewers@academiapasalo.com', '025b2l0r0sfe438', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 97);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 98, 'ev_98', '1pYeH8D-SIlHGPPtCOabKNQaTEUm-YM6V', '1jq_a-GgQaSBoqPEYgemkfsnz9DA-XOG3', '1-hPUuiMICez9pqvb7eK377c55q6AJFFW', '11FKnAuJEwgYHS6Yt2XlVGeWU5Xk0_oOo', 'ev-98-viewers@academiapasalo.com', '01ljsd9k3csded4', 1, NOW(), NOW()
+SELECT 98, 'ev_98', '14i7g3vNUPq8rE1Z4BntbABpSmMzmR8fA', '17tDtvnKJI56Kf5lTNtc8hvytZo8ITC22', '1VWZZiMqRw7bsHGNxsVNWOmVbFsVjPkEE', '1XsUfhWhdM_ih58nb6sgmTW-62rJkf_7o', 'ev-98-viewers@academiapasalo.com', '01ljsd9k3csded4', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 98);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 99, 'ev_99', '1U0MeGKmUzVc8jPsFryv9qs2WWokdLDh-', '1QSZmk2La-M0_4lifMMjgqDPLSEw-9K_h', '1OycQ8xLGrCNqUUIdAcNr1cCLxTIG0lxK', '1GtbI29UE2p95SjLnZWLgmDcoqp_w-qvb', 'ev-99-viewers@academiapasalo.com', '01y810tw0ykfdcf', 1, NOW(), NOW()
+SELECT 99, 'ev_99', '1r-USJAB7RAo-ikSw44EnZ_kX5SfpVIl-', '1HzO7whYVOTlPrRv8ihVNxB9znz5BGFt2', '1SiDC9w6Sr4RJQK4_jG6OGWzD48lFsOYQ', '1t3bxl3qMAwKcKwQXhuIAnAGMcB8CK3iZ', 'ev-99-viewers@academiapasalo.com', '01y810tw0ykfdcf', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 99);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 100, 'ev_100', '1YXa_7QY9stRtaHNWaTql99Meg0uv5iKZ', '1LEApkigQnhDKqGuuNaNb6J61pqKz3pwa', '1NdDXMbaOaJZfHyd_bCIqQJvAZGBN7Pgg', '1iKup1WDn98qQXthASiN4TkrlxwnvtRpd', 'ev-100-viewers@academiapasalo.com', '00upglbi15vpnu9', 1, NOW(), NOW()
+SELECT 100, 'ev_100', '16wjaPFy1K6NDaC3vc4cN4nfPp65Zswgk', '1TU-toDcLZrY5F9jt9w4edt9HOE3cOOMw', '1mslQZQUkzXgkqv6CV4RulW6TpbjTz5uw', '19WoItwMT8GGW_wIkFVIT5gokVAuJT-ff', 'ev-100-viewers@academiapasalo.com', '00upglbi15vpnu9', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 100);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 117, 'ev_117', '1wuYZCGfKGMgr2qAvxz9HUqV1kuEk4SQ4', '1IwrpTnsMRu3dGcAKJSyGOkcu_8m9DZ78', '18UhO0QAYnX0XX62myw5Cw_yR7H3kLOd9', '1IairqV5rMkwBfAe7M21N9_0ekFjljTQ9', 'ev-117-viewers@academiapasalo.com', '048pi1tg17e9kyr', 1, NOW(), NOW()
+SELECT 117, 'ev_117', '1T2WINsPJ1ydGBf-i1Zq3vG0Qz_guEr3q', '1qQn22m0xfZe14ABuN_6L7OhYArTGRn4i', '1OlZnGHgpL5hyCxRTfGxZDHDWZfjPtGuf', '1pZhOf2aCTmy7a9IX2wGF_QSjimBV5vtV', 'ev-117-viewers@academiapasalo.com', '048pi1tg17e9kyr', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 117);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 118, 'ev_118', '153Ti-3hI50p1blhgCtdOONHzrSiuKSNS', '1AFfaxfdSLpv_OcWmwx_ybdjBgDHCsTjP', '1bLrDUv-Mzm_tT-0LVxYfLw3nbzk4yj5D', '1IC3mc4IdxCUpdQY-Zntd_RZ3ZPhsvVDR', 'ev-118-viewers@academiapasalo.com', '0147n2zr1bdwdix', 1, NOW(), NOW()
+SELECT 118, 'ev_118', '16xnX3GAG2ZThXU6jmkHqFfPiFAWYMMr7', '1F7leFIH2yXmaocTlMjFaIk1EZEuxvj8J', '18KVttJkNqkPgdIESeYtiDBlHcdv1Nj1Y', '1Vxoz8uzk3tsABllRSv5EybueFC6HkQu8', 'ev-118-viewers@academiapasalo.com', '0147n2zr1bdwdix', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 118);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 119, 'ev_119', '1Wt_KTF2EJIaEFlXy-yZpEicmIodyhmVQ', '1NOVxibXFeumsb81l5kwvgRCOeAgIKA6M', '1SNRDvaJbmZtrmZJgyVY2YNVU84v-vzxi', '1RhSXfGecMUqYuXC5E202ZOoFlM6yWUft', 'ev-119-viewers@academiapasalo.com', '025b2l0r1rs2fwa', 1, NOW(), NOW()
+SELECT 119, 'ev_119', '12afCBjRErVIHwrdS_UyQ7ZztGrEcQBkm', '1DdXTuJNc7cBwUngInkKBXjm7lE987_lq', '1yqCueEIiIdhJYkyX40KFgUXD6zR0PRUb', '12f6Dq7uV_G7IuK2sk2BtASsG83aZ0gLr', 'ev-119-viewers@academiapasalo.com', '025b2l0r1rs2fwa', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 119);
 INSERT INTO evaluation_drive_access (evaluation_id, scope_key, drive_scope_folder_id, drive_videos_folder_id, drive_documents_folder_id, drive_archived_folder_id, viewer_group_email, viewer_group_id, is_active, created_at, updated_at)
-SELECT 120, 'ev_120', '1QSDtXZ0UVxgItgF3DWa326Cwoc66IP_f', '17aH_DQYoBiQgmMKNcG4lmITV3raX-iSC', '1yZuHqbD9PIg-a2JRchYOnJNz60FbvYfl', '109P2SH6lYYqPFS5oLN1t-UylA7OZrv2z', 'ev-120-viewers@academiapasalo.com', '04anzqyu2vw1739', 1, NOW(), NOW()
+SELECT 120, 'ev_120', '1yivH_i1EXwPsLE0AP6slSu0VPHycJPtU', '1gr0Y_x48vgnnDDClbRL0c8jgWs4nIynf', '1XHIoU4p0bbvpfPk0T_ZJkZMY6exnxIb8', '1ZczGMxyNKN0ZbezTyj76Yv0nYlX8Z5e_', 'ev-120-viewers@academiapasalo.com', '04anzqyu2vw1739', 1, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM evaluation_drive_access WHERE evaluation_id = 120);
 
 -- 2) Videos de sesiones (recording)
@@ -1969,6 +1969,17 @@ WHERE mf.evaluation_id = 120 AND root.name = 'Material adicional' AND mf.name = 
       AND mx.file_resource_id = fr.id
       AND mx.class_event_id IS NULL
   );
+
+-- Backfill de authorized_root_folder_id para materiales de evaluaciones
+UPDATE material m
+INNER JOIN material_folder mf
+  ON mf.id = m.material_folder_id
+INNER JOIN evaluation_drive_access eda
+  ON eda.evaluation_id = mf.evaluation_id
+SET m.authorized_root_folder_id = eda.drive_documents_folder_id
+WHERE m.authorized_root_folder_id IS NULL
+  AND m.id > 0
+  AND eda.drive_documents_folder_id IS NOT NULL;
 INSERT INTO material (material_folder_id, class_event_id, file_resource_id, current_version_id, material_status_id, display_name, visible_from, visible_until, created_by, created_at, updated_at)
 SELECT mf.id, NULL, fr.id, NULL, @material_status_active, 'Fconstancia.doc', NULL, NULL, 1, NOW(), NOW()
 FROM material_folder mf
@@ -2593,5 +2604,3 @@ WHERE mf.evaluation_id = 120 AND root.name = 'Material adicional' AND mf.name = 
       AND mx.file_resource_id = fr.id
       AND mx.class_event_id IS NULL
   );
-
-

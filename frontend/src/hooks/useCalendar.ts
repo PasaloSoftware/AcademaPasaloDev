@@ -75,6 +75,10 @@ export function useCalendar() {
     setView(newView);
   };
 
+  const goToDate = (date: Date) => {
+    setCurrentDate(date);
+  };
+
   const filterByCourse = (courseId: string | null) => {
     setSelectedCourseId(courseId);
   };
@@ -100,7 +104,8 @@ export function useCalendar() {
   }, [events, selectedCourseId]);
 
   const getCurrentMonthYear = () => {
-    return format(currentDate, 'MMMM \'de\' yyyy', { locale: es });
+    const str = format(currentDate, 'MMMM \'de\' yyyy', { locale: es });
+    return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
   const getWeekDays = () => {
@@ -134,6 +139,7 @@ export function useCalendar() {
     goToPrevious,
     goToToday,
     changeView,
+    goToDate,
     filterByCourse,
     getCurrentMonthYear,
     getWeekDays,

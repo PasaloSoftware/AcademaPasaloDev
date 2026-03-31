@@ -1,18 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { coursesService } from '@/services/courses.service';
-import type { CourseCycle } from '@/types/api';
+import type { Enrollment } from '@/types/enrollment';
 
 export function useTeacherCourses() {
-  const [courseCycles, setCourseCycles] = useState<CourseCycle[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCourseCycles = async () => {
+  const loadCourses = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await coursesService.getMyCourseCycles();
-      setCourseCycles(data);
+      setEnrollments(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar cursos');
       console.error('Error loading teacher courses:', err);
@@ -22,26 +22,31 @@ export function useTeacherCourses() {
   };
 
   useEffect(() => {
-    loadCourseCycles();
+    loadCourses();
   }, []);
 
-  const uniqueCourses = useMemo(() => {
-    if (!courseCycles || courseCycles.length === 0) return [];
+  const courseCycles = useMemo(() => {
+    return enrollments.map((e) => e.courseCycle);
+  }, [enrollments]);
 
-    return courseCycles.reduce((acc, cc) => {
-      const course = cc.course;
+  const uniqueCourses = useMemo(() => {
+    if (!enrollments || enrollments.length === 0) return [];
+
+    return enrollments.reduce((acc, enrollment) => {
+      const course = enrollment.courseCycle.course;
       if (course && !acc.find((c) => c.id === course.id)) {
         acc.push({ id: course.id, code: course.code, name: course.name });
       }
       return acc;
     }, [] as Array<{ id: string; code: string; name: string }>);
-  }, [courseCycles]);
+  }, [enrollments]);
 
   return {
+    enrollments,
     courseCycles,
     uniqueCourses,
     loading,
     error,
-    refetch: loadCourseCycles,
+    refetch: loadCourses,
   };
 }

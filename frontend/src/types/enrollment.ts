@@ -34,6 +34,8 @@ export interface AcademicCycle {
 
 export interface CourseCycle {
   id: string;
+  courseId: string;
+  academicCycleId: string;
   course: Course;
   academicCycle: AcademicCycle;
   professors: Professor[];

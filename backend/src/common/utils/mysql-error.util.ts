@@ -19,3 +19,30 @@ export function getErrnoFromDbError(
     (dbError as DatabaseError).driverError?.errno;
   return isMySqlErrorCode(maybeErrno) ? maybeErrno : undefined;
 }
+
+export function getMessageFromDbError(dbError: unknown): string {
+  if (typeof dbError === 'string') {
+    return dbError;
+  }
+
+  if (dbError instanceof Error) {
+    return dbError.message;
+  }
+
+  if (!dbError || typeof dbError !== 'object') {
+    return '';
+  }
+
+  const directMessage = (dbError as { message?: unknown }).message;
+  if (typeof directMessage === 'string') {
+    return directMessage;
+  }
+
+  const driverMessage = (dbError as { driverError?: { message?: unknown } })
+    .driverError?.message;
+  if (typeof driverMessage === 'string') {
+    return driverMessage;
+  }
+
+  return '';
+}

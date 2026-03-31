@@ -161,7 +161,7 @@ Obtiene sesiones agrupadas por curso-ciclo para pintar calendario comparativo.
 ### 2. Cursos y Materias (`/courses`)
 
 #### Dashboard: Mis Cursos Matriculados
-Obtiene el listado de cursos donde el alumno tiene una matrícula activa.
+Obtiene el listado de cursos para el dashboard principal.
 - **Endpoints:** `GET /enrollments/my-courses` y `GET /courses/my-courses`
 - **Roles:** `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - **Caché:** 1 hora.
@@ -307,6 +307,13 @@ Regla de `label` en ciclo anterior:
 El endpoint legado GET /courses/cycle/:courseCycleId/content queda para roles de staff (PROFESSOR, ADMIN, SUPER_ADMIN), no para STUDENT.
 - Si el courseCycleId no existe, responde 404.
 - Si el curso/ciclo existe pero el PROFESSOR no está asignado, responde 403.
+- `evaluations` usa el mismo shape visual de card que el flujo `current`:
+  - `id`
+  - `evaluationTypeCode`
+  - `shortName`
+  - `fullName`
+  - `label`
+- En staff no se retorna `hasAccess`; el acceso ya se resuelve a nivel de autorización del endpoint.
 
 
 #### Operaciones Administrativas (Admin/SuperAdmin)
@@ -402,7 +409,8 @@ Define una nueva evaluación dentro de un curso/ciclo.
 ## ÉPICA: REPOSITORIO DE MATERIALES (`/materials`)
 
 ### 1. Navegación de Carpetas (Explorador)
-Permite navegar la jerarquía de una evaluación. Requiere matrícula en la evaluación.
+Permite navegar la jerarquia de una evaluacion. Requiere acceso a la evaluacion segun rol/matricula.
+  - Excepcion Banco (`BANCO_ENUNCIADOS`): para alumno matriculado activo del course_cycle, sin restriccion FULL/PARTIAL.
 - **Endpoints:**
     * `GET /materials/folders/evaluation/:evaluationId` (Carpetas raíz)
     * `GET /materials/folders/:folderId` (Contenido de una carpeta)
@@ -472,6 +480,22 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
     * `body: { file: Buffer, materialFolderId: string, displayName: string, classEventId?: string }`
 - **POST /materials/:id/versions:** Actualizar versión de archivo existente.
     * `body: { file: Buffer }`
+- **PATCH /materials/:id/display-name:** Actualizar nombre visible del material (sin renombrar archivo fisico en Drive/S3/Local).
+    * **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+    * **Path Params:**
+      - `id`: string (materialId)
+    * **Body:**
+      - `displayName`: string (obligatorio, max 255)
+    * **Validaciones:**
+      - `displayName` vacio o solo espacios => `400`
+      - si el material no existe => `404`
+      - si el profesor no tiene permisos sobre la evaluacion del material => `403`
+    * **Efecto:**
+      - actualiza `material.display_name`
+      - invalida cache de carpeta y cache de materiales por class-event (si aplica)
+      - dispara notificacion de material actualizado si el material pertenece a un `class_event`
+    * **Response (`data`):**
+      - objeto `Material` actualizado (mismo contrato que endpoints de subida/versionado)
 - **POST /materials/:id/restore-version/:versionId:** Restaurar una version previa creando una nueva version actual.
     * **Roles:** `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
     * **Path Params:**
@@ -568,45 +592,53 @@ Permite navegar la jerarquía de una evaluación. Requiere matrícula en la eval
     * **Roles:** `SUPER_ADMIN`
 ---
 
-## ÉPICA: FEEDBACK Y REPUTACIÓN (`/feedback`)
+## EPICA: FEEDBACK Y REPUTACION (`/feedback`)
 
 ### 1. Enviar Testimonio (Alumno)
 - **Endpoint:** `POST /feedback`
-- **Roles:** `STUDENT` (con matrícula activa)
-- **Content-Type:** `multipart/form-data` (Si incluye foto).
+- **Roles:** `STUDENT` (con matricula activa)
+- **Content-Type:** `application/json`
 - **Request Body:**
     * `courseCycleId`: string
-    * `rating`: number (0-5)
-    * `comment`: string (min 10 caracteres)
-    * `photoSource`: 'uploaded' | 'profile' | 'none'
-    * `photo?`: File (Opcional, solo si source es 'uploaded')
-- **Validación:** Solo 1 opinión por curso/ciclo.
+    * `rating`: number (1-5)
+    * `comment`: string (min 3, max 500)
+- **Notas:**
+    * Se permiten multiples opiniones del mismo alumno para el mismo curso/ciclo.
+    * Todo testimonio nuevo se crea con `isActive = false` (no visible publicamente por defecto).
 
-### 2. Listar Destacados (Público/Web)
-- **Endpoint:** `GET /feedback/public/course-cycle/:id`
+### 2. Listar Testimonios Publicos (Web)
+- **Endpoint:** `GET /feedback/public`
 - **Auth:** No requerida.
-- **Caché:** 10 minutos.
+- **Cache:** 10 minutos.
+- **Logica de seleccion:**
+    * Solo devuelve testimonios con `isActive = true`.
+    * Ordena por `createdAt DESC` (mas recientes primero).
+    * Devuelve como maximo `N` registros, donde `N = FEEDBACK_MAX_PUBLIC_VISIBLE_TESTIMONIES` (default: `3`).
 - **Data (Response):**
     ```json
     [
       {
-        "id": string,
-        "displayOrder": number,
-        "courseTestimony": {
-          "rating": number,
-          "comment": string,
-          "photoUrl": string | null,
-          "user": { "firstName": string, "lastName1": string, "profilePhotoUrl": string | null }
-        }
+        "id": "123",
+        "rating": 5,
+        "comment": "Excelente curso",
+        "createdAt": "2026-03-29T20:15:22.000Z",
+        "user": {
+          "firstName": "Ana",
+          "lastName1": "Perez",
+          "profilePhotoUrl": null,
+          "careerName": "Ingenieria de Sistemas"
+        },
+        "courseName": "Matematica I"
       }
     ]
     ```
 
-### 3. Moderación (Administrador)
-- **GET /feedback/admin/course-cycle/:id:** Listado completo para gestión.
-- **POST /feedback/admin/:testimonyId/feature:** Destacar testimonio en la web.
-    * `body: { isActive: boolean, displayOrder: number }`
-    * **Efecto:** Invalida automáticamente el caché público.
+### 3. Moderacion (Administrador)
+- **GET /feedback/admin/course-cycle/:id:** listado completo para gestion del curso/ciclo (incluye activos e inactivos).
+- **POST /feedback/admin/:testimonyId/feature:** activar/desactivar visibilidad de un testimonio.
+    * `body: { isActive: boolean }`
+    * Si `isActive = true` y ya existe el maximo permitido de activos, responde `400`.
+    * **Efecto:** invalida automaticamente el cache publico.
 
 
 
@@ -644,28 +676,61 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 2. `404` course_cycle no existe.
 3. `403` si rol no autorizado.
 
-### 2) Alumno - Obtener estructura del tab Banco
+### 2) Alumno - Obtener estructura del tab Banco (cards + carpetas navegables)
 
 - Endpoint: `GET /courses/cycle/:courseCycleId/bank-structure`
-- Roles: `STUDENT`
+- Roles: `STUDENT`, `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
 - Reglas de acceso:
-1. Requiere matricula activa en ese `courseCycleId`.
-2. Si no tiene matricula activa: `403`.
+1. `STUDENT`: requiere matricula activa en ese `courseCycleId` (`403` si no cumple).
+2. `PROFESSOR`: requiere estar asignado al `courseCycleId` (`403` si no cumple).
+3. `ADMIN` y `SUPER_ADMIN`: acceso permitido por rol.
 - Respuesta 200:
 ```json
 {
   "courseCycleId": "4",
   "cycleCode": "2026-0",
+  "bankEvaluationId": "88",
   "items": [
     {
       "evaluationTypeId": "2",
       "evaluationTypeCode": "EX",
-      "evaluationTypeName": "Examen"
+      "evaluationTypeName": "Examen",
+      "entries": [
+        {
+          "evaluationId": "190",
+          "evaluationTypeCode": "EX",
+          "evaluationTypeName": "Examen",
+          "evaluationNumber": 1,
+          "label": "EX1",
+          "folderId": "702",
+          "folderName": "EX1"
+        }
+      ]
     },
     {
       "evaluationTypeId": "1",
       "evaluationTypeCode": "PC",
-      "evaluationTypeName": "Practica Calificada"
+      "evaluationTypeName": "Practica Calificada",
+      "entries": [
+        {
+          "evaluationId": "120",
+          "evaluationTypeCode": "PC",
+          "evaluationTypeName": "Practica Calificada",
+          "evaluationNumber": 1,
+          "label": "PC1",
+          "folderId": "703",
+          "folderName": "PC1"
+        },
+        {
+          "evaluationId": "121",
+          "evaluationTypeCode": "PC",
+          "evaluationTypeName": "Practica Calificada",
+          "evaluationNumber": 2,
+          "label": "PC2",
+          "folderId": null,
+          "folderName": null
+        }
+      ]
     }
   ]
 }
@@ -674,6 +739,8 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 1. Mostrar cards segun `items`.
 2. No hardcodear tipos.
 3. El orden llega desde backend (por code).
+4. Para navegar contenido de Banco, usar `entries[].folderId` y luego `GET /materials/folders/:folderId`.
+5. Si `folderId` es `null`, la carpeta logica aun no fue creada (no intentar abrir `evaluation/:id` para Banco).
 
 ### 3) Admin - Crear evaluacion con validacion estricta de estructura
 
@@ -698,14 +765,63 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 1. `400` tipo no permitido, estructura vacia, fechas invalidas, typeId vacio.
 2. `404` course_cycle no existe.
 
-### 4) Impacto esperado en frontend
+### 4) Banco - Subir documento al banco del course_cycle
+
+- Endpoint: `POST /courses/cycle/:courseCycleId/bank-documents`
+- Roles: `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- Content-Type: `multipart/form-data`
+- Body:
+  - `evaluationTypeCode`: string. Ejemplos: `PC`, `EX`, `PD`, `LAB`.
+  - `evaluationNumber`: string numerico. Ejemplos: `1`, `2`.
+  - `displayName`: string visible en frontend.
+  - `file`: binario del archivo.
+- Reglas:
+1. El archivo se guarda en la hoja correcta de Drive segun `course_cycle -> bank_documents -> tipo -> codigoNumero`.
+2. En BD se persiste usando la evaluacion tecnica `BANCO_ENUNCIADOS` del `course_cycle`.
+3. La carpeta logica en BD se crea o reutiliza con la estructura `<tipo plural> -> <codigoNumero>`.
+4. Si ya existe un archivo identico en el banco de ese mismo curso, responde `409` y no guarda nada ni en BD ni en Drive.
+5. La deteccion de duplicado se hace por `hash + size` dentro del banco del mismo `course_cycle`.
+- Respuesta 201:
+```json
+{
+  "courseCycleId": "4",
+  "bankEvaluationId": "88",
+  "evaluationId": "120",
+  "evaluationTypeId": "1",
+  "evaluationTypeCode": "PC",
+  "evaluationTypeName": "Practicas Calificadas",
+  "evaluationNumber": 1,
+  "folderId": "702",
+  "folderName": "PC1",
+  "materialId": "900",
+  "fileResourceId": "901",
+  "currentVersionId": "902",
+  "displayName": "Banco PC1 resuelto",
+  "originalName": "PC1-resuelto.pdf",
+  "mimeType": "application/pdf",
+  "sizeBytes": "1741913",
+  "storageProvider": "GDRIVE",
+  "driveFileId": "1abcXYZ",
+  "downloadPath": "/materials/900/download",
+  "authorizedViewPath": "/materials/900/authorized-link?mode=view",
+  "lastModifiedAt": "2026-03-16T05:10:00.000Z"
+}
+```
+- Errores esperados:
+1. `400` archivo faltante, mimetype invalido, PDF invalido, payload incompleto.
+2. `403` usuario sin permiso sobre ese `course_cycle`.
+3. `404` no existe la tarjeta objetivo (`evaluationTypeCode + evaluationNumber`) o falta la evaluacion tecnica del banco.
+4. `409` archivo duplicado dentro del banco de ese curso.
+
+### 5) Impacto esperado en frontend
 
 1. En admin, configurar estructura por ciclo antes de crear evaluaciones nuevas.
-2. En alumno, usar `bank-structure` para render del tab Banco.
-3. No inferir acceso por labels.
-4. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion.
+2. En alumno y profesor, usar `bank-structure` para render del tab Banco.
+3. En Banco, no inferir ids ni usar `evaluationId` de evaluaciones academicas para leer carpetas.
+4. En Banco, abrir contenido solo con `GET /materials/folders/:folderId` usando `entries[].folderId`.
+5. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion academica (fuera de Banco).
 
-### 5) Cache y consistencia
+### 6) Cache y consistencia
 
 1. Cuando admin actualiza `evaluation-structure`, backend invalida:
    - cache de contenido por ciclo
@@ -713,7 +829,7 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 2. Cuando admin crea evaluacion (`POST /evaluations`), backend invalida cache de contenido por ciclo.
 3. Con esto, frontend debe ver cambios sin esperar TTL largo.
 
-### 6) SQL de desarrollo actualizado
+### 7) SQL de desarrollo actualizado
 
 Se actualizo `db/datos_prueba_cursos_y_matriculas.sql` para poblar `course_cycle_allowed_evaluation_type` en ciclos actual e historicos para los cursos de prueba.
 
@@ -790,3 +906,5 @@ Se agrega soporte para video introductorio a nivel `course_cycle` (no por evalua
 2. Si el frontend envia solo fecha (`YYYY-MM-DD`), backend la interpreta como limite diario en `America/Lima`.
 3. El limite final con fecha-only se trata como exclusivo del dia siguiente en `America/Lima`.
 4. Con esto, pedir `start=2026-03-15&end=2026-03-21` significa todo el rango calendario de Lima desde el 15 hasta el cierre del 21.
+
+

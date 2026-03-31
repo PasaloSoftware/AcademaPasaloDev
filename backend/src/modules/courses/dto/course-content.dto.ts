@@ -1,38 +1,21 @@
 import { Expose, Type } from 'class-transformer';
-
-export class EvaluationStatusDto {
-  @Expose()
-  status: 'LOCKED' | 'UPCOMING' | 'IN_PROGRESS' | 'COMPLETED';
-
-  @Expose()
-  hasAccess: boolean;
-
-  @Expose()
-  accessStart: Date | null;
-
-  @Expose()
-  accessEnd: Date | null;
-}
+import type { StudentEvaluationLabel } from '@modules/courses/domain/student-course.constants';
 
 export class CourseEvaluationDto {
   @Expose()
   id: string;
 
   @Expose()
-  name: string;
+  evaluationTypeCode: string;
 
   @Expose()
-  evaluationType: string;
+  shortName: string;
 
   @Expose()
-  startDate: Date;
+  fullName: string;
 
   @Expose()
-  endDate: Date;
-
-  @Expose()
-  @Type(() => EvaluationStatusDto)
-  userStatus: EvaluationStatusDto;
+  label: StudentEvaluationLabel;
 }
 
 export class CourseContentResponseDto {

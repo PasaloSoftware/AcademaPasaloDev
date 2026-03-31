@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { enrollmentService } from '@/services/enrollment.service';
 import { coursesService } from '@/services/courses.service';
 import { Enrollment } from '@/types/enrollment';
-import type { CourseCycle } from '@/types/api';
 import {
   getNavigationForRole,
   setActiveNavItem,
@@ -94,16 +93,16 @@ export function useNavigation(): NavigationData | null {
           setDynamicNavItems(updatedNavItems);
         } else if (primaryRole === 'TEACHER') {
           const data = await coursesService.getMyCourseCycles();
-          const cycles: CourseCycle[] = Array.isArray(data) ? data : [];
+          const enrollments: Enrollment[] = Array.isArray(data) ? data : [];
 
           const updatedNavItems = baseNavItems.map(item => {
             if (item.label === 'Mis Cursos' && item.expandable) {
               return {
                 ...item,
-                subItems: cycles.map(cc => ({
+                subItems: enrollments.map(enrollment => ({
                   icon: 'circle',
-                  label: cc.course?.name || '',
-                  href: `/plataforma/curso/${cc.id}`
+                  label: enrollment.courseCycle.course.name,
+                  href: `/plataforma/curso/${enrollment.courseCycle.id}`
                 }))
               };
             }

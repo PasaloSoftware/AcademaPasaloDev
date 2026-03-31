@@ -5,6 +5,7 @@ import { BreadcrumbProvider, useBreadcrumb } from '@/contexts/BreadcrumbContext'
 import { SidebarProvider } from '@/contexts/SidebarContext';
 import { VideoPlayerProvider } from '@/contexts/VideoPlayerContext';
 import FloatingVideoPlayer from '@/components/video/FloatingVideoPlayer';
+import { ToastProvider } from '@/components/ui/ToastContainer';
 
 function DashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
   const { breadcrumbItems } = useBreadcrumb();
@@ -31,8 +32,10 @@ export default function PlatformLayout({
     <SidebarProvider>
       <BreadcrumbProvider>
         <VideoPlayerProvider>
-          <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>
-          <FloatingVideoPlayer />
+          <ToastProvider>
+            <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>
+            <FloatingVideoPlayer />
+          </ToastProvider>
         </VideoPlayerProvider>
       </BreadcrumbProvider>
     </SidebarProvider>

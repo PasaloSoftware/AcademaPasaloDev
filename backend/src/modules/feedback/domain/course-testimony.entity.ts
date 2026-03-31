@@ -4,7 +4,6 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
-  Unique,
 } from 'typeorm';
 import { User } from '@modules/users/domain/user.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
@@ -19,7 +18,6 @@ export const PhotoSource = {
 export type PhotoSource = (typeof PhotoSource)[keyof typeof PhotoSource];
 
 @Entity('course_testimony')
-@Unique(['userId', 'courseCycleId'])
 export class CourseTestimony {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
@@ -54,6 +52,9 @@ export class CourseTestimony {
     default: PhotoSource.NONE,
   })
   photoSource: PhotoSource;
+
+  @Column({ name: 'is_active', type: 'boolean', default: false })
+  isActive: boolean;
 
   @Column({ name: 'created_at', type: 'datetime' })
   createdAt: Date;

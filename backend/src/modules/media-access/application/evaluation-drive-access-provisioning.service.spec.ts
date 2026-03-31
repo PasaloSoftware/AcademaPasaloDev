@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { DriveScopeNamingService } from '@modules/media-access/application/drive-scope-naming.service';
@@ -17,6 +18,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
   let workspaceGroupsService: jest.Mocked<WorkspaceGroupsService>;
   let driveScopeProvisioningService: jest.Mocked<DriveScopeProvisioningService>;
   let driveAccessRepo: jest.Mocked<EvaluationDriveAccessRepository>;
+  let configService: jest.Mocked<ConfigService>;
 
   beforeEach(() => {
     (technicalSettings as any).mediaAccess.staffViewersGroupEmail = '';
@@ -24,6 +26,15 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     evaluationRepo = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<Evaluation>>;
+
+    configService = {
+      get: jest.fn().mockImplementation((key: string, fallback?: string) => {
+        if (key === 'GOOGLE_WORKSPACE_GROUP_DOMAIN') {
+          return 'academiapasalo.com';
+        }
+        return fallback;
+      }),
+    } as unknown as jest.Mocked<ConfigService>;
 
     namingService = {
       buildForEvaluation: jest.fn(),
@@ -36,6 +47,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     driveScopeProvisioningService = {
       provisionFolders: jest.fn(),
       ensureGroupReaderPermission: jest.fn(),
+      ensureGroupWriterPermission: jest.fn(),
     } as unknown as jest.Mocked<DriveScopeProvisioningService>;
 
     driveAccessRepo = {
@@ -45,6 +57,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
 
     service = new EvaluationDriveAccessProvisioningService(
       evaluationRepo,
+      configService,
       namingService,
       workspaceGroupsService,
       driveScopeProvisioningService,
@@ -82,9 +95,18 @@ describe('EvaluationDriveAccessProvisioningService', () => {
       viewerGroupEmail: 'ev-552-viewers@academiapasalo.com',
     });
     workspaceGroupsService.findOrCreateGroup.mockResolvedValue({
-      id: 'group-id-1',
+      id: 'group-id-viewers',
       email: 'ev-552-viewers@academiapasalo.com',
     });
+    workspaceGroupsService.findOrCreateGroup
+      .mockResolvedValueOnce({
+        id: 'group-id-viewers',
+        email: 'ev-552-viewers@academiapasalo.com',
+      })
+      .mockResolvedValueOnce({
+        id: 'group-id-professors',
+        email: 'cc-17-professors@academiapasalo.com',
+      });
     driveScopeProvisioningService.provisionFolders.mockResolvedValue({
       scopeFolderId: 'scope-folder-id',
       videosFolderId: 'videos-folder-id',
@@ -122,6 +144,20 @@ describe('EvaluationDriveAccessProvisioningService', () => {
       'scope-folder-id',
       'ev-552-viewers@academiapasalo.com',
     );
+    expect(
+      driveScopeProvisioningService.ensureGroupWriterPermission,
+    ).toHaveBeenNthCalledWith(
+      1,
+      'videos-folder-id',
+      'cc-17-professors@academiapasalo.com',
+    );
+    expect(
+      driveScopeProvisioningService.ensureGroupWriterPermission,
+    ).toHaveBeenNthCalledWith(
+      2,
+      'docs-folder-id',
+      'cc-17-professors@academiapasalo.com',
+    );
     expect(driveAccessRepo.upsertByEvaluationId).toHaveBeenNthCalledWith(1, {
       evaluationId: '552',
       scopeKey: 'ev_552',
@@ -141,7 +177,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
       driveDocumentsFolderId: 'docs-folder-id',
       driveArchivedFolderId: 'archived-folder-id',
       viewerGroupEmail: 'ev-552-viewers@academiapasalo.com',
-      viewerGroupId: 'group-id-1',
+      viewerGroupId: 'group-id-viewers',
       isActive: true,
     });
     expect(result.id).toBe('200');
@@ -172,8 +208,12 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     });
     workspaceGroupsService.findOrCreateGroup
       .mockResolvedValueOnce({
-        id: 'group-id-1',
+        id: 'group-id-viewers',
         email: 'ev-552-viewers@academiapasalo.com',
+      })
+      .mockResolvedValueOnce({
+        id: 'group-id-professors',
+        email: 'cc-17-professors@academiapasalo.com',
       })
       .mockResolvedValueOnce({
         id: 'group-id-staff',
@@ -198,7 +238,7 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     await service.provisionByEvaluationId('552');
 
     expect(workspaceGroupsService.findOrCreateGroup).toHaveBeenNthCalledWith(
-      2,
+      3,
       {
         email: 'staff-viewers@academiapasalo.com',
         name: MEDIA_ACCESS_STAFF_GROUP_METADATA.NAME,

@@ -68,7 +68,7 @@ function ModalButton({
       type={type}
       onClick={onClick}
       disabled={isDisabled}
-      className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 text-sm font-medium leading-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${className}`}
+      className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 text-sm font-medium leading-4 transition-colors ${isDisabled ? 'bg-bg-disabled text-text-disabled cursor-not-allowed' : variantStyles[variant]} ${className}`}
     >
       {loading ? (
         <>

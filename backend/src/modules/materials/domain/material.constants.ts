@@ -27,6 +27,14 @@ export const MATERIAL_CACHE_KEYS = {
   CONTENTS: (folderId: string) => `cache:materials:contents:folder:${folderId}`,
   CLASS_EVENT: (classEventId: string) =>
     `cache:materials:class-event:${classEventId}`,
+  DRIVE_SCOPE_VALIDATION: (
+    materialId: string,
+    fileId: string,
+    rootFolderId: string,
+  ) =>
+    `cache:materials:drive-scope-validation:material:${materialId}:file:${fileId}:root:${rootFolderId}`,
+  DRIVE_SCOPE_VALIDATION_INDEX: (materialId: string) =>
+    `cache:index:materials:drive-scope-validation:material:${materialId}`,
 } as const;
 
 export type MaterialStatusCode =

@@ -100,6 +100,16 @@ export const technicalSettings = {
     ),
   },
 
+  feedback: {
+    // src/modules/feedback/application/feedback.service.ts
+    maxPublicVisibleTestimonies: Math.max(
+      1,
+      Math.floor(
+        envNumberOrDefault('FEEDBACK_MAX_PUBLIC_VISIBLE_TESTIMONIES', 3),
+      ),
+    ),
+  },
+
   cache: {
     redis: {
       // src/infrastructure/cache/redis-cache.service.ts
@@ -155,6 +165,8 @@ export const technicalSettings = {
     materials: {
       // src/modules/materials/application/materials.service.ts
       materialsExplorerCacheTtlSeconds: 300, // 5m
+      // src/modules/materials/application/materials-read.service.ts
+      driveScopeValidationCacheTtlSeconds: 300, // 5m
     },
 
     notifications: {
@@ -164,6 +176,15 @@ export const technicalSettings = {
       activeEnrollmentStatusCacheTtlSeconds: 21600, // 6h — catálogo estático
       // src/modules/notifications/infrastructure/user-notification.repository.ts
       unreadCountCacheTtlSeconds: 60,
+    },
+
+    users: {
+      // src/modules/users/infrastructure/career.repository.ts
+      careersCatalogCacheTtlSeconds: 900, // 15m - catalogo casi estatico con refresco eventual
+      // src/modules/users/application/users.service.ts
+      coursesCatalogCacheTtlSeconds: 900, // 15m - catalogo maestro de cursos para buscador admin
+      // src/modules/users/application/users.service.ts
+      adminUsersBaseListCacheTtlSeconds: 60, // 60s - primera pagina sin filtros
     },
   },
 
@@ -200,6 +221,12 @@ export const technicalSettings = {
     feedbackPhotoMaxSizeBytes: 5 * 1024 * 1024, // 5MB
     // src/modules/feedback/presentation/feedback.controller.ts
     feedbackPhotoAllowedExtensionsRegex: /(jpg|jpeg|png)$/,
+
+    classEventRecordings: {
+      allowedMimeTypes: ['video/mp4', 'video/x-matroska'],
+      maxSizeBytes: 10 * 1024 * 1024 * 1024, // 10GB
+      uploadContextTtlSeconds: 4 * 60 * 60, // 4h
+    },
 
     materials: {
       // src/modules/materials/application/materials.service.ts

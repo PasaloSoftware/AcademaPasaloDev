@@ -16903,4 +16903,21 @@ INNER JOIN material_version mv
 SET m.current_version_id = mv.id
 WHERE m.current_version_id IS NULL;
 
-
+-- Backfill de authorized_root_folder_id para materiales de banco de enunciados
+UPDATE material m
+INNER JOIN material_folder mf
+  ON mf.id = m.material_folder_id
+INNER JOIN evaluation e
+  ON e.id = mf.evaluation_id
+INNER JOIN evaluation_type et
+  ON et.id = e.evaluation_type_id
+SET m.authorized_root_folder_id = CASE e.course_cycle_id
+  WHEN 17 THEN '1aJil_94Hz3BXJnzrLiozaTBolkDtuDHP'
+  WHEN 18 THEN '1Btt0HnT4IOQj-axTPsw7hj984IRhRjod'
+  WHEN 19 THEN '1C0zEicAczw5dh57HU3GM-VWY-AYcS1mG'
+  WHEN 20 THEN '1xTw9mz-_dNy-EwUn_I0WQfadQ8rd-D9_'
+  ELSE m.authorized_root_folder_id
+END
+WHERE m.authorized_root_folder_id IS NULL
+  AND m.id > 0
+  AND UPPER(TRIM(et.code)) = 'BANCO_ENUNCIADOS';

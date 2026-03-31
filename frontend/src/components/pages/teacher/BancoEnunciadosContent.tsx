@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
 import { materialsService } from '@/services/materials.service';
-import type { CourseCycle } from '@/types/api';
-import type { StaffCourseEvaluation } from '@/types/curso';
 import type { FolderMaterial } from '@/types/material';
 import Icon from '@/components/ui/Icon';
 import ExpandableFolderList from '@/components/shared/ExpandableFolderList';
 import MaterialPreviewModal from '@/components/materials/MaterialPreviewModal';
+import MaterialUploadView from '@/components/shared/MaterialUploadView';
+import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadView';
 import type {
   ExpandableFolder,
   FolderIconConfig,
@@ -61,6 +62,7 @@ export default function BancoEnunciadosContent({
   cursoId,
   typeCode,
 }: BancoEnunciadosContentProps) {
+  const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
 
   const [courseName, setCourseName] = useState('');
@@ -71,20 +73,19 @@ export default function BancoEnunciadosContent({
   const [previewMaterials, setPreviewMaterials] = useState<FolderMaterial[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  const [enunciadosFolderMap, setEnunciadosFolderMap] = useState<
-    Record<string, string>
-  >({});
+  const [folderIdMap, setFolderIdMap] = useState<Record<string, string>>({});
+
+  // Upload state
+  const [showUploadView, setShowUploadView] = useState(false);
+  const [uploadFolders, setUploadFolders] = useState<MaterialUploadFolder[]>([]);
+  const [preselectedFolderId, setPreselectedFolderId] = useState<string | undefined>();
 
   useEffect(() => {
     async function loadCourseName() {
       try {
-        const courses = await coursesService.getMyCourseCycles();
-        const found = (Array.isArray(courses) ? courses : []).find(
-          (cc: CourseCycle) => cc.id === cursoId,
-        );
-        if (found) {
-          setCourseName(found.course?.name || '');
-        }
+        const enrollments = await coursesService.getMyCourseCycles();
+        const found = enrollments.find((e) => e.courseCycle.id === cursoId);
+        if (found) setCourseName(found.courseCycle.course.name);
       } catch (err) {
         console.error('Error al cargar nombre del curso:', err);
       }
@@ -102,78 +103,44 @@ export default function BancoEnunciadosContent({
         const typeItem = bankStructure.items.find(
           (item) => item.evaluationTypeCode === typeCode,
         );
-        if (typeItem) {
-          setTypeName(typeItem.evaluationTypeName);
-        }
 
-        const staffContent = await coursesService.getCourseContent(cursoId);
-        const typeEvaluations = staffContent.evaluations.filter(
-          (e: StaffCourseEvaluation) => {
-            const evalTypeName = e.evaluationType?.toLowerCase() || '';
-            const codeMap: Record<string, string[]> = {
-              PD: ['práctica dirigida', 'practica dirigida'],
-              PC: ['práctica calificada', 'practica calificada'],
-              EX: ['examen'],
-            };
-            const keywords = codeMap[typeCode];
-            if (keywords) {
-              return keywords.some((kw) => evalTypeName.includes(kw));
-            }
-            return false;
-          },
-        );
+        setTypeName(typeItem?.evaluationTypeName || '');
+        const entries = typeItem?.entries || [];
 
-        if (typeEvaluations.length === 0) {
+        if (entries.length === 0) {
           setFolders([]);
+          setFolderIdMap({});
           setLoading(false);
           return;
         }
 
         const folderResults = await Promise.all(
-          typeEvaluations.map(async (evaluation) => {
+          entries.map(async (entry) => {
+            const fallbackId = `${entry.evaluationTypeCode}-${entry.evaluationNumber}`;
+            const uiFolderId = entry.folderId || `missing-${fallbackId}`;
             try {
-              const rootFolders = await materialsService.getRootFolders(
-                evaluation.id,
-              );
-              const matAdicional = rootFolders.find((f) =>
-                f.name.toLowerCase().includes('adicional'),
-              );
-              if (!matAdicional) {
+              if (!entry.folderId) {
                 return {
-                  evalId: evaluation.id,
-                  shortName: evaluation.name || evaluation.evaluationType,
-                  enunciadosFolderId: null,
+                  uiFolderId,
+                  label: entry.label,
+                  backendFolderId: null,
                   materialCount: 0,
                 };
               }
-
               const contents = await materialsService.getFolderContents(
-                matAdicional.id,
+                entry.folderId,
               );
-              const enunciadosFolder = contents.folders.find((f) =>
-                f.name.toLowerCase().includes('enunciados'),
-              );
-              if (!enunciadosFolder) {
-                return {
-                  evalId: evaluation.id,
-                  shortName: evaluation.name || evaluation.evaluationType,
-                  enunciadosFolderId: null,
-                  materialCount: 0,
-                };
-              }
-
               return {
-                evalId: evaluation.id,
-                shortName: evaluation.name || evaluation.evaluationType,
-                enunciadosFolderId: enunciadosFolder.id,
-                materialCount:
-                  contents.subfolderMaterialCount?.[enunciadosFolder.id] ?? 0,
+                uiFolderId,
+                label: entry.label,
+                backendFolderId: entry.folderId,
+                materialCount: contents.materials.length,
               };
             } catch {
               return {
-                evalId: evaluation.id,
-                shortName: evaluation.name || evaluation.evaluationType,
-                enunciadosFolderId: null,
+                uiFolderId,
+                label: entry.label,
+                backendFolderId: entry.folderId,
                 materialCount: 0,
               };
             }
@@ -181,21 +148,19 @@ export default function BancoEnunciadosContent({
         );
 
         const expandableFolders: ExpandableFolder[] = [];
-        const folderMap: Record<string, string> = {};
+        const map: Record<string, string> = {};
 
         for (const result of folderResults) {
-          if (result.enunciadosFolderId) {
-            expandableFolders.push({
-              id: result.evalId,
-              name: result.shortName,
-              materialCount: result.materialCount,
-            });
-            folderMap[result.evalId] = result.enunciadosFolderId;
-          }
+          expandableFolders.push({
+            id: result.uiFolderId,
+            name: result.label,
+            materialCount: result.materialCount,
+          });
+          if (result.backendFolderId) map[result.uiFolderId] = result.backendFolderId;
         }
 
         setFolders(expandableFolders);
-        setEnunciadosFolderMap(folderMap);
+        setFolderIdMap(map);
       } catch (err) {
         console.error('Error al cargar banco de enunciados:', err);
         setError('Error al cargar el banco de enunciados');
@@ -218,14 +183,13 @@ export default function BancoEnunciadosContent({
   }, [setBreadcrumbItems, courseName, typeName, typeCode, cursoId]);
 
   const loadFolderMaterials = useCallback(
-    async (evalId: string): Promise<FolderMaterial[]> => {
-      const enunciadosFolderId = enunciadosFolderMap[evalId];
-      if (!enunciadosFolderId) return [];
-      const contents =
-        await materialsService.getFolderContents(enunciadosFolderId);
+    async (uiFolderId: string): Promise<FolderMaterial[]> => {
+      const backendFolderId = folderIdMap[uiFolderId];
+      if (!backendFolderId) return [];
+      const contents = await materialsService.getFolderContents(backendFolderId);
       return contents.materials;
     },
-    [enunciadosFolderMap],
+    [folderIdMap],
   );
 
   const handleDownloadMaterial = useCallback(async (mat: FolderMaterial) => {
@@ -243,6 +207,21 @@ export default function BancoEnunciadosContent({
       await materialsService.downloadMaterial(mat.id, mat.displayName);
     }
   }, []);
+
+  const openUploadView = useCallback((backendFolderId?: string) => {
+    // Build upload folder list from the folderIdMap (banco folders with backend IDs)
+    const available: MaterialUploadFolder[] = folders
+      .filter((f) => folderIdMap[f.id])
+      .map((f) => ({ id: folderIdMap[f.id], name: f.name }));
+    setUploadFolders(available);
+    setPreselectedFolderId(backendFolderId);
+    setShowUploadView(true);
+  }, [folders, folderIdMap]);
+
+  const handleUploadToFolder = useCallback((uiFolderId: string) => {
+    const backendId = folderIdMap[uiFolderId];
+    if (backendId) openUploadView(backendId);
+  }, [folderIdMap, openUploadView]);
 
   const iconConfig = typeIconConfigs[typeCode] || defaultTypeIconConfig;
   const displayTitle =
@@ -289,6 +268,19 @@ export default function BancoEnunciadosContent({
     );
   }
 
+  if (showUploadView) {
+    return (
+      <MaterialUploadView
+        folders={uploadFolders}
+        defaultFolderId={preselectedFolderId}
+        backLabel={`Volver a ${displayTitle}`}
+        successDescription={`El material ha sido subido en ${displayTitle}.`}
+        onClose={() => setShowUploadView(false)}
+        onSuccess={() => router.refresh()}
+      />
+    );
+  }
+
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden gap-8">
       <Link
@@ -313,6 +305,16 @@ export default function BancoEnunciadosContent({
           onDownloadMaterial={handleDownloadMaterial}
           onPreviewMaterial={(mats, idx) => { setPreviewMaterials(mats); setPreviewIndex(idx); }}
           iconConfig={iconConfig}
+          headerAction={
+            <button
+              onClick={() => openUploadView()}
+              className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
+            >
+              <Icon name="cloud_upload" size={16} className="text-icon-white" variant="rounded" />
+              <span className="text-text-white text-sm font-medium leading-4">Subir Material</span>
+            </button>
+          }
+          onUploadToFolder={handleUploadToFolder}
         />
       ) : (
         <>

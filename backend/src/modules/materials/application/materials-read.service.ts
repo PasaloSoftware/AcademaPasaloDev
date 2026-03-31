@@ -4,7 +4,10 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { technicalSettings } from '@config/technical-settings';
 import { AccessEngineService } from '@modules/enrollments/application/access-engine.service';
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
@@ -21,6 +24,7 @@ import { AuthorizedMediaLinkDto } from '@modules/media-access/dto/authorized-med
 import {
   MEDIA_ACCESS_MODES,
   MEDIA_CONTENT_KINDS,
+  MEDIA_ACCESS_DRIVE_FOLDERS,
   MEDIA_DOCUMENT_LINK_MODES,
 } from '@modules/media-access/domain/media-access.constants';
 import type { MediaDocumentLinkMode } from '@modules/media-access/domain/media-access.constants';
@@ -30,15 +34,33 @@ import {
 } from '@modules/media-access/domain/media-access-url.util';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
 import { MaterialVersionHistoryDto } from '@modules/materials/dto/material-version-history.dto';
-import { STORAGE_PROVIDER_CODES } from '@modules/materials/domain/material.constants';
+import {
+  DELETION_REQUEST_STATUS_CODES,
+  MATERIAL_CACHE_KEYS,
+  STORAGE_PROVIDER_CODES,
+} from '@modules/materials/domain/material.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
+import { DeletionRequestRepository } from '@modules/materials/infrastructure/deletion-request.repository';
 
 @Injectable()
 export class MaterialsReadService {
+  private static readonly BANK_FOLDER_CACHE_TTL_MS = 5 * 60 * 1000;
+  private readonly bankDocumentsFolderCache = new Map<
+    string,
+    { folderId: string; expiresAt: number }
+  >();
+  private pendingDeletionStatusIdCache: string | null = null;
+
   constructor(
+    private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
+    private readonly cacheService: RedisCacheService,
     private readonly accessEngine: AccessEngineService,
     private readonly folderRepository: MaterialFolderRepository,
     private readonly materialRepository: MaterialRepository,
+    private readonly materialCatalogRepository: MaterialCatalogRepository,
+    private readonly deletionRequestRepository: DeletionRequestRepository,
     private readonly materialVersionHistoryRepository: MaterialVersionHistoryRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
     private readonly driveAccessScopeService: DriveAccessScopeService,
@@ -108,21 +130,13 @@ export class MaterialsReadService {
       resource.storageProvider === STORAGE_PROVIDER_CODES.GDRIVE;
     const driveFileId = isDriveResource ? resource.storageKey : null;
     if (isDriveResource && driveFileId) {
-      const scope = await this.driveAccessScopeService.resolveForEvaluation(
-        folder.evaluationId,
+      const expectedRootFolderId =
+        await this.resolveExpectedAuthorizedRootFolderId(folder, material);
+      const isInExpectedFolder = await this.isDriveFileInFolderTreeCached(
+        material.id,
+        driveFileId,
+        expectedRootFolderId,
       );
-      const expectedDocumentsFolderId = scope.persisted?.driveDocumentsFolderId;
-      if (!expectedDocumentsFolderId) {
-        throw new ForbiddenException(
-          'El scope Drive de la evaluacion no esta provisionado para documentos',
-        );
-      }
-
-      const isInExpectedFolder =
-        await this.storageService.isDriveFileDirectlyInFolder(
-          driveFileId,
-          expectedDocumentsFolderId,
-        );
       if (!isInExpectedFolder) {
         throw new ForbiddenException(
           'El documento no pertenece al scope Drive autorizado para esta evaluacion',
@@ -153,6 +167,39 @@ export class MaterialsReadService {
       mimeType: resource.mimeType,
       storageProvider: resource.storageProvider,
     };
+  }
+
+  private async isDriveFileInFolderTreeCached(
+    materialId: string,
+    driveFileId: string,
+    rootFolderId: string,
+  ): Promise<boolean> {
+    const cacheKey = MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION(
+      materialId,
+      driveFileId,
+      rootFolderId,
+    );
+    const cachedResult = await this.cacheService.get<boolean>(cacheKey);
+    if (cachedResult === true) {
+      return true;
+    }
+
+    const isInExpectedFolder =
+      await this.storageService.isDriveFileInFolderTree(
+        driveFileId,
+        rootFolderId,
+      );
+    if (isInExpectedFolder) {
+      const ttlSeconds =
+        technicalSettings.cache.materials.driveScopeValidationCacheTtlSeconds;
+      await this.cacheService.set(cacheKey, true, ttlSeconds);
+      await this.cacheService.addToIndex(
+        MATERIAL_CACHE_KEYS.DRIVE_SCOPE_VALIDATION_INDEX(materialId),
+        cacheKey,
+        ttlSeconds,
+      );
+    }
+    return isInExpectedFolder;
   }
 
   async getMaterialLastModified(
@@ -240,9 +287,9 @@ export class MaterialsReadService {
       throw new NotFoundException('Material no encontrado');
     }
 
-    const folder = await this.folderRepository.findById(
-      material.materialFolderId,
-    );
+    const folder = material.materialFolder
+      ? material.materialFolder
+      : await this.folderRepository.findById(material.materialFolderId);
     if (!folder) {
       throw new NotFoundException('Carpeta contenedora no encontrada');
     }
@@ -252,6 +299,155 @@ export class MaterialsReadService {
 
   private buildMaterialDownloadProxyPath(materialId: string): string {
     return `/materials/${encodeURIComponent(materialId)}/download`;
+  }
+
+  private async getEvaluationTypeCode(evaluationId: string): Promise<string> {
+    const rows = await this.dataSource.query<
+      Array<{ evaluationTypeCode: string }>
+    >(
+      `
+      SELECT UPPER(TRIM(et.code)) AS evaluationTypeCode
+      FROM evaluation e
+      INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+      WHERE e.id = ?
+      LIMIT 1
+      `,
+      [evaluationId],
+    );
+    return String(rows[0]?.evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private async resolveBankDocumentsFolderIdForEvaluation(params: {
+    evaluationId: string;
+    material?: Material;
+  }): Promise<string | null> {
+    const loaded = this.getBankScopeFromLoadedContext(params.material);
+    const cycleCode = loaded?.cycleCode || '';
+    const courseCycleId = loaded?.courseCycleId || '';
+    const courseCode = loaded?.courseCode || '';
+
+    if (!cycleCode || !courseCycleId || !courseCode) {
+      const rows = await this.dataSource.query<
+        Array<{
+          courseCycleId: string;
+          courseCode: string;
+          cycleCode: string;
+        }>
+      >(
+        `
+        SELECT
+          cc.id AS courseCycleId,
+          c.code AS courseCode,
+          ac.code AS cycleCode
+        FROM evaluation e
+        INNER JOIN course_cycle cc ON cc.id = e.course_cycle_id
+        INNER JOIN course c ON c.id = cc.course_id
+        INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+        INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+        WHERE e.id = ?
+          AND UPPER(TRIM(et.code)) = ?
+        LIMIT 1
+        `,
+        [params.evaluationId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+      );
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+      return await this.storageService.resolveDriveFolderIdByPath([
+        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+        String(row.cycleCode || '').trim(),
+        `cc_${String(row.courseCycleId || '').trim()}_${String(row.courseCode || '').trim()}`,
+        'bank_documents',
+      ]);
+    }
+
+    if (!cycleCode || !courseCycleId || !courseCode) {
+      return null;
+    }
+
+    return await this.storageService.resolveDriveFolderIdByPath([
+      MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+      cycleCode,
+      `cc_${courseCycleId}_${courseCode}`,
+      'bank_documents',
+    ]);
+  }
+
+  private async resolveBankDocumentsFolderIdForEvaluationCached(params: {
+    evaluationId: string;
+    material?: Material;
+  }): Promise<string | null> {
+    const key = String(params.evaluationId || '').trim();
+    if (!key) {
+      return null;
+    }
+
+    const now = Date.now();
+    const cached = this.bankDocumentsFolderCache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.folderId;
+    }
+
+    const folderId =
+      await this.resolveBankDocumentsFolderIdForEvaluation(params);
+    if (!folderId) {
+      this.bankDocumentsFolderCache.delete(key);
+      return null;
+    }
+
+    this.bankDocumentsFolderCache.set(key, {
+      folderId,
+      expiresAt: now + MaterialsReadService.BANK_FOLDER_CACHE_TTL_MS,
+    });
+    return folderId;
+  }
+
+  private async resolveExpectedAuthorizedRootFolderId(
+    folder: MaterialFolder,
+    material: Material,
+  ): Promise<string> {
+    const persistedRootFolderId = String(
+      material.authorizedRootFolderId || '',
+    ).trim();
+    if (persistedRootFolderId) {
+      return persistedRootFolderId;
+    }
+
+    const evaluationTypeCode =
+      this.getEvaluationTypeCodeFromLoadedContext(material) ||
+      (await this.getEvaluationTypeCode(folder.evaluationId));
+    const isBankEvaluation =
+      evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS;
+
+    if (isBankEvaluation) {
+      const bankDocumentsFolderId =
+        await this.resolveBankDocumentsFolderIdForEvaluationCached({
+          evaluationId: folder.evaluationId,
+          material,
+        });
+      if (!bankDocumentsFolderId) {
+        throw new ForbiddenException(
+          'El scope Drive del banco de enunciados no esta provisionado',
+        );
+      }
+      return bankDocumentsFolderId;
+    }
+
+    const scope = await this.driveAccessScopeService.resolveForEvaluation(
+      folder.evaluationId,
+    );
+    const expectedDocumentsFolderId = String(
+      scope.persisted?.driveDocumentsFolderId || '',
+    ).trim();
+    if (!expectedDocumentsFolderId) {
+      throw new ForbiddenException(
+        'El scope Drive de la evaluacion no esta provisionado para documentos',
+      );
+    }
+    return expectedDocumentsFolderId;
   }
 
   private async checkAuthorizedAccess(
@@ -286,6 +482,13 @@ export class MaterialsReadService {
       evaluationId,
     );
     if (!hasEnrollment) {
+      const hasBankAccess = await this.hasStudentBankAccess(
+        user.id,
+        evaluationId,
+      );
+      if (hasBankAccess) {
+        return;
+      }
       throw new ForbiddenException(
         'No tienes acceso a este contenido educativo',
       );
@@ -309,6 +512,7 @@ export class MaterialsReadService {
       if (material.visibleUntil && now > new Date(material.visibleUntil)) {
         throw new ForbiddenException('Este material ya no esta disponible');
       }
+      await this.assertStudentCanReadMaterial(user, material.id);
     }
   }
 
@@ -324,5 +528,100 @@ export class MaterialsReadService {
 
   private hasProfessorAccess(activeRole?: string): boolean {
     return this.normalizeRole(activeRole) === ROLE_CODES.PROFESSOR;
+  }
+
+  private async hasStudentBankAccess(
+    userId: string,
+    evaluationId: string,
+  ): Promise<boolean> {
+    const rows = await this.dataSource.query<Array<{ hasAccess: number }>>(
+      `SELECT EXISTS(
+        SELECT 1
+        FROM evaluation ev
+        INNER JOIN evaluation_type et
+          ON et.id = ev.evaluation_type_id
+        INNER JOIN enrollment e
+          ON e.course_cycle_id = ev.course_cycle_id
+        WHERE ev.id = ?
+          AND e.user_id = ?
+          AND e.cancelled_at IS NULL
+          AND UPPER(TRIM(et.code)) = ?
+        LIMIT 1
+      ) AS hasAccess`,
+      [evaluationId, userId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+    );
+
+    return Number(rows[0]?.hasAccess || 0) === 1;
+  }
+
+  private async assertStudentCanReadMaterial(
+    user: UserWithSession,
+    materialId: string,
+  ): Promise<void> {
+    if (this.normalizeRole(user.activeRole) !== ROLE_CODES.STUDENT) {
+      return;
+    }
+
+    const pendingStatusId = await this.getPendingDeletionStatusIdCached();
+    if (!pendingStatusId) {
+      throw new InternalServerErrorException(
+        `Error de configuracion: Estado ${DELETION_REQUEST_STATUS_CODES.PENDING} faltante`,
+      );
+    }
+
+    const pendingDeletion =
+      await this.deletionRequestRepository.existsPendingByMaterialId(
+        materialId,
+        pendingStatusId,
+      );
+    if (pendingDeletion) {
+      throw new ForbiddenException(
+        'Este material no esta disponible temporalmente',
+      );
+    }
+  }
+
+  private getEvaluationTypeCodeFromLoadedContext(material: Material): string {
+    return String(
+      material.materialFolder?.evaluation?.evaluationType?.code || '',
+    )
+      .trim()
+      .toUpperCase();
+  }
+
+  private getBankScopeFromLoadedContext(
+    material?: Material,
+  ): { cycleCode: string; courseCycleId: string; courseCode: string } | null {
+    const evaluation = material?.materialFolder?.evaluation;
+    if (!evaluation) {
+      return null;
+    }
+    const cycleCode = String(
+      evaluation.courseCycle?.academicCycle?.code || '',
+    ).trim();
+    const courseCycleId = String(evaluation.courseCycleId || '').trim();
+    const courseCode = String(
+      evaluation.courseCycle?.course?.code || '',
+    ).trim();
+    if (!cycleCode || !courseCycleId || !courseCode) {
+      return null;
+    }
+    return { cycleCode, courseCycleId, courseCode };
+  }
+
+  private async getPendingDeletionStatusIdCached(): Promise<string | null> {
+    if (this.pendingDeletionStatusIdCache) {
+      return this.pendingDeletionStatusIdCache;
+    }
+    const pendingStatus =
+      await this.materialCatalogRepository.findDeletionRequestStatusByCode(
+        DELETION_REQUEST_STATUS_CODES.PENDING,
+      );
+    const id = String(pendingStatus?.id || '').trim();
+    if (!id) {
+      return null;
+    }
+    this.pendingDeletionStatusIdCache = id;
+    return id;
   }
 }
