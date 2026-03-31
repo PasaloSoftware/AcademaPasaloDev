@@ -63,23 +63,15 @@ SET @course_cal_id = (SELECT id FROM course WHERE code = 'MATE102');
 SET @course_fis_id = (SELECT id FROM course WHERE code = 'FIS101');
 SET @course_qui_id = (SELECT id FROM course WHERE code = 'QUI101');
 
+-- FIX: Usar solo @current_cycle_id que garantiza existencia en academic_cycle
 INSERT INTO course_cycle (course_id, academic_cycle_id)
-SELECT c.id, ac.id
+SELECT c.id, @current_cycle_id
 FROM course c
-JOIN academic_cycle ac
-  ON ac.id IN (
-    @current_cycle_id,
-    @cycle_2025_2_id,
-    @cycle_2025_1_id,
-    @cycle_2024_2_id,
-    @cycle_2024_1_id
-  )
 WHERE c.id IN (@course_alg_id, @course_cal_id, @course_fis_id, @course_qui_id)
   AND NOT EXISTS (
-    SELECT 1
-    FROM course_cycle cc
+    SELECT 1 FROM course_cycle cc
     WHERE cc.course_id = c.id
-      AND cc.academic_cycle_id = ac.id
+      AND cc.academic_cycle_id = @current_cycle_id
   );
 
 SET @cc_alg_id = (SELECT id FROM course_cycle WHERE course_id = @course_alg_id AND academic_cycle_id = @current_cycle_id LIMIT 1);
@@ -139,13 +131,7 @@ INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
 CROSS JOIN (SELECT @t_pc AS id, 'PC' AS code UNION SELECT @t_ex, 'EX') type
 CROSS JOIN (SELECT 1 AS n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) num
 WHERE cc.course_id IN (@course_alg_id, @course_cal_id, @course_fis_id, @course_qui_id)
-  AND cc.academic_cycle_id IN (
-    @current_cycle_id,
-    @cycle_2025_2_id,
-    @cycle_2025_1_id,
-    @cycle_2024_2_id,
-    @cycle_2024_1_id
-  )
+  AND cc.academic_cycle_id = @current_cycle_id
   AND (
     (type.code = 'PC' AND num.n IN (1, 2, 3, 4))
     OR (type.code = 'EX' AND num.n IN (1, 2))
@@ -154,9 +140,6 @@ WHERE cc.course_id IN (@course_alg_id, @course_cal_id, @course_fis_id, @course_q
 -- -----------------------------------------------------------------------------
 -- 5.1 ESTRUCTURA DE TIPOS PERMITIDOS POR COURSE_CYCLE (BANCO DINAMICO)
 -- -----------------------------------------------------------------------------
--- Se habilitan tipos dinamicos por course_cycle para tabs de banco y validacion
--- estricta en POST /evaluations.
--- Se incluyen solo tipos que existan en el catalogo.
 INSERT INTO course_cycle_allowed_evaluation_type (
   course_cycle_id,
   evaluation_type_id,
@@ -174,13 +157,7 @@ FROM course_cycle cc
 INNER JOIN evaluation_type et
   ON et.code IN ('PC', 'EX', 'PD')
 WHERE cc.course_id IN (@course_alg_id, @course_cal_id, @course_fis_id, @course_qui_id)
-  AND cc.academic_cycle_id IN (
-    @current_cycle_id,
-    @cycle_2025_2_id,
-    @cycle_2025_1_id,
-    @cycle_2024_2_id,
-    @cycle_2024_1_id
-  )
+  AND cc.academic_cycle_id = @current_cycle_id
   AND NOT EXISTS (
     SELECT 1
     FROM course_cycle_allowed_evaluation_type ccaet
@@ -263,30 +240,26 @@ BEGIN
             WHEN c_code = 'QUI101'  THEN 3
             ELSE 4 END;
 
-        -- Sesión 1: Semana 1, Día asignado, 18:00 - 20:00 (Noche)
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 1, CONCAT('Sesión 1 - ', e_type, e_num), 'Introducción', 
+        VALUES (eval_id, 1, CONCAT('Clase 1 - ', e_type, e_num), 'Introducción', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 23 HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL day_offset DAY), INTERVAL 25 HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
-        -- Sesión 2: Semana 1, Sábado, Bloque Rotativo desde 08:00 AM
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 2, CONCAT('Sesión 2 - ', e_type, e_num), 'Ejercicios', 
+        VALUES (eval_id, 2, CONCAT('Clase 2 - ', e_type, e_num), 'Ejercicios', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (13 + day_offset * 2) HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 5 DAY), INTERVAL (15 + day_offset * 2) HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
-        -- Sesión 3: Semana 2, Día asignado, 19:00 - 21:00 (Noche)
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 3, CONCAT('Sesión 3 - ', e_type, e_num), 'Avanzado', 
+        VALUES (eval_id, 3, CONCAT('Clase 3 - ', e_type, e_num), 'Avanzado', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 24 HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL (7 + day_offset) DAY), INTERVAL 26 HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
 
-        -- Sesión 4: Semana 2, Domingo, Bloque Rotativo desde 09:00 AM
         INSERT INTO class_event (evaluation_id, session_number, title, topic, start_datetime, end_datetime, live_meeting_url, recording_status_id, created_by, created_at)
-        VALUES (eval_id, 4, CONCAT('Sesión 4 - ', e_type, e_num), 'Repaso', 
+        VALUES (eval_id, 4, CONCAT('Clase 4 - ', e_type, e_num), 'Repaso', 
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (14 + day_offset * 2) HOUR),
                 DATE_ADD(DATE_ADD(e_date, INTERVAL 6 DAY), INTERVAL (16 + day_offset * 2) HOUR),
                 'https://meet.google.com/pasalo-test', @rec_na, prof_id, NOW());
