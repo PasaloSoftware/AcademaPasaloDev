@@ -305,4 +305,49 @@ FROM class_event ce
 JOIN evaluation ev ON ce.evaluation_id = ev.id
 JOIN course_cycle_professor ccp ON ev.course_cycle_id = ccp.course_cycle_id;
 
+INSERT INTO course_testimony (
+  user_id,
+  course_cycle_id,
+  rating,
+  comment,
+  photo_url,
+  photo_source,
+  is_active,
+  created_at,
+  updated_at
+) VALUES
+(
+  (SELECT id FROM user WHERE email = 'camila.rojas@demo.local' LIMIT 1),
+  @cc_alg_id,
+  5,
+  'Con Pasalo logre mejorar muchisimo en Algebra y cerre el ciclo con buena nota. Las clases son claras y muy practicas.',
+  NULL,
+  'none',
+  TRUE,
+  DATE_SUB(NOW(), INTERVAL 3 MONTH),
+  DATE_SUB(NOW(), INTERVAL 3 MONTH)
+),
+(
+  (SELECT id FROM user WHERE email = 'diego.salazar@demo.local' LIMIT 1),
+  @cc_fis_id,
+  4,
+  'La forma de explicar en Pasalo me ayudo a entender temas que antes se me hacian dificiles. Termine el curso con mas confianza.',
+  NULL,
+  'none',
+  TRUE,
+  DATE_SUB(NOW(), INTERVAL 1 MONTH),
+  DATE_SUB(NOW(), INTERVAL 1 MONTH)
+),
+(
+  (SELECT id FROM user WHERE email = 'valeria.quispe@demo.local' LIMIT 1),
+  @cc_cal_id,
+  5,
+  'Gracias a Pasalo pude organizar mejor mi estudio y resolver ejercicios mas rapido. La metodologia realmente funciona.',
+  NULL,
+  'none',
+  TRUE,
+  DATE_SUB(NOW(), INTERVAL 2 WEEK),
+  DATE_SUB(NOW(), INTERVAL 2 WEEK)
+);
+
 SELECT 'Data OK: 96 sesiones almacenadas en UTC para visualizarse en America/Lima' AS Status;
