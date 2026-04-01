@@ -6,8 +6,9 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { ClassEvent } from "@/types/classEvent";
 import { getCourseColor } from "@/lib/courseColors";
-import { getSessionCardType, SessionBadge } from "@/components/pages/student/EvaluationShared";
+import { getSessionCardType, SessionBadge, formatSingleTime } from "@/components/pages/student/EvaluationShared";
 import Icon from "../ui/Icon";
+import { useToast } from "../ui/ToastContainer";
 
 interface EventDetailModalProps {
   event: ClassEvent | null;
@@ -19,6 +20,9 @@ interface EventDetailModalProps {
   canCancel?: boolean;
   onEdit?: () => void;
   onCancel?: () => void;
+  /** Extra teacher props for three-dot menu */
+  onDuplicate?: () => void;
+  onCopySummary?: () => void;
 }
 
 export default function EventDetailModal({
@@ -31,10 +35,15 @@ export default function EventDetailModal({
   canCancel,
   onEdit,
   onCancel,
+  onDuplicate,
+  onCopySummary,
 }: EventDetailModalProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [threeDotsOpen, setThreeDotsOpen] = useState(false);
+  const threeDotsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -121,6 +130,19 @@ export default function EventDetailModal({
     }
   }, [isOpen, onClose]);
 
+  // Close three-dot when clicking outside
+  useEffect(() => {
+    if (!threeDotsOpen) return;
+    const h = (e: MouseEvent) => {
+      if (threeDotsRef.current && !threeDotsRef.current.contains(e.target as Node)) setThreeDotsOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [threeDotsOpen]);
+
+  // Reset three-dot when modal closes
+  useEffect(() => { if (!isOpen) setThreeDotsOpen(false); }, [isOpen]);
+
   if (!isOpen || !event) return null;
 
   const colors = getCourseColor(event.courseCode);
@@ -186,6 +208,7 @@ export default function EventDetailModal({
               <button
                 onClick={() => { onClose(); onEdit(); }}
                 className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
+                title="Editar"
               >
                 <Icon name="edit" size={20} className="text-icon-tertiary" />
               </button>
@@ -194,10 +217,61 @@ export default function EventDetailModal({
               <button
                 onClick={() => { onClose(); onCancel(); }}
                 className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
+                title="Eliminar"
               >
                 <Icon name="delete" size={20} className="text-icon-tertiary" />
               </button>
             )}
+            {/* Three-dot menu */}
+            <div className="relative" ref={threeDotsRef}>
+              <button
+                onClick={() => setThreeDotsOpen(!threeDotsOpen)}
+                className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
+              >
+                <Icon name="more_vert" size={20} className="text-icon-tertiary" />
+              </button>
+              {threeDotsOpen && (
+                <div className="absolute left-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
+                  {onDuplicate && (
+                    <button
+                      onClick={() => { setThreeDotsOpen(false); onClose(); onDuplicate(); }}
+                      className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                    >
+                      <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Duplicar</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      setThreeDotsOpen(false);
+                      if (onCopySummary) { onCopySummary(); return; }
+                      // Fallback: copy summary inline
+                      const start = new Date(event.startDatetime);
+                      const end = new Date(event.endDatetime);
+                      const dayStr = start.toLocaleDateString("es-PE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "America/Lima" });
+                      const profNames = event.professors.map((p) => `${p.firstName} ${p.lastName1}`).join(", ") || (event.creator ? `${event.creator.firstName} ${event.creator.lastName1}` : "Sin asignar");
+                      const summary = [
+                        `▶️ CLASE ${event.sessionNumber} - ${event.evaluationName}`,
+                        `Curso: ${event.courseName}`,
+                        `📒 Tema: ${event.topic}`,
+                        `🎙️ Asesor(a): ${profNames}`,
+                        `🗓 Fecha: ${dayStr.charAt(0).toUpperCase() + dayStr.slice(1)}`,
+                        `⏰ Hora: ${formatSingleTime(start, true).toUpperCase()} - ${formatSingleTime(end, true).toUpperCase()}`,
+                        `🔗 Enlace: ${event.liveMeetingUrl || "No disponible"}`,
+                      ].join("\n");
+                      try {
+                        await navigator.clipboard.writeText(summary);
+                        showToast({ type: "success", title: "Resumen del evento copiado", description: "Ahora puedes compartirlo fácilmente." });
+                      } catch {
+                        showToast({ type: "error", title: "Error", description: "No se pudo copiar." });
+                      }
+                    }}
+                    className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Copiar resumen</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
         <button
@@ -292,29 +366,37 @@ export default function EventDetailModal({
         </div>
 
         {/* CTA Button */}
-        {!event.isCancelled && canJoin && (
+        {!event.isCancelled && (cardType === "PROGRAMADA" || cardType === "EN_VIVO_PRONTO" || cardType === "EN_VIVO") && (
           <button
-            onClick={() => window.open(event.liveMeetingUrl!, "_blank", "noopener,noreferrer")}
-            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
+            onClick={() => { if (canJoin) window.open(event.liveMeetingUrl!, "_blank", "noopener,noreferrer"); }}
+            disabled={!canJoin}
+            className={`px-6 py-3 rounded-lg inline-flex justify-center items-center gap-1.5 transition-colors ${
+              canJoin
+                ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
+                : "bg-bg-accent-primary-solid opacity-100"
+            }`}
           >
-            <Icon name="videocam" size={16} className="text-icon-white" />
+            <Icon name="videocam" size={16} className="text-icon-white" variant="rounded" />
             <span className="text-text-white text-sm font-medium leading-4">
-              Unirme a la Clase
+              Unirse a la Clase
             </span>
           </button>
         )}
 
-        {!event.isCancelled && canViewRecording && (
+        {!event.isCancelled && (cardType === "GRABADA" || cardType === "GRABACION_EN_PROCESO") && (
           <button
-            onClick={() =>
-              router.push(
-                `/plataforma/curso/${event.courseCycleId}/evaluacion/${event.evaluationId}/clase/${event.id}`,
-              )
-            }
-            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
+            onClick={() => {
+              if (canViewRecording) router.push(`/plataforma/curso/${event.courseCycleId}/evaluacion/${event.evaluationId}/clase/${event.id}`);
+            }}
+            disabled={!canViewRecording}
+            className={`px-6 py-3 rounded-lg inline-flex justify-center items-center gap-1.5 ${
+              canViewRecording
+                ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover transition-colors"
+                : "bg-bg-disabled cursor-not-allowed"
+            }`}
           >
-            <Icon name="play_arrow" size={16} className="text-icon-white" />
-            <span className="text-text-white text-sm font-medium leading-4">
+            <Icon name="play_arrow" size={16} className={canViewRecording ? "text-icon-white" : "text-icon-disabled"} />
+            <span className={`text-sm font-medium leading-4 ${canViewRecording ? "text-text-white" : "text-text-disabled"}`}>
               Ver Grabación
             </span>
           </button>
