@@ -461,6 +461,10 @@ interface EvaluationPageContentProps {
   canUploadMaterials?: boolean;
   /** Callback al dar click en "Subir Material". Recibe folderId opcional para preseleccionar carpeta */
   onUploadMaterial?: (folderId?: string) => void;
+  /** Si true, muestra botón "Crear Clase" junto al título de Sesiones */
+  canCreateClass?: boolean;
+  /** Callback al dar click en "Crear Clase" */
+  onCreateClass?: () => void;
   /** Tab inicial (por defecto "sesiones") */
   defaultTab?: EvalTabOption;
 }
@@ -471,6 +475,8 @@ export function EvaluationPageContent({
   onEvalNameDetected,
   canUploadMaterials,
   onUploadMaterial,
+  canCreateClass,
+  onCreateClass,
   defaultTab = "sesiones",
 }: EvaluationPageContentProps) {
   const [activeTab, setActiveTab] = useState<EvalTabOption>(defaultTab);
@@ -641,10 +647,19 @@ export function EvaluationPageContent({
       {/* TAB: Sesiones de Clase */}
       {activeTab === "sesiones" && (
         <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
-          <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
+          <div className="self-stretch inline-flex justify-between items-center gap-4">
             <span className="text-text-primary text-2xl font-semibold leading-7">
               Sesiones de Clase
             </span>
+            {canCreateClass && onCreateClass && (
+              <button
+                onClick={onCreateClass}
+                className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
+              >
+                <Icon name="add" size={16} className="text-icon-white" variant="rounded" />
+                <span className="text-text-white text-sm font-medium leading-4">Crear Clase</span>
+              </button>
+            )}
           </div>
 
           {loadingEvents && (
