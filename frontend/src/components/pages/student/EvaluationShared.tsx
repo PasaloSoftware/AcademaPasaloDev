@@ -475,12 +475,12 @@ export function ClassSessionCard({
                   >
                     <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
                   </button>
-                  {/*<button
+                  <button
                     onClick={(e) => { e.stopPropagation(); handleAction("duplicate"); }}
                     className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
                   >
                     <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Duplicar</span>
-                  </button>*/}
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction("copy-summary"); }}
                     className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
