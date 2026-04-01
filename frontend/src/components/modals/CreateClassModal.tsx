@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { classEventService } from '@/services/classEvent.service';
 import { evaluationsService } from '@/services/evaluations.service';
+import { useAuth } from '@/contexts/AuthContext';
 import type { ClassEvent } from '@/types/classEvent';
 import type { Evaluation } from '@/types/api';
 import Modal from '@/components/ui/Modal';
 import Icon from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/ToastContainer';
-import ClassFormFields from './ClassFormFields';
+import ClassFormFields, { InteractiveProfessorField, ProfessorConflictAlert } from './ClassFormFields';
+import type { ProfessorOption } from './ClassFormFields';
 
 // ============================================
 // Helpers
@@ -45,6 +47,15 @@ function getEvalLabel(ev: Evaluation): string {
   return `Evaluación ${ev.number}`;
 }
 
+/** Check if two time ranges overlap */
+function timeRangesOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
+  const start1 = new Date(s1).getTime();
+  const end1 = new Date(e1).getTime();
+  const start2 = new Date(s2).getTime();
+  const end2 = new Date(e2).getTime();
+  return start1 < end2 && start2 < end1;
+}
+
 // ============================================
 // Alert types
 // ============================================
@@ -55,6 +66,16 @@ interface ScheduleAlert {
   type: AlertType;
   title: string;
   detail: string;
+}
+
+// ============================================
+// Course option for dropdown
+// ============================================
+
+export interface CourseOption {
+  id: string; // courseCycleId
+  name: string;
+  professors: ProfessorOption[];
 }
 
 // ============================================
@@ -71,9 +92,14 @@ export interface CreateClassModalProps {
   /** If provided, locks evaluation field */
   evaluationId?: string;
   evaluationName?: string;
+  /** Professor objects from the course (for interactive field) */
+  courseProfessors?: ProfessorOption[];
+  /** @deprecated Use courseProfessors instead */
   professorNames?: string[];
   /** If true, allows changing evaluation (calendar mode) */
   allowEvalSelection?: boolean;
+  /** Available courses for multi-course teachers (calendar mode) */
+  courseOptions?: CourseOption[];
 }
 
 export default function CreateClassModal({
@@ -82,13 +108,61 @@ export default function CreateClassModal({
   onCreated,
   duplicateFrom,
   courseName,
-  courseCycleId,
+  courseCycleId: initialCourseCycleId,
   evaluationId: lockedEvalId,
   evaluationName: lockedEvalName,
+  courseProfessors: initialProfessors = [],
   professorNames = [],
   allowEvalSelection = false,
+  courseOptions,
 }: CreateClassModalProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
+
+  // ---- Course selection state (multi-course teachers) ----
+  const [selectedCourseCycleId, setSelectedCourseCycleId] = useState(initialCourseCycleId);
+  const [courseDropdownOpen, setCourseDropdownOpen] = useState(false);
+  const courseTriggerRef = useRef<HTMLDivElement | null>(null);
+  const courseDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const hasMultipleCourses = courseOptions && courseOptions.length > 1;
+  const effectiveCourseCycleId = hasMultipleCourses ? selectedCourseCycleId : initialCourseCycleId;
+  const effectiveCourseName = hasMultipleCourses
+    ? (courseOptions.find((c) => c.id === selectedCourseCycleId)?.name || '')
+    : courseName;
+
+  // Get professors for the effective course
+  const courseProfessors = useMemo(() => {
+    if (hasMultipleCourses) {
+      return courseOptions.find((c) => c.id === selectedCourseCycleId)?.professors || [];
+    }
+    return initialProfessors;
+  }, [hasMultipleCourses, courseOptions, selectedCourseCycleId, initialProfessors]);
+
+  // ---- Professor selection state ----
+  const [selectedProfIds, setSelectedProfIds] = useState<string[]>(() => {
+    if (user?.id && initialProfessors.some((p) => p.id === user.id)) return [user.id];
+    if (initialProfessors.length > 0) return [initialProfessors[0].id];
+    return [];
+  });
+
+  // Reset professor selection when course changes
+  useEffect(() => {
+    if (user?.id && courseProfessors.some((p) => p.id === user.id)) {
+      setSelectedProfIds([user.id]);
+    } else if (courseProfessors.length > 0) {
+      setSelectedProfIds([courseProfessors[0].id]);
+    } else {
+      setSelectedProfIds([]);
+    }
+  }, [courseProfessors, user?.id]);
+
+  // Pre-select from duplicate
+  useEffect(() => {
+    if (duplicateFrom && initialCourseCycleId) {
+      setSelectedCourseCycleId(initialCourseCycleId);
+    }
+  }, [duplicateFrom, initialCourseCycleId]);
 
   // ---- Evaluation selection state ----
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
@@ -104,9 +178,16 @@ export default function CreateClassModal({
 
   // Load evaluations for calendar mode
   useEffect(() => {
-    if (!allowEvalSelection || !courseCycleId || !isOpen) return;
-    evaluationsService.findByCourseCycle(courseCycleId).then(setEvaluations).catch(() => setEvaluations([]));
-  }, [allowEvalSelection, courseCycleId, isOpen]);
+    if (!allowEvalSelection || !effectiveCourseCycleId || !isOpen) return;
+    evaluationsService.findByCourseCycle(effectiveCourseCycleId).then(setEvaluations).catch(() => setEvaluations([]));
+  }, [allowEvalSelection, effectiveCourseCycleId, isOpen]);
+
+  // Reset eval when course changes in multi-course mode
+  useEffect(() => {
+    if (hasMultipleCourses && !duplicateFrom) {
+      setSelectedEvalId('');
+    }
+  }, [selectedCourseCycleId, hasMultipleCourses, duplicateFrom]);
 
   // Pre-select from duplicate
   useEffect(() => {
@@ -139,6 +220,43 @@ export default function CreateClassModal({
       .then((evts) => setExistingEvents(evts.filter((e) => !e.isCancelled)))
       .catch(() => setExistingEvents([]));
   }, [effectiveEvalId, isOpen]);
+
+  // ---- Professor schedule (for conflict detection) ----
+  const [profSchedule, setProfSchedule] = useState<ClassEvent[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !startDate) { setProfSchedule([]); return; }
+    classEventService.getMySchedule({ start: startDate, end: endDate || startDate })
+      .then((evts) => setProfSchedule(evts.filter((e) => !e.isCancelled)))
+      .catch(() => setProfSchedule([]));
+  }, [isOpen, startDate, endDate]);
+
+  // ---- Overlap & conflict detection ----
+  const { sameCourseOverlap, diffCourseOverlap, professorConflict } = useMemo(() => {
+    if (!startDate || !startTime || !endDate || !endTime) {
+      return { sameCourseOverlap: false, diffCourseOverlap: false, professorConflict: false };
+    }
+    const newStart = `${startDate}T${startTime}:00`;
+    const newEnd = `${endDate}T${endTime}:00`;
+
+    // Same course overlap: check existingEvents (same evaluation, same course)
+    const sameOverlap = existingEvents.some((evt) =>
+      timeRangesOverlap(newStart, newEnd, evt.startDatetime, evt.endDatetime)
+    );
+
+    // Different course overlap: check profSchedule for events from OTHER courses
+    const diffOverlap = profSchedule.some((evt) =>
+      evt.courseCycleId !== effectiveCourseCycleId &&
+      timeRangesOverlap(newStart, newEnd, evt.startDatetime, evt.endDatetime)
+    );
+
+    // Professor conflict: any overlap from profSchedule (for the professor alert below the professor field)
+    const profConflict = profSchedule.some((evt) =>
+      timeRangesOverlap(newStart, newEnd, evt.startDatetime, evt.endDatetime)
+    );
+
+    return { sameCourseOverlap: sameOverlap, diffCourseOverlap: diffOverlap, professorConflict: profConflict };
+  }, [startDate, startTime, endDate, endTime, existingEvents, profSchedule, effectiveCourseCycleId]);
 
   // ---- Compute session number and alert ----
   const { sessionNumber, alert } = useMemo((): { sessionNumber: number; alert: ScheduleAlert | null } => {
@@ -220,7 +338,16 @@ export default function CreateClassModal({
 
   const hasChanges = topic.trim().length > 0 || meetingUrl.trim().length > 0 || startDate !== smartDate || startTime !== smartTimes.startTime;
 
-  const canSubmit = topic.trim().length > 0 && meetingUrl.trim().length > 0 && startDate && startTime && endDate && endTime && effectiveEvalId && alert?.type !== 'error';
+  const canSubmit =
+    topic.trim().length > 0 &&
+    meetingUrl.trim().length > 0 &&
+    startDate && startTime && endDate && endTime &&
+    effectiveEvalId &&
+    alert?.type !== 'error' &&
+    !sameCourseOverlap &&
+    !diffCourseOverlap &&
+    !professorConflict &&
+    selectedProfIds.length > 0;
 
   const handleClose = useCallback(() => {
     if (hasChanges) { setShowDiscard(true); } else { onClose(); }
@@ -236,7 +363,7 @@ export default function CreateClassModal({
     }
     setSaving(true);
     try {
-      await classEventService.createEvent({
+      const created = await classEventService.createEvent({
         evaluationId: effectiveEvalId,
         sessionNumber,
         title: autoTitle,
@@ -245,9 +372,20 @@ export default function CreateClassModal({
         endDatetime: endDt,
         liveMeetingUrl: meetingUrl.trim(),
       });
+
+      // Assign additional professor if selected (the creator is auto-assigned)
+      const otherProfId = selectedProfIds.find((id) => id !== user?.id);
+      if (otherProfId) {
+        try {
+          await classEventService.assignProfessor(created.id, otherProfId);
+        } catch {
+          // Non-blocking: if assignment fails, event is still created
+        }
+      }
+
       onCreated();
       onClose();
-      showToast({ type: 'success', title: 'Clase creada', description: `${autoTitle} ha sido programada correctamente.` });
+      showToast({ type: 'success', title: 'Evento guardado con éxito', description: 'La clase ha sido guardada correctamente.' });
     } catch (err) {
       showToast({ type: 'error', title: 'Error al crear clase', description: err instanceof Error ? err.message : 'No se pudo crear la clase.' });
     } finally {
@@ -255,29 +393,70 @@ export default function CreateClassModal({
     }
   };
 
-  // Close eval dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (!evalDropdownOpen) return;
+    if (!evalDropdownOpen && !courseDropdownOpen) return;
     const h = (e: MouseEvent) => {
-      const trigger = evalTriggerRef.current;
-      const dropdown = evalDropdownRef.current;
-      if (trigger && !trigger.contains(e.target as Node) && dropdown && !dropdown.contains(e.target as Node)) {
-        setEvalDropdownOpen(false);
+      if (evalDropdownOpen) {
+        const trigger = evalTriggerRef.current;
+        const dropdown = evalDropdownRef.current;
+        if (trigger && !trigger.contains(e.target as Node) && dropdown && !dropdown.contains(e.target as Node)) {
+          setEvalDropdownOpen(false);
+        }
+      }
+      if (courseDropdownOpen) {
+        const trigger = courseTriggerRef.current;
+        const dropdown = courseDropdownRef.current;
+        if (trigger && !trigger.contains(e.target as Node) && dropdown && !dropdown.contains(e.target as Node)) {
+          setCourseDropdownOpen(false);
+        }
       }
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
-  }, [evalDropdownOpen, evalTriggerRef, evalDropdownRef]);
+  }, [evalDropdownOpen, courseDropdownOpen]);
 
-  // ---- Render ----
+  // ---- Render helpers ----
+
+  const renderErrorAlert = (title: string, detail: string) => (
+    <div className="self-stretch flex-1 px-2 py-3 bg-bg-error-light rounded-lg outline outline-2 outline-offset-[-2px] outline-stroke-error-secondary flex justify-start items-center gap-2">
+      <div className="px-2 py-1 rounded-full flex justify-start items-center">
+        <Icon name="report" size={24} className="text-bg-error-solid" variant="rounded" />
+      </div>
+      <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
+        <span className="self-stretch text-text-primary text-sm font-normal leading-4">{title}</span>
+        <span className="self-stretch text-text-tertiary text-xs font-normal leading-4">{detail}</span>
+      </div>
+    </div>
+  );
+
+  const renderAfterDates = () => {
+    const alerts: React.ReactNode[] = [];
+
+    // Overlap alerts (below dates)
+    if (sameCourseOverlap) {
+      alerts.push(renderErrorAlert(
+        'Superposición de clases',
+        'La nueva clase se superpone con una clase ya registrada para este curso. No se puede registrar. Ajusta la fecha y vuelve a intentarlo.',
+      ));
+    }
+    if (diffCourseOverlap) {
+      alerts.push(renderErrorAlert(
+        'Superposición de clases de cursos diferentes a cargo',
+        'La nueva clase se superpone con una clase ya registrada en este horario. No se puede registrar. Ajusta la fecha y vuelve a intentarlo.',
+      ));
+    }
+
+    return alerts.length > 0 ? <>{alerts}</> : null;
+  };
 
   const renderAlert = () => {
     if (!alert) return null;
     const isError = alert.type === 'error';
     return (
-      <div className={`self-stretch flex-1 px-2 py-3 ${isError ? 'bg-bg-error-light' : 'bg-bg-warning-light'} rounded-lg outline outline-2 outline-offset-[-2px] ${isError ? 'outline-stroke-error-secondary' : 'outline-stroke-warning-secondary'} flex justify-start items-center gap-2`}>
+      <div className={`self-stretch flex-1 px-2 py-3 ${isError ? 'bg-red-50' : 'bg-yellow-50'} rounded-lg outline outline-2 outline-offset-[-2px] ${isError ? 'outline-red-200' : 'outline-orange-200'} flex justify-start items-center gap-2`}>
         <div className="px-2 py-1 rounded-full flex justify-start items-center">
-          <Icon name={isError ? 'error' : 'warning'} size={24} className={isError ? 'text-bg-error-solid' : 'text-icon-warning-primary'} variant="rounded" />
+          <Icon name={isError ? 'report' : 'warning'} size={24} className={isError ? 'text-bg-error-solid' : 'text-icon-warning-primary'} variant="rounded" />
         </div>
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
           <span className="self-stretch text-text-primary text-sm font-normal leading-4">{alert.title}</span>
@@ -286,6 +465,57 @@ export default function CreateClassModal({
       </div>
     );
   };
+
+  const renderCourseDropdown = () => {
+    if (!hasMultipleCourses) return undefined;
+    return (
+      <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
+        <div
+          ref={(el) => { courseTriggerRef.current = el; }}
+          onClick={() => setCourseDropdownOpen(!courseDropdownOpen)}
+          className={`self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${courseDropdownOpen ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} inline-flex justify-start items-center gap-2 cursor-pointer`}
+        >
+          <span className={`flex-1 text-base font-normal leading-4 line-clamp-1 ${effectiveCourseName ? 'text-text-primary' : 'text-text-tertiary'}`}>
+            {effectiveCourseName || (courseDropdownOpen ? '\u00A0' : 'Curso')}
+          </span>
+          <Icon name="expand_more" size={20} className={courseDropdownOpen ? 'text-icon-accent-primary' : 'text-icon-tertiary'} />
+        </div>
+        {(effectiveCourseName || courseDropdownOpen) && (
+          <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
+            <span className={`text-xs font-normal leading-4 ${courseDropdownOpen ? 'text-text-accent-primary' : 'text-text-tertiary'}`}>Curso</span>
+          </div>
+        )}
+        {courseDropdownOpen && createPortal(
+          <div
+            ref={(el) => { courseDropdownRef.current = el; }}
+            style={{
+              position: 'fixed',
+              top: courseTriggerRef.current ? courseTriggerRef.current.getBoundingClientRect().bottom + 4 : 0,
+              left: courseTriggerRef.current ? courseTriggerRef.current.getBoundingClientRect().left : 0,
+              width: courseTriggerRef.current ? courseTriggerRef.current.getBoundingClientRect().width : 'auto',
+              zIndex: 9999,
+            }}
+            className="p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
+          >
+            {courseOptions!.map((course) => (
+              <button
+                key={course.id}
+                type="button"
+                onClick={() => { setSelectedCourseCycleId(course.id); setCourseDropdownOpen(false); }}
+                className="self-stretch px-2 py-3 rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+              >
+                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">{course.name}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+      </div>
+    );
+  };
+
+  // Use interactive professor field if we have professor objects, otherwise fall back to names
+  const hasProfessorObjects = courseProfessors.length > 0;
 
   return (
     <>
@@ -302,7 +532,7 @@ export default function CreateClassModal({
       }
     >
         <ClassFormFields
-          courseName={courseName}
+          courseName={effectiveCourseName}
           evaluationName={effectiveEvalName}
           startDate={startDate} startTime={startTime} endDate={endDate} endTime={endTime}
           onStartDateChange={setStartDate} onStartTimeChange={setStartTime}
@@ -312,7 +542,9 @@ export default function CreateClassModal({
           meetingUrl={meetingUrl} onMeetingUrlChange={setMeetingUrl}
           professorNames={professorNames}
           idPrefix="create-class"
+          afterDates={renderAfterDates()}
           afterTitle={renderAlert()}
+          courseField={renderCourseDropdown()}
           evaluationField={allowEvalSelection && !lockedEvalId ? (
             <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
               <div
@@ -357,6 +589,16 @@ export default function CreateClassModal({
               )}
             </div>
           ) : undefined}
+          professorField={hasProfessorObjects ? (
+            <InteractiveProfessorField
+              allProfessors={courseProfessors}
+              selectedIds={selectedProfIds}
+              currentUserId={user?.id || ''}
+              onAdd={(id) => setSelectedProfIds((prev) => [...prev, id])}
+              onRemove={(id) => setSelectedProfIds((prev) => prev.filter((p) => p !== id))}
+            />
+          ) : undefined}
+          afterProfessor={professorConflict ? <ProfessorConflictAlert /> : undefined}
         />
     </Modal>
 
@@ -365,7 +607,7 @@ export default function CreateClassModal({
       isOpen={showDiscard}
       onClose={() => setShowDiscard(false)}
       title="¿Descartar los cambios no guardados?"
-      size="sm"
+      size="md"
       zIndex={60}
       footer={
         <>

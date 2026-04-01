@@ -110,7 +110,7 @@ export default function EditClassModal({ isOpen, event, onClose, onSaved }: Edit
         isOpen={showDiscard}
         onClose={() => setShowDiscard(false)}
         title="¿Descartar los cambios no guardados?"
-        size="sm"
+        size="md"
         zIndex={60}
         footer={
           <>
@@ -128,7 +128,7 @@ export default function EditClassModal({ isOpen, event, onClose, onSaved }: Edit
         isOpen={showSaveConfirm}
         onClose={() => setShowSaveConfirm(false)}
         title="¿Guardar cambios en la clase?"
-        size="sm"
+        size="md"
         zIndex={60}
         footer={
           <>

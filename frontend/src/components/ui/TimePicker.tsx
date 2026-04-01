@@ -61,7 +61,7 @@ export default function TimePicker({ value, onChange, placeholder = 'Hora' }: Ti
   }, [isOpen]);
 
   return (
-    <div className="flex-1">
+    <div className="shrink-0 w-[100px]">
       <button
         ref={triggerRef}
         type="button"

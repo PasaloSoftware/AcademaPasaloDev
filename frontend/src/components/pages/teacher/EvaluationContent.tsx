@@ -342,6 +342,7 @@ export default function EvaluationContent({
           courseCycleId={cursoId}
           evaluationId={evalId}
           evaluationName={evalFullName || evalShortName}
+          courseProfessors={professors}
           professorNames={professors.map((p) => `${p.firstName} ${p.lastName1}`)}
         />
       )}

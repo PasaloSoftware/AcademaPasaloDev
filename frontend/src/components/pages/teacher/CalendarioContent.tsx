@@ -215,7 +215,8 @@ export default function CalendarioContent() {
           courseCycleId={duplicateSource?.courseCycleId || courseCycles[0]?.id || ''}
           evaluationId={duplicateSource?.evaluationId}
           evaluationName={duplicateSource?.evaluationName}
-          professorNames={duplicateSource?.professors.map((p) => `${p.firstName} ${p.lastName1}`) || []}
+          courseProfessors={duplicateSource?.professors || courseCycles[0]?.professors || []}
+          courseOptions={courseCycles.length > 1 ? courseCycles.map((cc) => ({ id: cc.id, name: cc.course.name, professors: cc.professors || [] })) : undefined}
           allowEvalSelection
         />
       )}
