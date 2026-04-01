@@ -1158,9 +1158,11 @@ export default function VideoPageLayout({
           </h2>
 
           {materials.length === 0 ? (
-            <p className="text-text-tertiary text-sm">
-              No hay materiales disponibles
-            </p>
+            <div className="self-stretch px-5 py-10 bg-bg-secondary rounded-lg inline-flex flex-col justify-center items-center gap-2">
+              <div className="self-stretch text-center justify-center text-text-disabled text-xs font-normal font-['Poppins'] leading-4">
+                No hay materiales disponibles para esta clase
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col gap-2 overflow-visible">
               {materials.map((mat, matIdx) => {
@@ -1285,7 +1287,12 @@ export default function VideoPageLayout({
                           onClick={() => {
                             setContextMenuMat(null);
                             setRenameMat(mat);
-                            setRenameMatValue(getFileNameWithoutExt(mat.displayName || mat.fileResource.originalName));
+                            setRenameMatValue(
+                              getFileNameWithoutExt(
+                                mat.displayName ||
+                                  mat.fileResource.originalName,
+                              ),
+                            );
                           }}
                           className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
                         >
@@ -1565,7 +1572,10 @@ export default function VideoPageLayout({
         title="Cambiar nombre"
         footer={
           <>
-            <Modal.Button variant="secondary" onClick={() => setRenameMat(null)}>
+            <Modal.Button
+              variant="secondary"
+              onClick={() => setRenameMat(null)}
+            >
               Cancelar
             </Modal.Button>
             <Modal.Button
@@ -1576,19 +1586,28 @@ export default function VideoPageLayout({
                 if (!renameMat || !renameMatValue.trim()) return;
                 setRenameMatLoading(true);
                 try {
-                  const ext = getFileExtension(renameMat.displayName || renameMat.fileResource.originalName);
+                  const ext = getFileExtension(
+                    renameMat.displayName ||
+                      renameMat.fileResource.originalName,
+                  );
                   const newDisplayName = renameMatValue.trim() + ext;
-                  await materialsService.renameDisplayName(renameMat.id, newDisplayName);
+                  await materialsService.renameDisplayName(
+                    renameMat.id,
+                    newDisplayName,
+                  );
                   setMaterials((prev) =>
                     prev.map((m) =>
-                      m.id === renameMat.id ? { ...m, displayName: newDisplayName } : m,
+                      m.id === renameMat.id
+                        ? { ...m, displayName: newDisplayName }
+                        : m,
                     ),
                   );
                   setRenameMat(null);
                   showToast({
                     type: "success",
                     title: "Nombre cambiado",
-                    description: "El nombre del material ha sido actualizado con éxito.",
+                    description:
+                      "El nombre del material ha sido actualizado con éxito.",
                   });
                 } catch (err) {
                   console.error("Error al renombrar material:", err);
