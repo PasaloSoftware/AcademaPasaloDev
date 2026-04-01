@@ -16,6 +16,8 @@ import TimePicker from '@/components/ui/TimePicker';
 import { useToast } from '@/components/ui/ToastContainer';
 import { EvaluationPageContent, formatDate, formatSingleTime } from '@/components/pages/student/EvaluationShared';
 import type { SessionMenuAction } from '@/components/pages/student/EvaluationShared';
+import EditClassModal from '@/components/modals/EditClassModal';
+import CreateClassModal from '@/components/modals/CreateClassModal';
 import MaterialUploadView from '@/components/shared/MaterialUploadView';
 import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadView';
 import type { MaterialAction } from '@/components/shared/ExpandableFolderList';
@@ -213,6 +215,7 @@ export default function EvaluationContent({
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [deleteEvent, setDeleteEvent] = useState<ClassEvent | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<ClassEvent | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const handleSessionMenuAction = useCallback(async (eventId: string, action: SessionMenuAction) => {
@@ -238,23 +241,7 @@ export default function EvaluationContent({
     }
 
     if (action === 'duplicate') {
-      try {
-        const events = await classEventService.getEvaluationEvents(evalId);
-        const newNum = events.length + 1;
-        await classEventService.createEvent({
-          evaluationId: evalId,
-          sessionNumber: newNum,
-          title: `Clase ${newNum} - ${evalShortName}`,
-          topic: ev.topic,
-          startDatetime: ev.startDatetime,
-          endDatetime: ev.endDatetime,
-          liveMeetingUrl: ev.liveMeetingUrl || '',
-        });
-        setRefreshKey((k) => k + 1);
-        showToast({ type: 'success', title: 'Clase duplicada', description: `Clase ${newNum} - ${evalShortName} ha sido creada.` });
-      } catch (err) {
-        showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo duplicar la clase.' });
-      }
+      setDuplicateSource(ev);
     }
 
     if (action === 'copy-summary') {
@@ -600,46 +587,30 @@ export default function EvaluationContent({
         </div>
       </Modal>
 
-      {/* Edit Class Modal */}
-      <Modal
-        isOpen={!!editEvent}
-        onClose={() => setEditEvent(null)}
-        title="Editar Clase"
-        size="lg"
-        footer={
-          <>
-            <Modal.Button variant="secondary" onClick={() => setEditEvent(null)}>
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              disabled={!editTopic.trim()}
-              loading={editSubmitting}
-              loadingText="Guardando..."
-              onClick={handleEditSubmit}
-            >
-              Guardar
-            </Modal.Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {/* Date/Time grid */}
-          <div className="self-stretch inline-flex justify-center items-center gap-2">
-            <div className="flex-1 inline-flex flex-row gap-4 justify-start items-start">
-              <DatePicker value={editStartDate} onChange={(v) => { setEditStartDate(v); if (v > editEndDate) setEditEndDate(v); }} />
-              <TimePicker value={editStartTime} onChange={setEditStartTime} />
-            </div>
-            <Icon name="arrow_forward" size={16} className="text-icon-secondary" />
-            <div className="flex-1 inline-flex flex-row gap-4 justify-start items-start">
-              <DatePicker value={editEndDate} onChange={setEditEndDate} min={editStartDate} />
-              <TimePicker value={editEndTime} onChange={setEditEndTime} />
-            </div>
-          </div>
+      {/* Duplicate Class Modal */}
+      {duplicateSource && (
+        <CreateClassModal
+          isOpen={!!duplicateSource}
+          onClose={() => setDuplicateSource(null)}
+          onCreated={() => setRefreshKey((k) => k + 1)}
+          duplicateFrom={duplicateSource}
+          courseName={courseName}
+          courseCycleId={cursoId}
+          evaluationId={evalId}
+          evaluationName={evalFullName || evalShortName}
+          professorNames={professors.map((p) => `${p.firstName} ${p.lastName1}`)}
+        />
+      )}
 
-          <FloatingInput id="edit-class-topic" label="Tema" value={editTopic} onChange={setEditTopic} />
-          <FloatingInput id="edit-class-url" label="Enlace de la sesión" value={editUrl} onChange={setEditUrl} />
-        </div>
-      </Modal>
+      {/* Edit Class Modal */}
+      {editEvent && (
+        <EditClassModal
+          isOpen={!!editEvent}
+          event={editEvent}
+          onClose={() => setEditEvent(null)}
+          onSaved={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
 
       {/* Delete Class Modal */}
       <Modal

@@ -11,9 +11,7 @@ import type { Enrollment } from '@/types/enrollment';
 import type { ClassEvent } from '@/types/classEvent';
 import VideoPageLayout from '@/components/shared/VideoPageLayout';
 import Modal from '@/components/ui/Modal';
-import FloatingInput from '@/components/ui/FloatingInput';
-import DatePicker from '@/components/ui/DatePicker';
-import TimePicker from '@/components/ui/TimePicker';
+import EditClassModal from '@/components/modals/EditClassModal';
 import Icon from '@/components/ui/Icon';
 
 interface VideoPageContentProps {
@@ -529,83 +527,6 @@ function UpdateVideoModal({
 }
 
 // ============================================
-// EditInfoModal
-// ============================================
-
-function EditInfoModal({
-  event,
-  onClose,
-  onSaved,
-}: {
-  event: ClassEvent;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const { showToast } = useToast();
-  const start = new Date(event.startDatetime);
-  const end = new Date(event.endDatetime);
-
-  const [topic, setTopic] = useState(event.topic);
-  const [startDate, setStartDate] = useState(start.toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState(start.toTimeString().slice(0, 5));
-  const [endDate, setEndDate] = useState(end.toISOString().split('T')[0]);
-  const [endTime, setEndTime] = useState(end.toTimeString().slice(0, 5));
-  const [liveMeetingUrl, setLiveMeetingUrl] = useState(event.liveMeetingUrl || '');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!topic.trim()) return;
-    const startDt = `${startDate}T${startTime}:00`;
-    const endDt = `${endDate}T${endTime}:00`;
-    if (new Date(endDt) <= new Date(startDt)) {
-      showToast({ type: 'error', title: 'Error', description: 'La hora de fin debe ser posterior a la de inicio.' });
-      return;
-    }
-    setSaving(true);
-    try {
-      await classEventService.updateEvent(event.id, {
-        topic: topic.trim(),
-        startDatetime: startDt,
-        endDatetime: endDt,
-        liveMeetingUrl: liveMeetingUrl.trim() || undefined,
-      });
-      await onSaved();
-      onClose();
-      showToast({ type: 'success', title: 'Clase actualizada', description: 'Los cambios han sido guardados.' });
-    } catch (err) {
-      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo actualizar.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal isOpen onClose={onClose} title="Editar Clase" size="lg" footer={
-      <>
-        <Modal.Button variant="secondary" onClick={onClose}>Cancelar</Modal.Button>
-        <Modal.Button disabled={!topic.trim()} loading={saving} loadingText="Guardando..." onClick={handleSave}>Guardar</Modal.Button>
-      </>
-    }>
-      <div className="flex flex-col gap-4">
-        <div className="self-stretch inline-flex justify-center items-center gap-2">
-          <div className="flex-1 inline-flex flex-row gap-4 justify-start items-start">
-            <DatePicker value={startDate} onChange={(v) => { setStartDate(v); if (v > endDate) setEndDate(v); }} />
-            <TimePicker value={startTime} onChange={setStartTime} />
-          </div>
-          <Icon name="arrow_forward" size={16} className="text-icon-secondary" />
-          <div className="flex-1 inline-flex flex-row gap-4 justify-start items-start">
-            <DatePicker value={endDate} onChange={setEndDate} min={startDate} />
-            <TimePicker value={endTime} onChange={setEndTime} />
-          </div>
-        </div>
-        <FloatingInput id="edit-video-topic" label="Tema" value={topic} onChange={setTopic} />
-        <FloatingInput id="edit-video-url" label="Enlace de la sesión" value={liveMeetingUrl} onChange={setLiveMeetingUrl} />
-      </div>
-    </Modal>
-  );
-}
-
-// ============================================
 // Delete Class Modal
 // ============================================
 
@@ -841,10 +762,11 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       )}
 
       {modalState?.type === 'editInfo' && (
-        <EditInfoModal
+        <EditClassModal
+          isOpen
           event={modalState.event}
           onClose={closeModal}
-          onSaved={modalState.reload}
+          onSaved={() => { modalState.reload(); }}
         />
       )}
 

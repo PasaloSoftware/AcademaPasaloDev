@@ -9,8 +9,8 @@ import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClassEvent } from "@/types/classEvent";
 import EventDetailModal from "@/components/modals/EventDetailModal";
-import CreateEventModal from "@/components/modals/CreateEventModal";
-import EditEventModal from "@/components/modals/EditEventModal";
+import CreateClassModal from "@/components/modals/CreateClassModal";
+import EditClassModal from "@/components/modals/EditClassModal";
 import CancelEventDialog from "@/components/modals/CancelEventDialog";
 import {
   CalendarHeader,
@@ -58,6 +58,7 @@ export default function CalendarioContent() {
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<ClassEvent | null>(null);
   const [eventToCancel, setEventToCancel] = useState<ClassEvent | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<ClassEvent | null>(null);
 
   const weekDays = getWeekDays();
 
@@ -118,6 +119,12 @@ export default function CalendarioContent() {
     if (selectedEvent) {
       setEventToCancel(selectedEvent);
       setIsCancelOpen(true);
+    }
+  };
+
+  const handleDuplicate = () => {
+    if (selectedEvent) {
+      setDuplicateSource(selectedEvent);
     }
   };
 
@@ -189,6 +196,7 @@ export default function CalendarioContent() {
         canCancel={ownerOfSelected}
         onEdit={handleEdit}
         onCancel={handleCancel}
+        onDuplicate={ownerOfSelected ? handleDuplicate : undefined}
         onClose={() => {
           setIsDetailOpen(false);
           setSelectedEvent(null);
@@ -196,24 +204,34 @@ export default function CalendarioContent() {
         }}
       />
 
-      {/* Create Event Modal */}
-      <CreateEventModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={handleEventMutated}
-        courseCycles={courseCycles}
-      />
+      {/* Create/Duplicate Class Modal */}
+      {(isCreateOpen || duplicateSource) && courseCycles.length > 0 && (
+        <CreateClassModal
+          isOpen={isCreateOpen || !!duplicateSource}
+          onClose={() => { setIsCreateOpen(false); setDuplicateSource(null); }}
+          onCreated={handleEventMutated}
+          duplicateFrom={duplicateSource || undefined}
+          courseName={duplicateSource?.courseName || courseCycles[0]?.course?.name || ''}
+          courseCycleId={duplicateSource?.courseCycleId || courseCycles[0]?.id || ''}
+          evaluationId={duplicateSource?.evaluationId}
+          evaluationName={duplicateSource?.evaluationName}
+          professorNames={duplicateSource?.professors.map((p) => `${p.firstName} ${p.lastName1}`) || []}
+          allowEvalSelection
+        />
+      )}
 
       {/* Edit Event Modal */}
-      <EditEventModal
-        isOpen={isEditOpen}
-        event={eventToEdit}
-        onClose={() => {
-          setIsEditOpen(false);
-          setEventToEdit(null);
-        }}
-        onUpdated={handleEventMutated}
-      />
+      {eventToEdit && (
+        <EditClassModal
+          isOpen={isEditOpen}
+          event={eventToEdit}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEventToEdit(null);
+          }}
+          onSaved={handleEventMutated}
+        />
+      )}
 
       {/* Cancel Event Dialog */}
       <CancelEventDialog
