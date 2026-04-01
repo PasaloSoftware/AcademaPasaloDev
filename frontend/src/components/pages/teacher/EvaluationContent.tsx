@@ -11,8 +11,6 @@ import type { ClassEvent } from '@/types/classEvent';
 import Icon from '@/components/ui/Icon';
 import Modal from '@/components/ui/Modal';
 import FloatingInput from '@/components/ui/FloatingInput';
-import DatePicker from '@/components/ui/DatePicker';
-import TimePicker from '@/components/ui/TimePicker';
 import { useToast } from '@/components/ui/ToastContainer';
 import { EvaluationPageContent, formatDate, formatSingleTime } from '@/components/pages/student/EvaluationShared';
 import type { SessionMenuAction } from '@/components/pages/student/EvaluationShared';
@@ -32,14 +30,6 @@ interface EvaluationContentProps {
 // ============================================
 // Helpers
 // ============================================
-
-function getTodayDateStr(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = (now.getMonth() + 1).toString().padStart(2, '0');
-  const d = now.getDate().toString().padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
 
 export default function EvaluationContent({
   cursoId,
@@ -62,14 +52,6 @@ export default function EvaluationContent({
 
   // Create class modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [nextSessionNumber, setNextSessionNumber] = useState(1);
-  const [createStartDate, setCreateStartDate] = useState(getTodayDateStr());
-  const [createStartTime, setCreateStartTime] = useState('18:00');
-  const [createEndDate, setCreateEndDate] = useState(getTodayDateStr());
-  const [createEndTime, setCreateEndTime] = useState('19:00');
-  const [createTopic, setCreateTopic] = useState('');
-  const [createMeetingUrl, setCreateMeetingUrl] = useState('');
-  const [createSubmitting, setCreateSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -143,76 +125,13 @@ export default function EvaluationContent({
 
   // ---- Create Class ----
 
-  const openCreateModal = useCallback(async () => {
-    try {
-      const events = await classEventService.getEvaluationEvents(evalId);
-      setNextSessionNumber(events.length + 1);
-    } catch {
-      setNextSessionNumber(1);
-    }
-    setCreateStartDate(getTodayDateStr());
-    setCreateStartTime('18:00');
-    setCreateEndDate(getTodayDateStr());
-    setCreateEndTime('19:00');
-    setCreateTopic('');
-    setCreateMeetingUrl('');
+  const openCreateModal = useCallback(() => {
     setShowCreateModal(true);
-  }, [evalId]);
-
-  const autoTitle = `Clase ${nextSessionNumber} - ${evalShortName}`;
-
-  const canSubmitCreate =
-    createTopic.trim().length > 0 &&
-    createMeetingUrl.trim().length > 0 &&
-    createStartDate && createStartTime &&
-    createEndDate && createEndTime;
-
-  const handleCreateSubmit = useCallback(async () => {
-    if (!canSubmitCreate) return;
-
-    const startDatetime = `${createStartDate}T${createStartTime}:00`;
-    const endDatetime = `${createEndDate}T${createEndTime}:00`;
-
-    if (new Date(endDatetime) <= new Date(startDatetime)) {
-      showToast({ type: 'error', title: 'Error', description: 'La hora de fin debe ser posterior a la hora de inicio.' });
-      return;
-    }
-
-    setCreateSubmitting(true);
-    try {
-      await classEventService.createEvent({
-        evaluationId: evalId,
-        sessionNumber: nextSessionNumber,
-        title: autoTitle,
-        topic: createTopic.trim(),
-        startDatetime,
-        endDatetime,
-        liveMeetingUrl: createMeetingUrl.trim(),
-      });
-      setShowCreateModal(false);
-      setRefreshKey((k) => k + 1);
-      showToast({ type: 'success', title: 'Clase creada', description: `${autoTitle} ha sido programada correctamente.` });
-    } catch (err) {
-      showToast({
-        type: 'error',
-        title: 'Error al crear clase',
-        description: err instanceof Error ? err.message : 'No se pudo crear la clase.',
-      });
-    } finally {
-      setCreateSubmitting(false);
-    }
-  }, [canSubmitCreate, createStartDate, createStartTime, createEndDate, createEndTime, evalId, nextSessionNumber, autoTitle, createTopic, createMeetingUrl, showToast]);
+  }, []);
 
   // ---- Session menu actions (teacher) ----
 
   const [editEvent, setEditEvent] = useState<ClassEvent | null>(null);
-  const [editTopic, setEditTopic] = useState('');
-  const [editUrl, setEditUrl] = useState('');
-  const [editStartDate, setEditStartDate] = useState('');
-  const [editStartTime, setEditStartTime] = useState('');
-  const [editEndDate, setEditEndDate] = useState('');
-  const [editEndTime, setEditEndTime] = useState('');
-  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [deleteEvent, setDeleteEvent] = useState<ClassEvent | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<ClassEvent | null>(null);
@@ -230,14 +149,6 @@ export default function EvaluationContent({
 
     if (action === 'edit') {
       setEditEvent(ev);
-      setEditTopic(ev.topic);
-      setEditUrl(ev.liveMeetingUrl || '');
-      const start = new Date(ev.startDatetime);
-      const end = new Date(ev.endDatetime);
-      setEditStartDate(start.toISOString().split('T')[0]);
-      setEditStartTime(start.toTimeString().slice(0, 5));
-      setEditEndDate(end.toISOString().split('T')[0]);
-      setEditEndTime(end.toTimeString().slice(0, 5));
     }
 
     if (action === 'duplicate') {
@@ -275,33 +186,6 @@ export default function EvaluationContent({
       setDeleteEvent(ev);
     }
   }, [evalId, evalShortName, courseName, showToast]);
-
-  const handleEditSubmit = useCallback(async () => {
-    if (!editEvent || !editTopic.trim()) return;
-    setEditSubmitting(true);
-    try {
-      const startDatetime = `${editStartDate}T${editStartTime}:00`;
-      const endDatetime = `${editEndDate}T${editEndTime}:00`;
-      if (new Date(endDatetime) <= new Date(startDatetime)) {
-        showToast({ type: 'error', title: 'Error', description: 'La hora de fin debe ser posterior a la hora de inicio.' });
-        setEditSubmitting(false);
-        return;
-      }
-      await classEventService.updateEvent(editEvent.id, {
-        topic: editTopic.trim(),
-        liveMeetingUrl: editUrl.trim() || undefined,
-        startDatetime,
-        endDatetime,
-      });
-      setEditEvent(null);
-      setRefreshKey((k) => k + 1);
-      showToast({ type: 'success', title: 'Clase actualizada', description: 'Los cambios han sido guardados.' });
-    } catch (err) {
-      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo actualizar la clase.' });
-    } finally {
-      setEditSubmitting(false);
-    }
-  }, [editEvent, editTopic, editUrl, editStartDate, editStartTime, editEndDate, editEndTime, showToast]);
 
   const handleDeleteSubmit = useCallback(async () => {
     if (!deleteEvent) return;
@@ -447,153 +331,13 @@ export default function EvaluationContent({
         defaultTab={returnToMaterialTab ? 'material' : 'sesiones'}
       />
 
-      {/* Create Class Modal */}
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Crear Nueva Clase"
-        size="lg"
-        footer={
-          <>
-            <Modal.Button variant="secondary" onClick={() => setShowCreateModal(false)}>
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              disabled={!canSubmitCreate}
-              loading={createSubmitting}
-              loadingText="Creando..."
-              onClick={handleCreateSubmit}
-            >
-              Guardar
-            </Modal.Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {/* Curso (disabled) */}
-          <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-              <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                {courseName}
-              </span>
-              <Icon name="expand_more" size={20} className="text-icon-disabled" />
-            </div>
-            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-              <span className="text-text-tertiary text-xs font-normal leading-4">Curso</span>
-            </div>
-          </div>
-
-          {/* Evaluación asociada (disabled) */}
-          <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-              <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                {evalFullName || evalShortName}
-              </span>
-              <Icon name="expand_more" size={20} className="text-icon-disabled" />
-            </div>
-            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-              <span className="text-text-tertiary text-xs font-normal leading-4">Evaluación asociada</span>
-            </div>
-          </div>
-
-          {/* Date/Time grid */}
-          <div className="self-stretch inline-flex justify-center items-center gap-2">
-            {/* Start column */}
-            <div className="flex-1 inline-flex flex-row justify-start items-start gap-4">
-              <DatePicker
-                value={createStartDate}
-                onChange={(v) => {
-                  setCreateStartDate(v);
-                  if (!createEndDate || v > createEndDate) setCreateEndDate(v);
-                }}
-              />
-              <TimePicker
-                value={createStartTime}
-                onChange={setCreateStartTime}
-              />
-            </div>
-
-            {/* Arrow */}
-            <Icon name="arrow_forward" size={16} className="text-icon-secondary" />
-
-            {/* End column */}
-            <div className="flex-1 inline-flex flex-row justify-start items-start gap-4">
-              <DatePicker
-                value={createEndDate}
-                onChange={setCreateEndDate}
-                min={createStartDate}
-              />
-              <TimePicker
-                value={createEndTime}
-                onChange={setCreateEndTime}
-              />
-            </div>
-          </div>
-
-          {/* Título (disabled, auto-generated) */}
-          <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center">
-              <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                {autoTitle}
-              </span>
-            </div>
-            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-              <span className="text-text-tertiary text-xs font-normal leading-4">Título de la clase (Autogenerado)</span>
-            </div>
-          </div>
-
-          {/* Tema */}
-          <FloatingInput
-            id="create-class-topic"
-            label="Tema"
-            value={createTopic}
-            onChange={setCreateTopic}
-          />
-
-          {/* Enlace de la sesión */}
-          <FloatingInput
-            id="create-class-url"
-            label="Enlace de la sesión"
-            value={createMeetingUrl}
-            onChange={setCreateMeetingUrl}
-          />
-
-          {/* Asesor asignado (disabled) */}
-          <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-              <div className="flex-1 flex justify-start items-center gap-1">
-                {professors.length > 0 ? (
-                  professors.map((prof) => (
-                    <div
-                      key={prof.id}
-                      className="px-2.5 py-1.5 bg-bg-quartiary rounded-full flex justify-center items-center gap-1"
-                    >
-                      <Icon name="person" size={14} className="text-icon-disabled" variant="rounded" />
-                      <span className="text-text-secondary text-xs font-medium leading-3">
-                        {prof.firstName} {prof.lastName1}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <span className="text-text-tertiary text-base font-normal leading-4">Sin asignar</span>
-                )}
-              </div>
-              <Icon name="expand_more" size={16} className="text-icon-disabled" />
-            </div>
-            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-              <span className="text-text-tertiary text-xs font-normal leading-4">Asesor asignado</span>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Duplicate Class Modal */}
-      {duplicateSource && (
+      {/* Create / Duplicate Class Modal */}
+      {(showCreateModal || duplicateSource) && (
         <CreateClassModal
-          isOpen={!!duplicateSource}
-          onClose={() => setDuplicateSource(null)}
+          isOpen={showCreateModal || !!duplicateSource}
+          onClose={() => { setShowCreateModal(false); setDuplicateSource(null); }}
           onCreated={() => setRefreshKey((k) => k + 1)}
-          duplicateFrom={duplicateSource}
+          duplicateFrom={duplicateSource || undefined}
           courseName={courseName}
           courseCycleId={cursoId}
           evaluationId={evalId}

@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { classEventService } from '@/services/classEvent.service';
 import { evaluationsService } from '@/services/evaluations.service';
 import type { ClassEvent } from '@/types/classEvent';
 import type { Evaluation } from '@/types/api';
 import Modal from '@/components/ui/Modal';
-import FloatingInput from '@/components/ui/FloatingInput';
-import DatePicker from '@/components/ui/DatePicker';
-import TimePicker from '@/components/ui/TimePicker';
 import Icon from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/ToastContainer';
+import ClassFormFields from './ClassFormFields';
 
 // ============================================
 // Helpers
@@ -96,8 +94,8 @@ export default function CreateClassModal({
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [selectedEvalId, setSelectedEvalId] = useState(lockedEvalId || '');
   const [evalDropdownOpen, setEvalDropdownOpen] = useState(false);
-  const evalTriggerRef = useState<HTMLDivElement | null>(null);
-  const evalDropdownRef = useState<HTMLDivElement | null>(null);
+  const evalTriggerRef = useRef<HTMLDivElement | null>(null);
+  const evalDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const effectiveEvalId = lockedEvalId || selectedEvalId;
   const effectiveEvalName = lockedEvalId
@@ -261,8 +259,8 @@ export default function CreateClassModal({
   useEffect(() => {
     if (!evalDropdownOpen) return;
     const h = (e: MouseEvent) => {
-      const trigger = evalTriggerRef[0];
-      const dropdown = evalDropdownRef[0];
+      const trigger = evalTriggerRef.current;
+      const dropdown = evalDropdownRef.current;
       if (trigger && !trigger.contains(e.target as Node) && dropdown && !dropdown.contains(e.target as Node)) {
         setEvalDropdownOpen(false);
       }
@@ -303,134 +301,63 @@ export default function CreateClassModal({
         </>
       }
     >
-      <div className="flex flex-col gap-4">
-        {/* Curso (disabled) */}
-        <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-          <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-            <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">{courseName}</span>
-            <Icon name="expand_more" size={20} className="text-gray-500" />
-          </div>
-          <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-            <span className="text-text-tertiary text-xs font-normal leading-4">Curso</span>
-          </div>
-        </div>
-
-        {/* Evaluación asociada */}
-        {allowEvalSelection && !lockedEvalId ? (
-          <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-            <div
-              ref={(el) => { evalTriggerRef[0] = el; }}
-              onClick={() => setEvalDropdownOpen(!evalDropdownOpen)}
-              className={`self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${evalDropdownOpen ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} inline-flex justify-start items-center gap-2 cursor-pointer`}
-            >
-              <span className={`flex-1 text-base font-normal leading-4 line-clamp-1 ${effectiveEvalName ? 'text-text-primary' : 'text-text-tertiary'}`}>
-                {effectiveEvalName || 'Evaluación asociada'}
-              </span>
-              <Icon name="expand_more" size={20} className={evalDropdownOpen ? 'text-icon-accent-primary' : 'text-icon-tertiary'} />
-            </div>
-            {effectiveEvalName && (
-              <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-                <span className={`text-xs font-normal leading-4 ${evalDropdownOpen ? 'text-text-accent-primary' : 'text-text-tertiary'}`}>Evaluación asociada</span>
-              </div>
-            )}
-            {evalDropdownOpen && createPortal(
+        <ClassFormFields
+          courseName={courseName}
+          evaluationName={effectiveEvalName}
+          startDate={startDate} startTime={startTime} endDate={endDate} endTime={endTime}
+          onStartDateChange={setStartDate} onStartTimeChange={setStartTime}
+          onEndDateChange={setEndDate} onEndTimeChange={setEndTime}
+          autoTitle={autoTitle}
+          topic={topic} onTopicChange={setTopic}
+          meetingUrl={meetingUrl} onMeetingUrlChange={setMeetingUrl}
+          professorNames={professorNames}
+          idPrefix="create-class"
+          afterTitle={renderAlert()}
+          evaluationField={allowEvalSelection && !lockedEvalId ? (
+            <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
               <div
-                ref={(el) => { evalDropdownRef[0] = el; }}
-                style={{
-                  position: 'fixed',
-                  top: evalTriggerRef[0] ? evalTriggerRef[0].getBoundingClientRect().bottom + 4 : 0,
-                  left: evalTriggerRef[0] ? evalTriggerRef[0].getBoundingClientRect().left : 0,
-                  width: evalTriggerRef[0] ? evalTriggerRef[0].getBoundingClientRect().width : 'auto',
-                  zIndex: 9999,
-                }}
-                className="p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
+                ref={(el) => { evalTriggerRef.current = el; }}
+                onClick={() => setEvalDropdownOpen(!evalDropdownOpen)}
+                className={`self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${evalDropdownOpen ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} inline-flex justify-start items-center gap-2 cursor-pointer`}
               >
-                {evaluations.map((ev) => (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    onClick={() => { setSelectedEvalId(ev.id); setEvalDropdownOpen(false); }}
-                    className="self-stretch px-2 py-3 rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
-                  >
-                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">{getEvalLabel(ev)}</span>
-                  </button>
-                ))}
-              </div>,
-              document.body,
-            )}
-          </div>
-        ) : (
-          <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-              <span className={`flex-1 text-base font-normal leading-4 line-clamp-1 ${effectiveEvalName ? 'text-text-primary' : 'text-text-tertiary'}`}>
-                {effectiveEvalName || 'Evaluación asociada'}
-              </span>
-              <Icon name="expand_more" size={20} className="text-gray-500" />
-            </div>
-            {effectiveEvalName && (
-              <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-                <span className="text-text-tertiary text-xs font-normal leading-4">Evaluación asociada</span>
+                <span className={`flex-1 text-base font-normal leading-4 line-clamp-1 ${effectiveEvalName ? 'text-text-primary' : 'text-text-tertiary'}`}>
+                  {effectiveEvalName || (evalDropdownOpen ? '\u00A0' : 'Evaluación asociada')}
+                </span>
+                <Icon name="expand_more" size={20} className={evalDropdownOpen ? 'text-icon-accent-primary' : 'text-icon-tertiary'} />
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Date/Time grid */}
-        <div className="self-stretch inline-flex justify-center items-center gap-2">
-          <div className="flex-1 inline-flex flex-col justify-start items-start">
-            <DatePicker value={startDate} onChange={(v) => { setStartDate(v); if (!endDate || v > endDate) setEndDate(v); }} />
-            <TimePicker value={startTime} onChange={setStartTime} />
-          </div>
-          <Icon name="arrow_forward" size={16} className="text-icon-secondary" />
-          <div className="flex-1 inline-flex flex-col justify-start items-start">
-            <DatePicker value={endDate} onChange={setEndDate} min={startDate} />
-            <TimePicker value={endTime} onChange={setEndTime} />
-          </div>
-        </div>
-
-        {/* Título (disabled, auto-generated) */}
-        <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-          <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center">
-            <span className={`flex-1 text-base font-normal leading-4 line-clamp-1 ${autoTitle ? 'text-text-primary' : 'text-text-tertiary'}`}>
-              {autoTitle || 'Título de la clase (Autogenerado)'}
-            </span>
-          </div>
-          {autoTitle && (
-            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-              <span className="text-text-tertiary text-xs font-normal leading-4">Título de la clase (Autogenerado)</span>
-            </div>
-          )}
-        </div>
-
-        {/* Schedule alert */}
-        {renderAlert()}
-
-        {/* Tema */}
-        <FloatingInput id="create-class-topic" label="Tema" value={topic} onChange={setTopic} />
-
-        {/* Enlace */}
-        <FloatingInput id="create-class-url" label="Enlace de la sesión" value={meetingUrl} onChange={setMeetingUrl} />
-
-        {/* Asesor asignado (disabled) */}
-        <div className="self-stretch relative flex flex-col justify-start items-start gap-1">
-          <div className="self-stretch h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-            <div className="flex-1 flex justify-start items-center gap-1">
-              {professorNames.length > 0 ? professorNames.map((name, i) => (
-                <div key={i} className="px-2.5 py-1.5 bg-bg-quartiary rounded-full flex justify-center items-center gap-1">
-                  <Icon name="person" size={14} className="text-gray-500" variant="rounded" />
-                  <span className="text-text-secondary text-xs font-medium leading-3">{name}</span>
+              {(effectiveEvalName || evalDropdownOpen) && (
+                <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
+                  <span className={`text-xs font-normal leading-4 ${evalDropdownOpen ? 'text-text-accent-primary' : 'text-text-tertiary'}`}>Evaluación asociada</span>
                 </div>
-              )) : (
-                <span className="text-text-tertiary text-base font-normal leading-4">Sin asignar</span>
+              )}
+              {evalDropdownOpen && createPortal(
+                <div
+                  ref={(el) => { evalDropdownRef.current = el; }}
+                  style={{
+                    position: 'fixed',
+                    top: evalTriggerRef.current ? evalTriggerRef.current.getBoundingClientRect().bottom + 4 : 0,
+                    left: evalTriggerRef.current ? evalTriggerRef.current.getBoundingClientRect().left : 0,
+                    width: evalTriggerRef.current ? evalTriggerRef.current.getBoundingClientRect().width : 'auto',
+                    zIndex: 9999,
+                  }}
+                  className="p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
+                >
+                  {evaluations.map((ev) => (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => { setSelectedEvalId(ev.id); setEvalDropdownOpen(false); }}
+                      className="self-stretch px-2 py-3 rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                    >
+                      <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">{getEvalLabel(ev)}</span>
+                    </button>
+                  ))}
+                </div>,
+                document.body,
               )}
             </div>
-            <Icon name="person_add_alt" size={16} className="text-gray-500" />
-          </div>
-          <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-            <span className="text-text-tertiary text-xs font-normal leading-4">Asesor asignado</span>
-          </div>
-        </div>
-      </div>
+          ) : undefined}
+        />
     </Modal>
 
     {/* Discard confirmation */}

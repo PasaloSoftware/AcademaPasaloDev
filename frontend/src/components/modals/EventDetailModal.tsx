@@ -231,7 +231,7 @@ export default function EventDetailModal({
                 <Icon name="more_vert" size={20} className="text-icon-tertiary" />
               </button>
               {threeDotsOpen && (
-                <div className="absolute right-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
+                <div className="absolute left-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
                   {onDuplicate && (
                     <button
                       onClick={() => { setThreeDotsOpen(false); onClose(); onDuplicate(); }}
