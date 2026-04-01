@@ -427,7 +427,7 @@ function UpdateVideoModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="px-6 py-3 bg-bg-info-primary-light rounded-lg inline-flex items-center gap-1.5 hover:bg-bg-info-primary-light/80 transition-colors"
               >
-                <Icon name="upload_file" size={16} className="text-icon-info-primary" variant="outlined" />
+                <Icon name="file_upload" size={16} className="text-icon-info-primary" variant="outlined" />
                 <span className="text-text-info-primary text-sm font-medium leading-4">Seleccionar Video</span>
               </button>
             </div>
