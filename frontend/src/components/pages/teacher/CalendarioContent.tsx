@@ -145,15 +145,15 @@ export default function CalendarioContent() {
         onToday={goToToday}
         onCourseChange={filterByCourse}
         actions={
-          <button
+            <button
             onClick={() => setIsCreateOpen(true)}
-            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-          >
-            <Icon name="add" size={16} className="text-icon-accent-primary" />
-            <span className="text-text-accent-primary text-sm font-medium leading-4">
+            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
+            >
+            <Icon name="add" size={16} className="text-icon-white" />
+            <span className="text-text-white text-sm font-medium leading-4">
               Crear Evento
             </span>
-          </button>
+            </button>
         }
       />
 

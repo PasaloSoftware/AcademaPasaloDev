@@ -679,7 +679,7 @@ function ContextMenuButton({
     ].join('\n');
     try {
       await navigator.clipboard.writeText(summary);
-      showToast({ type: 'success', title: 'Copiado', description: 'Resumen copiado al portapapeles.' });
+      showToast({ type: 'success', title: 'Resumen del evento copiado', description: 'Ahora puedes compartirlo fácilmente.' });
     } catch {
       showToast({ type: 'error', title: 'Error', description: 'No se pudo copiar.' });
     }
