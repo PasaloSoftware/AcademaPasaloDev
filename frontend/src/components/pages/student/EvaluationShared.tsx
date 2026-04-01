@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { classEventService } from "@/services/classEvent.service";
 import { materialsService } from "@/services/materials.service";
@@ -10,7 +10,7 @@ import Icon from "@/components/ui/Icon";
 import ClassMaterialsModal from "@/components/modals/ClassMaterialsModal";
 import MaterialPreviewModal from "@/components/materials/MaterialPreviewModal";
 import ExpandableFolderList from "@/components/shared/ExpandableFolderList";
-import type { ExpandableFolder } from "@/components/shared/ExpandableFolderList";
+import type { ExpandableFolder, MaterialAction } from "@/components/shared/ExpandableFolderList";
 
 // ============================================
 // Helpers de formato
@@ -224,16 +224,21 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
 // Class Session Card
 // ============================================
 
+export type SessionMenuAction = "edit" | "duplicate" | "copy-summary" | "delete";
+
 export function ClassSessionCard({
   event,
   onOpenMaterials,
   getClassPageUrl,
+  onMenuAction,
 }: {
   event: ClassEvent;
   materials: ClassEventMaterial[];
   loadingMaterials: boolean;
   onOpenMaterials: (eventId: string) => void;
   getClassPageUrl: (eventId: string) => string;
+  /** If provided, shows teacher context menu instead of opening materials */
+  onMenuAction?: (eventId: string, action: SessionMenuAction) => void;
 }) {
   const router = useRouter();
   const cardType = getSessionCardType(event);
@@ -241,6 +246,8 @@ export function ClassSessionCard({
   const isLive = cardType === "EN_VIVO" || cardType === "EN_VIVO_PRONTO";
   const [minutesLeft, setMinutesLeft] = useState(() => getMinutesUntilStart(event.startDatetime));
   const [minutesAgo, setMinutesAgo] = useState(() => getMinutesSinceStart(event.startDatetime));
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isLive) return;
@@ -262,9 +269,30 @@ export function ClassSessionCard({
     }
   };
 
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!showContextMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setShowContextMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showContextMenu]);
+
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onOpenMaterials(event.id);
+    if (onMenuAction) {
+      setShowContextMenu((prev) => !prev);
+    } else {
+      onOpenMaterials(event.id);
+    }
+  };
+
+  const handleAction = (action: SessionMenuAction) => {
+    setShowContextMenu(false);
+    onMenuAction?.(event.id, action);
   };
 
   const formatLiveTime = useCallback(() => {
@@ -429,12 +457,46 @@ export function ClassSessionCard({
               </span>
             </div>
             <SessionBadge event={event} cardType={cardType} />
-            <button
-              onClick={handleMenuClick}
-              className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
-            >
-              <Icon name="more_vert" size={20} className="text-icon-tertiary" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={handleMenuClick}
+                className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
+              >
+                <Icon name="more_vert" size={20} className="text-icon-tertiary" />
+              </button>
+              {showContextMenu && onMenuAction && (
+                <div
+                  ref={contextMenuRef}
+                  className="absolute right-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start"
+                >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("edit"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
+                  </button>
+                  {/*<button
+                    onClick={(e) => { e.stopPropagation(); handleAction("duplicate"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Duplicar</span>
+                  </button>*/}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("copy-summary"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Copiar resumen</span>
+                  </button>
+                  <div className="self-stretch h-px bg-stroke-secondary" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("delete"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {renderDateInfo()}
         </div>
@@ -465,6 +527,10 @@ interface EvaluationPageContentProps {
   canCreateClass?: boolean;
   /** Callback al dar click en "Crear Clase" */
   onCreateClass?: () => void;
+  /** Callback para acciones del menú contextual de docente en cada card */
+  onSessionMenuAction?: (eventId: string, action: SessionMenuAction) => void;
+  /** Callback para acciones del menú contextual de docente en materiales adicionales */
+  onMaterialMenuAction?: (material: FolderMaterial, action: MaterialAction) => void;
   /** Tab inicial (por defecto "sesiones") */
   defaultTab?: EvalTabOption;
 }
@@ -477,6 +543,8 @@ export function EvaluationPageContent({
   onUploadMaterial,
   canCreateClass,
   onCreateClass,
+  onSessionMenuAction,
+  onMaterialMenuAction,
   defaultTab = "sesiones",
 }: EvaluationPageContentProps) {
   const [activeTab, setActiveTab] = useState<EvalTabOption>(defaultTab);
@@ -504,7 +572,7 @@ export function EvaluationPageContent({
       setErrorEvents(null);
       try {
         const data = await classEventService.getEvaluationEvents(evalId);
-        setEvents(data);
+        setEvents(data.filter((e) => !e.isCancelled));
         if (data.length > 0 && data[0].evaluationName && onEvalNameDetected) {
           onEvalNameDetected(data[0].evaluationName);
         }
@@ -646,7 +714,7 @@ export function EvaluationPageContent({
 
       {/* TAB: Sesiones de Clase */}
       {activeTab === "sesiones" && (
-        <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
+        <div className="self-stretch flex flex-col justify-start items-start gap-6">
           <div className="self-stretch inline-flex justify-between items-center gap-4">
             <span className="text-text-primary text-2xl font-semibold leading-7">
               Sesiones de Clase
@@ -698,6 +766,7 @@ export function EvaluationPageContent({
                   loadingMaterials={loadingMaterialsMap[event.id] || false}
                   onOpenMaterials={handleOpenMaterials}
                   getClassPageUrl={getClassPageUrl}
+                  onMenuAction={onSessionMenuAction}
                 />
               ))}
             </div>
@@ -707,7 +776,7 @@ export function EvaluationPageContent({
 
       {/* TAB: Material Adicional */}
       {activeTab === "material" && (
-        <div className="self-stretch inline-flex flex-col justify-start items-start gap-6 overflow-hidden">
+        <div className="self-stretch inline-flex flex-col justify-start items-start gap-6">
           {loadingFolders && (
             <div className="self-stretch flex justify-center py-12">
               <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
@@ -751,6 +820,7 @@ export function EvaluationPageContent({
                 </button>
               ) : undefined}
               onUploadToFolder={canUploadMaterials && onUploadMaterial ? (folderId) => onUploadMaterial(folderId) : undefined}
+              onMaterialAction={onMaterialMenuAction}
             />
           )}
         </div>

@@ -7,13 +7,19 @@ import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
 import { classEventService } from '@/services/classEvent.service';
 import { materialsService } from '@/services/materials.service';
+import type { ClassEvent } from '@/types/classEvent';
 import Icon from '@/components/ui/Icon';
 import Modal from '@/components/ui/Modal';
 import FloatingInput from '@/components/ui/FloatingInput';
+import DatePicker from '@/components/ui/DatePicker';
+import TimePicker from '@/components/ui/TimePicker';
 import { useToast } from '@/components/ui/ToastContainer';
-import { EvaluationPageContent } from '@/components/pages/student/EvaluationShared';
+import { EvaluationPageContent, formatDate, formatSingleTime } from '@/components/pages/student/EvaluationShared';
+import type { SessionMenuAction } from '@/components/pages/student/EvaluationShared';
 import MaterialUploadView from '@/components/shared/MaterialUploadView';
 import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadView';
+import type { MaterialAction } from '@/components/shared/ExpandableFolderList';
+import type { FolderMaterial } from '@/types/material';
 import type { Professor } from '@/types/enrollment';
 
 interface EvaluationContentProps {
@@ -24,23 +30,6 @@ interface EvaluationContentProps {
 // ============================================
 // Helpers
 // ============================================
-
-function formatDateForDisplay(dateStr: string): string {
-  const date = new Date(dateStr + 'T12:00:00');
-  return date.toLocaleDateString('es-PE', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'America/Lima',
-  });
-}
-
-function formatTimeForDisplay(timeStr: string): string {
-  const [h, m] = timeStr.split(':').map(Number);
-  const hourNum = h % 12 || 12;
-  const ampm = h >= 12 ? 'pm' : 'am';
-  return m === 0 ? `${hourNum}:00${ampm}` : `${hourNum}:${m.toString().padStart(2, '0')}${ampm}`;
-}
 
 function getTodayDateStr(): string {
   const now = new Date();
@@ -212,6 +201,199 @@ export default function EvaluationContent({
     }
   }, [canSubmitCreate, createStartDate, createStartTime, createEndDate, createEndTime, evalId, nextSessionNumber, autoTitle, createTopic, createMeetingUrl, showToast]);
 
+  // ---- Session menu actions (teacher) ----
+
+  const [editEvent, setEditEvent] = useState<ClassEvent | null>(null);
+  const [editTopic, setEditTopic] = useState('');
+  const [editUrl, setEditUrl] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const [deleteEvent, setDeleteEvent] = useState<ClassEvent | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const handleSessionMenuAction = useCallback(async (eventId: string, action: SessionMenuAction) => {
+    // Fetch fresh event data
+    let ev: ClassEvent;
+    try {
+      ev = await classEventService.getEventDetail(eventId);
+    } catch {
+      showToast({ type: 'error', title: 'Error', description: 'No se pudo cargar la información de la clase.' });
+      return;
+    }
+
+    if (action === 'edit') {
+      setEditEvent(ev);
+      setEditTopic(ev.topic);
+      setEditUrl(ev.liveMeetingUrl || '');
+      const start = new Date(ev.startDatetime);
+      const end = new Date(ev.endDatetime);
+      setEditStartDate(start.toISOString().split('T')[0]);
+      setEditStartTime(start.toTimeString().slice(0, 5));
+      setEditEndDate(end.toISOString().split('T')[0]);
+      setEditEndTime(end.toTimeString().slice(0, 5));
+    }
+
+    if (action === 'duplicate') {
+      try {
+        const events = await classEventService.getEvaluationEvents(evalId);
+        const newNum = events.length + 1;
+        await classEventService.createEvent({
+          evaluationId: evalId,
+          sessionNumber: newNum,
+          title: `Clase ${newNum} - ${evalShortName}`,
+          topic: ev.topic,
+          startDatetime: ev.startDatetime,
+          endDatetime: ev.endDatetime,
+          liveMeetingUrl: ev.liveMeetingUrl || '',
+        });
+        setRefreshKey((k) => k + 1);
+        showToast({ type: 'success', title: 'Clase duplicada', description: `Clase ${newNum} - ${evalShortName} ha sido creada.` });
+      } catch (err) {
+        showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo duplicar la clase.' });
+      }
+    }
+
+    if (action === 'copy-summary') {
+      const start = new Date(ev.startDatetime);
+      const end = new Date(ev.endDatetime);
+      const dayStr = start.toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Lima' });
+      const dayCapitalized = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
+      const startTimeStr = formatSingleTime(start, true).toUpperCase();
+      const endTimeStr = formatSingleTime(end, true).toUpperCase();
+      const profNames = ev.professors.map((p) => `${p.firstName} ${p.lastName1}`).join(', ') || 'Sin asignar';
+
+      const summary = [
+        `▶️ CLASE ${ev.sessionNumber} - ${evalShortName}`,
+        `Curso: ${courseName}`,
+        `📒 Tema: ${ev.topic}`,
+        `🎙️ Asesor(a): ${profNames}`,
+        `🗓 Fecha: ${dayCapitalized}`,
+        `⏰ Hora: ${startTimeStr} - ${endTimeStr}`,
+        `🔗 Enlace: ${ev.liveMeetingUrl || 'No disponible'}`,
+      ].join('\n');
+
+      try {
+        await navigator.clipboard.writeText(summary);
+        showToast({ type: 'success', title: 'Copiado', description: 'El resumen ha sido copiado al portapapeles.' });
+      } catch {
+        showToast({ type: 'error', title: 'Error', description: 'No se pudo copiar al portapapeles.' });
+      }
+    }
+
+    if (action === 'delete') {
+      setDeleteEvent(ev);
+    }
+  }, [evalId, evalShortName, courseName, showToast]);
+
+  const handleEditSubmit = useCallback(async () => {
+    if (!editEvent || !editTopic.trim()) return;
+    setEditSubmitting(true);
+    try {
+      const startDatetime = `${editStartDate}T${editStartTime}:00`;
+      const endDatetime = `${editEndDate}T${editEndTime}:00`;
+      if (new Date(endDatetime) <= new Date(startDatetime)) {
+        showToast({ type: 'error', title: 'Error', description: 'La hora de fin debe ser posterior a la hora de inicio.' });
+        setEditSubmitting(false);
+        return;
+      }
+      await classEventService.updateEvent(editEvent.id, {
+        topic: editTopic.trim(),
+        liveMeetingUrl: editUrl.trim() || undefined,
+        startDatetime,
+        endDatetime,
+      });
+      setEditEvent(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Clase actualizada', description: 'Los cambios han sido guardados.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo actualizar la clase.' });
+    } finally {
+      setEditSubmitting(false);
+    }
+  }, [editEvent, editTopic, editUrl, editStartDate, editStartTime, editEndDate, editEndTime, showToast]);
+
+  const handleDeleteSubmit = useCallback(async () => {
+    if (!deleteEvent) return;
+    setDeleteSubmitting(true);
+    try {
+      await classEventService.cancelEvent(deleteEvent.id);
+      setDeleteEvent(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Clase eliminada', description: 'La clase ha sido cancelada correctamente.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo eliminar la clase.' });
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }, [deleteEvent, showToast]);
+
+  // ---- Material menu actions (teacher) ----
+
+  const [infoMat, setInfoMat] = useState<FolderMaterial | null>(null);
+  const [renameMat, setRenameMat] = useState<FolderMaterial | null>(null);
+  const [renameMatValue, setRenameMatValue] = useState('');
+  const [renameMatLoading, setRenameMatLoading] = useState(false);
+  const [deleteMat, setDeleteMat] = useState<FolderMaterial | null>(null);
+  const [deleteMatLoading, setDeleteMatLoading] = useState(false);
+
+  const handleMaterialMenuAction = useCallback((material: FolderMaterial, action: MaterialAction) => {
+    if (action === 'open') {
+      // Preview handled by ExpandableFolderList onPreviewMaterial
+      return;
+    }
+    if (action === 'rename') {
+      setRenameMat(material);
+      const dotIdx = material.displayName.lastIndexOf('.');
+      setRenameMatValue(dotIdx > 0 ? material.displayName.substring(0, dotIdx) : material.displayName);
+    }
+    if (action === 'download') {
+      materialsService.downloadMaterial(material.id, material.displayName);
+    }
+    if (action === 'info') {
+      setInfoMat(material);
+    }
+    if (action === 'delete') {
+      setDeleteMat(material);
+    }
+  }, []);
+
+  const handleRenameMatSubmit = useCallback(async () => {
+    if (!renameMat || !renameMatValue.trim()) return;
+    setRenameMatLoading(true);
+    try {
+      const ext = renameMat.displayName.lastIndexOf('.') > 0
+        ? renameMat.displayName.substring(renameMat.displayName.lastIndexOf('.'))
+        : '';
+      await materialsService.renameDisplayName(renameMat.id, renameMatValue.trim() + ext);
+      setRenameMat(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Nombre actualizado', description: 'El material ha sido renombrado.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo renombrar.' });
+    } finally {
+      setRenameMatLoading(false);
+    }
+  }, [renameMat, renameMatValue, showToast]);
+
+  const handleDeleteMatSubmit = useCallback(async () => {
+    if (!deleteMat) return;
+    setDeleteMatLoading(true);
+    try {
+      await materialsService.requestDeletion(deleteMat.id, 'Eliminado por docente');
+      setDeleteMat(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Solicitud enviada', description: 'El material se ocultará hasta aprobación.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo eliminar.' });
+    } finally {
+      setDeleteMatLoading(false);
+    }
+  }, [deleteMat, showToast]);
+
   // ---- Upload View ----
   if (showUploadView) {
     return (
@@ -228,7 +410,7 @@ export default function EvaluationContent({
 
   // ---- Normal View ----
   return (
-    <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
+    <div className="w-full inline-flex flex-col justify-start items-start">
       {/* Back Link */}
       <Link
         href={`/plataforma/curso/${cursoId}`}
@@ -273,6 +455,8 @@ export default function EvaluationContent({
         onUploadMaterial={openUploadView}
         canCreateClass
         onCreateClass={openCreateModal}
+        onSessionMenuAction={handleSessionMenuAction}
+        onMaterialMenuAction={handleMaterialMenuAction}
         defaultTab={returnToMaterialTab ? 'material' : 'sesiones'}
       />
 
@@ -329,31 +513,17 @@ export default function EvaluationContent({
           <div className="self-stretch inline-flex justify-center items-center gap-2">
             {/* Start column */}
             <div className="flex-1 inline-flex flex-row justify-start items-start gap-4">
-              <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center cursor-pointer relative">
-                <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                  {createStartDate ? formatDateForDisplay(createStartDate) : 'Fecha'}
-                </span>
-                <input
-                  type="date"
-                  value={createStartDate}
-                  onChange={(e) => {
-                    setCreateStartDate(e.target.value);
-                    if (!createEndDate || e.target.value > createEndDate) setCreateEndDate(e.target.value);
-                  }}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-              </div>
-              <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center cursor-pointer relative">
-                <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                  {createStartTime ? formatTimeForDisplay(createStartTime) : 'Hora'}
-                </span>
-                <input
-                  type="time"
-                  value={createStartTime}
-                  onChange={(e) => setCreateStartTime(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-              </div>
+              <DatePicker
+                value={createStartDate}
+                onChange={(v) => {
+                  setCreateStartDate(v);
+                  if (!createEndDate || v > createEndDate) setCreateEndDate(v);
+                }}
+              />
+              <TimePicker
+                value={createStartTime}
+                onChange={setCreateStartTime}
+              />
             </div>
 
             {/* Arrow */}
@@ -361,29 +531,15 @@ export default function EvaluationContent({
 
             {/* End column */}
             <div className="flex-1 inline-flex flex-row justify-start items-start gap-4">
-              <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center cursor-pointer relative">
-                <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                  {createEndDate ? formatDateForDisplay(createEndDate) : 'Fecha'}
-                </span>
-                <input
-                  type="date"
-                  value={createEndDate}
-                  min={createStartDate}
-                  onChange={(e) => setCreateEndDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-              </div>
-              <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center cursor-pointer relative">
-                <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">
-                  {createEndTime ? formatTimeForDisplay(createEndTime) : 'Hora'}
-                </span>
-                <input
-                  type="time"
-                  value={createEndTime}
-                  onChange={(e) => setCreateEndTime(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-              </div>
+              <DatePicker
+                value={createEndDate}
+                onChange={setCreateEndDate}
+                min={createStartDate}
+              />
+              <TimePicker
+                value={createEndTime}
+                onChange={setCreateEndTime}
+              />
             </div>
           </div>
 
@@ -443,6 +599,140 @@ export default function EvaluationContent({
           </div>
         </div>
       </Modal>
+
+      {/* Edit Class Modal */}
+      <Modal
+        isOpen={!!editEvent}
+        onClose={() => setEditEvent(null)}
+        title="Editar Clase"
+        size="lg"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setEditEvent(null)}>
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              disabled={!editTopic.trim()}
+              loading={editSubmitting}
+              loadingText="Guardando..."
+              onClick={handleEditSubmit}
+            >
+              Guardar
+            </Modal.Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {/* Date/Time grid */}
+          <div className="self-stretch inline-flex justify-center items-center gap-2">
+            <div className="flex-1 inline-flex flex-row gap-4 justify-start items-start">
+              <DatePicker value={editStartDate} onChange={(v) => { setEditStartDate(v); if (v > editEndDate) setEditEndDate(v); }} />
+              <TimePicker value={editStartTime} onChange={setEditStartTime} />
+            </div>
+            <Icon name="arrow_forward" size={16} className="text-icon-secondary" />
+            <div className="flex-1 inline-flex flex-row gap-4 justify-start items-start">
+              <DatePicker value={editEndDate} onChange={setEditEndDate} min={editStartDate} />
+              <TimePicker value={editEndTime} onChange={setEditEndTime} />
+            </div>
+          </div>
+
+          <FloatingInput id="edit-class-topic" label="Tema" value={editTopic} onChange={setEditTopic} />
+          <FloatingInput id="edit-class-url" label="Enlace de la sesión" value={editUrl} onChange={setEditUrl} />
+        </div>
+      </Modal>
+
+      {/* Delete Class Modal */}
+      <Modal
+        isOpen={!!deleteEvent}
+        onClose={() => setDeleteEvent(null)}
+        title="¿Eliminar esta clase?"
+        size="sm"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setDeleteEvent(null)}>
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              variant="danger"
+              loading={deleteSubmitting}
+              loadingText="Eliminando..."
+              onClick={handleDeleteSubmit}
+            >
+              Eliminar
+            </Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-tertiary text-base font-normal leading-5">
+          ¿Estás seguro de que deseas eliminar <strong>Clase {deleteEvent?.sessionNumber}: {deleteEvent?.topic}</strong>? Esta acción no se puede deshacer.
+        </p>
+      </Modal>
+
+      {/* Rename Material Modal */}
+      <Modal
+        isOpen={!!renameMat}
+        onClose={() => setRenameMat(null)}
+        title="Cambiar nombre"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setRenameMat(null)}>Cancelar</Modal.Button>
+            <Modal.Button disabled={!renameMatValue.trim()} loading={renameMatLoading} loadingText="Guardando..." onClick={handleRenameMatSubmit}>Guardar</Modal.Button>
+          </>
+        }
+      >
+        <FloatingInput id="rename-material" label="Nombre" value={renameMatValue} onChange={setRenameMatValue} />
+      </Modal>
+
+      {/* Delete Material Modal */}
+      <Modal
+        isOpen={!!deleteMat}
+        onClose={() => setDeleteMat(null)}
+        title="¿Eliminar este material?"
+        size="sm"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setDeleteMat(null)}>Cancelar</Modal.Button>
+            <Modal.Button variant="danger" loading={deleteMatLoading} loadingText="Eliminando..." onClick={handleDeleteMatSubmit}>Eliminar</Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-tertiary text-base font-normal leading-5">
+          La solicitud de eliminación será enviada a los administradores y el material se ocultará hasta que sea aprobada.
+        </p>
+      </Modal>
+
+      {/* Material Info Modal */}
+      {infoMat && (
+        <Modal
+          isOpen
+          onClose={() => setInfoMat(null)}
+          title="Información del material"
+          size="sm"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Nombre</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {infoMat.displayName.lastIndexOf('.') > 0
+                  ? infoMat.displayName.substring(0, infoMat.displayName.lastIndexOf('.'))
+                  : infoMat.displayName}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Tipo</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {(infoMat.displayName.split('.').pop() || 'Desconocido').toUpperCase()}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Subido</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {new Date(infoMat.createdAt).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Lima' })}
+              </span>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
