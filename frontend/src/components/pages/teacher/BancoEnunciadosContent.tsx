@@ -8,6 +8,9 @@ import { coursesService } from '@/services/courses.service';
 import { materialsService } from '@/services/materials.service';
 import type { FolderMaterial } from '@/types/material';
 import Icon from '@/components/ui/Icon';
+import Modal from '@/components/ui/Modal';
+import FloatingInput from '@/components/ui/FloatingInput';
+import { useToast } from '@/components/ui/ToastContainer';
 import ExpandableFolderList from '@/components/shared/ExpandableFolderList';
 import MaterialPreviewModal from '@/components/materials/MaterialPreviewModal';
 import MaterialUploadView from '@/components/shared/MaterialUploadView';
@@ -15,6 +18,7 @@ import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadVie
 import type {
   ExpandableFolder,
   FolderIconConfig,
+  MaterialAction,
 } from '@/components/shared/ExpandableFolderList';
 
 const typeIconConfigs: Record<string, FolderIconConfig> = {
@@ -64,6 +68,7 @@ export default function BancoEnunciadosContent({
 }: BancoEnunciadosContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const { showToast } = useToast();
 
   const [courseName, setCourseName] = useState('');
   const [typeName, setTypeName] = useState('');
@@ -223,6 +228,67 @@ export default function BancoEnunciadosContent({
     if (backendId) openUploadView(backendId);
   }, [folderIdMap, openUploadView]);
 
+  // ---- Material menu actions ----
+  const [infoMat, setInfoMat] = useState<FolderMaterial | null>(null);
+  const [renameMat, setRenameMat] = useState<FolderMaterial | null>(null);
+  const [renameMatValue, setRenameMatValue] = useState('');
+  const [renameMatLoading, setRenameMatLoading] = useState(false);
+  const [deleteMat, setDeleteMat] = useState<FolderMaterial | null>(null);
+  const [deleteMatLoading, setDeleteMatLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleMaterialAction = useCallback((material: FolderMaterial, action: MaterialAction) => {
+    if (action === 'rename') {
+      setRenameMat(material);
+      const dotIdx = material.displayName.lastIndexOf('.');
+      setRenameMatValue(dotIdx > 0 ? material.displayName.substring(0, dotIdx) : material.displayName);
+    }
+    if (action === 'download') {
+      handleDownloadMaterial(material);
+    }
+    if (action === 'info') {
+      setInfoMat(material);
+    }
+    if (action === 'delete') {
+      setDeleteMat(material);
+    }
+  }, [handleDownloadMaterial]);
+
+  const handleRenameMatSubmit = useCallback(async () => {
+    if (!renameMat || !renameMatValue.trim()) return;
+    setRenameMatLoading(true);
+    try {
+      const ext = renameMat.displayName.lastIndexOf('.') > 0
+        ? renameMat.displayName.substring(renameMat.displayName.lastIndexOf('.'))
+        : '';
+      await materialsService.renameDisplayName(renameMat.id, renameMatValue.trim() + ext);
+      setRenameMat(null);
+      setRefreshKey((k) => k + 1);
+      router.refresh();
+      showToast({ type: 'success', title: 'Nombre actualizado', description: 'El material ha sido renombrado.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo renombrar.' });
+    } finally {
+      setRenameMatLoading(false);
+    }
+  }, [renameMat, renameMatValue, showToast, router]);
+
+  const handleDeleteMatSubmit = useCallback(async () => {
+    if (!deleteMat) return;
+    setDeleteMatLoading(true);
+    try {
+      await materialsService.requestDeletion(deleteMat.id, 'Eliminado por docente');
+      setDeleteMat(null);
+      setRefreshKey((k) => k + 1);
+      router.refresh();
+      showToast({ type: 'success', title: 'Solicitud enviada', description: 'El material se ocultará hasta aprobación.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo eliminar.' });
+    } finally {
+      setDeleteMatLoading(false);
+    }
+  }, [deleteMat, showToast, router]);
+
   const iconConfig = typeIconConfigs[typeCode] || defaultTypeIconConfig;
   const displayTitle =
     typeName ||
@@ -282,7 +348,7 @@ export default function BancoEnunciadosContent({
   }
 
   return (
-    <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden gap-8">
+    <div className="w-full inline-flex flex-col justify-start items-start gap-8">
       <Link
         href={`/plataforma/curso/${cursoId}`}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2"
@@ -315,6 +381,7 @@ export default function BancoEnunciadosContent({
             </button>
           }
           onUploadToFolder={handleUploadToFolder}
+          onMaterialAction={handleMaterialAction}
         />
       ) : (
         <>
@@ -348,6 +415,72 @@ export default function BancoEnunciadosContent({
           initialIndex={previewIndex}
           onClose={() => setPreviewMaterials(null)}
         />
+      )}
+
+      {/* Rename Material Modal */}
+      <Modal
+        isOpen={!!renameMat}
+        onClose={() => setRenameMat(null)}
+        title="Cambiar nombre"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setRenameMat(null)}>Cancelar</Modal.Button>
+            <Modal.Button disabled={!renameMatValue.trim()} loading={renameMatLoading} loadingText="Guardando..." onClick={handleRenameMatSubmit}>Guardar</Modal.Button>
+          </>
+        }
+      >
+        <FloatingInput id="rename-banco-material" label="Nombre" value={renameMatValue} onChange={setRenameMatValue} />
+      </Modal>
+
+      {/* Delete Material Modal */}
+      <Modal
+        isOpen={!!deleteMat}
+        onClose={() => setDeleteMat(null)}
+        title="¿Eliminar este material?"
+        size="sm"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setDeleteMat(null)}>Cancelar</Modal.Button>
+            <Modal.Button variant="danger" loading={deleteMatLoading} loadingText="Eliminando..." onClick={handleDeleteMatSubmit}>Eliminar</Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-tertiary text-base font-normal leading-5">
+          La solicitud de eliminación será enviada a los administradores y el material se ocultará hasta que sea aprobada.
+        </p>
+      </Modal>
+
+      {/* Material Info Modal */}
+      {infoMat && (
+        <Modal
+          isOpen
+          onClose={() => setInfoMat(null)}
+          title="Información del material"
+          size="sm"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Nombre</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {infoMat.displayName.lastIndexOf('.') > 0
+                  ? infoMat.displayName.substring(0, infoMat.displayName.lastIndexOf('.'))
+                  : infoMat.displayName}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Tipo</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {(infoMat.displayName.split('.').pop() || 'Desconocido').toUpperCase()}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Subido</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {new Date(infoMat.createdAt).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Lima' })}
+              </span>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

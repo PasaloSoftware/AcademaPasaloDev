@@ -1,12 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useGoogleLogin } from '@react-oauth/google';
 import { coursesService } from '@/services/courses.service';
 import { classEventService } from '@/services/classEvent.service';
+import { useToast } from '@/components/ui/ToastContainer';
+import { formatSingleTime } from '@/components/pages/student/EvaluationShared';
 import type { Enrollment } from '@/types/enrollment';
 import type { ClassEvent } from '@/types/classEvent';
 import VideoPageLayout from '@/components/shared/VideoPageLayout';
+import Modal from '@/components/ui/Modal';
+import EditClassModal from '@/components/modals/EditClassModal';
 import Icon from '@/components/ui/Icon';
 
 interface VideoPageContentProps {
@@ -427,7 +432,7 @@ function UpdateVideoModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="px-6 py-3 bg-bg-info-primary-light rounded-lg inline-flex items-center gap-1.5 hover:bg-bg-info-primary-light/80 transition-colors"
               >
-                <Icon name="upload_file" size={16} className="text-icon-info-primary" variant="outlined" />
+                <Icon name="file_upload" size={16} className="text-icon-info-primary" variant="outlined" />
                 <span className="text-text-info-primary text-sm font-medium leading-4">Seleccionar Video</span>
               </button>
             </div>
@@ -522,163 +527,107 @@ function UpdateVideoModal({
 }
 
 // ============================================
-// EditInfoModal
+// Delete Class Modal
 // ============================================
 
-function toLocalDatetimeValue(iso: string): string {
-  const date = new Date(iso);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
+function DeleteClassModal({ event, onClose, onDeleted }: { event: ClassEvent; onClose: () => void; onDeleted: () => Promise<void> }) {
+  const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
+  const router = useRouter();
+
+  return (
+    <Modal isOpen onClose={onClose} title="¿Eliminar esta clase?" size="sm" footer={
+      <>
+        <Modal.Button variant="secondary" onClick={onClose}>Cancelar</Modal.Button>
+        <Modal.Button variant="danger" loading={loading} loadingText="Eliminando..." onClick={async () => {
+          setLoading(true);
+          try {
+            await classEventService.cancelEvent(event.id);
+            showToast({ type: 'success', title: 'Clase eliminada', description: 'La clase ha sido cancelada.' });
+            await onDeleted();
+            router.push(`/plataforma/curso/${event.courseCycleId}/evaluacion/${event.evaluationId}`);
+          } catch (err) {
+            showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo eliminar.' });
+          } finally { setLoading(false); }
+        }}>Eliminar</Modal.Button>
+      </>
+    }>
+      <p className="text-text-tertiary text-base font-normal leading-5">
+        ¿Estás seguro de que deseas eliminar <strong>Clase {event.sessionNumber}: {event.topic}</strong>? Esta acción no se puede deshacer.
+      </p>
+    </Modal>
+  );
 }
 
-function EditInfoModal({
+// ============================================
+// Context Menu for three-dot button
+// ============================================
+
+function ContextMenuButton({
   event,
-  onClose,
-  onSaved,
+  reloadEvent,
+  setModalState,
 }: {
   event: ClassEvent;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
+  reloadEvent: () => Promise<void>;
+  setModalState: (s: { type: 'updateVideo' | 'editInfo' | 'deleteClass'; event: ClassEvent; reload: () => Promise<void> } | null) => void;
 }) {
-  const [topic, setTopic] = useState(event.topic);
-  const [startDatetime, setStartDatetime] = useState(toLocalDatetimeValue(event.startDatetime));
-  const [endDatetime, setEndDatetime] = useState(toLocalDatetimeValue(event.endDatetime));
-  const [liveMeetingUrl, setLiveMeetingUrl] = useState(event.liveMeetingUrl || '');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
 
-  const handleSave = async () => {
-    if (!topic.trim()) {
-      setError('El tema es obligatorio');
-      return;
-    }
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
 
-    if (new Date(endDatetime) <= new Date(startDatetime)) {
-      setError('La hora de fin debe ser posterior a la de inicio');
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
+  const handleCopySummary = async () => {
+    setOpen(false);
+    const start = new Date(event.startDatetime);
+    const end = new Date(event.endDatetime);
+    const dayStr = start.toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Lima' });
+    const profNames = event.professors.map((p) => `${p.firstName} ${p.lastName1}`).join(', ') || 'Sin asignar';
+    const summary = [
+      `▶️ CLASE ${event.sessionNumber} - ${event.evaluationName}`,
+      `Curso: ${event.courseName}`,
+      `📒 Tema: ${event.topic}`,
+      `🎙️ Asesor(a): ${profNames}`,
+      `🗓 Fecha: ${dayStr.charAt(0).toUpperCase() + dayStr.slice(1)}`,
+      `⏰ Hora: ${formatSingleTime(start, true).toUpperCase()} - ${formatSingleTime(end, true).toUpperCase()}`,
+      `🔗 Enlace: ${event.liveMeetingUrl || 'No disponible'}`,
+    ].join('\n');
     try {
-      const payload: Record<string, string> = {};
-
-      if (topic.trim() !== event.topic) payload.topic = topic.trim();
-      if (new Date(startDatetime).toISOString() !== new Date(event.startDatetime).toISOString()) {
-        payload.startDatetime = new Date(startDatetime).toISOString();
-      }
-      if (new Date(endDatetime).toISOString() !== new Date(event.endDatetime).toISOString()) {
-        payload.endDatetime = new Date(endDatetime).toISOString();
-      }
-      const trimmedUrl = liveMeetingUrl.trim();
-      if (trimmedUrl !== (event.liveMeetingUrl || '')) {
-        payload.liveMeetingUrl = trimmedUrl;
-      }
-
-      if (Object.keys(payload).length === 0) {
-        onClose();
-        return;
-      }
-
-      await classEventService.updateEvent(event.id, payload);
-      await onSaved();
-      onClose();
-    } catch (err) {
-      console.error('Error al actualizar evento:', err);
-      setError('Error al actualizar la informacion');
-    } finally {
-      setSaving(false);
+      await navigator.clipboard.writeText(summary);
+      showToast({ type: 'success', title: 'Resumen del evento copiado', description: 'Ahora puedes compartirlo fácilmente.' });
+    } catch {
+      showToast({ type: 'error', title: 'Error', description: 'No se pudo copiar.' });
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-bg-primary rounded-2xl shadow-xl p-6 flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-text-primary text-xl font-semibold leading-6">
-            Editar Informacion de Clase
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-bg-secondary transition-colors"
-          >
-            <Icon name="close" size={20} className="text-icon-secondary" />
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="px-2.5 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+      >
+        <Icon name="more_vert" size={16} className="text-icon-accent-primary" variant="rounded" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
+          <button onClick={() => { setOpen(false); setModalState({ type: 'editInfo', event, reload: reloadEvent }); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
+          </button>
+          <button onClick={handleCopySummary} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Copiar resumen</span>
+          </button>
+          <div className="h-px bg-stroke-secondary" />
+          <button onClick={() => { setOpen(false); setModalState({ type: 'deleteClass', event, reload: reloadEvent }); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
           </button>
         </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-text-secondary text-sm font-medium leading-4">
-              Tema
-            </label>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              maxLength={120}
-              className="w-full px-4 py-3 bg-bg-secondary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-sm leading-4 focus:outline-stroke-accent-primary focus:outline-2 transition-colors"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-text-secondary text-sm font-medium leading-4">
-                Inicio
-              </label>
-              <input
-                type="datetime-local"
-                value={startDatetime}
-                onChange={(e) => setStartDatetime(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-secondary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-sm leading-4 focus:outline-stroke-accent-primary focus:outline-2 transition-colors"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-text-secondary text-sm font-medium leading-4">
-                Fin
-              </label>
-              <input
-                type="datetime-local"
-                value={endDatetime}
-                onChange={(e) => setEndDatetime(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-secondary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-sm leading-4 focus:outline-stroke-accent-primary focus:outline-2 transition-colors"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-text-secondary text-sm font-medium leading-4">
-              URL de reunion en vivo
-            </label>
-            <input
-              type="url"
-              value={liveMeetingUrl}
-              onChange={(e) => setLiveMeetingUrl(e.target.value)}
-              placeholder="https://meet.google.com/..."
-              className="w-full px-4 py-3 bg-bg-secondary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-sm leading-4 placeholder:text-text-tertiary focus:outline-stroke-accent-primary focus:outline-2 transition-colors"
-            />
-          </div>
-
-          {error && <span className="text-text-error text-xs leading-3">{error}</span>}
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-secondary text-sm font-medium leading-4 hover:bg-bg-secondary transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg text-text-white text-sm font-medium leading-4 hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {saving ? 'Guardando...' : 'Guardar Cambios'}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -689,7 +638,7 @@ function EditInfoModal({
 
 export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPageContentProps) {
   const [modalState, setModalState] = useState<{
-    type: 'updateVideo' | 'editInfo';
+    type: 'updateVideo' | 'editInfo' | 'deleteClass';
     event: ClassEvent;
     reload: () => Promise<void>;
   } | null>(null);
@@ -786,12 +735,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     return (
       <div className="self-stretch inline-flex justify-end items-center gap-4">
         {renderPrimaryButton()}
-        <button
-          onClick={() => setModalState({ type: 'editInfo', event, reload: reloadEvent })}
-          className="px-2.5 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-        >
-          <Icon name="more_vert" size={16} className="text-icon-accent-primary" variant="rounded" />
-        </button>
+        <ContextMenuButton event={event} reloadEvent={reloadEvent} setModalState={setModalState} />
       </div>
     );
   }, []);
@@ -818,10 +762,19 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       )}
 
       {modalState?.type === 'editInfo' && (
-        <EditInfoModal
+        <EditClassModal
+          isOpen
           event={modalState.event}
           onClose={closeModal}
-          onSaved={modalState.reload}
+          onSaved={() => { modalState.reload(); }}
+        />
+      )}
+
+      {modalState?.type === 'deleteClass' && (
+        <DeleteClassModal
+          event={modalState.event}
+          onClose={closeModal}
+          onDeleted={async () => { await modalState.reload(); closeModal(); }}
         />
       )}
     </>

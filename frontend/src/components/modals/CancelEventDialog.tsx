@@ -4,7 +4,7 @@ import { useState } from "react";
 import { classEventService } from "@/services/classEvent.service";
 import type { ClassEvent } from "@/types/classEvent";
 import Modal from "@/components/ui/Modal";
-import Icon from "@/components/ui/Icon";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface CancelEventDialogProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ export default function CancelEventDialog({
 }: CancelEventDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const handleConfirm = async () => {
     if (!event) return;
@@ -31,6 +32,7 @@ export default function CancelEventDialog({
       await classEventService.cancelEvent(event.id);
       onCancelled();
       onClose();
+      showToast({ type: "success", title: "Evento eliminado con éxito", description: "La clase ha sido eliminada correctamente." });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al cancelar el evento.",
@@ -46,39 +48,27 @@ export default function CancelEventDialog({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Cancelar Evento"
+      title="¿Eliminar esta clase?"
+      size="sm"
       footer={
         <>
           <Modal.Button variant="secondary" onClick={onClose}>
-            Volver
+            Cancelar
           </Modal.Button>
           <Modal.Button
             variant="danger"
             onClick={handleConfirm}
             loading={submitting}
-            loadingText="Cancelando..."
+            loadingText="Eliminando..."
           >
-            Confirmar Cancelación
+            Eliminar
           </Modal.Button>
         </>
       }
     >
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-bg-error-light rounded-full flex-shrink-0">
-          <Icon name="warning" size={20} className="text-bg-error-solid" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-text-primary">
-            ¿Estás seguro de que deseas cancelar este evento?
-          </p>
-          <p className="text-sm text-text-secondary">
-            <strong>{event.title}</strong> &middot; {event.courseName}
-          </p>
-          <p className="text-xs text-text-tertiary mt-1">
-            Esta acción no se puede deshacer.
-          </p>
-        </div>
-      </div>
+      <p className="text-text-tertiary text-base font-normal leading-4">
+        ¿Estás seguro de que deseas eliminar esta clase? Si la clase tiene materiales asociados, estos también serán eliminados.
+      </p>
 
       {error && (
         <div className="px-4 py-3 bg-bg-error-light text-text-error-primary text-sm rounded-lg">

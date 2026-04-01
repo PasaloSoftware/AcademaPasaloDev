@@ -281,4 +281,12 @@ export const classEventService = {
   async cancelEvent(id: string): Promise<void> {
     await apiClient.delete(`/class-events/${id}/cancel`);
   },
+
+  async assignProfessor(eventId: string, professorUserId: string): Promise<void> {
+    await apiClient.post(`/class-events/${eventId}/professors`, { professorUserId });
+  },
+
+  async revokeProfessor(eventId: string, professorUserId: string): Promise<void> {
+    await apiClient.delete(`/class-events/${eventId}/professors/${professorUserId}`);
+  },
 };

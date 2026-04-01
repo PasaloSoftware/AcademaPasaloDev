@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import type { FolderMaterial } from "@/types/material";
 import Icon from "@/components/ui/Icon";
 import {
@@ -28,6 +29,8 @@ export interface FolderIconConfig {
   colorOpen: string;
 }
 
+export type MaterialAction = "open" | "rename" | "download" | "info" | "delete";
+
 interface ExpandableFolderListProps {
   title?: string;
   folders: ExpandableFolder[];
@@ -39,6 +42,8 @@ interface ExpandableFolderListProps {
   headerAction?: React.ReactNode;
   /** Callback para subir material directamente a una carpeta específica */
   onUploadToFolder?: (folderId: string) => void;
+  /** If provided, shows three-dot menu instead of download button */
+  onMaterialAction?: (material: FolderMaterial, action: MaterialAction) => void;
 }
 
 // ============================================
@@ -80,59 +85,125 @@ function MaterialFileItem({
   material,
   onDownload,
   onPreview,
+  onAction,
 }: {
   material: FolderMaterial;
   onDownload: (material: FolderMaterial) => void;
   onPreview?: () => void;
+  onAction?: (material: FolderMaterial, action: MaterialAction) => void;
 }) {
   const matNameOnly = getFileNameWithoutExtension(material.displayName);
   const matExt = getFileExtension(material.displayName);
   const matIcon = getFileIconPath("", material.displayName);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+
+  const updateMenuPos = useCallback(() => {
+    if (!menuBtnRef.current) return;
+    const r = menuBtnRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    updateMenuPos();
+    const handleClick = (e: MouseEvent) => {
+      if (
+        menuBtnRef.current && !menuBtnRef.current.contains(e.target as Node) &&
+        menuRef.current && !menuRef.current.contains(e.target as Node)
+      ) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen, updateMenuPos]);
+
+  const handleMenuAction = (action: MaterialAction) => {
+    setMenuOpen(false);
+    if (action === "open") {
+      onPreview?.();
+      return;
+    }
+    onAction?.(material, action);
+  };
 
   return (
-    <button
-      type="button"
-      onClick={() => onPreview?.()}
-      className="self-stretch p-3 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3 hover:bg-bg-tertiary transition-colors text-left w-full"
-    >
-      <div className="flex-1 flex justify-start items-center gap-1">
+    <div className="self-stretch p-3 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3 hover:bg-bg-tertiary transition-colors w-full">
+      <button
+        type="button"
+        onClick={() => onPreview?.()}
+        className="flex-1 flex justify-start items-center gap-1 text-left min-w-0"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={matIcon} alt="" className="w-8 h-8 shrink-0" />
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
+        <div className="flex-1 inline-flex flex-col justify-start items-start gap-1 min-w-0">
           <div className="self-stretch inline-flex justify-start items-start">
             <span className="text-text-primary text-sm font-normal leading-4 line-clamp-1">
               {matNameOnly}
             </span>
-            <span className="text-text-primary text-sm font-normal leading-4">
+            <span className="text-text-primary text-sm font-normal leading-4 flex-shrink-0">
               {matExt}
             </span>
           </div>
-          <div className="self-stretch inline-flex justify-start items-center gap-0.5">
-            <span className="text-text-tertiary text-[10px] font-normal leading-3">
-              Última modificación: {formatMaterialDate(material.createdAt)}
-            </span>
-          </div>
+          <span className="text-text-tertiary text-[10px] font-normal leading-3">
+            Última modificación: {formatMaterialDate(material.createdAt)}
+          </span>
         </div>
-      </div>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={(e) => {
-          e.stopPropagation();
-          onDownload(material);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.stopPropagation();
-            onDownload(material);
-          }
-        }}
-        className="p-1 rounded-full flex justify-center items-center hover:bg-bg-primary transition-colors"
-        title="Descargar"
-      >
-        <Icon name="download" size={20} className="text-icon-tertiary" />
-      </div>
-    </button>
+      </button>
+
+      {onAction ? (
+        <div>
+          <button
+            ref={menuBtnRef}
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors flex-shrink-0"
+          >
+            <Icon name="more_vert" size={20} className="text-icon-tertiary" />
+          </button>
+          {menuOpen && createPortal(
+            <div
+              ref={menuRef}
+              style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
+              className="w-60 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
+              <button onClick={() => handleMenuAction("open")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                <Icon name="open_in_full" size={20} className="text-icon-secondary" variant="rounded" />
+                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Abrir</span>
+              </button>
+              <button onClick={() => handleMenuAction("rename")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                <Icon name="edit" size={20} className="text-icon-secondary" variant="rounded" />
+                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Cambiar nombre</span>
+              </button>
+              <div className="h-px bg-stroke-secondary" />
+              <button onClick={() => handleMenuAction("download")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                <Icon name="download" size={20} className="text-icon-secondary" variant="rounded" />
+                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Descargar</span>
+              </button>
+              <button onClick={() => handleMenuAction("info")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                <Icon name="info" size={20} className="text-icon-secondary" variant="rounded" />
+                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Información del material</span>
+              </button>
+              <div className="h-px bg-stroke-secondary" />
+              <button onClick={() => handleMenuAction("delete")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                <Icon name="delete" size={20} className="text-icon-secondary" variant="rounded" />
+                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
+              </button>
+            </div>,
+            document.body,
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDownload(material); }}
+          className="p-1 rounded-full flex justify-center items-center hover:bg-bg-primary transition-colors"
+          title="Descargar"
+        >
+          <Icon name="download" size={20} className="text-icon-tertiary" />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -150,6 +221,7 @@ function ExpandableFolderRow({
   onPreviewMaterial,
   iconConfig,
   onUploadToFolder,
+  onMaterialAction,
 }: {
   folder: ExpandableFolder;
   isOpen: boolean;
@@ -160,9 +232,10 @@ function ExpandableFolderRow({
   onPreviewMaterial?: (materials: FolderMaterial[], index: number) => void;
   iconConfig: FolderIconConfig;
   onUploadToFolder?: (folderId: string) => void;
+  onMaterialAction?: (material: FolderMaterial, action: MaterialAction) => void;
 }) {
   return (
-    <div className="self-stretch bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col justify-start items-start overflow-hidden">
+    <div className="self-stretch bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex flex-col justify-start items-start">
       <div className="self-stretch p-4 inline-flex justify-start items-center gap-4 hover:bg-bg-secondary transition-colors w-full">
         <button
           onClick={onToggle}
@@ -238,6 +311,7 @@ function ExpandableFolderRow({
                   material={mat}
                   onDownload={onDownloadMaterial}
                   onPreview={onPreviewMaterial ? () => onPreviewMaterial(materials, idx) : undefined}
+                  onAction={onMaterialAction}
                 />
               ))}
           </div>
@@ -260,6 +334,7 @@ export default function ExpandableFolderList({
   iconConfig = defaultIconConfig,
   headerAction,
   onUploadToFolder,
+  onMaterialAction,
 }: ExpandableFolderListProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
@@ -351,6 +426,7 @@ export default function ExpandableFolderList({
             onPreviewMaterial={onPreviewMaterial}
             iconConfig={iconConfig}
             onUploadToFolder={onUploadToFolder}
+            onMaterialAction={onMaterialAction}
           />
         ))}
       </div>

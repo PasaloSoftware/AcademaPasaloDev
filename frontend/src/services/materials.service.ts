@@ -140,6 +140,13 @@ export const materialsService = {
   },
 
   /**
+   * Renombrar el nombre visible de un material
+   */
+  async renameDisplayName(materialId: string, displayName: string): Promise<void> {
+    await apiClient.patch(`/materials/${materialId}/display-name`, { displayName });
+  },
+
+  /**
    * Solicitar eliminación de un material (soft-delete, requiere aprobación admin)
    */
   async requestDeletion(materialId: string, reason: string): Promise<void> {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { classEventService } from "@/services/classEvent.service";
 import { materialsService } from "@/services/materials.service";
@@ -10,7 +10,7 @@ import Icon from "@/components/ui/Icon";
 import ClassMaterialsModal from "@/components/modals/ClassMaterialsModal";
 import MaterialPreviewModal from "@/components/materials/MaterialPreviewModal";
 import ExpandableFolderList from "@/components/shared/ExpandableFolderList";
-import type { ExpandableFolder } from "@/components/shared/ExpandableFolderList";
+import type { ExpandableFolder, MaterialAction } from "@/components/shared/ExpandableFolderList";
 
 // ============================================
 // Helpers de formato
@@ -115,11 +115,11 @@ export function getFileIconPath(mimeType: string, fileName: string): string {
 // Tipo visual de la card de sesión
 // ============================================
 
-export type SessionCardType = "GRABADA" | "EN_VIVO_PRONTO" | "PROGRAMADA" | "GRABACION_EN_PROCESO";
+export type SessionCardType = "GRABADA" | "EN_VIVO" | "EN_VIVO_PRONTO" | "PROGRAMADA" | "GRABACION_EN_PROCESO";
 
 export function getSessionCardType(event: ClassEvent): SessionCardType {
   if (event.sessionStatus === "EN_CURSO" && !event.isCancelled) {
-    return "EN_VIVO_PRONTO";
+    return "EN_VIVO";
   }
 
   if (event.sessionStatus === "PROGRAMADA" && !event.isCancelled) {
@@ -146,6 +146,11 @@ export function getMinutesUntilStart(startDatetime: string): number {
   return Math.max(0, Math.ceil(ms / (60 * 1000)));
 }
 
+export function getMinutesSinceStart(startDatetime: string): number {
+  const ms = Date.now() - new Date(startDatetime).getTime();
+  return Math.max(0, Math.floor(ms / (60 * 1000)));
+}
+
 // ============================================
 // Badge de estado de grabación
 // ============================================
@@ -161,9 +166,20 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
     );
   }
 
+  if (cardType === "EN_VIVO") {
+    return (
+      <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center gap-1">
+        <Icon name="circle" size={12} className="text-icon-error-primary" variant="rounded" />
+        <span className="text-text-error-primary text-[10px] font-semibold leading-3">
+          EN VIVO
+        </span>
+      </div>
+    );
+  }
+
   if (cardType === "EN_VIVO_PRONTO") {
     return (
-      <div className="px-2 py-1 bg-error-light rounded-full flex justify-center items-center gap-1">
+      <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center gap-1">
         <span className="text-text-error-primary text-[10px] font-semibold leading-3">
           PRÓXIMA
         </span>
@@ -208,37 +224,43 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
 // Class Session Card
 // ============================================
 
+export type SessionMenuAction = "edit" | "duplicate" | "copy-summary" | "delete";
+
 export function ClassSessionCard({
   event,
   onOpenMaterials,
   getClassPageUrl,
+  onMenuAction,
 }: {
   event: ClassEvent;
   materials: ClassEventMaterial[];
   loadingMaterials: boolean;
   onOpenMaterials: (eventId: string) => void;
   getClassPageUrl: (eventId: string) => string;
+  /** If provided, shows teacher context menu instead of opening materials */
+  onMenuAction?: (eventId: string, action: SessionMenuAction) => void;
 }) {
   const router = useRouter();
   const cardType = getSessionCardType(event);
-  const canWatch =
-    event.canWatchRecording && event.recordingStatus === "READY";
   const duration = formatDurationHMS(event.startDatetime, event.endDatetime);
+  const isLive = cardType === "EN_VIVO" || cardType === "EN_VIVO_PRONTO";
   const [minutesLeft, setMinutesLeft] = useState(() => getMinutesUntilStart(event.startDatetime));
+  const [minutesAgo, setMinutesAgo] = useState(() => getMinutesSinceStart(event.startDatetime));
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (cardType !== "EN_VIVO_PRONTO") return;
+    if (!isLive) return;
     const interval = setInterval(() => {
       setMinutesLeft(getMinutesUntilStart(event.startDatetime));
+      setMinutesAgo(getMinutesSinceStart(event.startDatetime));
     }, 30_000);
     return () => clearInterval(interval);
-  }, [cardType, event.startDatetime]);
+  }, [isLive, event.startDatetime]);
 
   const classPageUrl = getClassPageUrl(event.id);
 
-  const handleGoToClass = () => {
-    router.push(classPageUrl);
-  };
+  const handleGoToClass = () => router.push(classPageUrl);
 
   const handleJoinLive = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -247,9 +269,30 @@ export function ClassSessionCard({
     }
   };
 
-  const handleOpenMaterials = (e: React.MouseEvent) => {
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!showContextMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setShowContextMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showContextMenu]);
+
+  const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onOpenMaterials(event.id);
+    if (onMenuAction) {
+      setShowContextMenu((prev) => !prev);
+    } else {
+      onOpenMaterials(event.id);
+    }
+  };
+
+  const handleAction = (action: SessionMenuAction) => {
+    setShowContextMenu(false);
+    onMenuAction?.(event.id, action);
   };
 
   const formatLiveTime = useCallback(() => {
@@ -263,220 +306,148 @@ export function ClassSessionCard({
     return isToday ? `Hoy, ${timeStr}` : `${formatDate(event.startDatetime)}, ${timeStr}`;
   }, [event.startDatetime]);
 
-  // ── EN VIVO PRONTO card ──
-  if (cardType === "EN_VIVO_PRONTO") {
-    return (
-      <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary inline-flex justify-start items-start gap-6 cursor-pointer">
+  // ── Thumbnail ──
+  const renderThumbnail = () => {
+    if (cardType === "EN_VIVO") {
+      return (
+        <div className="h-32 aspect-video shrink-0 p-2 bg-bg-accent-light rounded-lg inline-flex flex-col justify-center items-center gap-2">
+          <Icon name="podcasts" size={40} className="text-icon-accent-primary" variant="rounded" />
+          <span className="text-text-accent-primary text-sm font-semibold leading-4">EN VIVO</span>
+        </div>
+      );
+    }
+    if (cardType === "EN_VIVO_PRONTO") {
+      return (
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-accent-light rounded-lg inline-flex flex-col justify-center items-center gap-2">
           <Icon name="hourglass_top" size={40} className="text-icon-accent-primary" variant="rounded" />
           <span className="text-text-accent-primary text-sm font-semibold leading-4">
             EMPIEZA EN {minutesLeft} MIN
           </span>
         </div>
-
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch flex flex-col justify-start items-start gap-2">
-            <div className="self-stretch inline-flex justify-start items-start gap-4">
-              <div className="flex-1 flex justify-start items-start gap-1">
-                <span className="text-text-primary text-lg font-semibold leading-5">
-                  Clase {event.sessionNumber}:
-                </span>
-                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
-                  {event.topic}
-                </span>
-              </div>
-              <SessionBadge event={event} cardType={cardType} />
-            </div>
-
-            <div className="self-stretch inline-flex justify-start items-center gap-1">
-              <Icon name="schedule" size={14} className="text-icon-accent-primary" variant="rounded" />
-              <span className="text-text-accent-primary text-xs font-medium leading-4">
-                Empieza en {minutesLeft} min ({formatLiveTime()})
-              </span>
-            </div>
-          </div>
-
-          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-            <button
-              onClick={handleOpenMaterials}
-              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-            >
-              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
-              <span className="text-text-accent-primary text-sm font-medium leading-4">
-                Materiales de Clase
-              </span>
-            </button>
-            <button
-              onClick={handleJoinLive}
-              disabled={!event.liveMeetingUrl}
-              className="px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 transition-colors bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
-            >
-              <Icon name="videocam" size={16} className="text-icon-white" variant="rounded" />
-              <span className="text-text-white text-sm font-medium leading-4">
-                Unirse a la Clase
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── PROGRAMADA card ──
-  if (cardType === "PROGRAMADA") {
-    return (
-      <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6 cursor-pointer">
+      );
+    }
+    if (cardType === "PROGRAMADA") {
+      return (
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-tertiary rounded-lg inline-flex flex-col justify-center items-center gap-2">
           <Icon name="event" size={40} className="text-icon-tertiary" variant="rounded" />
-          <span className="text-gray-600 text-sm font-semibold leading-4">
-            CLASE PROGRAMADA
-          </span>
+          <span className="text-text-tertiary text-sm font-semibold leading-4">CLASE PROGRAMADA</span>
         </div>
-
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch flex flex-col justify-start items-start gap-2">
-            <div className="self-stretch inline-flex justify-start items-start gap-4">
-              <div className="flex-1 flex justify-start items-start gap-1">
-                <span className="text-text-primary text-lg font-semibold leading-5">
-                  Clase {event.sessionNumber}:
-                </span>
-                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
-                  {event.topic}
-                </span>
-              </div>
-              <SessionBadge event={event} cardType={cardType} />
-            </div>
-
-            <div className="self-stretch flex flex-col justify-start items-start gap-1">
-              <div className="self-stretch inline-flex justify-start items-center gap-1">
-                <Icon name="calendar_today" size={14} className="text-icon-secondary" variant="rounded" />
-                <span className="text-text-tertiary text-xs font-normal leading-4">
-                  {formatDate(event.startDatetime)}
-                </span>
-              </div>
-              <div className="self-stretch inline-flex justify-start items-center gap-1">
-                <Icon name="schedule" size={14} className="text-icon-secondary" variant="rounded" />
-                <span className="text-text-secondary text-xs font-normal leading-3">
-                  {formatTimeRange(event.startDatetime, event.endDatetime)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-            <button
-              onClick={handleOpenMaterials}
-              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-            >
-              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
-              <span className="text-text-accent-primary text-sm font-medium leading-4">
-                Materiales de Clase
-              </span>
-            </button>
-            <button
-              disabled
-              onClick={(e) => e.stopPropagation()}
-              className="px-6 py-3 bg-bg-disabled rounded-lg flex justify-center items-center gap-1.5 cursor-not-allowed"
-            >
-              <Icon name="videocam" size={16} className="text-icon-disabled" variant="rounded" />
-              <span className="text-text-disabled text-sm font-medium leading-4">
-                Unirme a la Clase
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── GRABACIÓN EN PROCESO card ──
-  if (cardType === "GRABACION_EN_PROCESO") {
-    return (
-      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6">
+      );
+    }
+    if (cardType === "GRABACION_EN_PROCESO") {
+      return (
         <div className="h-32 aspect-video shrink-0 p-2 bg-bg-tertiary rounded-lg inline-flex flex-col justify-center items-center gap-2">
           <Icon name="timelapse" size={40} className="text-icon-tertiary" variant="rounded" />
-          <span className="text-text-quartiary text-sm font-semibold leading-4">
-            GRABACIÓN EN PROCESO
-          </span>
+          <span className="text-text-tertiary text-sm font-semibold leading-4">GRABACIÓN EN PROCESO</span>
         </div>
-
-        <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch flex flex-col justify-start items-start gap-2">
-            <div className="self-stretch inline-flex justify-start items-start gap-4">
-              <div className="flex-1 flex justify-start items-start gap-1">
-                <span className="text-text-primary text-lg font-semibold leading-5">
-                  Clase {event.sessionNumber}:
-                </span>
-                <span className="flex-1 text-text-primary text-lg font-semibold leading-5">
-                  {event.topic}
-                </span>
-              </div>
-              <SessionBadge event={event} cardType={cardType} />
-            </div>
-
-            <div className="self-stretch flex flex-col justify-start items-start gap-1">
-              <div className="self-stretch inline-flex justify-start items-center gap-1">
-                <Icon name="calendar_today" size={14} className="text-icon-secondary" />
-                <span className="text-text-tertiary text-xs font-normal leading-4">
-                  {formatDate(event.startDatetime)}
-                </span>
-              </div>
-              <div className="self-stretch inline-flex justify-start items-center gap-1">
-                <Icon name="schedule" size={14} className="text-icon-secondary" />
-                <span className="text-text-secondary text-xs font-normal leading-3">
-                  {formatTimeRange(event.startDatetime, event.endDatetime)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-            <button
-              onClick={handleOpenMaterials}
-              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-            >
-              <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
-              <span className="text-text-accent-primary text-sm font-medium leading-4">
-                Materiales de Clase
-              </span>
-            </button>
-            <button
-              disabled
-              onClick={(e) => e.stopPropagation()}
-              className="px-6 py-3 bg-bg-disabled rounded-lg flex justify-center items-center gap-1.5 cursor-not-allowed"
-            >
-              <Icon name="play_arrow" size={16} className="text-icon-disabled" />
-              <span className="text-text-disabled text-sm font-medium leading-4">
-                Ver Grabación
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── GRABADA card (default: FINALIZADA / CANCELADA) ──
-  return (
-    <div onClick={handleGoToClass} className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-6 cursor-pointer">
-      <div
-        className="h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end"
-      >
+      );
+    }
+    // GRABADA
+    return (
+      <div className="h-32 aspect-video shrink-0 p-2 relative bg-bg-disabled rounded-lg inline-flex flex-col justify-end items-end">
         <div className="p-3 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-bg-accent-primary-solid rounded-full inline-flex justify-center items-center">
           <Icon name="play_arrow" size={24} className="text-icon-white" />
         </div>
-        {canWatch && (
-          <div className="px-2 py-1 bg-black/80 rounded-full inline-flex justify-start items-center">
-            <span className="text-text-white text-[10px] font-normal leading-3">
-              {duration}
-            </span>
-          </div>
-        )}
+        {/*<div className="px-2 py-1 bg-black/80 rounded-full inline-flex justify-start items-center">
+          <span className="text-text-white text-[10px] font-normal leading-3">{duration}</span>
+        </div>*/}
       </div>
+    );
+  };
 
-      <div className="flex-1 inline-flex flex-col justify-start items-start gap-6">
+  // ── Date/time info ──
+  const renderDateInfo = () => {
+    if (cardType === "EN_VIVO") {
+      return (
+        <div className="self-stretch inline-flex justify-start items-center gap-1">
+          <Icon name="schedule" size={14} className="text-icon-accent-primary" variant="rounded" />
+          <span className="text-text-accent-primary text-xs font-medium leading-4">
+            Empezó hace {minutesAgo} min ({formatLiveTime()})
+          </span>
+        </div>
+      );
+    }
+    if (cardType === "EN_VIVO_PRONTO") {
+      return (
+        <div className="self-stretch inline-flex justify-start items-center gap-1">
+          <Icon name="schedule" size={14} className="text-icon-accent-primary" variant="rounded" />
+          <span className="text-text-accent-primary text-xs font-medium leading-4">
+            Empieza en {minutesLeft} min ({formatLiveTime()})
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className="self-stretch flex flex-col justify-start items-start gap-1">
+        <div className="self-stretch inline-flex justify-start items-center gap-1">
+          <Icon name="calendar_today" size={14} className="text-icon-secondary" variant="rounded" />
+          <span className="text-text-tertiary text-xs font-normal leading-4">
+            {formatDate(event.startDatetime)}
+          </span>
+        </div>
+        <div className="self-stretch inline-flex justify-start items-center gap-1">
+          <Icon name="schedule" size={14} className="text-icon-secondary" variant="rounded" />
+          <span className="text-text-secondary text-xs font-normal leading-3">
+            {formatTimeRange(event.startDatetime, event.endDatetime)}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Buttons ──
+  const renderButtons = () => {
+    if (isLive) {
+      return (
+        <div className="self-stretch inline-flex justify-end items-center gap-4">
+          <button
+            onClick={handleJoinLive}
+            disabled={!event.liveMeetingUrl}
+            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
+          >
+            <Icon name="videocam" size={16} className="text-icon-accent-primary" variant="rounded" />
+            <span className="text-text-accent-primary text-sm font-medium leading-4">
+              Unirse a la Clase
+            </span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleGoToClass(); }}
+            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
+          >
+            <span className="text-text-white text-sm font-medium leading-4">Ver Clase</span>
+            <Icon name="arrow_forward" size={16} className="text-icon-white" variant="rounded" />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="self-stretch inline-flex justify-end items-start gap-2.5">
+        <button
+          onClick={(e) => { e.stopPropagation(); handleGoToClass(); }}
+          className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
+        >
+          <span className="text-text-white text-sm font-medium leading-4">Ver Clase</span>
+          <Icon name="arrow_forward" size={16} className="text-icon-white" variant="rounded" />
+        </button>
+      </div>
+    );
+  };
+
+  // ── Card border ──
+  const cardOutline = isLive
+    ? "outline outline-2 outline-offset-[-2px] outline-stroke-accent-primary"
+    : "outline outline-1 outline-offset-[-1px] outline-stroke-secondary";
+
+  return (
+    <div
+      onClick={handleGoToClass}
+      className={`self-stretch p-6 bg-bg-primary rounded-xl ${cardOutline} inline-flex justify-start items-start gap-6 cursor-pointer`}
+    >
+      {renderThumbnail()}
+
+      <div className={`flex-1 inline-flex flex-col justify-start items-start ${isLive ? "gap-8" : "gap-4"}`}>
         <div className="self-stretch flex flex-col justify-start items-start gap-2">
-          <div className="self-stretch inline-flex justify-start items-start gap-4">
+          <div className="self-stretch inline-flex justify-start items-center gap-4">
             <div className="flex-1 flex justify-start items-start gap-1">
               <span className="text-text-primary text-lg font-semibold leading-5">
                 Clase {event.sessionNumber}:
@@ -486,55 +457,50 @@ export function ClassSessionCard({
               </span>
             </div>
             <SessionBadge event={event} cardType={cardType} />
-          </div>
-
-          <div className="self-stretch flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch inline-flex justify-start items-center gap-1">
-              <Icon name="calendar_today" size={14} className="text-icon-secondary" />
-              <span className="text-text-tertiary text-xs font-normal leading-4">
-                {formatDate(event.startDatetime)}
-              </span>
+            <div className="relative">
+              <button
+                onClick={handleMenuClick}
+                className="p-1 rounded-full flex justify-center items-center hover:bg-bg-secondary transition-colors"
+              >
+                <Icon name="more_vert" size={20} className="text-icon-tertiary" />
+              </button>
+              {showContextMenu && onMenuAction && (
+                <div
+                  ref={contextMenuRef}
+                  className="absolute right-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start"
+                >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("edit"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("duplicate"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Duplicar</span>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("copy-summary"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Copiar resumen</span>
+                  </button>
+                  <div className="self-stretch h-px bg-stroke-secondary" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAction("delete"); }}
+                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="self-stretch inline-flex justify-start items-center gap-1">
-              <Icon name="schedule" size={14} className="text-icon-secondary" />
-              <span className="text-text-secondary text-xs font-normal leading-3">
-                {formatTimeRange(event.startDatetime, event.endDatetime)}
-              </span>
-            </div>
           </div>
+          {renderDateInfo()}
         </div>
-
-        <div className="self-stretch inline-flex justify-end items-start gap-2.5">
-          <button
-            onClick={handleOpenMaterials}
-            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-          >
-            <Icon name="folder" size={16} className="text-icon-accent-primary" variant="rounded" />
-            <span className="text-text-accent-primary text-sm font-medium leading-4">
-              Materiales de Clase
-            </span>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleGoToClass(); }}
-            disabled={!canWatch}
-            className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 transition-colors ${
-              canWatch
-                ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
-                : "bg-bg-disabled cursor-not-allowed"
-            }`}
-          >
-            <Icon
-              name="play_arrow"
-              size={16}
-              className={canWatch ? "text-icon-white" : "text-icon-disabled"}
-            />
-            <span
-              className={`text-sm font-medium leading-4 ${canWatch ? "text-text-white" : "text-text-disabled"}`}
-            >
-              Ver Grabación
-            </span>
-          </button>
-        </div>
+        {renderButtons()}
       </div>
     </div>
   );
@@ -557,6 +523,14 @@ interface EvaluationPageContentProps {
   canUploadMaterials?: boolean;
   /** Callback al dar click en "Subir Material". Recibe folderId opcional para preseleccionar carpeta */
   onUploadMaterial?: (folderId?: string) => void;
+  /** Si true, muestra botón "Crear Clase" junto al título de Sesiones */
+  canCreateClass?: boolean;
+  /** Callback al dar click en "Crear Clase" */
+  onCreateClass?: () => void;
+  /** Callback para acciones del menú contextual de docente en cada card */
+  onSessionMenuAction?: (eventId: string, action: SessionMenuAction) => void;
+  /** Callback para acciones del menú contextual de docente en materiales adicionales */
+  onMaterialMenuAction?: (material: FolderMaterial, action: MaterialAction) => void;
   /** Tab inicial (por defecto "sesiones") */
   defaultTab?: EvalTabOption;
 }
@@ -567,6 +541,10 @@ export function EvaluationPageContent({
   onEvalNameDetected,
   canUploadMaterials,
   onUploadMaterial,
+  canCreateClass,
+  onCreateClass,
+  onSessionMenuAction,
+  onMaterialMenuAction,
   defaultTab = "sesiones",
 }: EvaluationPageContentProps) {
   const [activeTab, setActiveTab] = useState<EvalTabOption>(defaultTab);
@@ -594,7 +572,7 @@ export function EvaluationPageContent({
       setErrorEvents(null);
       try {
         const data = await classEventService.getEvaluationEvents(evalId);
-        setEvents(data);
+        setEvents(data.filter((e) => !e.isCancelled));
         if (data.length > 0 && data[0].evaluationName && onEvalNameDetected) {
           onEvalNameDetected(data[0].evaluationName);
         }
@@ -736,11 +714,20 @@ export function EvaluationPageContent({
 
       {/* TAB: Sesiones de Clase */}
       {activeTab === "sesiones" && (
-        <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
-          <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
+        <div className="self-stretch flex flex-col justify-start items-start gap-6">
+          <div className="self-stretch inline-flex justify-between items-center gap-4">
             <span className="text-text-primary text-2xl font-semibold leading-7">
               Sesiones de Clase
             </span>
+            {canCreateClass && onCreateClass && (
+              <button
+                onClick={onCreateClass}
+                className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
+              >
+                <Icon name="add" size={16} className="text-icon-white" variant="rounded" />
+                <span className="text-text-white text-sm font-medium leading-4">Crear Clase</span>
+              </button>
+            )}
           </div>
 
           {loadingEvents && (
@@ -779,6 +766,7 @@ export function EvaluationPageContent({
                   loadingMaterials={loadingMaterialsMap[event.id] || false}
                   onOpenMaterials={handleOpenMaterials}
                   getClassPageUrl={getClassPageUrl}
+                  onMenuAction={onSessionMenuAction}
                 />
               ))}
             </div>
@@ -788,7 +776,7 @@ export function EvaluationPageContent({
 
       {/* TAB: Material Adicional */}
       {activeTab === "material" && (
-        <div className="self-stretch inline-flex flex-col justify-start items-start gap-6 overflow-hidden">
+        <div className="self-stretch inline-flex flex-col justify-start items-start gap-6">
           {loadingFolders && (
             <div className="self-stretch flex justify-center py-12">
               <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
@@ -832,6 +820,7 @@ export function EvaluationPageContent({
                 </button>
               ) : undefined}
               onUploadToFolder={canUploadMaterials && onUploadMaterial ? (folderId) => onUploadMaterial(folderId) : undefined}
+              onMaterialAction={onMaterialMenuAction}
             />
           )}
         </div>
