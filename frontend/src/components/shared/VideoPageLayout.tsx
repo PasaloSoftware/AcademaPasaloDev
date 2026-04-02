@@ -1164,7 +1164,7 @@ export default function VideoPageLayout({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 overflow-visible">
+            <div className={`flex flex-col gap-2 ${materials.length > 6 ? 'max-h-[420px] overflow-y-auto' : 'overflow-visible'}`}>
               {materials.map((mat, matIdx) => {
                 const fileName =
                   mat.displayName || mat.fileResource.originalName;

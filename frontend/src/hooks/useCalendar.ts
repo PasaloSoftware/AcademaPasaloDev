@@ -16,7 +16,7 @@ export function useCalendar() {
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('weekly');
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(new Set());
 
   const loadEvents = useCallback(async (start: Date, end: Date) => {
     setLoading(true);
@@ -79,29 +79,15 @@ export function useCalendar() {
     setCurrentDate(date);
   };
 
-  const filterByCourse = (courseId: string | null) => {
-    setSelectedCourseId(courseId);
+  const filterByCourse = (courseIds: Set<string>) => {
+    setSelectedCourseIds(courseIds);
   };
 
   const filteredEvents = useMemo(() => {
-    console.log('🔍 [useCalendar] Filtrando eventos. Total:', events?.length || 0, 'Curso seleccionado:', selectedCourseId);
-
-    if (!events || events.length === 0) {
-      console.log('🔍 [useCalendar] No hay eventos para filtrar');
-      return [];
-    }
-
-    if (selectedCourseId) {
-      const filtered = events.filter((event) =>
-        event.courseName.includes(selectedCourseId) || event.courseCode === selectedCourseId
-      );
-      console.log('🔍 [useCalendar] Eventos filtrados por curso:', filtered.length);
-      return filtered;
-    }
-
-    console.log('🔍 [useCalendar] Devolviendo todos los eventos:', events.length);
-    return events;
-  }, [events, selectedCourseId]);
+    if (!events || events.length === 0) return [];
+    if (selectedCourseIds.size === 0) return events;
+    return events.filter((event) => selectedCourseIds.has(event.courseCode));
+  }, [events, selectedCourseIds]);
 
   const getCurrentMonthYear = () => {
     const str = format(currentDate, 'MMMM \'de\' yyyy', { locale: es });
@@ -134,7 +120,7 @@ export function useCalendar() {
     error,
     currentDate,
     view,
-    selectedCourseId,
+    selectedCourseIds,
     goToNext,
     goToPrevious,
     goToToday,

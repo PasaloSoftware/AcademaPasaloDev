@@ -697,7 +697,7 @@ export class UsersService {
     const roleCodes = this.parseRoleCodesFilter(query.roles);
     const careerIds = this.parseCareerIdsFilter(query.careerIds);
     const isActive = this.parseStatusFilter(query.status);
-    const shouldUseBaseCache = this.shouldUseAdminUsersBaseCache({
+    const shouldUseBaseCache = !query.sortBy && this.shouldUseAdminUsersBaseCache({
       page: safePage,
       search: normalizedSearch,
       roleCodes,
@@ -721,6 +721,8 @@ export class UsersService {
       roleCodes,
       careerIds,
       isActive,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
     });
 
     const totalPages =
