@@ -67,6 +67,21 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     component: 'UsuariosContent',
     redirectOnDenied: '/plataforma/inicio'
   },
+  '/plataforma/admin/usuarios/registrar': {
+    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
+    component: 'UsuarioCreateContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/admin/usuarios/[id]': {
+    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
+    component: 'UsuarioDetailContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/admin/usuarios/[id]/editar': {
+    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
+    component: 'UsuarioEditContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
   '/plataforma/admin/auditoria': {
     allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
     component: 'AuditoriaContent',
@@ -135,6 +150,22 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
   '/plataforma/admin/auditoria': {
     ADMIN: 'admin/AuditoriaContent',
     SUPER_ADMIN: 'admin/AuditoriaContent'
+  },
+  '/plataforma/admin/usuarios': {
+    ADMIN: 'admin/UsuariosContent',
+    SUPER_ADMIN: 'admin/UsuariosContent'
+  },
+  '/plataforma/admin/usuarios/registrar': {
+    ADMIN: 'admin/UsuarioCreateContent',
+    SUPER_ADMIN: 'admin/UsuarioCreateContent'
+  },
+  '/plataforma/admin/usuarios/[id]': {
+    ADMIN: 'admin/UsuarioDetailContent',
+    SUPER_ADMIN: 'admin/UsuarioDetailContent'
+  },
+  '/plataforma/admin/usuarios/[id]/editar': {
+    ADMIN: 'admin/UsuarioEditContent',
+    SUPER_ADMIN: 'admin/UsuarioEditContent'
   },
   '/plataforma/perfil': {
     STUDENT: 'shared/PerfilContent',

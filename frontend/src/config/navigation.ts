@@ -86,6 +86,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: '/plataforma/inicio'
     },
     {
+      icon: 'groups',
+      label: 'Usuarios',
+      href: '/plataforma/admin/usuarios'
+    },
+    {
       icon: 'shield',
       label: 'Auditoría',
       href: '/plataforma/admin/auditoria'
@@ -102,6 +107,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       icon: 'home',
       label: 'Inicio',
       href: '/plataforma/inicio'
+    },
+    {
+      icon: 'groups',
+      label: 'Usuarios',
+      href: '/plataforma/admin/usuarios'
     },
     {
       icon: 'shield',

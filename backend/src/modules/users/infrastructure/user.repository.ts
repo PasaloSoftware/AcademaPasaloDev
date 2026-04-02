@@ -11,6 +11,8 @@ export type AdminUsersPageParams = {
   roleCodes?: string[];
   careerIds?: number[];
   isActive?: boolean;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
 };
 
 export type AdminUsersPageRow = {
@@ -116,12 +118,40 @@ export class UserRepository {
       return { rows: [], totalItems: 0 };
     }
 
-    const pageIdRows = await baseQb
+    // Map sortBy to DB column
+    const sortColumnMap: Record<string, string> = {
+      fullName: "CONCAT_WS(' ', u.first_name, u.last_name_1, u.last_name_2)",
+      email: 'u.email',
+      careerName: 'c.name',
+    };
+    const sortExpr = params.sortBy
+      ? sortColumnMap[params.sortBy]
+      : undefined;
+    const sortDir: 'ASC' | 'DESC' = params.sortOrder || 'DESC';
+
+    const pageIdQb = baseQb
       .clone()
       .select('u.id', 'id')
-      .distinct(true)
-      .orderBy('u.created_at', 'DESC')
-      .addOrderBy('u.id', 'DESC')
+      .addSelect('u.created_at', 'createdAt')
+      .distinct(true);
+
+    // Always add is_active to SELECT for DISTINCT compatibility
+    pageIdQb.addSelect('u.is_active', 'isActive');
+
+    if (sortExpr) {
+      // Add sort expression to SELECT so DISTINCT is happy
+      pageIdQb.addSelect(sortExpr, 'sortVal');
+      pageIdQb.orderBy('u.is_active', 'DESC'); // Active first
+      pageIdQb.addOrderBy(sortExpr, sortDir);
+      pageIdQb.addOrderBy('u.id', 'DESC');
+    } else {
+      // Default: active first, then newest first
+      pageIdQb.orderBy('u.is_active', 'DESC');
+      pageIdQb.addOrderBy('u.created_at', 'DESC');
+      pageIdQb.addOrderBy('u.id', 'DESC');
+    }
+
+    const pageIdRows = await pageIdQb
       .offset((page - 1) * pageSize)
       .limit(pageSize)
       .getRawMany<{ id: string }>();
@@ -149,7 +179,8 @@ export class UserRepository {
         'r.code AS roleCode',
       ])
       .where('u.id IN (:...ids)', { ids })
-      .orderBy('u.created_at', 'DESC')
+      .orderBy('u.is_active', 'DESC')
+      .addOrderBy(sortExpr || 'u.created_at', sortDir)
       .addOrderBy('u.id', 'DESC')
       .getRawMany<{
         id: string;

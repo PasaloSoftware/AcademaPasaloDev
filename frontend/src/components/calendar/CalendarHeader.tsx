@@ -1,8 +1,8 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import type { CalendarView } from '@/hooks/useCalendar';
 import Icon from '@/components/ui/Icon';
-import FloatingSelect from '@/components/ui/FloatingSelect';
 
 interface CourseOption {
   id: string;
@@ -14,21 +14,153 @@ interface CalendarHeaderProps {
   title: string;
   currentMonthYear: string;
   view: CalendarView;
-  selectedCourseId: string | null;
+  selectedCourseIds: Set<string>;
   courses: CourseOption[];
   loadingCourses: boolean;
   onViewChange: (view: CalendarView) => void;
   onNext: () => void;
   onPrevious: () => void;
   onToday: () => void;
-  onCourseChange: (courseCode: string | null) => void;
+  onCourseChange: (courseIds: Set<string>) => void;
   actions?: React.ReactNode;
 }
+
+// ============================================
+// Searchable checkbox dropdown for courses
+// ============================================
+
+function CourseFilterDropdown({
+  courses,
+  selectedIds,
+  onChange,
+  disabled,
+}: {
+  courses: CourseOption[];
+  selectedIds: Set<string>;
+  onChange: (ids: Set<string>) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = courses.filter((c) =>
+    c.name.toLowerCase().includes(query.toLowerCase()) || c.code.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const toggleCourse = (code: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(code)) next.delete(code);
+    else next.add(code);
+    onChange(next);
+  };
+
+  const allSelected = selectedIds.size === 0;
+  const label = allSelected
+    ? 'Todos los cursos'
+    : selectedIds.size === 1
+      ? courses.find((c) => selectedIds.has(c.code))?.name || 'Curso'
+      : `${selectedIds.size} cursos`;
+
+  return (
+    <div ref={wrapperRef} className="relative self-stretch">
+      <button
+        onClick={() => !disabled && setOpen(!open)}
+        disabled={disabled}
+        className={`h-full min-w-[200px] px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} inline-flex justify-start items-center gap-2 transition-colors`}
+      >
+        <span className={`flex-1 text-base font-normal leading-4 text-left line-clamp-1 ${allSelected ? 'text-text-tertiary' : 'text-text-primary'}`}>
+          {label}
+        </span>
+        <Icon name="expand_more" size={20} className={open ? 'text-icon-accent-primary' : 'text-icon-tertiary'} />
+      </button>
+
+      {/* Floating label */}
+      {(!allSelected || open) && (
+        <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex">
+          <span className={`text-xs font-normal leading-4 ${open ? 'text-text-accent-primary' : 'text-text-tertiary'}`}>Curso</span>
+        </div>
+      )}
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-20 w-72 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
+          {/* Search */}
+          <div className="px-3 py-2 border-b border-stroke-secondary">
+            <div className="flex items-center gap-2">
+              <Icon name="search" size={16} className="text-icon-tertiary" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar curso..."
+                className="flex-1 text-sm text-text-primary bg-transparent outline-none placeholder:text-text-tertiary"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="max-h-60 overflow-y-auto p-1 flex flex-col">
+            {/* "Todos" option */}
+            <button
+              onClick={() => { onChange(new Set()); }}
+              className={`px-2 py-2.5 rounded flex items-center gap-2 hover:bg-bg-secondary transition-colors ${allSelected ? 'bg-bg-accent-light' : ''}`}
+            >
+              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${allSelected ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
+                {allSelected && <Icon name="check" size={12} className="text-icon-white" />}
+              </div>
+              <span className={`flex-1 text-sm font-normal leading-4 text-left ${allSelected ? 'text-text-accent-primary font-medium' : 'text-text-secondary'}`}>
+                Todos
+              </span>
+            </button>
+
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-text-tertiary text-sm">No se encontraron cursos</div>
+            ) : (
+              filtered.map((course) => {
+                const checked = selectedIds.has(course.code);
+                return (
+                  <button
+                    key={course.code}
+                    onClick={() => toggleCourse(course.code)}
+                    className="px-2 py-2.5 rounded flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                  >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${checked ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
+                      {checked && <Icon name="check" size={12} className="text-icon-white" />}
+                    </div>
+                    <span className={`flex-1 text-sm font-normal leading-4 text-left ${checked ? 'text-text-accent-primary font-medium' : 'text-text-secondary'}`}>
+                      {course.name}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Main header
+// ============================================
 
 export default function CalendarHeader({
   currentMonthYear,
   view,
-  selectedCourseId,
+  selectedCourseIds,
   courses,
   loadingCourses,
   onViewChange,
@@ -38,11 +170,6 @@ export default function CalendarHeader({
   onCourseChange,
   actions,
 }: CalendarHeaderProps) {
-  const selectOptions = courses.map((c) => ({
-    value: c.code,
-    label: c.name,
-  }));
-
   return (
     <div className="self-stretch flex flex-col gap-8 flex-shrink-0">
       {/* Row 1: Title + Actions (Crear Evento) */}
@@ -55,13 +182,11 @@ export default function CalendarHeader({
 
       {/* Row 2: Course filter + Controls bar */}
       <div className="self-stretch inline-flex justify-between items-stretch">
-        {/* Left: Course filter (stretches to match controls bar height) */}
-        <FloatingSelect
-          label="Curso"
-          value={selectedCourseId}
-          options={selectOptions}
+        {/* Left: Course filter */}
+        <CourseFilterDropdown
+          courses={courses}
+          selectedIds={selectedCourseIds}
           onChange={onCourseChange}
-          allLabel="Todos"
           disabled={loadingCourses}
         />
 

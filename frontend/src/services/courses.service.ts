@@ -19,6 +19,30 @@ import type {
   IntroVideoLinkResponse,
 } from '@/types/curso';
 
+// Admin course-cycle types
+export interface AdminCourseCycleProfessor {
+  id: string;
+  firstName: string;
+  lastName1: string;
+  lastName2: string;
+  profilePhotoUrl: string | null;
+}
+
+export interface AdminCourseCycleItem {
+  courseCycleId: string;
+  course: { id: string; code: string; name: string };
+  academicCycle: { id: string; code: string; startDate: string; endDate: string; isCurrent: boolean };
+  professors: AdminCourseCycleProfessor[];
+}
+
+export interface AdminCourseCycleListResponse {
+  items: AdminCourseCycleItem[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export const coursesService = {
   /**
    * Crear una nueva materia (ADMIN/SUPER_ADMIN)
@@ -165,6 +189,25 @@ export const coursesService = {
   /**
    * Obtener link autorizado del video introductorio del curso-ciclo
    */
+  /**
+   * Listar cursos-ciclo para admin (paginado, con profesores)
+   */
+  async getAdminCourseCycles(params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }): Promise<AdminCourseCycleListResponse> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.pageSize) query.set('pageSize', String(params.pageSize));
+    if (params?.search) query.set('search', params.search);
+    const qs = query.toString();
+    const response = await apiClient.get<AdminCourseCycleListResponse>(
+      `/courses/course-cycles${qs ? `?${qs}` : ''}`
+    );
+    return response.data;
+  },
+
   async getIntroVideoLink(courseCycleId: string): Promise<IntroVideoLinkResponse | null> {
     try {
       const response = await apiClient.get<IntroVideoLinkResponse>(

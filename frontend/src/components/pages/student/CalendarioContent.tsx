@@ -20,7 +20,7 @@ export default function CalendarioContent() {
     events,
     loading,
     view,
-    selectedCourseId,
+    selectedCourseIds,
     currentDate,
     goToNext,
     goToPrevious,
@@ -89,7 +89,7 @@ export default function CalendarioContent() {
         title="Calendario de Clases"
         currentMonthYear={getCurrentMonthYear()}
         view={view}
-        selectedCourseId={selectedCourseId}
+        selectedCourseIds={selectedCourseIds}
         courses={uniqueCourses}
         loadingCourses={loadingCourses}
         onViewChange={changeView}
