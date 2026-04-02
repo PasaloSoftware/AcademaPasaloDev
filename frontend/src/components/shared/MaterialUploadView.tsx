@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef } from 'react';
 import Icon from '@/components/ui/Icon';
 import FloatingSelect from '@/components/ui/FloatingSelect';
+import FloatingInput from '@/components/ui/FloatingInput';
+import Modal from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/ToastContainer';
 import { getAccessToken } from '@/lib/storage';
 
@@ -109,6 +111,8 @@ export default function MaterialUploadView({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // ---- Handlers ----
 
@@ -308,7 +312,7 @@ export default function MaterialUploadView({
       {/* Upload Card */}
       <div className="p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col items-end gap-4">
         <div className="self-stretch flex items-center gap-1">
-          <Icon name="folder" size={20} className="text-icon-accent-primary" variant="rounded" />
+          <Icon name="add_circle" size={20} className="text-icon-accent-primary" variant="rounded" />
           <span className="text-text-primary text-base font-semibold leading-5">Nuevo Material</span>
         </div>
 
@@ -361,7 +365,7 @@ export default function MaterialUploadView({
             onClick={() => fileInputRef.current?.click()}
             className="px-6 py-3 bg-bg-info-primary-light rounded-lg inline-flex items-center gap-1.5 hover:bg-bg-info-primary-light/80 transition-colors"
           >
-            <Icon name="upload_file" size={16} className="text-icon-info-primary" variant="outlined" />
+            <Icon name="file_upload" size={16} className="text-icon-info-primary" variant="outlined" />
             <span className="text-text-info-primary text-sm font-medium leading-4">
               Seleccionar Archivos
             </span>
@@ -388,7 +392,14 @@ export default function MaterialUploadView({
                   <div className="flex items-center gap-1">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={iconPath} alt={ext} className="w-8 h-8 flex-shrink-0" />
-                    <div className="flex-1 flex flex-col gap-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenameTarget({ id: entry.id, name: entry.file.name });
+                        setRenameValue(getFileNameWithoutExt(entry.file.name));
+                      }}
+                      className="flex-1 flex flex-col gap-1 min-w-0 text-left hover:opacity-70 transition-opacity cursor-pointer"
+                    >
                       <div className="flex items-start">
                         <span className="text-text-primary text-sm font-normal leading-4 truncate">
                           {nameOnly}
@@ -410,7 +421,7 @@ export default function MaterialUploadView({
                           </>
                         )}
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
                       {entry.status === 'uploaded' && (
                         <Icon
@@ -429,12 +440,31 @@ export default function MaterialUploadView({
                         />
                       )}
                       {entry.status !== 'uploading' && (
-                        <button
-                          onClick={() => handleRemoveFile(entry.id)}
-                          className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors"
-                        >
-                          <Icon name="close" size={16} className="text-icon-tertiary" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              const url = URL.createObjectURL(entry.file);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = entry.file.name;
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors"
+                            title="Descargar"
+                          >
+                            <Icon name="download" size={20} className="text-icon-tertiary" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveFile(entry.id)}
+                            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors"
+                            title="Eliminar"
+                          >
+                            <Icon name="close" size={16} className="text-icon-tertiary" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -479,6 +509,45 @@ export default function MaterialUploadView({
           </span>
         </button>
       </div>
+
+      {/* Rename Modal */}
+      <Modal
+        isOpen={!!renameTarget}
+        onClose={() => setRenameTarget(null)}
+        title="Renombrar archivo"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setRenameTarget(null)}>
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              disabled={!renameValue.trim()}
+              onClick={() => {
+                if (!renameTarget || !renameValue.trim()) return;
+                const ext = getFileExtension(renameTarget.name);
+                const newName = renameValue.trim() + ext;
+                setStagedFiles((prev) =>
+                  prev.map((f) => {
+                    if (f.id !== renameTarget.id) return f;
+                    const renamed = new File([f.file], newName, { type: f.file.type });
+                    return { ...f, file: renamed };
+                  }),
+                );
+                setRenameTarget(null);
+              }}
+            >
+              Guardar
+            </Modal.Button>
+          </>
+        }
+      >
+        <FloatingInput
+          id="rename-file"
+          label="Nombre del archivo"
+          value={renameValue}
+          onChange={setRenameValue}
+        />
+      </Modal>
     </div>
   );
 }

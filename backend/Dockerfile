@@ -10,8 +10,11 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
-COPY --from=builder /app/dist ./dist
+RUN npm ci --omit=dev
+COPY --from=builder --chown=node:node /app/dist ./dist
+
+# Ejecutar la app sin privilegios de root
+USER node
 
 # Puertos
 EXPOSE 3001

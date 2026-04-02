@@ -29,8 +29,8 @@ export default function Icon({
     : 'material-icons-round';
 
   return (
-    <span 
-      className={`${variantClass} ${className}`}
+    <span
+      className={`${variantClass} leading-none ${className}`}
       style={{ fontSize: `${size}px` }}
     >
       {name}

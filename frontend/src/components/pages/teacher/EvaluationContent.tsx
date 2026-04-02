@@ -5,16 +5,31 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { coursesService } from '@/services/courses.service';
+import { classEventService } from '@/services/classEvent.service';
 import { materialsService } from '@/services/materials.service';
+import type { ClassEvent } from '@/types/classEvent';
 import Icon from '@/components/ui/Icon';
-import { EvaluationPageContent } from '@/components/pages/student/EvaluationShared';
+import Modal from '@/components/ui/Modal';
+import FloatingInput from '@/components/ui/FloatingInput';
+import { useToast } from '@/components/ui/ToastContainer';
+import { EvaluationPageContent, formatDate, formatSingleTime } from '@/components/pages/student/EvaluationShared';
+import type { SessionMenuAction } from '@/components/pages/student/EvaluationShared';
+import EditClassModal from '@/components/modals/EditClassModal';
+import CreateClassModal from '@/components/modals/CreateClassModal';
 import MaterialUploadView from '@/components/shared/MaterialUploadView';
 import type { MaterialUploadFolder } from '@/components/shared/MaterialUploadView';
+import type { MaterialAction } from '@/components/shared/ExpandableFolderList';
+import type { FolderMaterial } from '@/types/material';
+import type { Professor } from '@/types/enrollment';
 
 interface EvaluationContentProps {
   cursoId: string;
   evalId: string;
 }
+
+// ============================================
+// Helpers
+// ============================================
 
 export default function EvaluationContent({
   cursoId,
@@ -22,10 +37,12 @@ export default function EvaluationContent({
 }: EvaluationContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const { showToast } = useToast();
 
   const [courseName, setCourseName] = useState<string>('');
   const [evalShortName, setEvalShortName] = useState<string>('');
   const [evalFullName, setEvalFullName] = useState<string>('');
+  const [professors, setProfessors] = useState<Professor[]>([]);
 
   // Upload view state
   const [showUploadView, setShowUploadView] = useState(false);
@@ -33,12 +50,19 @@ export default function EvaluationContent({
   const [uploadFolders, setUploadFolders] = useState<MaterialUploadFolder[]>([]);
   const [preselectedFolderId, setPreselectedFolderId] = useState<string | undefined>();
 
+  // Create class modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     async function loadCourseData() {
       try {
         const enrollments = await coursesService.getMyCourseCycles();
         const found = enrollments.find((e) => e.courseCycle.id === cursoId);
-        if (found) setCourseName(found.courseCycle.course.name);
+        if (found) {
+          setCourseName(found.courseCycle.course.name);
+          setProfessors(found.courseCycle.professors || []);
+        }
       } catch (err) {
         console.error('Error al cargar nombre del curso:', err);
       }
@@ -99,6 +123,148 @@ export default function EvaluationContent({
     setShowUploadView(true);
   }, [evalId]);
 
+  // ---- Create Class ----
+
+  const openCreateModal = useCallback(() => {
+    setShowCreateModal(true);
+  }, []);
+
+  // ---- Session menu actions (teacher) ----
+
+  const [editEvent, setEditEvent] = useState<ClassEvent | null>(null);
+
+  const [deleteEvent, setDeleteEvent] = useState<ClassEvent | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<ClassEvent | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const handleSessionMenuAction = useCallback(async (eventId: string, action: SessionMenuAction) => {
+    // Fetch fresh event data
+    let ev: ClassEvent;
+    try {
+      ev = await classEventService.getEventDetail(eventId);
+    } catch {
+      showToast({ type: 'error', title: 'Error', description: 'No se pudo cargar la información de la clase.' });
+      return;
+    }
+
+    if (action === 'edit') {
+      setEditEvent(ev);
+    }
+
+    if (action === 'duplicate') {
+      setDuplicateSource(ev);
+    }
+
+    if (action === 'copy-summary') {
+      const start = new Date(ev.startDatetime);
+      const end = new Date(ev.endDatetime);
+      const dayStr = start.toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Lima' });
+      const dayCapitalized = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
+      const startTimeStr = formatSingleTime(start, true).toUpperCase();
+      const endTimeStr = formatSingleTime(end, true).toUpperCase();
+      const profNames = ev.professors.map((p) => `${p.firstName} ${p.lastName1}`).join(', ') || 'Sin asignar';
+
+      const summary = [
+        `▶️ CLASE ${ev.sessionNumber} - ${evalShortName}`,
+        `Curso: ${courseName}`,
+        `📒 Tema: ${ev.topic}`,
+        `🎙️ Asesor(a): ${profNames}`,
+        `🗓 Fecha: ${dayCapitalized}`,
+        `⏰ Hora: ${startTimeStr} - ${endTimeStr}`,
+        `🔗 Enlace: ${ev.liveMeetingUrl || 'No disponible'}`,
+      ].join('\n');
+
+      try {
+        await navigator.clipboard.writeText(summary);
+        showToast({ type: 'success', title: 'Copiado', description: 'El resumen ha sido copiado al portapapeles.' });
+      } catch {
+        showToast({ type: 'error', title: 'Error', description: 'No se pudo copiar al portapapeles.' });
+      }
+    }
+
+    if (action === 'delete') {
+      setDeleteEvent(ev);
+    }
+  }, [evalId, evalShortName, courseName, showToast]);
+
+  const handleDeleteSubmit = useCallback(async () => {
+    if (!deleteEvent) return;
+    setDeleteSubmitting(true);
+    try {
+      await classEventService.cancelEvent(deleteEvent.id);
+      setDeleteEvent(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Clase eliminada', description: 'La clase ha sido cancelada correctamente.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo eliminar la clase.' });
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }, [deleteEvent, showToast]);
+
+  // ---- Material menu actions (teacher) ----
+
+  const [infoMat, setInfoMat] = useState<FolderMaterial | null>(null);
+  const [renameMat, setRenameMat] = useState<FolderMaterial | null>(null);
+  const [renameMatValue, setRenameMatValue] = useState('');
+  const [renameMatLoading, setRenameMatLoading] = useState(false);
+  const [deleteMat, setDeleteMat] = useState<FolderMaterial | null>(null);
+  const [deleteMatLoading, setDeleteMatLoading] = useState(false);
+
+  const handleMaterialMenuAction = useCallback((material: FolderMaterial, action: MaterialAction) => {
+    if (action === 'open') {
+      // Preview handled by ExpandableFolderList onPreviewMaterial
+      return;
+    }
+    if (action === 'rename') {
+      setRenameMat(material);
+      const dotIdx = material.displayName.lastIndexOf('.');
+      setRenameMatValue(dotIdx > 0 ? material.displayName.substring(0, dotIdx) : material.displayName);
+    }
+    if (action === 'download') {
+      materialsService.downloadMaterial(material.id, material.displayName);
+    }
+    if (action === 'info') {
+      setInfoMat(material);
+    }
+    if (action === 'delete') {
+      setDeleteMat(material);
+    }
+  }, []);
+
+  const handleRenameMatSubmit = useCallback(async () => {
+    if (!renameMat || !renameMatValue.trim()) return;
+    setRenameMatLoading(true);
+    try {
+      const ext = renameMat.displayName.lastIndexOf('.') > 0
+        ? renameMat.displayName.substring(renameMat.displayName.lastIndexOf('.'))
+        : '';
+      await materialsService.renameDisplayName(renameMat.id, renameMatValue.trim() + ext);
+      setRenameMat(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Nombre actualizado', description: 'El material ha sido renombrado.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo renombrar.' });
+    } finally {
+      setRenameMatLoading(false);
+    }
+  }, [renameMat, renameMatValue, showToast]);
+
+  const handleDeleteMatSubmit = useCallback(async () => {
+    if (!deleteMat) return;
+    setDeleteMatLoading(true);
+    try {
+      await materialsService.requestDeletion(deleteMat.id, 'Eliminado por docente');
+      setDeleteMat(null);
+      setRefreshKey((k) => k + 1);
+      showToast({ type: 'success', title: 'Solicitud enviada', description: 'El material se ocultará hasta aprobación.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Error', description: err instanceof Error ? err.message : 'No se pudo eliminar.' });
+    } finally {
+      setDeleteMatLoading(false);
+    }
+  }, [deleteMat, showToast]);
+
   // ---- Upload View ----
   if (showUploadView) {
     return (
@@ -115,7 +281,7 @@ export default function EvaluationContent({
 
   // ---- Normal View ----
   return (
-    <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
+    <div className="w-full inline-flex flex-col justify-start items-start">
       {/* Back Link */}
       <Link
         href={`/plataforma/curso/${cursoId}`}
@@ -152,13 +318,137 @@ export default function EvaluationContent({
 
       {/* Tabs + Content (shared) */}
       <EvaluationPageContent
+        key={refreshKey}
         evalId={evalId}
         getClassPageUrl={getClassPageUrl}
         onEvalNameDetected={handleEvalNameDetected}
         canUploadMaterials
         onUploadMaterial={openUploadView}
+        canCreateClass
+        onCreateClass={openCreateModal}
+        onSessionMenuAction={handleSessionMenuAction}
+        onMaterialMenuAction={handleMaterialMenuAction}
         defaultTab={returnToMaterialTab ? 'material' : 'sesiones'}
       />
+
+      {/* Create / Duplicate Class Modal */}
+      {(showCreateModal || duplicateSource) && (
+        <CreateClassModal
+          isOpen={showCreateModal || !!duplicateSource}
+          onClose={() => { setShowCreateModal(false); setDuplicateSource(null); }}
+          onCreated={() => setRefreshKey((k) => k + 1)}
+          duplicateFrom={duplicateSource || undefined}
+          courseName={courseName}
+          courseCycleId={cursoId}
+          evaluationId={evalId}
+          evaluationName={evalFullName || evalShortName}
+          courseProfessors={professors}
+          professorNames={professors.map((p) => `${p.firstName} ${p.lastName1}`)}
+        />
+      )}
+
+      {/* Edit Class Modal */}
+      {editEvent && (
+        <EditClassModal
+          isOpen={!!editEvent}
+          event={editEvent}
+          onClose={() => setEditEvent(null)}
+          onSaved={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
+      {/* Delete Class Modal */}
+      <Modal
+        isOpen={!!deleteEvent}
+        onClose={() => setDeleteEvent(null)}
+        title="¿Eliminar esta clase?"
+        size="sm"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setDeleteEvent(null)}>
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              variant="danger"
+              loading={deleteSubmitting}
+              loadingText="Eliminando..."
+              onClick={handleDeleteSubmit}
+            >
+              Eliminar
+            </Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-tertiary text-base font-normal leading-5">
+          ¿Estás seguro de que deseas eliminar <strong>Clase {deleteEvent?.sessionNumber}: {deleteEvent?.topic}</strong>? Esta acción no se puede deshacer.
+        </p>
+      </Modal>
+
+      {/* Rename Material Modal */}
+      <Modal
+        isOpen={!!renameMat}
+        onClose={() => setRenameMat(null)}
+        title="Cambiar nombre"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setRenameMat(null)}>Cancelar</Modal.Button>
+            <Modal.Button disabled={!renameMatValue.trim()} loading={renameMatLoading} loadingText="Guardando..." onClick={handleRenameMatSubmit}>Guardar</Modal.Button>
+          </>
+        }
+      >
+        <FloatingInput id="rename-material" label="Nombre" value={renameMatValue} onChange={setRenameMatValue} />
+      </Modal>
+
+      {/* Delete Material Modal */}
+      <Modal
+        isOpen={!!deleteMat}
+        onClose={() => setDeleteMat(null)}
+        title="¿Eliminar este material?"
+        size="sm"
+        footer={
+          <>
+            <Modal.Button variant="secondary" onClick={() => setDeleteMat(null)}>Cancelar</Modal.Button>
+            <Modal.Button variant="danger" loading={deleteMatLoading} loadingText="Eliminando..." onClick={handleDeleteMatSubmit}>Eliminar</Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-tertiary text-base font-normal leading-5">
+          La solicitud de eliminación será enviada a los administradores y el material se ocultará hasta que sea aprobada.
+        </p>
+      </Modal>
+
+      {/* Material Info Modal */}
+      {infoMat && (
+        <Modal
+          isOpen
+          onClose={() => setInfoMat(null)}
+          title="Información del material"
+          size="sm"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Nombre</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {infoMat.displayName.lastIndexOf('.') > 0
+                  ? infoMat.displayName.substring(0, infoMat.displayName.lastIndexOf('.'))
+                  : infoMat.displayName}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Tipo</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {(infoMat.displayName.split('.').pop() || 'Desconocido').toUpperCase()}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-text-secondary text-xs font-medium leading-4">Subido</span>
+              <span className="text-text-tertiary text-base font-normal leading-4">
+                {new Date(infoMat.createdAt).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Lima' })}
+              </span>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -199,7 +199,7 @@ export default function InicioContent() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_348px] gap-12">
       {/* Columna Izquierda: Cursos */}
-      <div className="space-y-9">
+      <div className="space-y-8">
         {/* Header: Mis Cursos con toggles */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">

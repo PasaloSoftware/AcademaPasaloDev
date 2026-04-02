@@ -19,9 +19,12 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+
+# Ejecutar la app sin privilegios de root
+USER node
 
 # Puertos
 EXPOSE 3000

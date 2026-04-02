@@ -5,6 +5,70 @@
 import { apiClient } from '@/lib/apiClient';
 import type { ApiResponse, User } from '@/types/api';
 
+// Admin user list types (GET /users)
+export interface AdminUserItem {
+  id: string;
+  fullName: string;
+  email: string;
+  roles: string[];
+  careerId: number | null;
+  careerName: string | null;
+  isActive: boolean;
+}
+
+export interface AdminUserListResponse {
+  items: AdminUserItem[];
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export type AdminUserSortField = 'fullName' | 'email' | 'careerName';
+export type AdminUserSortOrder = 'ASC' | 'DESC';
+
+export interface AdminUserListParams {
+  page?: number;
+  search?: string;
+  roles?: string;
+  careerIds?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
+  sortBy?: AdminUserSortField;
+  sortOrder?: AdminUserSortOrder;
+}
+
+// Admin user detail types (GET /users/:id/admin-detail)
+export interface AdminUserDetailCourse {
+  relationId: string;
+  courseId: string;
+  courseCycleId: string;
+  courseCode: string;
+  courseName: string;
+  academicCycleCode: string;
+  // Enrollment config (populated by enrollment modal)
+  enrollmentTypeCode?: 'FULL' | 'PARTIAL';
+  evaluationIds?: string[];
+  historicalCourseCycleIds?: string[];
+}
+
+export interface AdminUserDetail {
+  personalInfo: {
+    id: string;
+    firstName: string;
+    lastName1: string;
+    lastName2: string | null;
+    email: string;
+    phone: string | null;
+    careerId: number | null;
+    careerName: string | null;
+    roles: string[];
+    isActive: boolean;
+    profilePhotoUrl: string | null;
+  };
+  enrolledCourses: AdminUserDetailCourse[];
+  teachingCourses: AdminUserDetailCourse[];
+}
+
 export const usersService = {
   /**
    * Crear un usuario manualmente (ADMIN/SUPER_ADMIN)
@@ -24,11 +88,140 @@ export const usersService = {
   },
 
   /**
-   * Listar todos los usuarios (ADMIN/SUPER_ADMIN)
+   * Listar todos los usuarios (ADMIN/SUPER_ADMIN) - sin paginación
    */
   async findAll(): Promise<User[]> {
     const response = await apiClient.get<ApiResponse<User[]>>('/users');
     return response.data.data;
+  },
+
+  /**
+   * Listar usuarios para el panel admin (paginado, con filtros)
+   */
+  async getAdminUsers(params?: AdminUserListParams): Promise<AdminUserListResponse> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.search) query.set('search', params.search);
+    if (params?.roles) query.set('roles', params.roles);
+    if (params?.careerIds) query.set('careerIds', params.careerIds);
+    if (params?.status) query.set('status', params.status);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortOrder) query.set('sortOrder', params.sortOrder);
+    const qs = query.toString();
+    const response = await apiClient.get<AdminUserListResponse>(`/users${qs ? `?${qs}` : ''}`);
+    return response.data;
+  },
+
+  /**
+   * Obtener catálogo de carreras (para filtros admin)
+   */
+  async getCareers(): Promise<Array<{ id: number; name: string }>> {
+    const response = await apiClient.get<Array<{ id: number; name: string }>>('/users/catalog/careers');
+    return response.data;
+  },
+
+  /**
+   * Obtener catálogo de cursos (para buscador admin)
+   */
+  async getCourseCatalog(): Promise<Array<{ courseId: string; courseCode: string; courseName: string }>> {
+    const response = await apiClient.get<Array<{ courseId: string; courseCode: string; courseName: string }>>('/users/catalog/courses');
+    return response.data;
+  },
+
+  /**
+   * Obtener opciones de ciclo para un curso (para matrícula admin)
+   */
+  /**
+   * Obtener detalle de un curso-ciclo (evaluaciones + ciclos históricos)
+   */
+  async getCourseCycleDetail(courseCycleId: string): Promise<{
+    baseCourseCycleId: string;
+    courseId: string;
+    courseCode: string;
+    courseName: string;
+    academicCycleCode: string;
+    evaluations: Array<{ id: string; evaluationTypeCode: string; shortName: string; fullName: string }>;
+    historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>;
+  }> {
+    const response = await apiClient.get<{
+      baseCourseCycleId: string; courseId: string; courseCode: string; courseName: string; academicCycleCode: string;
+      evaluations: Array<{ id: string; evaluationTypeCode: string; shortName: string; fullName: string }>;
+      historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>;
+    }>(`/enrollments/options/course-cycle/${courseCycleId}`);
+    return response.data;
+  },
+
+  async getCourseCycleOptions(courseId: string): Promise<{
+    courseId: string;
+    courseCode: string;
+    courseName: string;
+    currentCycle: { courseCycleId: string; academicCycleCode: string } | null;
+    historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>;
+  }> {
+    const response = await apiClient.get<{ courseId: string; courseCode: string; courseName: string; currentCycle: { courseCycleId: string; academicCycleCode: string } | null; historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>; }>(`/enrollments/options/course/${courseId}/cycles`);
+    return response.data;
+  },
+
+  /**
+   * Obtener detalle admin de un usuario
+   */
+  async getAdminDetail(userId: string): Promise<AdminUserDetail> {
+    const response = await apiClient.get<AdminUserDetail>(`/users/${userId}/admin-detail`);
+    return response.data;
+  },
+
+  /**
+   * Edición integral admin de un usuario (PATCH /users/:id/admin-edit)
+   */
+  async adminEdit(userId: string, data: {
+    personalInfo: {
+      firstName: string;
+      lastName1: string;
+      lastName2?: string;
+      email: string;
+      phone?: string;
+      careerId?: number;
+    };
+    roleCodesFinal: string[];
+    studentStateFinal: {
+      enrollments: Array<{
+        courseCycleId: string;
+        enrollmentTypeCode: 'FULL' | 'PARTIAL';
+        evaluationIds?: string[];
+        historicalCourseCycleIds?: string[];
+      }>;
+    };
+    professorStateFinal: {
+      courseCycleIds: string[];
+    };
+  }): Promise<unknown> {
+    const response = await apiClient.patch(`/users/${userId}/admin-edit`, data);
+    return response.data;
+  },
+
+  /**
+   * Registro administrativo integral (POST /users/admin-onboarding)
+   */
+  async adminOnboarding(data: {
+    email: string;
+    firstName: string;
+    lastName1: string;
+    lastName2?: string;
+    phone?: string;
+    careerId?: number;
+    roleCodes: string[];
+    studentEnrollment?: {
+      courseCycleId: string;
+      enrollmentTypeCode: 'FULL' | 'PARTIAL';
+      evaluationIds?: string[];
+      historicalCourseCycleIds?: string[];
+    };
+    professorAssignments?: {
+      courseCycleIds: string[];
+    };
+  }): Promise<unknown> {
+    const response = await apiClient.post('/users/admin-onboarding', data);
+    return response.data;
   },
 
   /**

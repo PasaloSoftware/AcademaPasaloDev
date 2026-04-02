@@ -4,6 +4,16 @@ import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 export const ADMIN_USER_STATUS_FILTERS = ['ACTIVE', 'INACTIVE'] as const;
 export type AdminUserStatusFilter = (typeof ADMIN_USER_STATUS_FILTERS)[number];
 
+export const ADMIN_USER_SORT_FIELDS = [
+  'fullName',
+  'email',
+  'careerName',
+] as const;
+export type AdminUserSortField = (typeof ADMIN_USER_SORT_FIELDS)[number];
+
+export const ADMIN_USER_SORT_ORDERS = ['ASC', 'DESC'] as const;
+export type AdminUserSortOrder = (typeof ADMIN_USER_SORT_ORDERS)[number];
+
 export class AdminUsersListQueryDto {
   @Expose()
   @Type(() => Number)
@@ -36,6 +46,21 @@ export class AdminUsersListQueryDto {
   @IsOptional()
   @IsIn(ADMIN_USER_STATUS_FILTERS)
   status?: AdminUserStatusFilter;
+
+  @Expose()
+  @IsOptional()
+  @IsIn(ADMIN_USER_SORT_FIELDS)
+  sortBy?: AdminUserSortField;
+
+  @Expose()
+  @Transform(({ value }) =>
+    value == null || String(value).trim() === ''
+      ? undefined
+      : String(value).trim().toUpperCase(),
+  )
+  @IsOptional()
+  @IsIn(ADMIN_USER_SORT_ORDERS)
+  sortOrder?: AdminUserSortOrder;
 }
 
 export class AdminUsersListItemDto {

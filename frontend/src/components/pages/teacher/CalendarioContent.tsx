@@ -9,8 +9,8 @@ import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClassEvent } from "@/types/classEvent";
 import EventDetailModal from "@/components/modals/EventDetailModal";
-import CreateEventModal from "@/components/modals/CreateEventModal";
-import EditEventModal from "@/components/modals/EditEventModal";
+import CreateClassModal from "@/components/modals/CreateClassModal";
+import EditClassModal from "@/components/modals/EditClassModal";
 import CancelEventDialog from "@/components/modals/CancelEventDialog";
 import {
   CalendarHeader,
@@ -25,7 +25,7 @@ export default function CalendarioContent() {
     events,
     loading,
     view,
-    selectedCourseId,
+    selectedCourseIds,
     currentDate,
     goToNext,
     goToPrevious,
@@ -58,6 +58,7 @@ export default function CalendarioContent() {
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<ClassEvent | null>(null);
   const [eventToCancel, setEventToCancel] = useState<ClassEvent | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<ClassEvent | null>(null);
 
   const weekDays = getWeekDays();
 
@@ -121,6 +122,12 @@ export default function CalendarioContent() {
     }
   };
 
+  const handleDuplicate = () => {
+    if (selectedEvent) {
+      setDuplicateSource(selectedEvent);
+    }
+  };
+
   const handleEventMutated = () => {
     refreshEvents();
     setSelectedEvent(null);
@@ -136,7 +143,7 @@ export default function CalendarioContent() {
         title="Calendario de Clases"
         currentMonthYear={getCurrentMonthYear()}
         view={view}
-        selectedCourseId={selectedCourseId}
+        selectedCourseIds={selectedCourseIds}
         courses={uniqueCourses}
         loadingCourses={loadingCourses}
         onViewChange={changeView}
@@ -145,15 +152,15 @@ export default function CalendarioContent() {
         onToday={goToToday}
         onCourseChange={filterByCourse}
         actions={
-          <button
+            <button
             onClick={() => setIsCreateOpen(true)}
-            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
-          >
-            <Icon name="add" size={16} className="text-icon-accent-primary" />
-            <span className="text-text-accent-primary text-sm font-medium leading-4">
+            className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
+            >
+            <Icon name="add" size={16} className="text-icon-white" />
+            <span className="text-text-white text-sm font-medium leading-4">
               Crear Evento
             </span>
-          </button>
+            </button>
         }
       />
 
@@ -189,6 +196,7 @@ export default function CalendarioContent() {
         canCancel={ownerOfSelected}
         onEdit={handleEdit}
         onCancel={handleCancel}
+        onDuplicate={ownerOfSelected ? handleDuplicate : undefined}
         onClose={() => {
           setIsDetailOpen(false);
           setSelectedEvent(null);
@@ -196,24 +204,35 @@ export default function CalendarioContent() {
         }}
       />
 
-      {/* Create Event Modal */}
-      <CreateEventModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={handleEventMutated}
-        courseCycles={courseCycles}
-      />
+      {/* Create/Duplicate Class Modal */}
+      {(isCreateOpen || duplicateSource) && courseCycles.length > 0 && (
+        <CreateClassModal
+          isOpen={isCreateOpen || !!duplicateSource}
+          onClose={() => { setIsCreateOpen(false); setDuplicateSource(null); }}
+          onCreated={handleEventMutated}
+          duplicateFrom={duplicateSource || undefined}
+          courseName={duplicateSource?.courseName || courseCycles[0]?.course?.name || ''}
+          courseCycleId={duplicateSource?.courseCycleId || courseCycles[0]?.id || ''}
+          evaluationId={duplicateSource?.evaluationId}
+          evaluationName={duplicateSource?.evaluationName}
+          courseProfessors={duplicateSource?.professors || courseCycles[0]?.professors || []}
+          courseOptions={courseCycles.length > 1 ? courseCycles.map((cc) => ({ id: cc.id, name: cc.course.name, professors: cc.professors || [] })) : undefined}
+          allowEvalSelection
+        />
+      )}
 
       {/* Edit Event Modal */}
-      <EditEventModal
-        isOpen={isEditOpen}
-        event={eventToEdit}
-        onClose={() => {
-          setIsEditOpen(false);
-          setEventToEdit(null);
-        }}
-        onUpdated={handleEventMutated}
-      />
+      {eventToEdit && (
+        <EditClassModal
+          isOpen={isEditOpen}
+          event={eventToEdit}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEventToEdit(null);
+          }}
+          onSaved={handleEventMutated}
+        />
+      )}
 
       {/* Cancel Event Dialog */}
       <CancelEventDialog
