@@ -65,6 +65,7 @@ export class CourseCycleDriveProvisioningService {
     const cycleCode = this.normalizeToken(input.cycleCode, 'cycleCode');
     const courseCode = this.normalizeToken(input.courseCode, 'courseCode');
     const viewerGroupEmail = `cc-${courseCycleId}-viewers@${workspaceDomain}`;
+    const professorGroupEmail = `cc-${courseCycleId}-professors@${workspaceDomain}`;
 
     await this.driveScopeProvisioningService.validateRootFolder();
     const rootFolderId = this.driveScopeProvisioningService.getRootFolderId();
@@ -106,6 +107,16 @@ export class CourseCycleDriveProvisioningService {
       group.email,
     );
 
+    const professorGroup = await this.workspaceGroupsService.findOrCreateGroup({
+      email: professorGroupEmail,
+      name: `CC ${courseCycleId} Professors`,
+      description: `Grupo de profesores para cc_${courseCycleId}`,
+    });
+    await this.driveScopeProvisioningService.ensureGroupWriterPermission(
+      scopeFolderId,
+      professorGroup.email,
+    );
+
     const staffGroupEmail =
       technicalSettings.mediaAccess.staffViewersGroupEmail;
     if (staffGroupEmail) {
@@ -141,6 +152,10 @@ export class CourseCycleDriveProvisioningService {
     }
 
     await this.syncCurrentEligibleMembers(group.email, courseCycleId);
+    await this.syncCurrentEligibleProfessorMembers(
+      professorGroup.email,
+      courseCycleId,
+    );
 
     return {
       scopeFolderId,
@@ -205,6 +220,38 @@ export class CourseCycleDriveProvisioningService {
         ) source
         WHERE source.email IS NOT NULL
           AND TRIM(source.email) <> ''
+      `,
+      [courseCycleId],
+    );
+
+    for (const row of rows) {
+      const email = String(row.email || '')
+        .trim()
+        .toLowerCase();
+      if (!email) {
+        continue;
+      }
+      await this.workspaceGroupsService.ensureMemberInGroup({
+        groupEmail,
+        memberEmail: email,
+      });
+    }
+  }
+
+  private async syncCurrentEligibleProfessorMembers(
+    groupEmail: string,
+    courseCycleId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query<EmailRow[]>(
+      `
+        SELECT DISTINCT LOWER(TRIM(u.email)) AS email
+        FROM course_cycle_professor ccp
+        INNER JOIN user u ON u.id = ccp.professor_user_id
+        WHERE ccp.course_cycle_id = ?
+          AND ccp.revoked_at IS NULL
+          AND u.is_active = 1
+          AND u.email IS NOT NULL
+          AND TRIM(u.email) <> ''
       `,
       [courseCycleId],
     );
