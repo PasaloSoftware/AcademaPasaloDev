@@ -200,6 +200,10 @@ INSERT INTO user_role (user_id, role_id)
 VALUES 
 (2, 1);
 
+INSERT INTO user_role (user_id, role_id) 
+VALUES 
+(2, 2);
+
 INSERT INTO notification_type (code, name) VALUES
 ('NEW_MATERIAL', 'Nuevo Material Disponible'),
 ('MATERIAL_UPDATED', 'Material Actualizado'),

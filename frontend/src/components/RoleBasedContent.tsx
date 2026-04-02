@@ -36,6 +36,9 @@ import SharedPerfilContent from '@/components/pages/shared/PerfilContent';
 // Importar componentes de admin
 import AdminInicioContent from '@/components/pages/admin/InicioContent';
 import AdminAuditoriaContent from '@/components/pages/admin/AuditoriaContent';
+import AdminUsuariosContent from '@/components/pages/admin/UsuariosContent';
+import AdminUsuarioDetailContent from '@/components/pages/admin/UsuarioDetailContent';
+import AdminUsuarioEditContent from '@/components/pages/admin/UsuarioEditContent';
 
 /**
  * Mapa de componentes disponibles
@@ -67,6 +70,9 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   // Admin
   'admin/InicioContent': AdminInicioContent,
   'admin/AuditoriaContent': AdminAuditoriaContent,
+  'admin/UsuariosContent': AdminUsuariosContent,
+  'admin/UsuarioDetailContent': AdminUsuarioDetailContent,
+  'admin/UsuarioEditContent': AdminUsuarioEditContent,
 
   // Shared
   'shared/PerfilContent': SharedPerfilContent,
