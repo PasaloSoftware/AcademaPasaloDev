@@ -182,12 +182,12 @@ function RoleTag({ role }: { role: string }) {
 function CourseCard({
   course,
   onRemove,
-  showEdit,
+  onEdit,
   readOnly,
 }: {
   course: AdminUserDetailCourse;
   onRemove?: () => void;
-  showEdit?: boolean;
+  onEdit?: () => void;
   readOnly?: boolean;
 }) {
   const color = getCourseColor(course.courseCode);
@@ -198,13 +198,13 @@ function CourseCard({
         <span className="flex-1 text-text-primary text-sm font-semibold leading-4 line-clamp-2">{course.courseName}</span>
         {!readOnly && (
           <div className="flex items-center gap-1">
-            {showEdit && (
-              <button className="p-1 rounded-full hover:bg-bg-secondary transition-colors">
+            {onEdit && (
+              <button onClick={onEdit} className="p-1 rounded-full hover:bg-bg-secondary transition-colors flex items-center justify-center">
                 <Icon name="edit" size={20} className="text-icon-tertiary" variant="rounded" />
               </button>
             )}
             {onRemove && (
-              <button onClick={onRemove} className="p-1 rounded-full hover:bg-bg-secondary transition-colors">
+              <button onClick={onRemove} className="p-1 rounded-full hover:bg-bg-secondary transition-colors flex items-center justify-center">
                 <Icon name="close" size={20} className="text-icon-tertiary" variant="rounded" />
               </button>
             )}
@@ -467,7 +467,7 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
 
             {/* Evaluation checkboxes */}
             {enrollmentType === 'PARTIAL' && evaluations.length > 0 && (
-              <div className="pl-3 pt-4 border-l-2 border-stroke-secondary grid grid-cols-3 gap-3">
+              <div className="pl-4 pt-4 border-l-2 border-stroke-secondary grid grid-cols-3 gap-3">
                 {evaluations.map((ev) => {
                   const checked = selectedEvalIds.has(ev.id);
                   return (
@@ -554,8 +554,10 @@ export function EnrollmentSection({
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingCourse, setPendingCourse] = useState<{ courseId: string; courseName: string; courseCode: string; courseCycleId: string } | null>(null);
+  const [editingRelationId, setEditingRelationId] = useState<string | null>(null);
 
   const handleSearchSelect = (catalog: CourseCatalogItem, courseCycleId: string) => {
+    setEditingRelationId(null);
     setPendingCourse({ courseId: catalog.courseId, courseName: catalog.courseName, courseCode: catalog.courseCode, courseCycleId });
     setModalOpen(true);
   };
@@ -569,18 +571,29 @@ export function EnrollmentSection({
     historicalCourseCycleIds: string[];
   }) => {
     if (!onCoursesChange || !pendingCourse) return;
-    const newCourse: AdminUserDetailCourse = {
-      relationId: `new-${Date.now()}`,
-      courseId: pendingCourse.courseId,
-      courseCycleId: config.courseCycleId,
-      courseCode: pendingCourse.courseCode,
-      courseName: pendingCourse.courseName,
-      academicCycleCode: '',
-      enrollmentTypeCode: config.enrollmentTypeCode,
-      evaluationIds: config.evaluationIds,
-      historicalCourseCycleIds: config.historicalCourseCycleIds,
-    };
-    onCoursesChange([...courses, newCourse]);
+
+    if (editingRelationId) {
+      // Update existing course
+      onCoursesChange(courses.map((c) =>
+        c.relationId === editingRelationId
+          ? { ...c, enrollmentTypeCode: config.enrollmentTypeCode, evaluationIds: config.evaluationIds, historicalCourseCycleIds: config.historicalCourseCycleIds }
+          : c,
+      ));
+    } else {
+      // Add new course
+      const newCourse: AdminUserDetailCourse = {
+        relationId: `new-${Date.now()}`,
+        courseId: pendingCourse.courseId,
+        courseCycleId: config.courseCycleId,
+        courseCode: pendingCourse.courseCode,
+        courseName: pendingCourse.courseName,
+        academicCycleCode: '',
+        enrollmentTypeCode: config.enrollmentTypeCode,
+        evaluationIds: config.evaluationIds,
+        historicalCourseCycleIds: config.historicalCourseCycleIds,
+      };
+      onCoursesChange([...courses, newCourse]);
+    }
     setPendingCourse(null);
   };
 
@@ -615,8 +628,12 @@ export function EnrollmentSection({
               <CourseCard
                 key={course.relationId}
                 course={course}
-                showEdit={!readOnly}
                 readOnly={readOnly}
+                onEdit={!readOnly ? () => {
+                  setPendingCourse({ courseId: course.courseId, courseName: course.courseName, courseCode: course.courseCode, courseCycleId: course.courseCycleId });
+                  setEditingRelationId(course.relationId);
+                  setModalOpen(true);
+                } : undefined}
                 onRemove={!readOnly ? () => handleRemove(course.relationId) : undefined}
               />
             ))}
@@ -628,7 +645,7 @@ export function EnrollmentSection({
       {pendingCourse && (
         <EnrollmentModal
           isOpen={modalOpen}
-          onClose={() => { setModalOpen(false); setPendingCourse(null); }}
+          onClose={() => { setModalOpen(false); setPendingCourse(null); setEditingRelationId(null); }}
           onSave={handleModalSave}
           courseName={pendingCourse.courseName}
           courseId={pendingCourse.courseId}
@@ -794,7 +811,7 @@ export function RoleAssignmentSection({
       </div>
 
       {(hasStudentRole || hasTeacherRole) && (
-        <div className="border-l-2 pl-3 pt-4 border-stroke-secondary flex flex-col gap-4">
+        <div className="border-l-2 pl-4 pt-4 border-stroke-secondary flex flex-col gap-4">
           {hasStudentRole && (
             <EnrollmentSection courses={enrolledCourses} onCoursesChange={onEnrolledCoursesChange} studentName={studentName} />
           )}
