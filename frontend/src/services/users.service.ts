@@ -45,6 +45,10 @@ export interface AdminUserDetailCourse {
   courseCode: string;
   courseName: string;
   academicCycleCode: string;
+  // Enrollment config (populated by enrollment modal)
+  enrollmentTypeCode?: 'FULL' | 'PARTIAL';
+  evaluationIds?: string[];
+  historicalCourseCycleIds?: string[];
 }
 
 export interface AdminUserDetail {
@@ -127,6 +131,26 @@ export const usersService = {
   /**
    * Obtener opciones de ciclo para un curso (para matrícula admin)
    */
+  /**
+   * Obtener detalle de un curso-ciclo (evaluaciones + ciclos históricos)
+   */
+  async getCourseCycleDetail(courseCycleId: string): Promise<{
+    baseCourseCycleId: string;
+    courseId: string;
+    courseCode: string;
+    courseName: string;
+    academicCycleCode: string;
+    evaluations: Array<{ id: string; evaluationTypeCode: string; shortName: string; fullName: string }>;
+    historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>;
+  }> {
+    const response = await apiClient.get<{
+      baseCourseCycleId: string; courseId: string; courseCode: string; courseName: string; academicCycleCode: string;
+      evaluations: Array<{ id: string; evaluationTypeCode: string; shortName: string; fullName: string }>;
+      historicalCycles: Array<{ courseCycleId: string; academicCycleCode: string }>;
+    }>(`/enrollments/options/course-cycle/${courseCycleId}`);
+    return response.data;
+  },
+
   async getCourseCycleOptions(courseId: string): Promise<{
     courseId: string;
     courseCode: string;

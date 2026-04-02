@@ -93,7 +93,12 @@ export default function UsuarioEditContent() {
         roleCodesFinal: Array.from(selectedRoles),
         studentStateFinal: {
           enrollments: selectedRoles.has('STUDENT')
-            ? enrolledCourses.map((c) => ({ courseCycleId: c.courseCycleId, enrollmentTypeCode: 'FULL' as const }))
+            ? enrolledCourses.map((c) => ({
+                courseCycleId: c.courseCycleId,
+                enrollmentTypeCode: c.enrollmentTypeCode || ('FULL' as const),
+                evaluationIds: c.evaluationIds,
+                historicalCourseCycleIds: c.historicalCourseCycleIds,
+              }))
             : [],
         },
         professorStateFinal: {
@@ -149,6 +154,7 @@ export default function UsuarioEditContent() {
         onEnrolledCoursesChange={setEnrolledCourses}
         teachingCourses={teachingCourses}
         onTeachingCoursesChange={setTeachingCourses}
+        studentName={userName}
       />
 
       <div className="flex justify-end items-center gap-4">

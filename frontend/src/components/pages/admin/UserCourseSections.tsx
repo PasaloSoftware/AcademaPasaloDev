@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/Icon';
 import FloatingInput from '@/components/ui/FloatingInput';
+import Modal from '@/components/ui/Modal';
 import { usersService } from '@/services/users.service';
 import type { AdminUserDetailCourse } from '@/services/users.service';
 
@@ -306,6 +307,234 @@ function CourseSearchInput({
 }
 
 // ============================================
+// Enrollment Modal
+// ============================================
+
+interface EnrollmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (config: {
+    courseCycleId: string;
+    courseId: string;
+    courseCode: string;
+    courseName: string;
+    enrollmentTypeCode: 'FULL' | 'PARTIAL';
+    evaluationIds: string[];
+    historicalCourseCycleIds: string[];
+  }) => void;
+  courseName: string;
+  courseId: string;
+  courseCycleId: string;
+  studentName: string;
+}
+
+function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, courseCycleId, studentName }: EnrollmentModalProps) {
+  const [enrollmentType, setEnrollmentType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [evaluations, setEvaluations] = useState<Array<{ id: string; shortName: string }>>([]);
+  const [selectedEvalIds, setSelectedEvalIds] = useState<Set<string>>(new Set());
+  const [historicalCycles, setHistoricalCycles] = useState<Array<{ courseCycleId: string; academicCycleCode: string }>>([]);
+  const [selectedHistoricalIds, setSelectedHistoricalIds] = useState<Set<string>>(new Set());
+  const [showHistorical, setShowHistorical] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !courseCycleId) return;
+    setLoadingDetail(true);
+    setEnrollmentType('FULL');
+    setSelectedEvalIds(new Set());
+    setSelectedHistoricalIds(new Set());
+    setShowHistorical(true);
+
+    usersService.getCourseCycleDetail(courseCycleId)
+      .then((detail) => {
+        setEvaluations(detail.evaluations.map((e) => ({ id: e.id, shortName: e.shortName })));
+        setHistoricalCycles(detail.historicalCycles);
+        setSelectedHistoricalIds(new Set(detail.historicalCycles.map((c) => c.courseCycleId)));
+      })
+      .catch(() => { setEvaluations([]); setHistoricalCycles([]); })
+      .finally(() => setLoadingDetail(false));
+  }, [isOpen, courseCycleId]);
+
+  const toggleEval = (id: string) => {
+    setSelectedEvalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleHistorical = (id: string) => {
+    setSelectedHistoricalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const canSave = enrollmentType === 'FULL' || selectedEvalIds.size > 0;
+
+  const handleSave = () => {
+    onSave({
+      courseCycleId,
+      courseId,
+      courseCode: '',
+      courseName,
+      enrollmentTypeCode: enrollmentType,
+      evaluationIds: enrollmentType === 'PARTIAL' ? Array.from(selectedEvalIds) : [],
+      historicalCourseCycleIds: showHistorical ? Array.from(selectedHistoricalIds) : [],
+    });
+    onClose();
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Nueva Matrícula"
+      size="lg"
+      footer={
+        <>
+          <Modal.Button variant="secondary" onClick={onClose}>Cancelar</Modal.Button>
+          <Modal.Button disabled={!canSave || loadingDetail} onClick={handleSave}>Guardar</Modal.Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Curso (disabled) */}
+        <div className="self-stretch relative flex flex-col gap-1">
+          <div className="h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary flex items-center gap-2">
+            <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">{courseName}</span>
+            <Icon name="expand_more" size={20} className="text-gray-500" />
+          </div>
+          <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex">
+            <span className="text-text-tertiary text-xs font-normal leading-4">Curso Seleccionado</span>
+          </div>
+        </div>
+
+        {/* Alumno (disabled) */}
+        <div className="self-stretch relative flex flex-col gap-1">
+          <div className="h-12 px-3 py-3.5 bg-gray-200 rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary flex items-center gap-2">
+            <span className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1">{studentName}</span>
+            <Icon name="expand_more" size={20} className="text-gray-500" />
+          </div>
+          <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex">
+            <span className="text-text-tertiary text-xs font-normal leading-4">Alumno</span>
+          </div>
+        </div>
+
+        {/* Enrollment type */}
+        <div className="flex flex-col gap-2">
+          <span className="text-text-quartiary text-sm font-medium leading-4">Modalidad de Inscripción</span>
+
+          {/* FULL */}
+          <button
+            onClick={() => setEnrollmentType('FULL')}
+            className={`p-4 rounded-lg flex flex-col gap-0 transition-colors ${
+              enrollmentType === 'FULL'
+                ? 'outline outline-1 outline-stroke-accent-primary'
+                : 'outline outline-1 outline-stroke-secondary'
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${enrollmentType === 'FULL' ? 'border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
+                {enrollmentType === 'FULL' && <div className="w-2.5 h-2.5 rounded-full bg-bg-accent-primary-solid" />}
+              </div>
+              <span className="flex-1 text-text-primary text-base font-normal leading-4 text-left">Ciclo completo</span>
+            </div>
+            <span className="pl-6 text-text-tertiary text-xs font-light leading-3 text-left">Acceso a todas las evaluaciones</span>
+          </button>
+
+          {/* PARTIAL */}
+          <div className="flex flex-col">
+            <button
+              onClick={() => setEnrollmentType('PARTIAL')}
+              className={`p-4 rounded-lg flex flex-col gap-0 transition-colors ${
+                enrollmentType === 'PARTIAL'
+                  ? 'outline outline-1 outline-stroke-accent-primary'
+                  : 'outline outline-1 outline-stroke-secondary'
+              }`}
+            >
+              <div className="flex items-center gap-1">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${enrollmentType === 'PARTIAL' ? 'border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
+                  {enrollmentType === 'PARTIAL' && <div className="w-2.5 h-2.5 rounded-full bg-bg-accent-primary-solid" />}
+                </div>
+                <span className="flex-1 text-text-primary text-base font-normal leading-4 text-left">Evaluaciones una a una</span>
+              </div>
+              <span className="pl-6 text-text-tertiary text-xs font-light leading-3 text-left">Acceso a evaluaciones específicas</span>
+            </button>
+
+            {/* Evaluation checkboxes */}
+            {enrollmentType === 'PARTIAL' && evaluations.length > 0 && (
+              <div className="pl-3 pt-4 border-l-2 border-stroke-secondary grid grid-cols-3 gap-3">
+                {evaluations.map((ev) => {
+                  const checked = selectedEvalIds.has(ev.id);
+                  return (
+                    <button
+                      key={ev.id}
+                      onClick={() => toggleEval(ev.id)}
+                      className={`p-2 rounded-lg flex items-center gap-1 ${checked ? 'outline outline-1 outline-stroke-accent-primary' : 'outline outline-1 outline-offset-[-1px] outline-stroke-disabled'}`}
+                    >
+                      <div className={`w-5 h-5 rounded flex items-center justify-center border-2 ${checked ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
+                        {checked && <Icon name="check" size={14} className="text-icon-white" />}
+                      </div>
+                      <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">{ev.shortName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Historical cycles */}
+        <div className="p-6 bg-bg-info-primary-light rounded-xl flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 flex items-center gap-3">
+              <div className="p-2 bg-muted-indigo-100 rounded-lg flex items-center justify-center">
+                <Icon name="inventory_2" size={24} className="text-icon-info-primary" variant="rounded" />
+              </div>
+              <div className="flex-1 flex flex-col gap-1">
+                <span className="text-text-primary text-base font-semibold leading-5">Ciclos Pasados</span>
+                <span className="text-text-quartiary text-xs font-normal leading-4">Habilitar material histórico</span>
+              </div>
+            </div>
+            {/* Toggle */}
+            <button
+              onClick={() => setShowHistorical(!showHistorical)}
+              className={`w-10 h-6 rounded-full relative transition-colors ${showHistorical ? 'bg-bg-info-primary-solid' : 'bg-bg-info-primary-light outline outline-1 outline-stroke-info-primary'}`}
+            >
+              <div className={`w-4 h-4 rounded-full absolute top-[4px] transition-all ${showHistorical ? 'left-[20px] bg-bg-tertiary' : 'left-[3px] bg-bg-info-primary-solid'}`} />
+            </button>
+          </div>
+
+            {showHistorical && historicalCycles.length > 0 && (
+            <div className="grid grid-cols-3 gap-3">
+              {historicalCycles.map((cycle) => {
+              const checked = selectedHistoricalIds.has(cycle.courseCycleId);
+              return (
+                <button
+                key={cycle.courseCycleId}
+                onClick={() => toggleHistorical(cycle.courseCycleId)}
+                className="p-2 rounded-lg flex items-center gap-1 bg-white"
+                >
+                <div className={`w-5 h-5 rounded flex items-center justify-center border-2 ${checked ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
+                  {checked && <Icon name="check" size={14} className="text-icon-white" />}
+                </div>
+                <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">{cycle.academicCycleCode}</span>
+                </button>
+              );
+              })}
+            </div>
+            )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================
 // Enrollment Section (student)
 // ============================================
 
@@ -313,24 +542,46 @@ export function EnrollmentSection({
   courses,
   onCoursesChange,
   readOnly = false,
+  studentName = '',
 }: {
   courses: AdminUserDetailCourse[];
   onCoursesChange?: (courses: AdminUserDetailCourse[]) => void;
   readOnly?: boolean;
+  studentName?: string;
 }) {
   const existingCourseIds = courses.map((c) => c.courseId);
 
-  const handleAdd = (catalog: CourseCatalogItem, courseCycleId: string) => {
-    if (!onCoursesChange) return;
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingCourse, setPendingCourse] = useState<{ courseId: string; courseName: string; courseCode: string; courseCycleId: string } | null>(null);
+
+  const handleSearchSelect = (catalog: CourseCatalogItem, courseCycleId: string) => {
+    setPendingCourse({ courseId: catalog.courseId, courseName: catalog.courseName, courseCode: catalog.courseCode, courseCycleId });
+    setModalOpen(true);
+  };
+
+  const handleModalSave = (config: {
+    courseCycleId: string;
+    courseId: string;
+    courseName: string;
+    enrollmentTypeCode: 'FULL' | 'PARTIAL';
+    evaluationIds: string[];
+    historicalCourseCycleIds: string[];
+  }) => {
+    if (!onCoursesChange || !pendingCourse) return;
     const newCourse: AdminUserDetailCourse = {
       relationId: `new-${Date.now()}`,
-      courseId: catalog.courseId,
-      courseCycleId,
-      courseCode: catalog.courseCode,
-      courseName: catalog.courseName,
+      courseId: pendingCourse.courseId,
+      courseCycleId: config.courseCycleId,
+      courseCode: pendingCourse.courseCode,
+      courseName: pendingCourse.courseName,
       academicCycleCode: '',
+      enrollmentTypeCode: config.enrollmentTypeCode,
+      evaluationIds: config.evaluationIds,
+      historicalCourseCycleIds: config.historicalCourseCycleIds,
     };
     onCoursesChange([...courses, newCourse]);
+    setPendingCourse(null);
   };
 
   const handleRemove = (relationId: string) => {
@@ -352,7 +603,7 @@ export function EnrollmentSection({
         <CourseSearchInput
           placeholder="Buscar curso para matricular..."
           existingCourseIds={existingCourseIds}
-          onSelect={handleAdd}
+          onSelect={handleSearchSelect}
         />
       )}
 
@@ -371,6 +622,19 @@ export function EnrollmentSection({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Enrollment Modal */}
+      {pendingCourse && (
+        <EnrollmentModal
+          isOpen={modalOpen}
+          onClose={() => { setModalOpen(false); setPendingCourse(null); }}
+          onSave={handleModalSave}
+          courseName={pendingCourse.courseName}
+          courseId={pendingCourse.courseId}
+          courseCycleId={pendingCourse.courseCycleId}
+          studentName={studentName}
+        />
       )}
     </div>
   );
@@ -474,6 +738,7 @@ export function RoleAssignmentSection({
   onEnrolledCoursesChange,
   teachingCourses,
   onTeachingCoursesChange,
+  studentName = '',
 }: {
   selectedRoles: Set<string>;
   onToggleRole: (code: string) => void;
@@ -481,6 +746,7 @@ export function RoleAssignmentSection({
   onEnrolledCoursesChange: (courses: AdminUserDetailCourse[]) => void;
   teachingCourses: AdminUserDetailCourse[];
   onTeachingCoursesChange: (courses: AdminUserDetailCourse[]) => void;
+  studentName?: string;
 }) {
   const hasStudentRole = selectedRoles.has('STUDENT');
   const hasTeacherRole = selectedRoles.has('PROFESSOR');
@@ -528,9 +794,9 @@ export function RoleAssignmentSection({
       </div>
 
       {(hasStudentRole || hasTeacherRole) && (
-        <div className="pt-4 border-stroke-secondary flex flex-col gap-4">
+        <div className="border-l-2 pl-3 pt-4 border-stroke-secondary flex flex-col gap-4">
           {hasStudentRole && (
-            <EnrollmentSection courses={enrolledCourses} onCoursesChange={onEnrolledCoursesChange} />
+            <EnrollmentSection courses={enrolledCourses} onCoursesChange={onEnrolledCoursesChange} studentName={studentName} />
           )}
           {hasTeacherRole && (
             <TeachingSection courses={teachingCourses} onCoursesChange={onTeachingCoursesChange} />

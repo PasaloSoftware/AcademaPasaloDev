@@ -57,9 +57,12 @@ export default function UsuarioCreateContent() {
 
       let studentEnrollment;
       if (selectedRoles.has('STUDENT') && enrolledCourses.length > 0) {
+        const c = enrolledCourses[0];
         studentEnrollment = {
-          courseCycleId: enrolledCourses[0].courseCycleId,
-          enrollmentTypeCode: 'FULL' as const,
+          courseCycleId: c.courseCycleId,
+          enrollmentTypeCode: c.enrollmentTypeCode || ('FULL' as const),
+          evaluationIds: c.evaluationIds,
+          historicalCourseCycleIds: c.historicalCourseCycleIds,
         };
       }
 
@@ -112,6 +115,7 @@ export default function UsuarioCreateContent() {
         onEnrolledCoursesChange={setEnrolledCourses}
         teachingCourses={teachingCourses}
         onTeachingCoursesChange={setTeachingCourses}
+        studentName={`${personalInfo.firstName} ${personalInfo.lastName1}`.trim()}
       />
 
       <div className="flex justify-end items-center gap-4">
