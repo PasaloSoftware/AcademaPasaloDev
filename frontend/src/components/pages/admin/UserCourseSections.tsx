@@ -2,9 +2,144 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/Icon';
+import FloatingInput from '@/components/ui/FloatingInput';
 import { usersService } from '@/services/users.service';
 import type { AdminUserDetailCourse } from '@/services/users.service';
+
+// Re-export types used by consumers
+export type { AdminUserDetailCourse };
 import { getCourseColor } from '@/lib/courseColors';
+
+// ============================================
+// Personal Info types
+// ============================================
+
+export interface PersonalInfoData {
+  firstName: string;
+  lastName1: string;
+  lastName2: string;
+  email: string;
+  phone: string;
+  career: { id: number; name: string } | null;
+}
+
+// ============================================
+// Searchable career select
+// ============================================
+
+function CareerSearchSelect({
+  value,
+  careers,
+  onChange,
+}: {
+  value: { id: number; name: string } | null;
+  careers: Array<{ id: number; name: string }>;
+  onChange: (career: { id: number; name: string } | null) => void;
+}) {
+  const [query, setQuery] = useState(value?.name || '');
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const prevName = useRef(value?.name || '');
+
+  if (value?.name !== prevName.current) {
+    prevName.current = value?.name || '';
+    if (query !== (value?.name || '')) {
+      setQuery(value?.name || '');
+    }
+  }
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery(value?.name || '');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [value]);
+
+  const filtered = careers.filter((c) =>
+    c.name.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const isFilled = !!value;
+
+  return (
+    <div ref={wrapperRef} className="self-stretch relative flex flex-col justify-start items-start gap-1">
+      <div className={`self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} inline-flex justify-start items-center gap-2 transition-colors`}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(null); }}
+          onFocus={() => setOpen(true)}
+          placeholder={isFilled ? '' : 'Carrera'}
+          className="flex-1 text-text-primary text-base font-normal leading-4 bg-transparent outline-none placeholder:text-text-tertiary"
+        />
+        <Icon name="expand_more" size={20} className="text-icon-tertiary" />
+      </div>
+      {(isFilled || open) && (
+        <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
+          <span className={`text-xs font-normal leading-4 ${open ? 'text-text-accent-primary' : 'text-text-tertiary'}`}>Carrera</span>
+        </div>
+      )}
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-10 max-h-60 overflow-y-auto p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-3 text-text-tertiary text-sm">No se encontraron carreras</div>
+          ) : (
+            filtered.map((career) => (
+              <button
+                key={career.id}
+                onClick={() => { onChange(career); setQuery(career.name); setOpen(false); }}
+                className={`px-2 py-3 rounded text-left text-sm font-normal leading-4 hover:bg-bg-secondary transition-colors ${value?.id === career.id ? 'text-text-accent-primary font-medium' : 'text-text-secondary'}`}
+              >
+                {career.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Personal Info Section
+// ============================================
+
+export function PersonalInfoSection({
+  data,
+  onChange,
+  idPrefix = 'user',
+}: {
+  data: PersonalInfoData;
+  onChange: (field: keyof PersonalInfoData, value: string | { id: number; name: string } | null) => void;
+  idPrefix?: string;
+}) {
+  const [careers, setCareers] = useState<Array<{ id: number; name: string }>>([]);
+
+  useEffect(() => {
+    usersService.getCareers().then(setCareers).catch(() => setCareers([]));
+  }, []);
+
+  return (
+    <div className="p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-6">
+      <div className="flex items-start gap-2">
+        <Icon name="person" size={20} className="text-icon-info-secondary" variant="rounded" />
+        <span className="flex-1 text-text-primary text-lg font-semibold leading-5">Información Personal</span>
+      </div>
+      <div className="flex flex-col gap-4">
+        <FloatingInput id={`${idPrefix}-firstName`} label="Nombres" value={data.firstName} onChange={(v) => onChange('firstName', v)} />
+        <FloatingInput id={`${idPrefix}-lastName1`} label="Primer Apellido" value={data.lastName1} onChange={(v) => onChange('lastName1', v)} />
+        <FloatingInput id={`${idPrefix}-lastName2`} label="Segundo Apellido" value={data.lastName2} onChange={(v) => onChange('lastName2', v)} />
+        <FloatingInput id={`${idPrefix}-email`} label="Correo Electrónico" value={data.email} onChange={(v) => onChange('email', v)} />
+        <FloatingInput id={`${idPrefix}-phone`} label="Teléfono" value={data.phone} onChange={(v) => onChange('phone', v)} />
+        <CareerSearchSelect value={data.career} careers={careers} onChange={(v) => onChange('career', v)} />
+      </div>
+    </div>
+  );
+}
 
 // ============================================
 // Types
@@ -160,7 +295,6 @@ function CourseSearchInput({
                 onClick={() => handleSelect(course)}
                 className="px-2 py-3 rounded text-left hover:bg-bg-secondary transition-colors flex items-center gap-2"
               >
-                <span className="text-text-tertiary text-xs font-medium">{course.courseCode}</span>
                 <span className="flex-1 text-text-secondary text-sm font-normal leading-4">{course.courseName}</span>
               </button>
             ))
@@ -222,11 +356,9 @@ export function EnrollmentSection({
         />
       )}
 
-      <div className="flex flex-col gap-5">
-        <span className="text-gray-600 text-sm font-semibold leading-4">Cursos Matriculados</span>
-        {courses.length === 0 ? (
-          <span className="text-text-tertiary text-sm">No tiene cursos matriculados</span>
-        ) : (
+      {courses.length > 0 && (
+        <div className="flex flex-col gap-5">
+          <span className="text-gray-600 text-sm font-semibold leading-4">Cursos Matriculados</span>
           <div className="grid grid-cols-3 gap-5">
             {courses.map((course) => (
               <CourseCard
@@ -238,8 +370,8 @@ export function EnrollmentSection({
               />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -281,7 +413,7 @@ export function TeachingSection({
     <div className="p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-6">
       <div className="flex items-center gap-5">
         <div className="flex-1 flex items-center gap-2">
-          <Icon name="assignment_ind" size={20} className="text-icon-info-secondary" variant="rounded" />
+          <Icon name="work" size={20} className="text-icon-info-secondary" variant="rounded" />
           <span className="text-text-primary text-lg font-semibold leading-5">Gestión de Cursos a Cargo</span>
         </div>
         <RoleTag role="Asesor" />
@@ -295,11 +427,9 @@ export function TeachingSection({
         />
       )}
 
-      <div className="flex flex-col gap-5">
-        <span className="text-gray-600 text-sm font-semibold leading-4">Cursos Asignados</span>
-        {courses.length === 0 ? (
-          <span className="text-text-tertiary text-sm">No tiene cursos asignados</span>
-        ) : (
+      {courses.length > 0 && (
+        <div className="flex flex-col gap-5">
+          <span className="text-gray-600 text-sm font-semibold leading-4">Cursos Asignados</span>
           <div className="grid grid-cols-3 gap-5">
             {courses.map((course) => (
               <CourseCard
@@ -310,8 +440,103 @@ export function TeachingSection({
               />
             ))}
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Role Assignment Section (shared by Create & Edit)
+// ============================================
+
+const ROLE_OPTIONS = [
+  { code: 'STUDENT', label: 'Alumno', adminOnly: false },
+  { code: 'PROFESSOR', label: 'Asesor', adminOnly: false },
+  { code: 'ADMIN', label: 'Administrador', adminOnly: true },
+  { code: 'SUPER_ADMIN', label: 'Superadministrador', adminOnly: true },
+];
+
+/** Maps backend role labels (e.g. "Alumno") to role codes (e.g. "STUDENT") */
+export function mapBackendRolesToCodes(backendRoles: string[]): Set<string> {
+  const codes = new Set<string>();
+  backendRoles.forEach((r) => {
+    const found = ROLE_OPTIONS.find((o) => o.label === r);
+    if (found) codes.add(found.code);
+  });
+  return codes;
+}
+
+export function RoleAssignmentSection({
+  selectedRoles,
+  onToggleRole,
+  enrolledCourses,
+  onEnrolledCoursesChange,
+  teachingCourses,
+  onTeachingCoursesChange,
+}: {
+  selectedRoles: Set<string>;
+  onToggleRole: (code: string) => void;
+  enrolledCourses: AdminUserDetailCourse[];
+  onEnrolledCoursesChange: (courses: AdminUserDetailCourse[]) => void;
+  teachingCourses: AdminUserDetailCourse[];
+  onTeachingCoursesChange: (courses: AdminUserDetailCourse[]) => void;
+}) {
+  const hasStudentRole = selectedRoles.has('STUDENT');
+  const hasTeacherRole = selectedRoles.has('PROFESSOR');
+
+  return (
+    <div className="flex flex-col">
+      <div className="p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-6">
+        <div className="flex items-start gap-2">
+          <Icon name="assignment_ind" size={20} className="text-icon-info-secondary" variant="rounded" />
+          <span className="flex-1 text-text-primary text-lg font-semibold leading-5">Asignación de Roles</span>
+        </div>
+        <div className="flex flex-col gap-4">
+          {ROLE_OPTIONS.map(({ code, label, adminOnly }) => {
+            const checked = selectedRoles.has(code);
+            const disabled = adminOnly;
+            return (
+              <button
+                key={code}
+                onClick={() => !disabled && onToggleRole(code)}
+                disabled={disabled}
+                className={`self-stretch p-4 rounded-lg flex items-center gap-2 transition-colors ${
+                  disabled
+                    ? 'bg-gray-200 cursor-not-allowed'
+                    : checked
+                      ? 'bg-bg-primary outline outline-1 outline-stroke-accent-primary'
+                      : 'bg-bg-primary outline outline-1 outline-stroke-primary hover:bg-bg-secondary'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
+                  disabled
+                    ? 'border-gray-500 bg-transparent'
+                    : checked
+                      ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid'
+                      : 'border-icon-tertiary bg-transparent'
+                }`}>
+                  {checked && !disabled && <Icon name="check" size={14} className="text-icon-white" />}
+                </div>
+                <span className={`flex-1 text-base font-normal leading-4 text-left ${disabled ? 'text-text-disabled' : 'text-text-secondary'}`}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {(hasStudentRole || hasTeacherRole) && (
+        <div className="pt-4 border-stroke-secondary flex flex-col gap-4">
+          {hasStudentRole && (
+            <EnrollmentSection courses={enrolledCourses} onCoursesChange={onEnrolledCoursesChange} />
+          )}
+          {hasTeacherRole && (
+            <TeachingSection courses={teachingCourses} onCoursesChange={onTeachingCoursesChange} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

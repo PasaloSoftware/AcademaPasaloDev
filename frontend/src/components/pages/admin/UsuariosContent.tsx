@@ -225,7 +225,7 @@ export default function UsuariosContent() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-text-primary text-3xl font-semibold leading-10">Gestión de Usuarios</h1>
-        <button className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors">
+        <button onClick={() => router.push('/plataforma/admin/usuarios/registrar')} className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors">
           <Icon name="person_add_alt" size={16} className="text-icon-white" />
           <span className="text-text-white text-sm font-medium leading-4">Registrar Usuario</span>
         </button>

@@ -176,6 +176,31 @@ export const usersService = {
   },
 
   /**
+   * Registro administrativo integral (POST /users/admin-onboarding)
+   */
+  async adminOnboarding(data: {
+    email: string;
+    firstName: string;
+    lastName1: string;
+    lastName2?: string;
+    phone?: string;
+    careerId?: number;
+    roleCodes: string[];
+    studentEnrollment?: {
+      courseCycleId: string;
+      enrollmentTypeCode: 'FULL' | 'PARTIAL';
+      evaluationIds?: string[];
+      historicalCourseCycleIds?: string[];
+    };
+    professorAssignments?: {
+      courseCycleIds: string[];
+    };
+  }): Promise<unknown> {
+    const response = await apiClient.post('/users/admin-onboarding', data);
+    return response.data;
+  },
+
+  /**
    * Obtener perfil de usuario
    * - Propietario puede ver su propio perfil
    * - ADMIN/SUPER_ADMIN pueden ver cualquier perfil
