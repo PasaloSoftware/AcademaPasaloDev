@@ -125,6 +125,7 @@ describe('ClassEventRecordingUploadsService', () => {
               fileId: 'drive-file-1',
             }),
             getUploadedFileMetadata: jest.fn(),
+            enforceNoCopyForViewers: jest.fn().mockResolvedValue(undefined),
             deleteUploadedFile: jest.fn().mockResolvedValue(undefined),
           },
         },

@@ -23,6 +23,10 @@ export class ClassEventsSchedulingService {
     return `calendar-lock:ct:${courseTypeId}:ac:${academicCycleId}`;
   }
 
+  private getProfessorLockKey(professorUserId: string): string {
+    return `calendar-lock:prof:${professorUserId}`;
+  }
+
   async acquireCalendarLock(
     manager: EntityManager,
     courseTypeId: string,
@@ -46,6 +50,28 @@ export class ClassEventsSchedulingService {
     return lockKey;
   }
 
+  async acquireProfessorScheduleLock(
+    manager: EntityManager,
+    professorUserId: string,
+  ): Promise<string> {
+    const lockKey = this.getProfessorLockKey(professorUserId);
+    const rawRows: unknown = await manager.query(
+      'SELECT GET_LOCK(?, ?) AS acquired',
+      [lockKey, this.CALENDAR_LOCK_TIMEOUT_SECONDS],
+    );
+    const rows = Array.isArray(rawRows)
+      ? (rawRows as Array<{ acquired?: number | string | null }>)
+      : [];
+    const acquiredRaw = rows?.[0]?.acquired;
+    const acquired = acquiredRaw === 1 || acquiredRaw === '1';
+    if (!acquired) {
+      throw new ConflictException(
+        'Otro proceso está planificando horarios para este profesor. Inténtalo nuevamente.',
+      );
+    }
+    return lockKey;
+  }
+
   async releaseCalendarLock(
     manager: EntityManager,
     lockKey: string,
@@ -54,14 +80,30 @@ export class ClassEventsSchedulingService {
   }
 
   async findOverlap(
-    courseCycleId: string,
+    evaluationId: string,
     start: Date,
     end: Date,
     excludeEventId?: string,
     manager?: EntityManager,
   ): Promise<ClassEvent | null> {
     return await this.classEventRepository.findOverlap(
-      courseCycleId,
+      evaluationId,
+      start,
+      end,
+      excludeEventId,
+      manager,
+    );
+  }
+
+  async findProfessorOverlap(
+    professorUserId: string,
+    start: Date,
+    end: Date,
+    excludeEventId?: string,
+    manager?: EntityManager,
+  ): Promise<ClassEvent | null> {
+    return await this.classEventRepository.findProfessorOverlap(
+      professorUserId,
       start,
       end,
       excludeEventId,
@@ -74,17 +116,25 @@ export class ClassEventsSchedulingService {
     endDatetime: Date,
     evaluationStart: Date,
     evaluationEnd: Date,
+    cycleStart?: Date,
+    cycleEnd?: Date,
   ): void {
     const startTime = getEpoch(startDatetime);
     const endTime = getEpoch(endDatetime);
     const evalStartTime = getEpoch(evaluationStart);
     const evalEndTime = getEpoch(evaluationEnd);
+    const cycleStartTime =
+      cycleStart instanceof Date ? getEpoch(cycleStart) : null;
+    const cycleEndTime = cycleEnd instanceof Date ? getEpoch(cycleEnd) : null;
 
-    if (startTime <= Date.now()) {
-      throw new BadRequestException(
-        'La fecha de inicio de la clase debe ser una fecha futura',
-      );
-    }
+    const rangeStartTime =
+      cycleStartTime !== null ? cycleStartTime : evalStartTime;
+    const rangeEndTime =
+      cycleEndTime !== null ? cycleEndTime : evalEndTime;
+    const rangeLabel =
+      cycleStartTime !== null && cycleEndTime !== null
+        ? 'ciclo academico'
+        : 'evaluacion';
 
     if (endTime <= startTime) {
       throw new BadRequestException(
@@ -92,15 +142,15 @@ export class ClassEventsSchedulingService {
       );
     }
 
-    if (startTime < evalStartTime || startTime > evalEndTime) {
+    if (startTime < rangeStartTime || startTime > rangeEndTime) {
       throw new BadRequestException(
-        'La fecha de inicio debe estar dentro del rango de la evaluación',
+        `La fecha de inicio debe estar dentro del rango del ${rangeLabel}`,
       );
     }
 
-    if (endTime < evalStartTime || endTime > evalEndTime) {
+    if (endTime < rangeStartTime || endTime > rangeEndTime) {
       throw new BadRequestException(
-        'La fecha de fin debe estar dentro del rango de la evaluación',
+        `La fecha de fin debe estar dentro del rango del ${rangeLabel}`,
       );
     }
   }

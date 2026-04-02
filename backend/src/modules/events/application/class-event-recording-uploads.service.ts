@@ -458,6 +458,15 @@ export class ClassEventRecordingUploadsService {
         driveVideosFolderId: context.driveVideosFolderId,
       });
 
+      await this.recordingDriveService.enforceNoCopyForViewers(driveFile.fileId);
+      this.logger.log({
+        message:
+          'Restriccion anti-descarga/copia aplicada para viewers en grabacion',
+        classEventId,
+        evaluationId: event.evaluationId,
+        fileId: driveFile.fileId,
+      });
+
       const readyStatusId = await this.getRecordingStatusIdByCode(
         CLASS_EVENT_RECORDING_STATUS_CODES.READY,
       );

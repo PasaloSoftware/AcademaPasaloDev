@@ -814,6 +814,18 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
+    const activeCycleRows = await this.dataSource.query<
+      Array<{ activeCycleId: string | null }>
+    >(
+      `
+        SELECT CAST(ss.setting_value AS UNSIGNED) AS activeCycleId
+        FROM system_setting ss
+        WHERE ss.setting_key = 'ACTIVE_CYCLE_ID'
+        LIMIT 1
+      `,
+    );
+    const activeCycleId = String(activeCycleRows[0]?.activeCycleId || '').trim();
+
     const [enrolledCourses, teachingCourses] = await Promise.all([
       this.dataSource.query<
         Array<{
@@ -839,9 +851,10 @@ export class UsersService {
           INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
           WHERE e.user_id = ?
             AND e.cancelled_at IS NULL
+            AND (? = '' OR cc.academic_cycle_id = ?)
           ORDER BY ac.start_date DESC, c.name ASC, cc.id DESC
         `,
-        [id],
+        [id, activeCycleId, activeCycleId],
       ),
       this.dataSource.query<
         Array<{
@@ -867,9 +880,10 @@ export class UsersService {
           INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
           WHERE ccp.professor_user_id = ?
             AND ccp.revoked_at IS NULL
+            AND (? = '' OR cc.academic_cycle_id = ?)
           ORDER BY ac.start_date DESC, c.name ASC, cc.id DESC
         `,
-        [id],
+        [id, activeCycleId, activeCycleId],
       ),
     ]);
 

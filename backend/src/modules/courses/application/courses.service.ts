@@ -667,6 +667,10 @@ export class CoursesService {
       );
     }
 
+    await this.storageService.enforceNoCopyForViewersOnDriveFile(
+      introVideoFileId,
+    );
+
     await this.dataSource.query(
       `
         UPDATE course_cycle

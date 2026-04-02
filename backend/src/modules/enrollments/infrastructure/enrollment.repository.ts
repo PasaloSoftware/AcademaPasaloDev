@@ -38,8 +38,11 @@ export class EnrollmentRepository {
     });
   }
 
-  async findMyEnrollments(userId: string): Promise<Enrollment[]> {
-    return await this.ormRepository
+  async findMyEnrollments(
+    userId: string,
+    activeCycleId?: string,
+  ): Promise<Enrollment[]> {
+    const qb = this.ormRepository
       .createQueryBuilder('enrollment')
       .innerJoinAndSelect('enrollment.courseCycle', 'courseCycle')
       .innerJoinAndSelect('courseCycle.course', 'course')
@@ -54,8 +57,15 @@ export class EnrollmentRepository {
       .leftJoinAndSelect('courseCycleProfessor.professor', 'professor')
       .where('enrollment.userId = :userId', { userId })
       .andWhere('enrollment.cancelledAt IS NULL')
-      .orderBy('enrollment.enrolledAt', 'DESC')
-      .getMany();
+      .orderBy('enrollment.enrolledAt', 'DESC');
+
+    if (activeCycleId) {
+      qb.andWhere('courseCycle.academicCycleId = :activeCycleId', {
+        activeCycleId,
+      });
+    }
+
+    return await qb.getMany();
   }
 
   async findById(id: string): Promise<Enrollment | null> {

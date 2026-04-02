@@ -161,6 +161,48 @@ describe('ClassEventRecordingDriveService', () => {
     );
   });
 
+  it('aplica copyRequiresWriterPermission=true para bloquear descarga/copia en viewers', async () => {
+    const configService = createConfigService({
+      GOOGLE_APPLICATION_CREDENTIALS: 'C:\\drive-service-account.json',
+    });
+    const service = new ClassEventRecordingDriveService(configService);
+    const mockClient = {
+      request: jest
+        .fn()
+        .mockResolvedValue({ data: { id: 'drive-file-1', copyRequiresWriterPermission: true } }),
+    };
+    googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
+
+    await expect(
+      service.enforceNoCopyForViewers('drive-file-1'),
+    ).resolves.toBeUndefined();
+
+    expect(mockClient.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'PATCH',
+        url: expect.stringContaining('/drive-file-1?supportsAllDrives=true'),
+        data: { copyRequiresWriterPermission: true },
+      }),
+    );
+  });
+
+  it('falla si Drive no confirma copyRequiresWriterPermission', async () => {
+    const configService = createConfigService({
+      GOOGLE_APPLICATION_CREDENTIALS: 'C:\\drive-service-account.json',
+    });
+    const service = new ClassEventRecordingDriveService(configService);
+    const mockClient = {
+      request: jest
+        .fn()
+        .mockResolvedValue({ data: { id: 'drive-file-1', copyRequiresWriterPermission: false } }),
+    };
+    googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
+
+    await expect(
+      service.enforceNoCopyForViewers('drive-file-1'),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
   it('maneja credenciales faltantes', async () => {
     const configService = createConfigService({
       GOOGLE_APPLICATION_CREDENTIALS: '',

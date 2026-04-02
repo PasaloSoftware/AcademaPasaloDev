@@ -80,6 +80,7 @@ export class ClassEventsController {
       parseBusinessDatetimeToUtc(dto.endDatetime, 'endDatetime'),
       dto.liveMeetingUrl,
       user,
+      dto.professorUserIds,
     );
 
     const eventDetail = await this.classEventsService.getEventDetail(

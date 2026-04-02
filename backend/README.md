@@ -2,6 +2,22 @@
 
 API REST desarrollada con NestJS para la gestión integral de la plataforma educativa Academia Pasalo. Este proyecto sigue una arquitectura modular y escalable, utilizando prácticas de desarrollo profesionales y tipado estricto.
 
+## Comando importante: recreación SQL academy-real (Windows vs Linux)
+
+Para ejecutar `scripts/academy-real/run-academy-real-sql.ts`, use el comando según sistema operativo:
+
+### Windows (PowerShell / CMD)
+
+```bash
+npx dotenv -e .env -- cmd /c "npx ts-node --transpile-only scripts/academy-real/run-academy-real-sql.ts"
+```
+
+### Linux / Ubuntu (ej. EC2)
+
+```bash
+npx dotenv -e .env -- npx ts-node --transpile-only scripts/academy-real/run-academy-real-sql.ts
+```
+
 ## Requisitos Previos
 
 Asegúrese de tener instalado el siguiente software antes de comenzar:

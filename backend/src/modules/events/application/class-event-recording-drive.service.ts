@@ -38,6 +38,11 @@ export type DriveUploadedFileMetadata = {
   trashed: boolean;
 };
 
+type DriveContentRestrictionUpdateResponse = {
+  id?: string;
+  copyRequiresWriterPermission?: boolean;
+};
+
 @Injectable()
 export class ClassEventRecordingDriveService {
   private readonly logger = new Logger(ClassEventRecordingDriveService.name);
@@ -237,6 +242,67 @@ export class ClassEventRecordingDriveService {
       });
       throw new BadGatewayException(
         'No se pudo eliminar el archivo de grabacion en Google Drive',
+      );
+    }
+  }
+
+  async enforceNoCopyForViewers(fileId: string): Promise<void> {
+    const normalizedFileId = String(fileId || '').trim();
+    if (!normalizedFileId) {
+      throw new NotFoundException('FileId de Drive invalido');
+    }
+
+    const client = await this.getDriveClient();
+    try {
+      const response = await client.request<DriveContentRestrictionUpdateResponse>(
+        {
+          url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&fields=id,copyRequiresWriterPermission`,
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          data: {
+            copyRequiresWriterPermission: true,
+          },
+        },
+      );
+
+      const enforced = Boolean(response.data?.copyRequiresWriterPermission);
+      if (!enforced) {
+        throw new BadGatewayException(
+          'Google Drive no confirmo la restriccion de copia/descarga para viewers',
+        );
+      }
+
+      this.logger.log({
+        message:
+          'Restriccion copyRequiresWriterPermission aplicada a grabacion',
+        fileId: normalizedFileId,
+      });
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      const status = maybeError.response?.status ?? maybeError.code ?? null;
+      this.logger.error({
+        message:
+          'Fallo al aplicar restriccion de copia/descarga para viewers en Drive',
+        fileId: normalizedFileId,
+        status,
+        error: maybeError.message || String(error),
+      });
+      if (status === 404) {
+        throw new NotFoundException(
+          'Archivo de grabacion no encontrado en Drive',
+        );
+      }
+      if (error instanceof BadGatewayException) {
+        throw error;
+      }
+      throw new BadGatewayException(
+        'No se pudo endurecer permisos del archivo de grabacion en Drive',
       );
     }
   }

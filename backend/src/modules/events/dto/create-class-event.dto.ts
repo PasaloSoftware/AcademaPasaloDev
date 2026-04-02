@@ -7,6 +7,8 @@ import {
   Min,
   MaxLength,
   IsUrl,
+  IsOptional,
+  IsArray,
 } from 'class-validator';
 
 export class CreateClassEventDto {
@@ -47,4 +49,11 @@ export class CreateClassEventDto {
   @MaxLength(500)
   @IsDefined()
   liveMeetingUrl: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @MaxLength(20, { each: true })
+  professorUserIds?: string[];
 }

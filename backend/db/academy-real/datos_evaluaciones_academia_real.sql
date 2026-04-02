@@ -341,6 +341,7 @@ FROM (
     SELECT
       ev.id AS evaluation_id,
       ev.course_cycle_id AS course_cycle_id,
+      c.code AS course_code,
       s.session_number,
       CONCAT('Clase ', s.session_number, ' - ', et.code, ev.number) AS title,
       CASE s.session_number
@@ -365,10 +366,17 @@ FROM (
         WHEN et.code = 'EX' AND ev.number = 2 THEN (9000 + s.session_number)
         WHEN et.code = 'EX' THEN (9500 + (ev.number * 10) + s.session_number)
         ELSE (9900 + (ev.number * 10) + s.session_number)
-      END AS order_eval_session
+      END AS order_eval_session,
+      CASE
+        WHEN c.code = '1INF01' AND et.code IN ('PC', 'LAB') AND ev.number = 1 AND s.session_number = 1 THEN 0
+        WHEN c.code = '1MAT06' AND et.code IN ('PC', 'LAB') AND ev.number = 1 AND s.session_number = 1 THEN 1
+        ELSE 2
+      END AS order_special_priority
     FROM evaluation ev
     INNER JOIN course_cycle cc
       ON cc.id = ev.course_cycle_id
+    INNER JOIN course c
+      ON c.id = cc.course_id
     INNER JOIN academic_cycle ac
       ON ac.id = cc.academic_cycle_id
     INNER JOIN evaluation_type et
@@ -403,6 +411,7 @@ FROM (
           AND ce.session_number = s.session_number
       )
     ORDER BY
+      order_special_priority ASC,
       order_target_day ASC,
       cc.id ASC,
       order_eval_session ASC,
@@ -816,3 +825,128 @@ FROM enrollment e
 WHERE e.user_id = @target_student_id
   AND e.cancelled_at IS NULL
   AND e.course_cycle_id IN (@cc_full_1, @cc_full_2, @cc_partial_1, @cc_partial_2);
+
+-- Ajuste solicitado: mover la primera clase (session_number = 1) de los 2 cursos
+-- asignados a docentepasalo@gmail.com al dia 1 del ciclo, sin cruces globales.
+SET @prof_real_email = 'docentepasalo@gmail.com';
+SET @cc_prof_inf01 = (
+  SELECT cc.id
+  FROM course_cycle cc
+  INNER JOIN course c ON c.id = cc.course_id
+  WHERE cc.academic_cycle_id = @active_cycle_id
+    AND c.code = '1INF01'
+  LIMIT 1
+);
+SET @cc_prof_mat06 = (
+  SELECT cc.id
+  FROM course_cycle cc
+  INNER JOIN course c ON c.id = cc.course_id
+  WHERE cc.academic_cycle_id = @active_cycle_id
+    AND c.code = '1MAT06'
+  LIMIT 1
+);
+
+SET @first_event_inf01 = (
+  SELECT ce.id
+  FROM class_event ce
+  INNER JOIN evaluation ev ON ev.id = ce.evaluation_id
+  INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
+  INNER JOIN course_cycle cc ON cc.id = ev.course_cycle_id
+  INNER JOIN course_cycle_professor ccp ON ccp.course_cycle_id = cc.id AND ccp.revoked_at IS NULL
+  INNER JOIN user u ON u.id = ccp.professor_user_id
+  WHERE cc.id = @cc_prof_inf01
+    AND LOWER(TRIM(u.email)) = @prof_real_email
+    AND ev.number = 1
+    AND et.code IN ('PC', 'LAB')
+    AND ce.session_number = 1
+    AND ce.is_cancelled = 0
+  ORDER BY ce.start_datetime ASC, ce.id ASC
+  LIMIT 1
+);
+
+SET @first_event_mat06 = (
+  SELECT ce.id
+  FROM class_event ce
+  INNER JOIN evaluation ev ON ev.id = ce.evaluation_id
+  INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
+  INNER JOIN course_cycle cc ON cc.id = ev.course_cycle_id
+  INNER JOIN course_cycle_professor ccp ON ccp.course_cycle_id = cc.id AND ccp.revoked_at IS NULL
+  INNER JOIN user u ON u.id = ccp.professor_user_id
+  WHERE cc.id = @cc_prof_mat06
+    AND LOWER(TRIM(u.email)) = @prof_real_email
+    AND ev.number = 1
+    AND et.code IN ('PC', 'LAB')
+    AND ce.session_number = 1
+    AND ce.is_cancelled = 0
+  ORDER BY ce.start_datetime ASC, ce.id ASC
+  LIMIT 1
+);
+
+-- Slot 1 (sin conflicto global): se busca primer slot libre en dia 1 o dia 2
+SET @new_start_inf01 = (
+  SELECT c.slot_start
+  FROM (
+    SELECT TIMESTAMP('2026-04-01 13:00:00') AS slot_start
+    UNION ALL SELECT TIMESTAMP('2026-04-01 15:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-01 17:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-01 19:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-01 21:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 13:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 15:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 17:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 19:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 21:00:00')
+  ) c
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM class_event ce2
+    WHERE ce2.id <> @first_event_inf01
+      AND ce2.is_cancelled = 0
+      AND c.slot_start < ce2.end_datetime
+      AND DATE_ADD(c.slot_start, INTERVAL 2 HOUR) > ce2.start_datetime
+  )
+  ORDER BY c.slot_start
+  LIMIT 1
+);
+
+UPDATE class_event ce
+SET ce.start_datetime = @new_start_inf01,
+    ce.end_datetime = DATE_ADD(@new_start_inf01, INTERVAL 2 HOUR)
+WHERE ce.id = @first_event_inf01
+  AND @new_start_inf01 IS NOT NULL;
+
+-- Slot 2 (sin conflicto global): se busca primer slot libre en dia 1 o dia 2
+SET @new_start_mat06 = (
+  SELECT c.slot_start
+  FROM (
+    SELECT TIMESTAMP('2026-04-01 13:00:00') AS slot_start
+    UNION ALL SELECT TIMESTAMP('2026-04-01 15:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-01 17:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-01 19:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-01 21:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 13:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 15:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 17:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 19:00:00')
+    UNION ALL SELECT TIMESTAMP('2026-04-02 21:00:00')
+  ) c
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM class_event ce2
+    WHERE ce2.id <> @first_event_mat06
+      AND ce2.is_cancelled = 0
+      AND c.slot_start < ce2.end_datetime
+      AND DATE_ADD(c.slot_start, INTERVAL 2 HOUR) > ce2.start_datetime
+  )
+  ORDER BY c.slot_start
+  LIMIT 1
+);
+
+UPDATE class_event ce
+SET ce.start_datetime = @new_start_mat06,
+    ce.end_datetime = DATE_ADD(@new_start_mat06, INTERVAL 2 HOUR)
+WHERE ce.id = @first_event_mat06
+  AND @new_start_mat06 IS NOT NULL;
+
+SELECT @first_event_inf01 AS first_event_inf01_id, @new_start_inf01 AS new_start_inf01;
+SELECT @first_event_mat06 AS first_event_mat06_id, @new_start_mat06 AS new_start_mat06;
