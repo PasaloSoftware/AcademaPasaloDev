@@ -25,7 +25,8 @@ echo "✅ Secretos cargados desde SSM"
 
 export DB_PASSWORD JWT_SECRET GOOGLE_CLIENT_SECRET MAXMIND_LICENSE_KEY GRAFANA_PASSWORD
 export DB_USER DB_NAME DOCKER_USERNAME GOOGLE_CLIENT_ID GOOGLE_REDIRECT_URI CORS_ORIGINS
-export GOOGLE_DRIVE_ROOT_FOLDER_ID STORAGE_PROVIDER GOOGLE_WORKSPACE_ADMIN_EMAIL GOOGLE_WORKSPACE_GROUP_DOMAIN
+export GOOGLE_DRIVE_ROOT_FOLDER_ID GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID STORAGE_PROVIDER
+export GOOGLE_WORKSPACE_ADMIN_EMAIL GOOGLE_WORKSPACE_GROUP_DOMAIN
 export GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL
 
 cd "$APP_DIR"
@@ -82,6 +83,7 @@ MAXMIND_LICENSE_KEY=$MAXMIND_LICENSE_KEY
 CORS_ORIGINS=$CORS_ORIGINS
 GOOGLE_APPLICATION_CREDENTIALS=/opt/academia/secrets/google-drive-sa.json
 GOOGLE_DRIVE_ROOT_FOLDER_ID=$GOOGLE_DRIVE_ROOT_FOLDER_ID
+GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID=$GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID
 STORAGE_PROVIDER=$STORAGE_PROVIDER
 GOOGLE_WORKSPACE_ADMIN_EMAIL=$GOOGLE_WORKSPACE_ADMIN_EMAIL
 GOOGLE_WORKSPACE_GROUP_DOMAIN=$GOOGLE_WORKSPACE_GROUP_DOMAIN
@@ -104,11 +106,10 @@ for i in $(seq 1 30); do
   sleep 3
 done
 
-# 10) Scripts SQL
-docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/eliminar_tablas_academia_pasalo_v1.sql"
-docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/creacion_tablas_academia_pasalo_v1.sql"
-docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/datos_iniciales_academa_pasalo_v1.sql"
-docker exec -i academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" "${DB_NAME}" < "$APP_DIR/backend/db/datos_prueba_cursos_y_matriculas.sql"
+# 10) Scripts SQL academy-real
+echo "Ejecutando scripts SQL academy-real..."
+docker exec academia-pasalo-backend node dist/scripts/academy-real/run-academy-real-sql.js
+echo "✅ Scripts SQL completados"
 
 # 11) Verificar BD
 TABLES_COUNT=$(docker exec academia-pasalo-mysql mysql -u root -p"${DB_PASSWORD}" -sN -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null || echo "0")

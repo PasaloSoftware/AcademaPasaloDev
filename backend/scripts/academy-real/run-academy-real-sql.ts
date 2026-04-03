@@ -70,6 +70,7 @@ async function run(): Promise<void> {
     password: dbConfig.password,
     database: dbConfig.database,
     multipleStatements: true,
+    charset: 'utf8mb4',
   });
 
   try {
