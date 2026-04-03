@@ -201,7 +201,7 @@ export class ClassEventRepository {
   }
 
   async findOverlap(
-    courseCycleId: string,
+    evaluationId: string,
     start: Date,
     end: Date,
     excludeEventId?: string,
@@ -216,18 +216,7 @@ export class ClassEventRepository {
       .select(['ce.id', 'ce.sessionNumber', 'ev.id', 'ev.number', 'et.name'])
       .innerJoin('ce.evaluation', 'ev')
       .innerJoin('ev.evaluationType', 'et')
-      .innerJoin('ev.courseCycle', 'cc')
-      .innerJoin('cc.course', 'course')
-      .innerJoin('course_cycle', 'targetCc', 'targetCc.id = :courseCycleId', {
-        courseCycleId,
-      })
-      .innerJoin(
-        'course',
-        'targetCourse',
-        'targetCourse.id = targetCc.course_id',
-      )
-      .where('cc.academic_cycle_id = targetCc.academic_cycle_id')
-      .andWhere('course.course_type_id = targetCourse.course_type_id')
+      .where('ce.evaluation_id = :evaluationId', { evaluationId })
       .andWhere('ce.is_cancelled = :isCancelled', { isCancelled: false })
       .andWhere(
         new Brackets((qb) => {
@@ -245,12 +234,56 @@ export class ClassEventRepository {
     return await qb.getOne();
   }
 
+  async findProfessorOverlap(
+    professorUserId: string,
+    start: Date,
+    end: Date,
+    excludeEventId?: string,
+    manager?: EntityManager,
+  ): Promise<ClassEvent | null> {
+    const repo = manager
+      ? manager.getRepository(ClassEvent)
+      : this.ormRepository;
+
+    const qb = repo
+      .createQueryBuilder('ce')
+      .select(['ce.id', 'ce.sessionNumber', 'ev.id', 'ev.number', 'et.name'])
+      .innerJoin('ce.evaluation', 'ev')
+      .innerJoin('ev.evaluationType', 'et')
+      .where('ce.is_cancelled = :isCancelled', { isCancelled: false })
+      .andWhere(':start < ce.end_datetime AND :end > ce.start_datetime', {
+        start,
+        end,
+      })
+      .andWhere(
+        new Brackets((brackets) => {
+          brackets
+            .where('ce.created_by = :professorUserId', { professorUserId })
+            .orWhere(
+              `EXISTS (
+                SELECT 1
+                FROM class_event_professor cep
+                WHERE cep.class_event_id = ce.id
+                  AND cep.professor_user_id = :professorUserId
+                  AND cep.revoked_at IS NULL
+              )`,
+              { professorUserId },
+            );
+        }),
+      );
+
+    if (excludeEventId) {
+      qb.andWhere('ce.id != :excludeEventId', { excludeEventId });
+    }
+
+    return await qb.getOne();
+  }
+
   async findByUserAndRange(
     userId: string,
     startDate: Date,
     endDate: Date,
   ): Promise<ClassEvent[]> {
-    const now = new Date();
     const qb = this.ormRepository
       .createQueryBuilder('classEvent')
       .leftJoinAndSelect('classEvent.recordingStatus', 'recordingStatus')
@@ -294,12 +327,10 @@ export class ClassEventRepository {
                   ON e.id = ee.enrollment_id
                 WHERE ee.evaluation_id = classEvent.evaluation_id
                   AND ee.is_active = 1
-                  AND ee.access_start_date <= :now
-                  AND ee.access_end_date >= :now
                   AND e.user_id = :userId
                   AND e.cancelled_at IS NULL
               )`,
-              { userId, now },
+              { userId },
             );
         }),
       )

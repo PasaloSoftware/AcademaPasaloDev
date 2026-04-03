@@ -48,6 +48,7 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - GOOGLE_DRIVE_ROOT_FOLDER_ID=${GOOGLE_DRIVE_ROOT_FOLDER_ID}
+      - GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID=${GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID}
       - STORAGE_PROVIDER=${STORAGE_PROVIDER}
       - GOOGLE_WORKSPACE_ADMIN_EMAIL=${GOOGLE_WORKSPACE_ADMIN_EMAIL}
       - GOOGLE_WORKSPACE_GROUP_DOMAIN=${GOOGLE_WORKSPACE_GROUP_DOMAIN}
@@ -55,6 +56,7 @@ services:
     volumes:
       - /opt/academia/secrets/google-drive-sa.json:/opt/academia/secrets/google-drive-sa.json:ro
       - /opt/academia/uploads:/app/uploads
+      - /home/ubuntu/academia-pasalo/backend/db/academy-real:/app/dist/db/academy-real:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -62,7 +64,6 @@ services:
         condition: service_healthy
     networks:
       - academia-network
-
   frontend:
     image: ${DOCKER_USERNAME}/academia-pasalo-frontend:latest
     container_name: academia-pasalo-frontend

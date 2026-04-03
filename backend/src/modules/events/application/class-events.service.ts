@@ -12,6 +12,8 @@ import { ClassEventRepository } from '@modules/events/infrastructure/class-event
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
+import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
+import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { User } from '@modules/users/domain/user.entity';
@@ -42,6 +44,10 @@ import {
 } from '@modules/media-access/domain/media-access-url.util';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import {
+  toBusinessDayEndUtc,
+  toBusinessDayStartUtc,
+} from '@common/utils/peru-time.util';
 
 @Injectable()
 export class ClassEventsService {
@@ -57,6 +63,8 @@ export class ClassEventsService {
     private readonly classEventProfessorRepository: ClassEventProfessorRepository,
     private readonly classEventRecordingStatusRepository: ClassEventRecordingStatusRepository,
     private readonly evaluationRepository: EvaluationRepository,
+    private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
+    private readonly userRepository: UserRepository,
     private readonly permissionService: ClassEventsPermissionService,
     private readonly schedulingService: ClassEventsSchedulingService,
     private readonly cacheModuleService: ClassEventsCacheService,
@@ -75,6 +83,7 @@ export class ClassEventsService {
     endDatetime: Date,
     liveMeetingUrl: string,
     creatorUser: User,
+    professorUserIds?: string[],
   ): Promise<ClassEvent> {
     const evaluation =
       await this.evaluationRepository.findByIdWithCycle(evaluationId);
@@ -86,11 +95,28 @@ export class ClassEventsService {
       evaluation,
     );
 
+    const normalizedProfessorUserIds = Array.from(
+      new Set(
+        (professorUserIds || [])
+          .map((id) => String(id || '').trim())
+          .filter((id) => !!id),
+      ),
+    );
+    const additionalProfessorIds = normalizedProfessorUserIds.filter(
+      (id) => id !== creatorUser.id,
+    );
+
     this.schedulingService.validateEventDates(
       startDatetime,
       endDatetime,
       evaluation.startDate,
       evaluation.endDate,
+      evaluation.courseCycle?.academicCycle?.startDate
+        ? toBusinessDayStartUtc(evaluation.courseCycle.academicCycle.startDate)
+        : undefined,
+      evaluation.courseCycle?.academicCycle?.endDate
+        ? toBusinessDayEndUtc(evaluation.courseCycle.academicCycle.endDate)
+        : undefined,
     );
 
     const courseTypeId = evaluation.courseCycle?.course?.courseTypeId;
@@ -106,16 +132,49 @@ export class ClassEventsService {
       academicCycleId,
     };
 
+    for (const professorUserId of additionalProfessorIds) {
+      const professorLabel = await this.resolveProfessorLabel(professorUserId);
+      const isAssignedToCourseCycle =
+        await this.courseCycleProfessorRepository.isProfessorAssigned(
+          evaluation.courseCycleId,
+          professorUserId,
+        );
+      if (!isAssignedToCourseCycle) {
+        this.logger.warn({
+          context: ClassEventsService.name,
+          message:
+            'Validacion de creacion rechazada: profesor adicional no asignado al curso ciclo',
+          evaluationId,
+          courseCycleId: evaluation.courseCycleId,
+          professorUserId,
+          professorLabel,
+        });
+        throw new BadRequestException(
+          `El profesor adicional "${professorLabel}" no está asignado a este curso ciclo`,
+        );
+      }
+    }
+
     const created = await this.dataSource.transaction(async (manager) => {
       const lockKey = await this.schedulingService.acquireCalendarLock(
         manager,
         courseTypeId,
         academicCycleId,
       );
+      const professorLockKeys: string[] = [];
 
       try {
+        for (const professorUserId of additionalProfessorIds) {
+          const professorLockKey =
+            await this.schedulingService.acquireProfessorScheduleLock(
+              manager,
+              professorUserId,
+            );
+          professorLockKeys.push(professorLockKey);
+        }
+
         const overlap = await this.schedulingService.findOverlap(
-          evaluation.courseCycleId,
+          evaluation.id,
           startDatetime,
           endDatetime,
           undefined,
@@ -126,6 +185,36 @@ export class ClassEventsService {
           throw new ConflictException(
             `El horario ya está ocupado por la sesión ${overlap.sessionNumber} de ${overlap.evaluation.evaluationType.name}${overlap.evaluation.number}`,
           );
+        }
+
+        for (const professorUserId of additionalProfessorIds) {
+          const professorLabel = await this.resolveProfessorLabel(
+            professorUserId,
+          );
+          const professorOverlap =
+            await this.schedulingService.findProfessorOverlap(
+              professorUserId,
+              startDatetime,
+              endDatetime,
+              undefined,
+              manager,
+            );
+          if (professorOverlap) {
+            this.logger.warn({
+              context: ClassEventsService.name,
+              message:
+                'Validacion de creacion rechazada: profesor adicional con cruce de horario',
+              evaluationId,
+              classEventStart: startDatetime.toISOString(),
+              classEventEnd: endDatetime.toISOString(),
+              professorUserId,
+              professorLabel,
+              conflictingClassEventId: professorOverlap.id,
+            });
+            throw new ConflictException(
+              `El profesor adicional "${professorLabel}" ya tiene una clase programada en ese horario`,
+            );
+          }
         }
 
         const notAvailableStatusId = await this.getRecordingStatusIdByCode(
@@ -170,8 +259,22 @@ export class ClassEventsService {
           manager,
         );
 
+        for (const professorUserId of additionalProfessorIds) {
+          await this.classEventProfessorRepository.assignProfessor(
+            classEvent.id,
+            professorUserId,
+            manager,
+          );
+        }
+
         return classEvent;
       } finally {
+        for (const professorLockKey of professorLockKeys.reverse()) {
+          await this.schedulingService.releaseCalendarLock(
+            manager,
+            professorLockKey,
+          );
+        }
         await this.schedulingService.releaseCalendarLock(manager, lockKey);
       }
     });
@@ -189,6 +292,22 @@ export class ClassEventsService {
     );
 
     return created;
+  }
+
+  private async resolveProfessorLabel(professorUserId: string): Promise<string> {
+    const user = await this.userRepository.findById(professorUserId);
+    if (!user) {
+      return 'seleccionado';
+    }
+
+    const fullName = [user.firstName, user.lastName1, user.lastName2]
+      .map((value) => String(value || '').trim())
+      .filter((value) => !!value)
+      .join(' ')
+      .trim();
+    const email = String(user.email || '').trim();
+
+    return fullName || email || 'seleccionado';
   }
 
   async getEventsByEvaluation(
@@ -362,6 +481,14 @@ export class ClassEventsService {
         finalEnd,
         evaluation.startDate,
         evaluation.endDate,
+        evaluation.courseCycle?.academicCycle?.startDate
+          ? toBusinessDayStartUtc(
+              evaluation.courseCycle.academicCycle.startDate,
+            )
+          : undefined,
+        evaluation.courseCycle?.academicCycle?.endDate
+          ? toBusinessDayEndUtc(evaluation.courseCycle.academicCycle.endDate)
+          : undefined,
       );
 
       updated = await this.dataSource.transaction(async (manager) => {
@@ -373,7 +500,7 @@ export class ClassEventsService {
 
         try {
           const overlap = await this.schedulingService.findOverlap(
-            evaluation.courseCycleId,
+            evaluation.id,
             finalStart,
             finalEnd,
             eventId,

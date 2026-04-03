@@ -8,12 +8,18 @@ import { ClassEventRepository } from '@modules/events/infrastructure/class-event
 import { ClassEventProfessorRepository } from '@modules/events/infrastructure/class-event-professor.repository';
 import { ClassEventRecordingStatusRepository } from '@modules/events/infrastructure/class-event-recording-status.repository';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
+import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
+import { UserRepository } from '@modules/users/infrastructure/user.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { CLASS_EVENT_STATUS } from '@modules/events/domain/class-event.constants';
 import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
 import { DriveAccessScopeService } from '@modules/media-access/application/drive-access-scope.service';
@@ -30,6 +36,8 @@ describe('ClassEventsService', () => {
   let permissionService: jest.Mocked<ClassEventsPermissionService>;
   let schedulingService: jest.Mocked<ClassEventsSchedulingService>;
   let cacheModuleService: jest.Mocked<ClassEventsCacheService>;
+  let courseCycleProfessorRepository: jest.Mocked<CourseCycleProfessorRepository>;
+  let userRepository: jest.Mocked<UserRepository>;
   let driveAccessScopeService: jest.Mocked<DriveAccessScopeService>;
   let storageService: jest.Mocked<StorageService>;
   let notificationsDispatchService: jest.Mocked<NotificationsDispatchService>;
@@ -60,6 +68,10 @@ describe('ClassEventsService', () => {
     courseCycleId: 'cycle-1',
     courseCycle: {
       academicCycleId: 'ac-1',
+      academicCycle: {
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+      },
       course: { courseTypeId: 'ct-1' },
     },
     startDate: new Date('2026-01-01T00:00:00Z'),
@@ -134,9 +146,31 @@ describe('ClassEventsService', () => {
           provide: ClassEventsSchedulingService,
           useValue: {
             acquireCalendarLock: jest.fn().mockResolvedValue('lock-key'),
+            acquireProfessorScheduleLock: jest
+              .fn()
+              .mockResolvedValue('prof-lock-key'),
             releaseCalendarLock: jest.fn().mockResolvedValue(undefined),
             findOverlap: jest.fn().mockResolvedValue(null),
+            findProfessorOverlap: jest.fn().mockResolvedValue(null),
             validateEventDates: jest.fn().mockReturnValue(undefined),
+          },
+        },
+        {
+          provide: CourseCycleProfessorRepository,
+          useValue: {
+            isProfessorAssigned: jest.fn().mockResolvedValue(true),
+          },
+        },
+        {
+          provide: UserRepository,
+          useValue: {
+            findById: jest.fn().mockImplementation(async (id: string) => ({
+              id,
+              firstName: `Profesor ${id}`,
+              lastName1: null,
+              lastName2: null,
+              email: `${id}@test.com`,
+            })),
           },
         },
         {
@@ -188,6 +222,8 @@ describe('ClassEventsService', () => {
     permissionService = module.get(ClassEventsPermissionService);
     schedulingService = module.get(ClassEventsSchedulingService);
     cacheModuleService = module.get(ClassEventsCacheService);
+    courseCycleProfessorRepository = module.get(CourseCycleProfessorRepository);
+    userRepository = module.get(UserRepository);
     driveAccessScopeService = module.get(DriveAccessScopeService);
     storageService = module.get(StorageService);
     notificationsDispatchService = module.get(NotificationsDispatchService);
@@ -199,6 +235,14 @@ describe('ClassEventsService', () => {
     );
     permissionService.validateEventOwnership.mockReturnValue(undefined);
     permissionService.isAdminUser.mockReturnValue(false);
+    courseCycleProfessorRepository.isProfessorAssigned.mockResolvedValue(true);
+    userRepository.findById.mockImplementation(async (id: string) => ({
+      id,
+      firstName: `Profesor ${id}`,
+      lastName1: null,
+      lastName2: null,
+      email: `${id}@test.com`,
+    }) as any);
     driveAccessScopeService.resolveForEvaluation.mockResolvedValue({
       persisted: {
         driveVideosFolderId: 'videos-folder-eval-1',
@@ -230,8 +274,90 @@ describe('ClassEventsService', () => {
       expect(
         permissionService.assertMutationAllowedForEvaluation,
       ).toHaveBeenCalled();
+      expect(schedulingService.validateEventDates).toHaveBeenCalledWith(
+        new Date('2026-02-01T08:00:00Z'),
+        new Date('2026-02-01T10:00:00Z'),
+        mockEvaluation.startDate,
+        mockEvaluation.endDate,
+        expect.any(Date),
+        expect.any(Date),
+      );
       expect(schedulingService.acquireCalendarLock).toHaveBeenCalled();
       expect(cacheModuleService.invalidateForEvaluation).toHaveBeenCalled();
+    });
+
+    it('valida cruces solo dentro de la misma evaluacion', async () => {
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      classEventRepository.findByEvaluationAndSessionNumber.mockResolvedValue(
+        null,
+      );
+      classEventRepository.create.mockResolvedValue(mockEvent);
+
+      await service.createEvent(
+        'eval-1',
+        1,
+        'Clase 1',
+        'Topic',
+        new Date('2026-02-01T08:00:00Z'),
+        new Date('2026-02-01T10:00:00Z'),
+        'link',
+        mockProfessor,
+      );
+
+      expect(schedulingService.findOverlap).toHaveBeenCalledWith(
+        'eval-1',
+        new Date('2026-02-01T08:00:00Z'),
+        new Date('2026-02-01T10:00:00Z'),
+        undefined,
+        expect.anything(),
+      );
+    });
+
+    it('rechaza cuando el profesor adicional ya tiene una sesion en ese horario', async () => {
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      schedulingService.findProfessorOverlap.mockResolvedValueOnce({
+        id: 'event-occupied',
+      } as ClassEvent);
+
+      await expect(
+        service.createEvent(
+          'eval-1',
+          2,
+          'Clase con co-docente',
+          'Topic',
+          new Date('2026-02-01T11:00:00Z'),
+          new Date('2026-02-01T12:00:00Z'),
+          'link',
+          mockProfessor,
+          [mockProfessor.id, 'prof-2'],
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(
+        schedulingService.acquireProfessorScheduleLock,
+      ).toHaveBeenCalledWith(expect.anything(), 'prof-2');
+    });
+
+    it('permite multiples profesores adicionales y reporta cual tiene conflicto', async () => {
+      evaluationRepository.findByIdWithCycle.mockResolvedValue(mockEvaluation);
+      schedulingService.findProfessorOverlap
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'event-occupied' } as ClassEvent);
+
+      await expect(
+        service.createEvent(
+          'eval-1',
+          2,
+          'Clase con co-docentes',
+          'Topic',
+          new Date('2026-02-01T11:00:00Z'),
+          new Date('2026-02-01T12:00:00Z'),
+          'link',
+          mockProfessor,
+          [mockProfessor.id, 'prof-2', 'prof-3'],
+        ),
+      ).rejects.toThrow(
+        'El profesor adicional "Profesor prof-3" ya tiene una clase programada en ese horario',
+      );
     });
   });
 

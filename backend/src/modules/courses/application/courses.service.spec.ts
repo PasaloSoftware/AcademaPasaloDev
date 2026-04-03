@@ -134,6 +134,9 @@ describe('CoursesService student views', () => {
             calculateHash: jest.fn(),
             saveFile: jest.fn(),
             deleteFile: jest.fn(),
+            enforceNoCopyForViewersOnDriveFile: jest
+              .fn()
+              .mockResolvedValue(undefined),
             isGoogleDriveStorageEnabled: jest.fn().mockReturnValue(true),
           },
         },
@@ -1240,6 +1243,10 @@ describe('CoursesService student views', () => {
       '100',
       'https://drive.google.com/file/d/abcDEF_123/view',
     );
+
+    expect(
+      storageService.enforceNoCopyForViewersOnDriveFile,
+    ).toHaveBeenCalledWith('abcDEF_123');
 
     expect(dataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE course_cycle'),

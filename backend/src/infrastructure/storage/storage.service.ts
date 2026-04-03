@@ -4,6 +4,7 @@ import {
   Logger,
   InternalServerErrorException,
   NotFoundException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
@@ -24,6 +25,11 @@ type StoredFileDescriptor = {
 
 type SaveFileOptions = {
   targetDriveFolderId?: string | null;
+};
+
+type DriveRestrictionPatchResponse = {
+  id?: string;
+  copyRequiresWriterPermission?: boolean;
 };
 
 @Injectable()
@@ -318,6 +324,63 @@ export class StorageService implements OnModuleInit {
       rootFolderId,
       normalizedFolderName,
     );
+  }
+
+  async enforceNoCopyForViewersOnDriveFile(fileId: string): Promise<void> {
+    if (!this.isGoogleDriveEnabled()) {
+      throw new InternalServerErrorException(
+        'Restricciones de Drive solo aplican para STORAGE_PROVIDER=GDRIVE',
+      );
+    }
+
+    const normalizedFileId = String(fileId || '').trim();
+    if (!normalizedFileId) {
+      throw new NotFoundException('FileId de Drive invalido');
+    }
+
+    const client = await this.getGoogleAuth().getClient();
+    try {
+      const response = await client.request<DriveRestrictionPatchResponse>({
+        url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&fields=id,copyRequiresWriterPermission`,
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        data: {
+          copyRequiresWriterPermission: true,
+        },
+      });
+
+      const enforced = Boolean(response.data?.copyRequiresWriterPermission);
+      if (!enforced) {
+        throw new BadGatewayException(
+          'Google Drive no confirmo copyRequiresWriterPermission=true',
+        );
+      }
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      const status = maybeError.response?.status ?? maybeError.code ?? null;
+      this.logger.error({
+        message:
+          'Fallo al aplicar restriccion de copia/descarga para viewers en Drive',
+        fileId: normalizedFileId,
+        status,
+        error: maybeError.message || String(error),
+      });
+      if (status === 404) {
+        throw new NotFoundException('Archivo de Drive no encontrado');
+      }
+      if (error instanceof BadGatewayException) {
+        throw error;
+      }
+      throw new BadGatewayException(
+        'No se pudo endurecer permisos de archivo en Google Drive',
+      );
+    }
   }
 
   private isGoogleDriveEnabled(): boolean {
