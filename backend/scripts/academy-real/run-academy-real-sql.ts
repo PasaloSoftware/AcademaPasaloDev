@@ -71,6 +71,7 @@ async function run(): Promise<void> {
     database: dbConfig.database,
     multipleStatements: true,
     charset: 'utf8mb4',
+    collation: 'utf8mb4_0900_ai_ci',
   });
 
   try {
