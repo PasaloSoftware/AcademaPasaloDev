@@ -72,7 +72,8 @@ async function run(): Promise<void> {
     multipleStatements: true,
     charset: 'utf8mb4',
   });
-
+  await connection.query("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_0900_ai_ci'");
+  
   try {
     for (const file of orderedFiles) {
       const fullPath = path.join(sqlDir, file);
