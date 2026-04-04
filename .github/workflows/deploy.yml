@@ -17,7 +17,7 @@ jobs:
         run: |
           INSTANCE_ID="i-075c22a8bf3645192"
           echo "Checking instance state..."
-          STATE=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].State.Name" --output text)
+          STATE=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].State.Name" --output text)   
           echo "Current state: $STATE"
           if [ "$STATE" = "stopped" ]; then
             echo "EC2 Instance must be ON in order to make the DEPLOY"
@@ -61,6 +61,7 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:latest
             ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:${{ github.sha }}
+
   deploy:
     needs: [build-and-push]
     runs-on: ubuntu-latest
@@ -76,6 +77,7 @@ jobs:
           GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
           GOOGLE_DRIVE_ROOT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+          GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID }}
           STORAGE_PROVIDER: GDRIVE
           GITHUB_REPOSITORY: ${{ github.repository }}
           GOOGLE_WORKSPACE_ADMIN_EMAIL: ${{ secrets.GOOGLE_WORKSPACE_ADMIN_EMAIL }}
@@ -87,7 +89,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_NAME,DB_USER,GOOGLE_CLIENT_ID,GOOGLE_REDIRECT_URI,CORS_ORIGINS,GOOGLE_DRIVE_ROOT_FOLDER_ID,STORAGE_PROVIDER,GITHUB_REPOSITORY,GOOGLE_WORKSPACE_ADMIN_EMAIL,GOOGLE_WORKSPACE_GROUP_DOMAIN,GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL,GRAFANA_PASSWORD
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_NAME,DB_USER,GOOGLE_CLIENT_ID,GOOGLE_REDIRECT_URI,CORS_ORIGINS,GOOGLE_DRIVE_ROOT_FOLDER_ID,GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID,STORAGE_PROVIDER,GITHUB_REPOSITORY,GOOGLE_WORKSPACE_ADMIN_EMAIL,GOOGLE_WORKSPACE_GROUP_DOMAIN,GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL,GRAFANA_PASSWORD
           script: |
             set -Eeuo pipefail
             APP_DIR="/home/ubuntu/academia-pasalo"
