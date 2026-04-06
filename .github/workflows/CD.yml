@@ -86,6 +86,7 @@ jobs:
             sudo mkdir -p /opt/academia/secrets /opt/academia/uploads
             sudo chown ubuntu:ubuntu /opt/academia/secrets /opt/academia/uploads
             sudo chmod 700 /opt/academia/secrets
+            sudo chmod 777 /opt/academia/uploads
           "
 
       - name: Copy compose and nginx files via SCP
@@ -113,11 +114,10 @@ jobs:
             exit 1
           fi
           printf '%s' "$GOOGLE_DRIVE_SA_JSON" \
-            | base64 \
-            | tr -d '\n' \
+            | base64 | tr -d '\n' \
             | ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
               base64 -d > /opt/academia/secrets/google-drive-sa.json
-              chmod 600 /opt/academia/secrets/google-drive-sa.json
+              chmod 644 /opt/academia/secrets/google-drive-sa.json
             "
 
       - name: Write mysql-exporter config (prod only)
@@ -185,18 +185,8 @@ jobs:
               fi
               sleep 3
             done
-            echo 'Ejecutando SQL seed por streaming (sin cargar todo en memoria)...'
-            SQL_DIR='/app/dist/db/academy-real'
-            SQL_FILES='eliminar_tablas_academia_pasalo_v1.sql creacion_tablas_academia_pasalo_v1.sql datos_iniciales_academa_pasalo_v1.sql datos_cursos_academia_real.sql datos_evaluaciones_academia_real.sql datos_materiales_drive_academy_real.sql zz_replicar_estructura_ciclos_pasados_academia_real.sql'
-            for f in \$SQL_FILES; do
-              echo "[RUN] \$f"
-              docker exec academia-pasalo-backend sh -lc "cat \"\$SQL_DIR/\$f\"" \
-                | docker exec -i \
-                    -e MYSQL_ROOT_PASSWORD='${{ env.DB_PASSWORD }}' \
-                    -e MYSQL_DATABASE='${{ env.DB_NAME }}' \
-                    academia-pasalo-mysql sh -lc "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
-              echo "[OK ] \$f"
-            done
+            echo 'Ejecutando SQL seed...'
+            docker exec academia-pasalo-backend node dist/scripts/academy-real/run-academy-real-sql.js
             echo '✅ SQL seed completado'
           "
 
