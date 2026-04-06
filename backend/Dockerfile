@@ -5,6 +5,7 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+RUN cp -r db dist/db
 
 # Etapa 2: Production
 FROM node:20-alpine
