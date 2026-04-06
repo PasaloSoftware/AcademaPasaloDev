@@ -106,11 +106,9 @@ jobs:
 
       - name: Write Google Drive SA JSON
         run: |
+          SA_JSON_B64=$(echo '${{ env.GOOGLE_DRIVE_SA_JSON }}' | base64 -w 0)
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
-            umask 077
-            cat > /opt/academia/secrets/google-drive-sa.json << 'SAJSON'
-          ${{ env.GOOGLE_DRIVE_SA_JSON }}
-          SAJSON
+            echo '${SA_JSON_B64}' | base64 -d > /opt/academia/secrets/google-drive-sa.json
             chmod 600 /opt/academia/secrets/google-drive-sa.json
           "
 
