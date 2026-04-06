@@ -9,6 +9,7 @@ import { TransformInterceptor } from '@common/interceptors/transform.interceptor
 import { User } from '@modules/users/domain/user.entity';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.constants';
+import { SettingsService } from '@modules/settings/application/settings.service';
 
 interface EnrollmentDashboardItem {
   courseCycle: {
@@ -72,6 +73,26 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
       '2026-06-30',
     );
 
+    await dataSource.query(
+      `
+        UPDATE system_setting
+        SET setting_value = ?, updated_at = NOW()
+        WHERE setting_key = 'ACTIVE_CYCLE_ID'
+      `,
+      [String(cycle.id)],
+    );
+    await dataSource.query(
+      `
+        INSERT INTO system_setting (setting_key, setting_value, description, created_at, updated_at)
+        SELECT 'ACTIVE_CYCLE_ID', ?, 'Ciclo activo para dashboard e2e', NOW(), NOW()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM system_setting WHERE setting_key = 'ACTIVE_CYCLE_ID'
+        )
+      `,
+      [String(cycle.id)],
+    );
+    await app.get(SettingsService).invalidateCache('ACTIVE_CYCLE_ID');
+
     const course1 = await seeder.createCourse('C1', 'Curso con 2 Profes');
     const course2 = await seeder.createCourse('C2', 'Curso con 1 Profe');
 
@@ -104,7 +125,8 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
         userId: student.user.id,
         courseCycleId: cc1.id,
         enrollmentTypeCode: ENROLLMENT_TYPE_CODES.FULL,
-      });
+      })
+      .expect(201);
 
     await request(app.getHttpServer())
       .post('/enrollments')
@@ -113,7 +135,8 @@ describe('E2E: Dashboard del Alumno (My Courses)', () => {
         userId: student.user.id,
         courseCycleId: cc2.id,
         enrollmentTypeCode: ENROLLMENT_TYPE_CODES.FULL,
-      });
+      })
+      .expect(201);
   });
 
   afterAll(async () => {

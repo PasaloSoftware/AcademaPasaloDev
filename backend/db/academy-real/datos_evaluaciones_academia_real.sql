@@ -2,6 +2,9 @@
 -- Fuente base: backend/cursos.txt + backend/cursos_evaluaciones.txt
 -- Regla: se respetan rangos existentes; faltantes estimados dentro del ciclo activo (2026-1).
 
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET collation_connection = 'utf8mb4_unicode_ci';
+
 SET @active_cycle_id = (
   SELECT CAST(ss.setting_value AS UNSIGNED)
   FROM system_setting ss

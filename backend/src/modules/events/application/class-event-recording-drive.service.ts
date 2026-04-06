@@ -254,8 +254,8 @@ export class ClassEventRecordingDriveService {
 
     const client = await this.getDriveClient();
     try {
-      const response = await client.request<DriveContentRestrictionUpdateResponse>(
-        {
+      const response =
+        await client.request<DriveContentRestrictionUpdateResponse>({
           url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&fields=id,copyRequiresWriterPermission`,
           method: 'PATCH',
           headers: {
@@ -264,8 +264,7 @@ export class ClassEventRecordingDriveService {
           data: {
             copyRequiresWriterPermission: true,
           },
-        },
-      );
+        });
 
       const enforced = Boolean(response.data?.copyRequiresWriterPermission);
       if (!enforced) {

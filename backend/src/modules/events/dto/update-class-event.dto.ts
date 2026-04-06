@@ -27,13 +27,13 @@ export class UpdateClassEventDto {
 
   @IsString()
   @IsOptional()
-  @IsUrl()
+  @IsUrl({}, { message: 'El enlace de la clase debe ser una URL valida' })
   @MaxLength(500)
   liveMeetingUrl?: string;
 
   @IsString()
   @IsOptional()
-  @IsUrl()
+  @IsUrl({}, { message: 'La URL de la grabacion debe ser valida' })
   @MaxLength(500)
   recordingUrl?: string;
 }

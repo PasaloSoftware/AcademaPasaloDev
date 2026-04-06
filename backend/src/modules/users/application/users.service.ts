@@ -697,13 +697,15 @@ export class UsersService {
     const roleCodes = this.parseRoleCodesFilter(query.roles);
     const careerIds = this.parseCareerIdsFilter(query.careerIds);
     const isActive = this.parseStatusFilter(query.status);
-    const shouldUseBaseCache = !query.sortBy && this.shouldUseAdminUsersBaseCache({
-      page: safePage,
-      search: normalizedSearch,
-      roleCodes,
-      careerIds,
-      isActive,
-    });
+    const shouldUseBaseCache =
+      !query.sortBy &&
+      this.shouldUseAdminUsersBaseCache({
+        page: safePage,
+        search: normalizedSearch,
+        roleCodes,
+        careerIds,
+        isActive,
+      });
 
     if (shouldUseBaseCache) {
       const cacheKey = USER_CACHE_KEYS.ADMIN_USERS_TABLE_BASE_PAGE(safePage);
@@ -824,7 +826,9 @@ export class UsersService {
         LIMIT 1
       `,
     );
-    const activeCycleId = String(activeCycleRows[0]?.activeCycleId || '').trim();
+    const activeCycleId = String(
+      activeCycleRows[0]?.activeCycleId || '',
+    ).trim();
 
     const [enrolledCourses, teachingCourses] = await Promise.all([
       this.dataSource.query<

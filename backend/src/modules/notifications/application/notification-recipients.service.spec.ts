@@ -165,6 +165,18 @@ describe('NotificationRecipientsService', () => {
         service.resolveClassEventContext('evt-1'),
       ).rejects.toBeInstanceOf(NotificationIntegrityError);
     });
+
+    it('lanza NotificationIntegrityError si la sesion de clase no tiene numeracion valida', async () => {
+      const ceQb = makeQb({
+        ...classRow,
+        sessionNumber: null,
+      });
+      mockClassEventRepo.createQueryBuilder.mockReturnValue(ceQb);
+
+      await expect(
+        service.resolveClassEventContext('evt-1'),
+      ).rejects.toBeInstanceOf(NotificationIntegrityError);
+    });
   });
 
   describe('resolveMaterialContext', () => {

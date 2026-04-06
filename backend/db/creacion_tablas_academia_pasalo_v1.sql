@@ -282,7 +282,7 @@ CREATE TABLE evaluation_drive_access (
 CREATE TABLE class_event (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   evaluation_id BIGINT NOT NULL,
-  session_number INT NOT NULL,
+  session_number INT NULL,
   title VARCHAR(255) NOT NULL,
   topic VARCHAR(120) NOT NULL,
   start_datetime DATETIME NOT NULL,

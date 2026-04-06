@@ -48,6 +48,7 @@ export class NotificationRecipientsService {
 
   async resolveClassEventContext(
     classEventId: string,
+    sessionNumberSnapshot?: number,
   ): Promise<ClassEventContext> {
     const row = await this.classEventRepo
       .createQueryBuilder('ce')
@@ -68,7 +69,7 @@ export class NotificationRecipientsService {
       .getRawOne<{
         classEventId: string;
         evaluationId: string;
-        sessionNumber: number;
+        sessionNumber: number | string | null;
         classTitle: string;
         startDatetime: Date;
         courseCycleId: string;
@@ -80,6 +81,18 @@ export class NotificationRecipientsService {
     if (!row) {
       throw new NotificationTargetNotFoundError(
         `No se encontro el class_event ${classEventId} al resolver destinatarios`,
+      );
+    }
+
+    const rawSessionNumber = row.sessionNumber ?? sessionNumberSnapshot ?? null;
+    const parsedSessionNumber = Number(rawSessionNumber);
+    if (
+      rawSessionNumber === null ||
+      Number.isNaN(parsedSessionNumber) ||
+      parsedSessionNumber <= 0
+    ) {
+      throw new NotificationIntegrityError(
+        `El class_event ${classEventId} no tiene una numeracion valida para notificaciones`,
       );
     }
 
@@ -113,7 +126,7 @@ export class NotificationRecipientsService {
     return {
       classEventId,
       evaluationId: row.evaluationId,
-      sessionNumber: Number(row.sessionNumber),
+      sessionNumber: parsedSessionNumber,
       classTitle: row.classTitle,
       startDatetime: row.startDatetime,
       courseCycleId: row.courseCycleId,

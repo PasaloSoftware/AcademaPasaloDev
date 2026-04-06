@@ -458,7 +458,9 @@ export class ClassEventRecordingUploadsService {
         driveVideosFolderId: context.driveVideosFolderId,
       });
 
-      await this.recordingDriveService.enforceNoCopyForViewers(driveFile.fileId);
+      await this.recordingDriveService.enforceNoCopyForViewers(
+        driveFile.fileId,
+      );
       this.logger.log({
         message:
           'Restriccion anti-descarga/copia aplicada para viewers en grabacion',

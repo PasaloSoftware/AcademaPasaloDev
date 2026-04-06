@@ -19,7 +19,7 @@ export class ClassEvent {
   @Column({ name: 'evaluation_id', type: 'bigint' })
   evaluationId: string;
 
-  @Column({ name: 'session_number', type: 'int' })
+  @Column({ name: 'session_number', type: 'int', nullable: true })
   sessionNumber: number;
 
   @Column({ type: 'varchar', length: 255 })

@@ -188,9 +188,8 @@ export class ClassEventsService {
         }
 
         for (const professorUserId of additionalProfessorIds) {
-          const professorLabel = await this.resolveProfessorLabel(
-            professorUserId,
-          );
+          const professorLabel =
+            await this.resolveProfessorLabel(professorUserId);
           const professorOverlap =
             await this.schedulingService.findProfessorOverlap(
               professorUserId,
@@ -294,7 +293,9 @@ export class ClassEventsService {
     return created;
   }
 
-  private async resolveProfessorLabel(professorUserId: string): Promise<string> {
+  private async resolveProfessorLabel(
+    professorUserId: string,
+  ): Promise<string> {
     const user = await this.userRepository.findById(professorUserId);
     if (!user) {
       return 'seleccionado';
@@ -590,6 +591,9 @@ export class ClassEventsService {
       evaluation,
     );
 
+    void this.notificationsDispatchService.dispatchClassCancelled(eventId, {
+      sessionNumber: event.sessionNumber,
+    });
     await this.classEventRepository.cancelEvent(eventId);
 
     await this.cacheModuleService.invalidateForEvaluation(
@@ -597,7 +601,6 @@ export class ClassEventsService {
       eventId,
     );
 
-    void this.notificationsDispatchService.dispatchClassCancelled(eventId);
     void this.notificationsDispatchService.cancelClassReminder(eventId);
   }
 

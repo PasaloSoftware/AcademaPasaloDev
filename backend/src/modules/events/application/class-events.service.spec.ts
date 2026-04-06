@@ -236,13 +236,16 @@ describe('ClassEventsService', () => {
     permissionService.validateEventOwnership.mockReturnValue(undefined);
     permissionService.isAdminUser.mockReturnValue(false);
     courseCycleProfessorRepository.isProfessorAssigned.mockResolvedValue(true);
-    userRepository.findById.mockImplementation(async (id: string) => ({
-      id,
-      firstName: `Profesor ${id}`,
-      lastName1: null,
-      lastName2: null,
-      email: `${id}@test.com`,
-    }) as any);
+    userRepository.findById.mockImplementation(
+      async (id: string) =>
+        ({
+          id,
+          firstName: `Profesor ${id}`,
+          lastName1: null,
+          lastName2: null,
+          email: `${id}@test.com`,
+        }) as any,
+    );
     driveAccessScopeService.resolveForEvaluation.mockResolvedValue({
       persisted: {
         driveVideosFolderId: 'videos-folder-eval-1',

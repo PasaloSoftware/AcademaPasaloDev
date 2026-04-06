@@ -233,9 +233,12 @@ export class NotificationDispatchProcessor extends WorkerHost {
   }
 
   private async handleClassEvent(payload: DispatchClassPayload): Promise<void> {
-    const { type, classEventId } = payload;
+    const { type, classEventId, classSnapshot } = payload;
 
-    const context = await this.resolveClassEventContextOrFail(classEventId);
+    const context = await this.resolveClassEventContextOrFail(
+      classEventId,
+      classSnapshot?.sessionNumber,
+    );
 
     if (context.recipientUserIds.length === 0) {
       this.logger.log({
@@ -597,10 +600,14 @@ export class NotificationDispatchProcessor extends WorkerHost {
     }
   }
 
-  private async resolveClassEventContextOrFail(classEventId: string) {
+  private async resolveClassEventContextOrFail(
+    classEventId: string,
+    sessionNumberSnapshot?: number,
+  ) {
     try {
       return await this.recipientsService.resolveClassEventContext(
         classEventId,
+        sessionNumberSnapshot,
       );
     } catch (error) {
       if (

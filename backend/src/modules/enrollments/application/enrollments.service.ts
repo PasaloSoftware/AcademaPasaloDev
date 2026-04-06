@@ -69,7 +69,8 @@ export class EnrollmentsService {
       await this.cacheService.get<MyEnrollmentsResponseDto[]>(cacheKey);
     if (cachedData) return cachedData;
 
-    const activeCycleId = await this.settingsService.getString('ACTIVE_CYCLE_ID');
+    const activeCycleId =
+      await this.settingsService.getString('ACTIVE_CYCLE_ID');
     const enrollments = await this.enrollmentRepository.findMyEnrollments(
       userId,
       activeCycleId || undefined,

@@ -45,7 +45,7 @@ export class CreateClassEventDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsUrl()
+  @IsUrl({}, { message: 'El enlace de la clase debe ser una URL valida' })
   @MaxLength(500)
   @IsDefined()
   liveMeetingUrl: string;

@@ -5,6 +5,9 @@ export interface DispatchClassPayload {
     | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_CANCELLED']
     | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['CLASS_RECORDING_AVAILABLE'];
   classEventId: string;
+  classSnapshot?: {
+    sessionNumber?: number;
+  };
 }
 
 export interface DispatchMaterialPayload {

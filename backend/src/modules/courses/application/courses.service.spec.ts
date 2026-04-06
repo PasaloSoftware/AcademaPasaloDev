@@ -1321,6 +1321,36 @@ describe('CoursesService student views', () => {
       courseCycleProfessorRepository.findByProfessorUserId as jest.Mock
     ).mockResolvedValue([
       {
+        assignedAt: new Date('2025-02-01T15:00:00.000Z'),
+        courseCycle: {
+          id: '99',
+          course: {
+            id: '9',
+            code: 'MAT',
+            name: 'Matematica',
+            courseType: { code: 'CIENCIAS', name: 'Ciencias' },
+            cycleLevel: { levelNumber: 1 },
+          },
+          academicCycle: {
+            id: '199',
+            code: '2025-2',
+            startDate: new Date('2025-07-01T00:00:00.000Z'),
+            endDate: new Date('2025-12-31T00:00:00.000Z'),
+          },
+          professors: [
+            {
+              professor: {
+                id: '77',
+                firstName: 'Ana',
+                lastName1: 'Perez',
+                lastName2: 'Lopez',
+                profilePhotoUrl: null,
+              },
+            },
+          ],
+        },
+      },
+      {
         assignedAt: new Date('2026-02-01T15:00:00.000Z'),
         courseCycle: {
           id: '100',

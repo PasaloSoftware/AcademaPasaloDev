@@ -494,9 +494,9 @@ export class CoursesService {
       await this.courseCycleProfessorRepository.findByProfessorUserId(
         professorUserId,
       );
-    return assignments.map((assignment) =>
-      this.mapProfessorDashboardAssignment(assignment),
-    );
+    return assignments
+      .map((assignment) => this.mapProfessorDashboardAssignment(assignment))
+      .filter((item) => item.courseCycle.academicCycle.isCurrent);
   }
 
   async findAllTypes(): Promise<CourseType[]> {

@@ -124,9 +124,7 @@ export class UserRepository {
       email: 'u.email',
       careerName: 'c.name',
     };
-    const sortExpr = params.sortBy
-      ? sortColumnMap[params.sortBy]
-      : undefined;
+    const sortExpr = params.sortBy ? sortColumnMap[params.sortBy] : undefined;
     const sortDir: 'ASC' | 'DESC' = params.sortOrder || 'DESC';
 
     const pageIdQb = baseQb
