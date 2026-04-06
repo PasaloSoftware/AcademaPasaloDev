@@ -14,6 +14,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,7 +36,6 @@ jobs:
 
   build-and-push:
     name: Build & Push Images
-    needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
@@ -53,8 +53,9 @@ jobs:
           fi
 
       - name: Load secrets from Infisical
-        uses: Infisical/secrets-action@v1.0.7
+        uses: Infisical/secrets-action@v1.0.12
         with:
+          method: "universal"
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: ${{ steps.env.outputs.infisical_env }}
