@@ -1,0 +1,203 @@
+name: CD — Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI — Build & Push"]
+    types:
+      - completed
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Determine environment
+        id: env
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          if [ "$BRANCH" = "main" ]; then
+            echo "infisical_env=production" >> $GITHUB_OUTPUT
+            echo "ssh_host=${{ secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
+            echo "ssh_key=${{ secrets.VPS_SSH_KEY }}" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
+            echo "nginx_conf=nginx.prod.conf" >> $GITHUB_OUTPUT
+            echo "deploy_dir=/home/ubuntu/academia-pasalo" >> $GITHUB_OUTPUT
+          else
+            echo "infisical_env=development" >> $GITHUB_OUTPUT
+            echo "ssh_host=${{ secrets.EC2_HOST }}" >> $GITHUB_OUTPUT
+            echo "ssh_key=${{ secrets.EC2_SSH_KEY }}" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.dev.yml" >> $GITHUB_OUTPUT
+            echo "nginx_conf=nginx.dev.conf" >> $GITHUB_OUTPUT
+            echo "deploy_dir=/home/ubuntu/academia-pasalo" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Load secrets from Infisical
+        uses: Infisical/secrets-action@v1.0.7
+        with:
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          env-slug: ${{ steps.env.outputs.infisical_env }}
+          project-slug: "academia-pasalo"
+          export-type: env
+
+      - name: Set image tag
+        id: tag
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          SHA=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)
+          echo "image_tag=${BRANCH}-${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ steps.env.outputs.ssh_key }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ steps.env.outputs.ssh_host }} >> ~/.ssh/known_hosts
+
+      - name: Prepare deploy directory on server
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+            mkdir -p ${{ steps.env.outputs.deploy_dir }}
+            sudo mkdir -p /opt/academia/secrets /opt/academia/uploads
+            sudo chown ubuntu:ubuntu /opt/academia/secrets /opt/academia/uploads
+            sudo chmod 700 /opt/academia/secrets
+          "
+
+      - name: Copy compose and nginx files via SCP
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            ops/compose/${{ steps.env.outputs.compose_file }} \
+            ubuntu@${{ steps.env.outputs.ssh_host }}:${{ steps.env.outputs.deploy_dir }}/docker-compose.yml
+
+          scp -i ~/.ssh/deploy_key \
+            ops/nginx/${{ steps.env.outputs.nginx_conf }} \
+            ubuntu@${{ steps.env.outputs.ssh_host }}:${{ steps.env.outputs.deploy_dir }}/nginx.conf
+
+          # Copiar prometheus.yml solo en prod
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            scp -i ~/.ssh/deploy_key \
+              ops/monitoring/prometheus.yml \
+              ubuntu@${{ steps.env.outputs.ssh_host }}:${{ steps.env.outputs.deploy_dir }}/prometheus.yml
+          fi
+
+      - name: Write Google Drive SA JSON
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+            umask 077
+            cat > /opt/academia/secrets/google-drive-sa.json << 'SAJSON'
+          ${{ env.GOOGLE_DRIVE_SA_JSON }}
+          SAJSON
+            chmod 600 /opt/academia/secrets/google-drive-sa.json
+          "
+
+      - name: Write mysql-exporter config (prod only)
+        if: github.event.workflow_run.head_branch == 'main'
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+            cat > ${{ steps.env.outputs.deploy_dir }}/mysql-exporter.cnf << 'EOF'
+          [client]
+          user=academia
+          password=${{ env.DB_PASSWORD }}
+          host=mysql
+          port=3306
+          EOF
+          "
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+            set -Eeuo pipefail
+            cd ${{ steps.env.outputs.deploy_dir }}
+
+            # Login Docker
+            echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
+
+            # Crear .env
+            cat > .env << 'EOF'
+          DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          IMAGE_TAG=${{ steps.tag.outputs.image_tag }}
+          DB_HOST=${{ env.DB_HOST }}
+          DB_PORT=${{ env.DB_PORT }}
+          DB_USER=${{ env.DB_USER }}
+          DB_PASSWORD=${{ env.DB_PASSWORD }}
+          DB_NAME=${{ env.DB_NAME }}
+          JWT_SECRET=${{ env.JWT_SECRET }}
+          GOOGLE_CLIENT_ID=${{ env.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ env.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ env.GOOGLE_REDIRECT_URI }}
+          MAXMIND_LICENSE_KEY=${{ env.MAXMIND_LICENSE_KEY }}
+          CORS_ORIGINS=${{ env.CORS_ORIGINS }}
+          GOOGLE_DRIVE_ROOT_FOLDER_ID=${{ env.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+          GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID=${{ env.GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID }}
+          STORAGE_PROVIDER=${{ env.STORAGE_PROVIDER }}
+          GOOGLE_WORKSPACE_ADMIN_EMAIL=${{ env.GOOGLE_WORKSPACE_ADMIN_EMAIL }}
+          GOOGLE_WORKSPACE_GROUP_DOMAIN=${{ env.GOOGLE_WORKSPACE_GROUP_DOMAIN }}
+          GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=${{ env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL }}
+          GRAFANA_PASSWORD=${{ env.GRAFANA_PASSWORD }}
+          EOF
+
+            # Pull y deploy
+            docker compose -p academia-pasalo --env-file .env pull
+            docker compose -p academia-pasalo --env-file .env down --remove-orphans
+            docker compose -p academia-pasalo --env-file .env up -d
+
+            # Limpiar .env del disco inmediatamente
+            rm -f .env
+
+            # Limpiar imágenes no usadas
+            docker image prune -f
+          "
+
+      - name: Run SQL seed
+        if: github.event.workflow_run.head_branch == 'develop'
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+            set -Eeuo pipefail
+            echo 'Esperando MySQL...'
+            for i in \$(seq 1 30); do
+              if docker exec academia-pasalo-mysql mysqladmin ping -h localhost -u root -p'${{ env.DB_PASSWORD }}' --silent 2>/dev/null; then
+                echo '✅ MySQL disponible'
+                break
+              fi
+              sleep 3
+            done
+            echo 'Ejecutando SQL seed...'
+            docker exec academia-pasalo-backend node dist/scripts/academy-real/run-academy-real-sql.js
+            echo '✅ SQL seed completado'
+          "
+
+      - name: Wait for backend healthcheck
+        run: |
+          echo "Esperando que el backend esté disponible..."
+          for i in $(seq 1 20); do
+            if ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} \
+              "curl -sf http://localhost/api/v1/health > /dev/null 2>&1"; then
+              echo "✅ Backend disponible"
+              exit 0
+            fi
+            echo "Intento $i/20 — esperando 10s..."
+            sleep 10
+          done
+          echo "❌ Backend no responde después de 200s"
+          exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "⚠️ Deploy falló — ejecutando rollback..."
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+            cd ${{ steps.env.outputs.deploy_dir }}
+            docker compose -p academia-pasalo down --remove-orphans || true
+            echo '❌ Rollback ejecutado — revisá los logs manualmente'
+            docker ps -a
+          "

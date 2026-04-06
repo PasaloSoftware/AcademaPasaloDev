@@ -1,0 +1,128 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: academia-pasalo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - academia-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    image: ${DOCKER_USERNAME}/academia-pasalo-backend:${IMAGE_TAG}
+    container_name: academia-pasalo-backend
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/google-drive-sa.json
+      - API_PREFIX=api/v1
+      - NODE_ENV=production
+      - PORT=3001
+      - GOOGLE_DRIVE_ROOT_FOLDER_ID=${GOOGLE_DRIVE_ROOT_FOLDER_ID}
+      - GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID=${GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID}
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER}
+      - GOOGLE_WORKSPACE_ADMIN_EMAIL=${GOOGLE_WORKSPACE_ADMIN_EMAIL}
+      - GOOGLE_WORKSPACE_GROUP_DOMAIN=${GOOGLE_WORKSPACE_GROUP_DOMAIN}
+      - GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=${GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL}
+    volumes:
+      - /opt/academia/secrets/google-drive-sa.json:/run/secrets/google-drive-sa.json:ro
+      - /opt/academia/uploads:/app/uploads
+      - /home/ubuntu/academia-pasalo/backend/db/academy-real:/app/dist/db/academy-real:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    networks:
+      - academia-network
+
+  frontend:
+    image: ${DOCKER_USERNAME}/academia-pasalo-frontend:${IMAGE_TAG}
+    container_name: academia-pasalo-frontend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=/api/v1
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+    depends_on:
+      - backend
+    networks:
+      - academia-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: academia-pasalo-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    expose:
+      - "3306"
+    networks:
+      - academia-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.0-alpine
+    container_name: academia-pasalo-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - academia-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  academia-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  redis_data:
+    driver: local
+  mysql_data:
+    driver: local
