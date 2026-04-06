@@ -27,23 +27,22 @@ jobs:
           BRANCH="${{ github.event.workflow_run.head_branch }}"
           if [ "$BRANCH" = "main" ]; then
             echo "infisical_env=production" >> $GITHUB_OUTPUT
-            echo "ssh_host=${{ secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
-            echo "ssh_key=${{ secrets.VPS_SSH_KEY }}" >> $GITHUB_OUTPUT
             echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
             echo "nginx_conf=nginx.prod.conf" >> $GITHUB_OUTPUT
             echo "deploy_dir=/home/ubuntu/academia-pasalo" >> $GITHUB_OUTPUT
+            echo "is_prod=true" >> $GITHUB_OUTPUT
           else
             echo "infisical_env=development" >> $GITHUB_OUTPUT
-            echo "ssh_host=${{ secrets.EC2_HOST }}" >> $GITHUB_OUTPUT
-            echo "ssh_key=${{ secrets.EC2_SSH_KEY }}" >> $GITHUB_OUTPUT
             echo "compose_file=docker-compose.dev.yml" >> $GITHUB_OUTPUT
             echo "nginx_conf=nginx.dev.conf" >> $GITHUB_OUTPUT
             echo "deploy_dir=/home/ubuntu/academia-pasalo" >> $GITHUB_OUTPUT
+            echo "is_prod=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Load secrets from Infisical
-        uses: Infisical/secrets-action@v1.0.7
+        uses: Infisical/secrets-action@v1.0.12
         with:
+          method: "universal"
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: ${{ steps.env.outputs.infisical_env }}
@@ -60,13 +59,29 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ steps.env.outputs.ssh_key }}" > ~/.ssh/deploy_key
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          if [ "$BRANCH" = "main" ]; then
+            echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+            ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          else
+            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+            ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          fi
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ steps.env.outputs.ssh_host }} >> ~/.ssh/known_hosts
+
+      - name: Set deploy host
+        id: host
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          if [ "$BRANCH" = "main" ]; then
+            echo "value=${{ secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ secrets.EC2_HOST }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Prepare deploy directory on server
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             mkdir -p ${{ steps.env.outputs.deploy_dir }}
             sudo mkdir -p /opt/academia/secrets /opt/academia/uploads
             sudo chown ubuntu:ubuntu /opt/academia/secrets /opt/academia/uploads
@@ -77,22 +92,21 @@ jobs:
         run: |
           scp -i ~/.ssh/deploy_key \
             ops/compose/${{ steps.env.outputs.compose_file }} \
-            ubuntu@${{ steps.env.outputs.ssh_host }}:${{ steps.env.outputs.deploy_dir }}/docker-compose.yml
+            ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/docker-compose.yml
 
           scp -i ~/.ssh/deploy_key \
             ops/nginx/${{ steps.env.outputs.nginx_conf }} \
-            ubuntu@${{ steps.env.outputs.ssh_host }}:${{ steps.env.outputs.deploy_dir }}/nginx.conf
+            ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/nginx.conf
 
-          # Copiar prometheus.yml solo en prod
           if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
             scp -i ~/.ssh/deploy_key \
               ops/monitoring/prometheus.yml \
-              ubuntu@${{ steps.env.outputs.ssh_host }}:${{ steps.env.outputs.deploy_dir }}/prometheus.yml
+              ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/prometheus.yml
           fi
 
       - name: Write Google Drive SA JSON
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             umask 077
             cat > /opt/academia/secrets/google-drive-sa.json << 'SAJSON'
           ${{ env.GOOGLE_DRIVE_SA_JSON }}
@@ -103,7 +117,7 @@ jobs:
       - name: Write mysql-exporter config (prod only)
         if: github.event.workflow_run.head_branch == 'main'
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             cat > ${{ steps.env.outputs.deploy_dir }}/mysql-exporter.cnf << 'EOF'
           [client]
           user=academia
@@ -115,14 +129,12 @@ jobs:
 
       - name: Deploy
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             set -Eeuo pipefail
             cd ${{ steps.env.outputs.deploy_dir }}
 
-            # Login Docker
             echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
 
-            # Crear .env
             cat > .env << 'EOF'
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           IMAGE_TAG=${{ steps.tag.outputs.image_tag }}
@@ -146,22 +158,18 @@ jobs:
           GRAFANA_PASSWORD=${{ env.GRAFANA_PASSWORD }}
           EOF
 
-            # Pull y deploy
             docker compose -p academia-pasalo --env-file .env pull
             docker compose -p academia-pasalo --env-file .env down --remove-orphans
             docker compose -p academia-pasalo --env-file .env up -d
 
-            # Limpiar .env del disco inmediatamente
             rm -f .env
-
-            # Limpiar imágenes no usadas
             docker image prune -f
           "
 
-      - name: Run SQL seed
+      - name: Run SQL seed (dev only)
         if: github.event.workflow_run.head_branch == 'develop'
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             set -Eeuo pipefail
             echo 'Esperando MySQL...'
             for i in \$(seq 1 30); do
@@ -180,7 +188,7 @@ jobs:
         run: |
           echo "Esperando que el backend esté disponible..."
           for i in $(seq 1 20); do
-            if ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} \
+            if ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} \
               "curl -sf http://localhost/api/v1/health > /dev/null 2>&1"; then
               echo "✅ Backend disponible"
               exit 0
@@ -195,9 +203,9 @@ jobs:
         if: failure()
         run: |
           echo "⚠️ Deploy falló — ejecutando rollback..."
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.env.outputs.ssh_host }} "
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             cd ${{ steps.env.outputs.deploy_dir }}
             docker compose -p academia-pasalo down --remove-orphans || true
             echo '❌ Rollback ejecutado — revisá los logs manualmente'
             docker ps -a
-          "
+          " || true
