@@ -77,9 +77,9 @@ FROM (
   UNION ALL SELECT '1EST10' AS course_code, 'PC' AS evaluation_type_code
   UNION ALL SELECT '1EST10' AS course_code, 'EX' AS evaluation_type_code
 ) map
-INNER JOIN course c ON c.code = map.course_code
+INNER JOIN course c ON c.code = (map.course_code COLLATE utf8mb4_unicode_ci)
 INNER JOIN course_cycle cc ON cc.course_id = c.id AND cc.academic_cycle_id = @active_cycle_id
-INNER JOIN evaluation_type et ON et.code = map.evaluation_type_code
+INNER JOIN evaluation_type et ON et.code = (map.evaluation_type_code COLLATE utf8mb4_unicode_ci)
 WHERE @active_cycle_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1
@@ -274,9 +274,9 @@ FROM (
   UNION ALL SELECT 'MAT155' AS course_code, 'EX' AS evaluation_type_code, 1 AS eval_number, '2026-05-12 19:30:00' AS start_date, '2026-05-17 21:30:00' AS end_date, 1 AS is_estimated
   UNION ALL SELECT 'MAT155' AS course_code, 'EX' AS evaluation_type_code, 2 AS eval_number, '2026-06-30 19:30:00' AS start_date, '2026-07-05 21:30:00' AS end_date, 1 AS is_estimated
 ) map
-INNER JOIN course c ON c.code = map.course_code
+INNER JOIN course c ON c.code = (map.course_code COLLATE utf8mb4_unicode_ci)
 INNER JOIN course_cycle cc ON cc.course_id = c.id AND cc.academic_cycle_id = @active_cycle_id
-INNER JOIN evaluation_type et ON et.code = map.evaluation_type_code
+INNER JOIN evaluation_type et ON et.code = (map.evaluation_type_code COLLATE utf8mb4_unicode_ci)
 WHERE @active_cycle_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1
