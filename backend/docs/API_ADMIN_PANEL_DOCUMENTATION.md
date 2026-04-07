@@ -1,7 +1,7 @@
 # Documentación API — Panel Administrativo
 
 > Estado: Activa  
-> Última actualización: 2026-03-28  
+> Última actualización: 2026-04-07  
 > Base URL global: `/api/v1`
 
 ---
@@ -22,7 +22,7 @@ Documento exclusivo para endpoints del panel admin/backoffice, con contratos exp
   "statusCode": 200,
   "message": "Mensaje de operación",
   "data": {},
-  "timestamp": "2026-03-28T18:00:00.000Z"
+  "timestamp": "2026-04-07T18:00:00.000Z"
 }
 ```
 
@@ -390,4 +390,61 @@ Mismo contrato de `UserResponseDto` (usuario actualizado).
 
 Regla frontend: mostrar etiquetas (`shortName`) pero guardar siempre IDs (`evaluationIds`, `courseCycleId`, `historicalCourseCycleIds`).
 
+---
+
+## 7) Gestion academica admin (cursos, ciclo, evaluaciones)
+
+> Fuente oficial para frontend admin sobre cursos/evaluaciones.
+> Los endpoints administrativos ya no deben consultarse en `API_CONTENT_AND_FEEDBACK.md`.
+
+### 7.1 Creacion integral de curso (flujo unico)
+
+#### `POST /courses/setup` (ADMIN, SUPER_ADMIN)
+- Objetivo: alta integral en una sola operacion:
+  - crear curso base
+  - crear `course_cycle`
+  - asignar profesores iniciales (opcional)
+  - definir estructura de evaluacion
+  - crear evaluaciones academicas
+  - provisionar Drive de curso/evaluaciones
+
+Notas criticas:
+- `BANCO_ENUNCIADOS` es global del `course_cycle` y **no** se provisiona como scope individual de evaluacion Drive.
+- `professorUserIds` puede venir vacio.
+
+### 7.2 Endpoints administrativos vigentes de cursos
+
+- `PATCH /courses/:id` (ADMIN, SUPER_ADMIN) - actualizar materia.
+- `GET /courses` (ADMIN, SUPER_ADMIN) - listar materias.
+- `GET /courses/:id` (ADMIN, SUPER_ADMIN) - detalle de materia.
+- `GET /courses/types` (ADMIN, SUPER_ADMIN) - catalogo de tipos.
+- `GET /courses/levels` (ADMIN, SUPER_ADMIN) - catalogo de niveles.
+- `GET /courses/course-cycles` (ADMIN, SUPER_ADMIN) - listado paginado de curso-ciclos para panel admin.
+
+### 7.3 Endpoints administrativos vigentes por course_cycle
+
+- `PUT /courses/cycle/:id/evaluation-structure` (ADMIN, SUPER_ADMIN) - definir tipos permitidos.
+- `PATCH /courses/cycle/:id/intro-video` (ADMIN, SUPER_ADMIN) - configurar/limpiar video introductorio.
+- `POST /courses/cycle/:id/professors` (ADMIN, SUPER_ADMIN) - asignar profesor al curso-ciclo.
+- `DELETE /courses/cycle/:id/professors/:professorUserId` (ADMIN, SUPER_ADMIN) - remover profesor del curso-ciclo.
+
+### 7.4 Endpoints administrativos vigentes de evaluaciones
+
+- `POST /evaluations` (ADMIN, SUPER_ADMIN) - crear evaluacion academica.
+- `GET /evaluations/course-cycle/:id` (PROFESSOR, ADMIN, SUPER_ADMIN) - listar evaluaciones del curso-ciclo.
+
+### 7.5 Endpoints de soporte usados por pantallas admin (mixtos)
+
+- `GET /courses/cycle/:id/bank-structure` (STUDENT, PROFESSOR, ADMIN, SUPER_ADMIN) - estructura del Banco por course-cycle.
+- `POST /courses/cycle/:id/bank-documents` (PROFESSOR, ADMIN, SUPER_ADMIN) - carga de documento al Banco (usa `BANCO_ENUNCIADOS` tecnico, no crea evaluacion academica nueva).
+- `GET /courses/cycle/:id/intro-video-link` (STUDENT, PROFESSOR, ADMIN, SUPER_ADMIN) - enlace autorizado para video introductorio.
+
+### 7.6 Endpoints retirados (no usar en frontend)
+
+Los siguientes endpoints de creacion separada fueron retirados del backend y no deben existir en flujos nuevos:
+
+- `POST /courses`
+- `POST /courses/assign-cycle`
+
+Frontend admin debe usar exclusivamente `POST /courses/setup` para creacion.
 

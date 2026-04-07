@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
@@ -71,6 +71,24 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     await expect(service.provisionByEvaluationId('552')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('should reject provisioning for BANCO_ENUNCIADOS', async () => {
+    evaluationRepo.findOne.mockResolvedValue({
+      id: '700',
+      courseCycleId: '17',
+      number: 0,
+      evaluationType: { code: 'BANCO_ENUNCIADOS' },
+      courseCycle: {
+        course: { code: 'MATE101' },
+        academicCycle: { code: '2026-0' },
+      },
+    } as unknown as Evaluation);
+
+    await expect(service.provisionByEvaluationId('700')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(driveScopeProvisioningService.provisionFolders).not.toHaveBeenCalled();
   });
 
   it('should provision group, folders and persist mapping', async () => {

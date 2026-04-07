@@ -28,9 +28,7 @@ import {
   StudentPreviousCycleListResponseDto,
 } from '@modules/courses/dto/student-course-view.dto';
 import { UserResponseDto } from '@modules/users/dto/user-response.dto';
-import { CreateCourseDto } from '@modules/courses/dto/create-course.dto';
 import { UpdateCourseDto } from '@modules/courses/dto/update-course.dto';
-import { AssignCourseToCycleDto } from '@modules/courses/dto/assign-course-to-cycle.dto';
 import { AssignCourseCycleProfessorDto } from '@modules/courses/dto/assign-course-cycle-professor.dto';
 import { UpdateCourseCycleEvaluationStructureDto } from '@modules/courses/dto/update-course-cycle-evaluation-structure.dto';
 import { UpdateCourseCycleIntroVideoDto } from '@modules/courses/dto/update-course-cycle-intro-video.dto';
@@ -224,17 +222,6 @@ export class CoursesController {
     );
   }
 
-  @Post()
-  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  @ResponseMessage('Materia creada exitosamente')
-  async create(@Body() createCourseDto: CreateCourseDto) {
-    const course = await this.coursesService.create(createCourseDto);
-    return plainToInstance(CourseResponseDto, course, {
-      excludeExtraneousValues: true,
-    });
-  }
-
   @Patch(':id')
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Materia actualizada exitosamente')
@@ -246,19 +233,6 @@ export class CoursesController {
     return plainToInstance(CourseResponseDto, course, {
       excludeExtraneousValues: true,
     });
-  }
-
-  @Post('assign-cycle')
-  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  @ResponseMessage('Materia vinculada al ciclo exitosamente')
-  async assignToCycle(@Body() dto: AssignCourseToCycleDto) {
-    const result = await this.coursesService.assignToCycle(dto);
-    return {
-      statusCode: 201,
-      message: 'Curso asignado al ciclo exitosamente',
-      data: result,
-    };
   }
 
   @Put('cycle/:id/evaluation-structure')

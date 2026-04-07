@@ -16,12 +16,11 @@ interface GoogleRequestClient {
 type DriveFileListResponse = { files?: Array<{ id: string }> };
 type DriveCreateResponse = { id?: string };
 
-type EvaluationRow = {
+type TallerLibreEvaluationRow = {
   evaluationId: string | number;
   courseCycleId: string | number;
   courseCode: string;
   cycleCode: string;
-  evaluationTypeCode: string;
   evaluationNumber: number;
 };
 
@@ -68,6 +67,7 @@ async function findOrCreateFolderUnderParent(
   const query = `'${parentFolderId}' in parents and name='${escapeDriveQueryValue(
     folderName,
   )}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
   const list = await client.request<DriveFileListResponse>({
     url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=2&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     method: 'GET',
@@ -89,12 +89,13 @@ async function findOrCreateFolderUnderParent(
     },
     headers: { 'Content-Type': 'application/json' },
   });
+
   const id = String(created.data.id || '').trim();
   if (!id) throw new Error(`Google no devolvio id para ${folderName}`);
   return id;
 }
 
-async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
+async function getTallerLibreEvaluationsFromDb(): Promise<TallerLibreEvaluationRow[]> {
   const conn = await mysql.createConnection({
     host: envOrThrow('DB_HOST'),
     port: Number(process.env.DB_PORT || '3306'),
@@ -103,6 +104,7 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
     database: envOrThrow('DB_NAME'),
     connectTimeout: 10000,
   });
+
   try {
     const [rows] = await conn.query(
       `
@@ -111,33 +113,17 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
         cc.id AS courseCycleId,
         c.code AS courseCode,
         ac.code AS cycleCode,
-        et.code AS evaluationTypeCode,
         ev.number AS evaluationNumber
       FROM evaluation ev
+      INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
       INNER JOIN course_cycle cc ON cc.id = ev.course_cycle_id
       INNER JOIN course c ON c.id = cc.course_id
       INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
-      INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
-      WHERE cc.academic_cycle_id = COALESCE(
-        (
-          SELECT CAST(ss.setting_value AS UNSIGNED)
-          FROM system_setting ss
-          WHERE ss.setting_key = 'ACTIVE_CYCLE_ID'
-          LIMIT 1
-        ),
-        (
-          SELECT ac2.id
-          FROM academic_cycle ac2
-          ORDER BY ac2.id DESC
-          LIMIT 1
-        )
-      )
-        AND et.code <> 'BANCO_ENUNCIADOS'
-        AND ev.number > 0
-      ORDER BY ev.id ASC
+      WHERE et.code = 'TALLER_LIBRE'
+      ORDER BY ac.start_date DESC, ev.id ASC
       `,
     );
-    return rows as EvaluationRow[];
+    return rows as TallerLibreEvaluationRow[];
   } finally {
     await conn.end();
   }
@@ -146,6 +132,7 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
 async function main(): Promise<void> {
   const rootFolderId = envOrThrow('GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID');
   console.log(`[INFO] Root real detectado: ${rootFolderId}`);
+
   const driveClient = await getDriveClient();
   console.log('[INFO] Cliente Drive autenticado');
 
@@ -154,28 +141,25 @@ async function main(): Promise<void> {
     rootFolderId,
     'evaluations',
   );
-  console.log(`[INFO] Carpeta base "evaluations" lista: ${evaluationsRootId}`);
 
-  const evaluations = await getEvaluationsFromDb();
-  if (!evaluations.length) {
-    console.log('No se encontraron evaluaciones del ciclo activo.');
+  const rows = await getTallerLibreEvaluationsFromDb();
+  if (!rows.length) {
+    console.log('[INFO] No se encontraron evaluaciones TALLER_LIBRE en BD.');
     return;
   }
-  console.log(`[INFO] Evaluaciones encontradas en BD: ${evaluations.length}`);
 
+  console.log(`[INFO] Evaluaciones TALLER_LIBRE encontradas: ${rows.length}`);
   let ok = 0;
   let fail = 0;
-  const failures: string[] = [];
 
-  for (const row of evaluations) {
+  for (const row of rows) {
     try {
       const evaluationId = normalizeId(row.evaluationId, 'evaluationId');
       const courseCycleId = normalizeId(row.courseCycleId, 'courseCycleId');
-      const cycleCode = normalizeToken(row.cycleCode, 'cycleCode');
       const courseCode = normalizeToken(row.courseCode, 'courseCode');
-      const typeCode = normalizeToken(row.evaluationTypeCode, 'evaluationTypeCode').toUpperCase();
-      const evalNumber = Number(row.evaluationNumber || 0);
-      if (!Number.isInteger(evalNumber) || evalNumber <= 0) {
+      const cycleCode = normalizeToken(row.cycleCode, 'cycleCode');
+      const number = Number(row.evaluationNumber || 0);
+      if (!Number.isInteger(number) || number <= 0) {
         throw new Error(`evaluationNumber invalido: "${row.evaluationNumber}"`);
       }
 
@@ -184,27 +168,28 @@ async function main(): Promise<void> {
         evaluationsRootId,
         cycleCode,
       );
-      const courseCycleFolderId = await findOrCreateFolderUnderParent(
+      const ccFolderId = await findOrCreateFolderUnderParent(
         driveClient,
         cycleFolderId,
         `cc_${courseCycleId}_${courseCode}`,
       );
-      const scopeFolderId = await findOrCreateFolderUnderParent(
+      const evFolderId = await findOrCreateFolderUnderParent(
         driveClient,
-        courseCycleFolderId,
-        `ev_${evaluationId}_${typeCode}${evalNumber}`,
+        ccFolderId,
+        `ev_${evaluationId}_TALLER_LIBRE${number}`,
       );
-      await findOrCreateFolderUnderParent(driveClient, scopeFolderId, 'videos');
-      await findOrCreateFolderUnderParent(driveClient, scopeFolderId, 'documentos');
-      await findOrCreateFolderUnderParent(driveClient, scopeFolderId, 'archivado');
+
+      await findOrCreateFolderUnderParent(driveClient, evFolderId, 'videos');
+      await findOrCreateFolderUnderParent(driveClient, evFolderId, 'documentos');
+      await findOrCreateFolderUnderParent(driveClient, evFolderId, 'archivado');
 
       ok += 1;
       console.log(
-        `[OK] ev=${evaluationId} cc=${courseCycleId} type=${typeCode}${evalNumber} scope=${scopeFolderId}`,
+        `[OK] cycle=${cycleCode} cc=${courseCycleId} ev=${evaluationId} folder=${evFolderId}`,
       );
     } catch (error) {
       fail += 1;
-      failures.push(
+      console.error(
         `[ERROR] ev=${String(row.evaluationId)} -> ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -213,15 +198,12 @@ async function main(): Promise<void> {
   }
 
   console.log('----------------------------------------');
-  console.log(`Provision evaluations folders completada. OK=${ok} FAIL=${fail}`);
-  if (failures.length > 0) {
-    console.log('Errores detectados:');
-    for (const f of failures) console.log(f);
-    process.exitCode = 1;
-  }
+  console.log(`Provision TALLER_LIBRE completada. OK=${ok} FAIL=${fail}`);
+  if (fail > 0) process.exitCode = 1;
 }
 
 void main().catch((error: unknown) => {
   console.error(`[ERROR] ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });
+

@@ -25,6 +25,8 @@ type EvaluationRow = {
   evaluationNumber: number;
 };
 
+const TARGET_HISTORICAL_CYCLES = ['2026-0', '2025-2', '2025-1'] as const;
+
 function envOrThrow(name: string): string {
   const value = String(process.env[name] || '').trim();
   if (!value) throw new Error(`Falta ${name}`);
@@ -118,24 +120,12 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
       INNER JOIN course c ON c.id = cc.course_id
       INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
       INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
-      WHERE cc.academic_cycle_id = COALESCE(
-        (
-          SELECT CAST(ss.setting_value AS UNSIGNED)
-          FROM system_setting ss
-          WHERE ss.setting_key = 'ACTIVE_CYCLE_ID'
-          LIMIT 1
-        ),
-        (
-          SELECT ac2.id
-          FROM academic_cycle ac2
-          ORDER BY ac2.id DESC
-          LIMIT 1
-        )
-      )
+      WHERE ac.code IN (?, ?, ?)
         AND et.code <> 'BANCO_ENUNCIADOS'
         AND ev.number > 0
-      ORDER BY ev.id ASC
+      ORDER BY ac.start_date DESC, ev.id ASC
       `,
+      [...TARGET_HISTORICAL_CYCLES],
     );
     return rows as EvaluationRow[];
   } finally {
@@ -146,6 +136,8 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
 async function main(): Promise<void> {
   const rootFolderId = envOrThrow('GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID');
   console.log(`[INFO] Root real detectado: ${rootFolderId}`);
+  console.log(`[INFO] Ciclos historicos objetivo: ${TARGET_HISTORICAL_CYCLES.join(', ')}`);
+
   const driveClient = await getDriveClient();
   console.log('[INFO] Cliente Drive autenticado');
 
@@ -158,10 +150,12 @@ async function main(): Promise<void> {
 
   const evaluations = await getEvaluationsFromDb();
   if (!evaluations.length) {
-    console.log('No se encontraron evaluaciones del ciclo activo.');
+    console.log(
+      `[INFO] No se encontraron evaluaciones para ciclos historicos: ${TARGET_HISTORICAL_CYCLES.join(', ')}`,
+    );
     return;
   }
-  console.log(`[INFO] Evaluaciones encontradas en BD: ${evaluations.length}`);
+  console.log(`[INFO] Evaluaciones historicas encontradas en BD: ${evaluations.length}`);
 
   let ok = 0;
   let fail = 0;
@@ -173,7 +167,10 @@ async function main(): Promise<void> {
       const courseCycleId = normalizeId(row.courseCycleId, 'courseCycleId');
       const cycleCode = normalizeToken(row.cycleCode, 'cycleCode');
       const courseCode = normalizeToken(row.courseCode, 'courseCode');
-      const typeCode = normalizeToken(row.evaluationTypeCode, 'evaluationTypeCode').toUpperCase();
+      const typeCode = normalizeToken(
+        row.evaluationTypeCode,
+        'evaluationTypeCode',
+      ).toUpperCase();
       const evalNumber = Number(row.evaluationNumber || 0);
       if (!Number.isInteger(evalNumber) || evalNumber <= 0) {
         throw new Error(`evaluationNumber invalido: "${row.evaluationNumber}"`);
@@ -194,13 +191,14 @@ async function main(): Promise<void> {
         courseCycleFolderId,
         `ev_${evaluationId}_${typeCode}${evalNumber}`,
       );
+
       await findOrCreateFolderUnderParent(driveClient, scopeFolderId, 'videos');
       await findOrCreateFolderUnderParent(driveClient, scopeFolderId, 'documentos');
       await findOrCreateFolderUnderParent(driveClient, scopeFolderId, 'archivado');
 
       ok += 1;
       console.log(
-        `[OK] ev=${evaluationId} cc=${courseCycleId} type=${typeCode}${evalNumber} scope=${scopeFolderId}`,
+        `[OK] ev=${evaluationId} cc=${courseCycleId} cycle=${cycleCode} type=${typeCode}${evalNumber} scope=${scopeFolderId}`,
       );
     } catch (error) {
       fail += 1;
@@ -213,7 +211,7 @@ async function main(): Promise<void> {
   }
 
   console.log('----------------------------------------');
-  console.log(`Provision evaluations folders completada. OK=${ok} FAIL=${fail}`);
+  console.log(`Provision evaluations historicas completada. OK=${ok} FAIL=${fail}`);
   if (failures.length > 0) {
     console.log('Errores detectados:');
     for (const f of failures) console.log(f);

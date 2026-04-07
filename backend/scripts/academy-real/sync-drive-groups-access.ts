@@ -142,6 +142,8 @@ async function main(): Promise<void> {
             LIMIT 1
           )
         )
+          AND et.code <> 'BANCO_ENUNCIADOS'
+          AND ev.number > 0
         ORDER BY ev.id ASC
         `,
       ),
