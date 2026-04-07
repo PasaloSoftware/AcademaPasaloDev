@@ -32,7 +32,8 @@ INSERT INTO evaluation_type (code, name) VALUES
 ('EX', 'Examen'),
 ('LAB', 'Laboratorio'),
 ('TUTORING', 'Tutoria Especializada'),
-('BANCO_ENUNCIADOS', 'Banco de Enunciados');
+('BANCO_ENUNCIADOS', 'Banco de Enunciados'),
+('TALLER_LIBRE', 'Talleres Libres');
 
 INSERT INTO academic_cycle (code, start_date, end_date, created_at) VALUES
 ('2024-1', '2024-01-08', '2024-03-31', NOW()),
