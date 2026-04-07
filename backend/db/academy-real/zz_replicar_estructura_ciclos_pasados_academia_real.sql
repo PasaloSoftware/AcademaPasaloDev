@@ -22,7 +22,8 @@ SELECT ac.id, ac.code, ac.start_date, ac.end_date
 FROM academic_cycle ac
 INNER JOIN academic_cycle src ON src.id = @source_cycle_id
 WHERE ac.id <> src.id
-  AND ac.end_date < src.start_date;
+  AND ac.end_date < src.start_date
+  AND ac.code IN ('2026-0', '2025-2', '2025-1');
 
 DROP TEMPORARY TABLE IF EXISTS tmp_source_course_cycles;
 CREATE TEMPORARY TABLE tmp_source_course_cycles AS
