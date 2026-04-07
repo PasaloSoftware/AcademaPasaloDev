@@ -317,59 +317,13 @@ El endpoint legado GET /courses/cycle/:courseCycleId/content queda para roles de
 
 
 #### Operaciones Administrativas (Admin/SuperAdmin)
-- **POST /courses**: Crear materia base.
-    * `body: { "code": "string", "name": "string", "courseTypeId": "ID", "cycleLevelId": "ID", "primaryColor": "string (permite null)", "secondaryColor": "string (permite null)" }`
-- **PATCH /courses/:id**: Actualizar materia (nombre, código, colores).
-    * **Nota:** Invalida automáticamente cachés de Dashboard y Horarios.
-- **GET /courses/course-cycles**: Listado paginado de curso-ciclos para panel admin/superadmin.
-    * Query params: page (default 1), pageSize (default 10, max 100), search (opcional).
-    * Incluye courseCycleId, datos de curso, datos de ciclo, bandera isCurrent y métricas agregadas: evaluations, activeEnrollments, activeProfessors.
-- **POST /courses/assign-cycle**: Aperturar materia en un ciclo (Crea CourseCycle).
-    * `body: { "courseId": "ID", "academicCycleId": "ID" }`
-- **POST /courses/setup**: Alta integral de curso/ciclo (orquestado en un solo endpoint).
-    * **Roles:** `ADMIN`, `SUPER_ADMIN`
-    * **Objetivo:** crear curso + course_cycle + estructura de evaluaciones + evaluaciones reales + plantilla de carpetas de materiales + provision Drive (evaluaciones y course_cycle).
-    * **Body (resumen):**
-      ```json
-      {
-        "course": {
-          "code": "MATE101",
-          "name": "Calculo I",
-          "courseTypeId": "1",
-          "cycleLevelId": "1",
-          "primaryColor": "#0E7490",
-          "secondaryColor": "#F59E0B"
-        },
-        "academicCycleId": "8",
-        "allowedEvaluationTypeIds": ["1", "2", "3"],
-        "evaluationsToCreate": [
-          {
-            "evaluationTypeId": "1",
-            "number": 1,
-            "startDate": "2026-03-10",
-            "endDate": "2026-07-20"
-          }
-        ],
-        "professorUserIds": ["2"],
-        "materialsTemplate": {
-          "applyToEachEvaluation": true,
-          "roots": [
-            { "name": "Sesiones", "subfolderNames": [] },
-            { "name": "Material Adicional", "subfolderNames": ["Resumenes", "Enunciados"] }
-          ]
-        }
-      }
-      ```
-    * **Notas clave:**
-      - `evaluationsToCreate` define las evaluaciones reales (type + number). No se envia count.
-      - El banco enunciados (number=0) se crea por `assign-cycle`.
-      - Las cards/carpetas de banco se derivan de las evaluaciones reales creadas.
-      - Provisiona inmediatamente:
-        - scope Drive por evaluacion (`evaluations/.../ev_*`)
-        - scope Drive por course_cycle (`course_cycles/.../cc_*`) con `intro_video` y `bank_documents`.
-- **POST /courses/cycle/:id/professors**: Asignar profesor a la plana del curso.
-    * `body: { "professorUserId": "ID" }`
-- **DELETE /courses/cycle/:id/professors/:professorUserId**: Remover profesor del curso.
+
+> Esta sección fue centralizada para evitar contratos duplicados o desactualizados.  
+> Consultar siempre `backend/docs/API_ADMIN_PANEL_DOCUMENTATION.md` para endpoints admin de:
+> - cursos y course-cycles
+> - asignación de profesores
+> - estructura y creación de evaluaciones
+> - configuración administrativa asociada
 
 ---
 
@@ -378,23 +332,8 @@ El endpoint legado GET /courses/cycle/:courseCycleId/content queda para roles de
 Gestión de los hitos evaluativos (PC, EX, etc.) a los que se vinculan las sesiones y materiales.
 
 ### 1. Crear Evaluación (Admin)
-Define una nueva evaluación dentro de un curso/ciclo.
-- **Endpoint:** `POST /evaluations`
-- **Roles:** `ADMIN`, `SUPER_ADMIN`
-- **Request Body:**
-    ```json
-    {
-      "courseCycleId": "string",
-      "evaluationTypeId": "string (ID obtenido de /courses/types)",
-      "number": number, // e.g. 1 para PC1
-      "startDate": "ISO-8601",
-      "endDate": "ISO-8601"
-    }
-    ```
-- **Automatizacion:** al crear una evaluacion nueva, el subscriber concede acceso automatico segun tipo.
-  - `BANCO_ENUNCIADOS`: para toda matricula activa del curso/ciclo.
-  - Resto de evaluaciones: solo para matriculas activas `FULL`.
-  - En todos los casos, `accessStartDate` queda en inicio de ciclo academico y `accessEndDate` en fin de ciclo academico del curso base.
+Se documenta exclusivamente en:
+- `backend/docs/API_ADMIN_PANEL_DOCUMENTATION.md`
 
 ### 2. Listar Evaluaciones de un Curso
 - **Endpoint:** `GET /evaluations/course-cycle/:courseCycleId`
@@ -650,31 +589,8 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 
 ### 1) Admin - Definir estructura por course_cycle
 
-- Endpoint: `PUT /courses/cycle/:courseCycleId/evaluation-structure`
-- Roles: `ADMIN`, `SUPER_ADMIN`
-- Body:
-```json
-{
-  "evaluationTypeIds": ["1", "2", "6"]
-}
-```
-- Validaciones backend:
-1. `courseCycleId` debe existir.
-2. `evaluationTypeIds` no puede ser vacio.
-3. No se permiten ids duplicados.
-4. Todos los ids deben existir en `evaluation_type`.
-5. Si la estructura enviada es igual a la actual, no se hacen escrituras (idempotente).
-- Respuesta 200:
-```json
-{
-  "courseCycleId": "4",
-  "evaluationTypeIds": ["1", "2", "6"]
-}
-```
-- Errores esperados:
-1. `400` payload invalido (vacio, duplicados, ids inexistentes, ids vacios).
-2. `404` course_cycle no existe.
-3. `403` si rol no autorizado.
+Se documenta exclusivamente en:
+- `backend/docs/API_ADMIN_PANEL_DOCUMENTATION.md`
 
 ### 2) Alumno - Obtener estructura del tab Banco (cards + carpetas navegables)
 
@@ -744,26 +660,8 @@ Esta seccion resume los contratos actuales para frontend de forma estricta y sin
 
 ### 3) Admin - Crear evaluacion con validacion estricta de estructura
 
-- Endpoint: `POST /evaluations`
-- Roles: `ADMIN`, `SUPER_ADMIN`
-- Body:
-```json
-{
-  "courseCycleId": "4",
-  "evaluationTypeId": "1",
-  "number": 3,
-  "startDate": "2026-03-10T05:00:00.000Z",
-  "endDate": "2026-03-10T23:59:59.000Z"
-}
-```
-- Reglas nuevas obligatorias:
-1. `evaluationTypeId` debe existir en la estructura activa del `course_cycle`.
-2. Si el `course_cycle` no tiene estructura activa: `400`.
-3. Si el tipo no esta permitido en la estructura: `400`.
-4. Se mantiene validacion de fechas dentro del ciclo academico.
-- Errores esperados:
-1. `400` tipo no permitido, estructura vacia, fechas invalidas, typeId vacio.
-2. `404` course_cycle no existe.
+Se documenta exclusivamente en:
+- `backend/docs/API_ADMIN_PANEL_DOCUMENTATION.md`
 
 ### 4) Banco - Subir documento al banco del course_cycle
 
@@ -844,18 +742,8 @@ Se agrega soporte para video introductorio a nivel `course_cycle` (no por evalua
 
 ### 1) Admin - Configurar video introductorio
 
-- Endpoint: `PATCH /courses/cycle/:id/intro-video`
-- Roles: `ADMIN`, `SUPER_ADMIN`
-- Body:
-```json
-{
-  "introVideoUrl": "https://drive.google.com/file/d/<FILE_ID>/view"
-}
-```
-- Reglas:
-1. La URL debe ser de Google Drive.
-2. Backend extrae y guarda internamente `intro_video_file_id`.
-3. Si `introVideoUrl` viene vacio/null, se limpia el video introductorio del curso-ciclo.
+Se documenta exclusivamente en:
+- `backend/docs/API_ADMIN_PANEL_DOCUMENTATION.md`
 
 ### 2) Alumno/Profesor/Admin - Obtener link autorizado
 
