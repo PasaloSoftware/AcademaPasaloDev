@@ -121,6 +121,8 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
       INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
       INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
       WHERE ac.code IN (?, ?, ?)
+        AND et.code <> 'BANCO_ENUNCIADOS'
+        AND ev.number > 0
       ORDER BY ac.start_date DESC, ev.id ASC
       `,
       [...TARGET_HISTORICAL_CYCLES],
@@ -221,4 +223,3 @@ void main().catch((error: unknown) => {
   console.error(`[ERROR] ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });
-

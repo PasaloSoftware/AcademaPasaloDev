@@ -101,6 +101,8 @@ async function main(): Promise<void> {
           ev.number AS evaluationNumber
         FROM evaluation ev
         INNER JOIN evaluation_type et ON et.id = ev.evaluation_type_id
+        WHERE et.code <> 'BANCO_ENUNCIADOS'
+          AND ev.number > 0
         ORDER BY ev.id ASC
         `,
       ),
@@ -259,4 +261,3 @@ void main().catch((error: unknown) => {
   console.error(`[ERROR] ${message}`);
   process.exitCode = 1;
 });
-

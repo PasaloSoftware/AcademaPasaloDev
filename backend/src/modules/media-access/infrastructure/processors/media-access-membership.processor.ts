@@ -12,6 +12,7 @@ import {
   MEDIA_ACCESS_SYNC_SOURCES,
   isGoogleGroupMemberRemovable,
 } from '@modules/media-access/domain/media-access.constants';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
@@ -135,6 +136,14 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       );
     }
 
+    const evaluationTypeCode =
+      await this.resolveEvaluationTypeCode(evaluationId);
+    if (evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS) {
+      throw new UnrecoverableError(
+        `BANCO_ENUNCIADOS no se recupera como scope de evaluacion Drive (evaluationId=${evaluationId})`,
+      );
+    }
+
     const scope =
       await this.provisioningService.provisionByEvaluationId(evaluationId);
     if (!scope.isActive || !scope.viewerGroupEmail) {
@@ -227,6 +236,21 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       throw new UnrecoverableError(
         'Payload incompleto para sync de membresía media-access',
       );
+    }
+
+    const evaluationTypeCode = await this.resolveEvaluationTypeCode(
+      normalizedEvaluationId,
+    );
+    if (evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS) {
+      this.logger.log({
+        context: MediaAccessMembershipProcessor.name,
+        message:
+          'Sync de membresia omitido: BANCO_ENUNCIADOS no usa scope de evaluacion Drive',
+        evaluationId: normalizedEvaluationId,
+        userId: normalizedUserId,
+        source: normalizedSource,
+      });
+      return;
     }
 
     const user = await this.userRepository.findOne({
@@ -457,6 +481,27 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     }
 
     return false;
+  }
+
+  private async resolveEvaluationTypeCode(
+    evaluationId: string,
+  ): Promise<string | null> {
+    const rows = await this.dataSource.query<Array<{ typeCode: string | null }>>(
+      `
+        SELECT et.code AS typeCode
+        FROM evaluation ev
+        INNER JOIN evaluation_type et
+          ON et.id = ev.evaluation_type_id
+        WHERE ev.id = ?
+        LIMIT 1
+      `,
+      [evaluationId],
+    );
+
+    const normalized = String(rows[0]?.typeCode || '')
+      .trim()
+      .toUpperCase();
+    return normalized.length > 0 ? normalized : null;
   }
 
   private async userHasActiveEnrollmentInCourseCycle(
