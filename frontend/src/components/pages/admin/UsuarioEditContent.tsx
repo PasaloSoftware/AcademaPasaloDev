@@ -113,9 +113,9 @@ export default function UsuarioEditContent() {
                 courseCycleId: c.courseCycleId,
                 enrollmentTypeCode:
                   c.enrollmentTypeCode ||
-                  ((c.evaluationIds && c.evaluationIds.length > 0
+                  (c.evaluationIds && c.evaluationIds.length > 0
                     ? 'PARTIAL'
-                    : 'FULL') as const),
+                    : 'FULL'),
                 evaluationIds: c.evaluationIds || [],
                 historicalCourseCycleIds: c.historicalCourseCycleIds || [],
               }))
