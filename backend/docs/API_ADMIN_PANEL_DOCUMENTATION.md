@@ -150,7 +150,10 @@ Documento exclusivo para endpoints del panel admin/backoffice, con contratos exp
       "courseCycleId": "101",
       "courseCode": "MAT101",
       "courseName": "Matemática Básica",
-      "academicCycleCode": "2026-1"
+      "academicCycleCode": "2026-1",
+      "enrollmentTypeCode": "PARTIAL",
+      "evaluationIds": ["7001", "7002"],
+      "historicalCourseCycleIds": ["95", "88"]
     }
   ],
   "teachingCourses": [
@@ -188,7 +191,7 @@ Documento exclusivo para endpoints del panel admin/backoffice, con contratos exp
 Mismo contrato de `UserResponseDto` (usuario actualizado).
 
 ### 3.8 `PATCH /users/:id/admin-edit` (ADMIN, SUPER_ADMIN)
-- Objetivo: edición integral (estado final) de roles + matrículas + cursos a cargo.
+- Objetivo: edici?n integral de roles + datos personales + altas/actualizaciones incrementales de matr?culas y cursos a cargo.
 
 #### Path params
 - `id` (string) -> `user.id`
@@ -223,11 +226,19 @@ Mismo contrato de `UserResponseDto` (usuario actualizado).
 
 #### Reglas
 - `roleCodesFinal` define el estado final de roles.
-- Si `STUDENT` no está en `roleCodesFinal`, `studentStateFinal.enrollments` debe ser vacío.
-- Si `PROFESSOR` no está en `roleCodesFinal`, `professorStateFinal.courseCycleIds` debe ser vacío.
-- Se eval?a estado final en una sola transacci?n.
-- La reconciliaci?n de matr?culas es por delta (no cancela/recrea todo si no hay cambios reales).
-- Sincroniza `class_event_professor` cuando se agregan/quitan cursos a cargo.
+- Si `STUDENT` no est? en `roleCodesFinal`, `studentStateFinal.enrollments` debe ser vac?o.
+- Si `PROFESSOR` no est? en `roleCodesFinal`, `professorStateFinal.courseCycleIds` debe ser vac?o.
+- Se eval?a la edici?n en una sola transacci?n.
+- Matr?culas (modo incremental):
+  - conserva cursos existentes si no cambian;
+  - actualiza en sitio si cambia tipo/evaluaciones/hist?ricos;
+  - crea matr?cula si llega un curso nuevo;
+  - no cancela matr?culas solo por ausencia en payload mientras `STUDENT` siga presente.
+- Profesor (modo incremental para altas):
+  - agrega cursos nuevos de `professorStateFinal.courseCycleIds`;
+  - no revoca cursos por ausencia en payload mientras `PROFESSOR` siga presente;
+  - si se quita rol `PROFESSOR`, revoca asignaciones activas.
+- Sincroniza `class_event_professor` cuando se agregan/quitan cursos a cargo (seg?n operaciones efectivas).
 - Sincroniza accesos Drive en background (colas) para grants/revokes de evaluaciones y course-cycles.
 - Si cambia email de un `ADMIN`/`SUPER_ADMIN`, encola sincronizaci?n del staff viewers group en background.
 - Registra auditor?a de la operaci?n con acci?n `USER_ADMIN_EDIT` (una fila por edici?n exitosa).
@@ -260,8 +271,11 @@ Mismo contrato de `UserResponseDto` (usuario actualizado).
    - `GET /users/catalog/courses`
    - `GET /enrollments/options/course/:courseId/cycles`
    - `GET /enrollments/options/course-cycle/:courseCycleId` (si PARTIAL)
-3. `PATCH /users/:id/admin-edit` enviando el estado final completo.
-4. Front actualiza UI con el resumen `...Changed` de la respuesta.
+3. `PATCH /users/:id/admin-edit` para datos personales/roles y altas o actualizaciones incrementales.
+4. Bajas expl?citas:
+   - Alumno: `PATCH /enrollments/:id/cancel` (cancelar una matr?cula puntual).
+   - Profesor: `DELETE /courses/cycle/:id/professors/:professorUserId` (remover curso a cargo puntual).
+5. Front actualiza UI con el resumen `...Changed` de la respuesta.
 
 ---
 
