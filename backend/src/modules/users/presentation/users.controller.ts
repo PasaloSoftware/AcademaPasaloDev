@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { UsersService } from '@modules/users/application/users.service';
 import { CareersCatalogService } from '@modules/users/application/careers-catalog.service';
@@ -50,6 +51,8 @@ import {
 @Controller('users')
 @Auth()
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly careersCatalogService: CareersCatalogService,
@@ -210,6 +213,28 @@ export class UsersController {
     @Body() dto: AdminUserEditDto,
     @CurrentUser() currentUser: User,
   ) {
+    this.logger.debug({
+      message: 'Request admin-edit recibida',
+      targetUserId: id,
+      performedByUserId: currentUser.id,
+      roleCodesFinal: dto.roleCodesFinal || [],
+      studentStateFinal: {
+        enrollments: (dto.studentStateFinal?.enrollments || []).map(
+          (enrollment) => ({
+            courseCycleId: enrollment.courseCycleId,
+            enrollmentTypeCode: enrollment.enrollmentTypeCode,
+            evaluationIds: enrollment.evaluationIds || [],
+            historicalCourseCycleIds:
+              enrollment.historicalCourseCycleIds || [],
+          }),
+        ),
+      },
+      professorStateFinal: {
+        courseCycleIds: dto.professorStateFinal?.courseCycleIds || [],
+      },
+      timestamp: new Date().toISOString(),
+    });
+
     const response = await this.usersService.adminEdit(id, dto, currentUser.id);
     return plainToInstance(AdminUserEditResponseDto, response, {
       excludeExtraneousValues: true,
