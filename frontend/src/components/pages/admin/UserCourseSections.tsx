@@ -357,7 +357,7 @@ function EnrollmentModal({
     setEnrollmentType(initialEnrollmentTypeCode || 'FULL');
     setSelectedEvalIds(new Set(initialEvaluationIds || []));
     setSelectedHistoricalIds(new Set());
-    setShowHistorical(initialEnrollmentTypeCode === 'FULL');
+    setShowHistorical((initialEnrollmentTypeCode ?? 'FULL') === 'FULL');
 
     usersService.getCourseCycleDetail(courseCycleId)
       .then((detail) => {
