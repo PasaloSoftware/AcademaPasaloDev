@@ -326,34 +326,61 @@ interface EnrollmentModalProps {
   courseId: string;
   courseCycleId: string;
   studentName: string;
+  initialEnrollmentTypeCode?: 'FULL' | 'PARTIAL';
+  initialEvaluationIds?: string[];
+  initialHistoricalCourseCycleIds?: string[];
 }
 
-function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, courseCycleId, studentName }: EnrollmentModalProps) {
+function EnrollmentModal({
+  isOpen,
+  onClose,
+  onSave,
+  courseName,
+  courseId,
+  courseCycleId,
+  studentName,
+  initialEnrollmentTypeCode,
+  initialEvaluationIds,
+  initialHistoricalCourseCycleIds,
+}: EnrollmentModalProps) {
   const [enrollmentType, setEnrollmentType] = useState<'FULL' | 'PARTIAL'>('FULL');
   const [evaluations, setEvaluations] = useState<Array<{ id: string; shortName: string }>>([]);
   const [selectedEvalIds, setSelectedEvalIds] = useState<Set<string>>(new Set());
   const [historicalCycles, setHistoricalCycles] = useState<Array<{ courseCycleId: string; academicCycleCode: string }>>([]);
   const [selectedHistoricalIds, setSelectedHistoricalIds] = useState<Set<string>>(new Set());
-  const [showHistorical, setShowHistorical] = useState(true);
+  const [showHistorical, setShowHistorical] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !courseCycleId) return;
     setLoadingDetail(true);
-    setEnrollmentType('FULL');
-    setSelectedEvalIds(new Set());
+    setEnrollmentType(initialEnrollmentTypeCode || 'FULL');
+    setSelectedEvalIds(new Set(initialEvaluationIds || []));
     setSelectedHistoricalIds(new Set());
-    setShowHistorical(true);
+    setShowHistorical(initialEnrollmentTypeCode === 'FULL');
 
     usersService.getCourseCycleDetail(courseCycleId)
       .then((detail) => {
         setEvaluations(detail.evaluations.map((e) => ({ id: e.id, shortName: e.shortName })));
         setHistoricalCycles(detail.historicalCycles);
-        setSelectedHistoricalIds(new Set(detail.historicalCycles.map((c) => c.courseCycleId)));
+        setSelectedHistoricalIds(
+          new Set(
+            initialHistoricalCourseCycleIds &&
+            initialHistoricalCourseCycleIds.length > 0
+              ? initialHistoricalCourseCycleIds
+              : detail.historicalCycles.map((c) => c.courseCycleId),
+          ),
+        );
       })
       .catch(() => { setEvaluations([]); setHistoricalCycles([]); })
       .finally(() => setLoadingDetail(false));
-  }, [isOpen, courseCycleId]);
+  }, [
+    isOpen,
+    courseCycleId,
+    initialEnrollmentTypeCode,
+    initialEvaluationIds,
+    initialHistoricalCourseCycleIds,
+  ]);
 
   const toggleEval = (id: string) => {
     setSelectedEvalIds((prev) => {
@@ -374,6 +401,7 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
   };
 
   const canSave = enrollmentType === 'FULL' || selectedEvalIds.size > 0;
+
 
   const handleSave = () => {
     onSave({
@@ -449,7 +477,10 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
           {/* PARTIAL */}
           <div className="flex flex-col">
             <button
-              onClick={() => setEnrollmentType('PARTIAL')}
+              onClick={() => {
+                setEnrollmentType('PARTIAL');
+                setShowHistorical(false);
+              }}
               className={`p-4 rounded-lg flex flex-col gap-0 transition-colors ${
                 enrollmentType === 'PARTIAL'
                   ? 'outline outline-1 outline-stroke-accent-primary'
@@ -555,9 +586,15 @@ export function EnrollmentSection({
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingCourse, setPendingCourse] = useState<{ courseId: string; courseName: string; courseCode: string; courseCycleId: string } | null>(null);
   const [editingRelationId, setEditingRelationId] = useState<string | null>(null);
+  const [editingConfig, setEditingConfig] = useState<{
+    enrollmentTypeCode?: 'FULL' | 'PARTIAL';
+    evaluationIds?: string[];
+    historicalCourseCycleIds?: string[];
+  } | null>(null);
 
   const handleSearchSelect = (catalog: CourseCatalogItem, courseCycleId: string) => {
     setEditingRelationId(null);
+    setEditingConfig(null);
     setPendingCourse({ courseId: catalog.courseId, courseName: catalog.courseName, courseCode: catalog.courseCode, courseCycleId });
     setModalOpen(true);
   };
@@ -632,6 +669,11 @@ export function EnrollmentSection({
                 onEdit={!readOnly ? () => {
                   setPendingCourse({ courseId: course.courseId, courseName: course.courseName, courseCode: course.courseCode, courseCycleId: course.courseCycleId });
                   setEditingRelationId(course.relationId);
+                  setEditingConfig({
+                    enrollmentTypeCode: course.enrollmentTypeCode,
+                    evaluationIds: course.evaluationIds || [],
+                    historicalCourseCycleIds: course.historicalCourseCycleIds || [],
+                  });
                   setModalOpen(true);
                 } : undefined}
                 onRemove={!readOnly ? () => handleRemove(course.relationId) : undefined}
@@ -645,12 +687,20 @@ export function EnrollmentSection({
       {pendingCourse && (
         <EnrollmentModal
           isOpen={modalOpen}
-          onClose={() => { setModalOpen(false); setPendingCourse(null); setEditingRelationId(null); }}
+          onClose={() => {
+            setModalOpen(false);
+            setPendingCourse(null);
+            setEditingRelationId(null);
+            setEditingConfig(null);
+          }}
           onSave={handleModalSave}
           courseName={pendingCourse.courseName}
           courseId={pendingCourse.courseId}
           courseCycleId={pendingCourse.courseCycleId}
           studentName={studentName}
+          initialEnrollmentTypeCode={editingConfig?.enrollmentTypeCode}
+          initialEvaluationIds={editingConfig?.evaluationIds}
+          initialHistoricalCourseCycleIds={editingConfig?.historicalCourseCycleIds}
         />
       )}
     </div>

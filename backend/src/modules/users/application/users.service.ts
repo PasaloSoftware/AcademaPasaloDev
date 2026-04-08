@@ -857,6 +857,7 @@ export class UsersService {
           courseCode: string;
           courseName: string;
           academicCycleCode: string;
+          enrollmentTypeCode: string;
         }>
       >(
         `
@@ -866,11 +867,13 @@ export class UsersService {
             cc.id AS courseCycleId,
             c.code AS courseCode,
             c.name AS courseName,
-            ac.code AS academicCycleCode
+            ac.code AS academicCycleCode,
+            UPPER(TRIM(et.code)) AS enrollmentTypeCode
           FROM enrollment e
           INNER JOIN course_cycle cc ON cc.id = e.course_cycle_id
           INNER JOIN course c ON c.id = cc.course_id
           INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+          INNER JOIN enrollment_type et ON et.id = e.enrollment_type_id
           WHERE e.user_id = ?
             AND e.cancelled_at IS NULL
             AND (? = '' OR cc.academic_cycle_id = ?)
@@ -909,6 +912,77 @@ export class UsersService {
       ),
     ]);
 
+    const enrolledRelationIds = enrolledCourses
+      .map((row) => String(row.relationId || '').trim())
+      .filter((value) => value.length > 0);
+
+    const enrolledEvaluationRows =
+      enrolledRelationIds.length > 0
+        ? await this.dataSource.query<
+            Array<{
+              enrollmentId: string;
+              evaluationId: string;
+              evaluationCourseCycleId: string;
+            }>
+          >(
+            `
+              SELECT
+                ee.enrollment_id AS enrollmentId,
+                ee.evaluation_id AS evaluationId,
+                ev.course_cycle_id AS evaluationCourseCycleId
+              FROM enrollment_evaluation ee
+              INNER JOIN evaluation ev ON ev.id = ee.evaluation_id
+              WHERE ee.enrollment_id IN (${enrolledRelationIds
+                .map(() => '?')
+                .join(',')})
+                AND ee.revoked_at IS NULL
+            `,
+            enrolledRelationIds,
+          )
+        : [];
+
+    const evaluationIdsByEnrollmentId = new Map<string, Set<string>>();
+    const historicalCyclesByEnrollmentId = new Map<string, Set<string>>();
+    const baseCycleByEnrollmentId = new Map<string, string>();
+
+    for (const row of enrolledCourses) {
+      const enrollmentId = String(row.relationId || '').trim();
+      const baseCourseCycleId = String(row.courseCycleId || '').trim();
+      if (enrollmentId && baseCourseCycleId) {
+        baseCycleByEnrollmentId.set(enrollmentId, baseCourseCycleId);
+      }
+    }
+
+    for (const row of enrolledEvaluationRows) {
+      const enrollmentId = String(row.enrollmentId || '').trim();
+      const evaluationId = String(row.evaluationId || '').trim();
+      const evaluationCourseCycleId = String(
+        row.evaluationCourseCycleId || '',
+      ).trim();
+      if (!enrollmentId || !evaluationId) {
+        continue;
+      }
+
+      if (!evaluationIdsByEnrollmentId.has(enrollmentId)) {
+        evaluationIdsByEnrollmentId.set(enrollmentId, new Set());
+      }
+      evaluationIdsByEnrollmentId.get(enrollmentId).add(evaluationId);
+
+      const baseCourseCycleId = baseCycleByEnrollmentId.get(enrollmentId);
+      if (
+        baseCourseCycleId &&
+        evaluationCourseCycleId &&
+        evaluationCourseCycleId !== baseCourseCycleId
+      ) {
+        if (!historicalCyclesByEnrollmentId.has(enrollmentId)) {
+          historicalCyclesByEnrollmentId.set(enrollmentId, new Set());
+        }
+        historicalCyclesByEnrollmentId
+          .get(enrollmentId)
+          .add(evaluationCourseCycleId);
+      }
+    }
+
 
     const orderedRoles = ROLE_DISPLAY_ORDER.filter((code) =>
       user.roles.some((role) => role.code === code),
@@ -928,7 +1002,26 @@ export class UsersService {
         isActive: Boolean(user.isActive),
         profilePhotoUrl: user.profilePhotoUrl,
       },
-      enrolledCourses,
+      enrolledCourses: enrolledCourses.map((row) => {
+        const enrollmentId = String(row.relationId || '').trim();
+        return {
+          relationId: row.relationId,
+          courseId: row.courseId,
+          courseCycleId: row.courseCycleId,
+          courseCode: row.courseCode,
+          courseName: row.courseName,
+          academicCycleCode: row.academicCycleCode,
+          enrollmentTypeCode: String(row.enrollmentTypeCode || '')
+            .trim()
+            .toUpperCase() as 'FULL' | 'PARTIAL',
+          evaluationIds: Array.from(
+            evaluationIdsByEnrollmentId.get(enrollmentId) || [],
+          ).sort(),
+          historicalCourseCycleIds: Array.from(
+            historicalCyclesByEnrollmentId.get(enrollmentId) || [],
+          ).sort(),
+        };
+      }),
       teachingCourses,
     };
   }

@@ -95,9 +95,13 @@ export default function UsuarioEditContent() {
           enrollments: selectedRoles.has('STUDENT')
             ? enrolledCourses.map((c) => ({
                 courseCycleId: c.courseCycleId,
-                enrollmentTypeCode: c.enrollmentTypeCode || ('FULL' as const),
-                evaluationIds: c.evaluationIds,
-                historicalCourseCycleIds: c.historicalCourseCycleIds,
+                enrollmentTypeCode:
+                  c.enrollmentTypeCode ||
+                  ((c.evaluationIds && c.evaluationIds.length > 0
+                    ? 'PARTIAL'
+                    : 'FULL') as const),
+                evaluationIds: c.evaluationIds || [],
+                historicalCourseCycleIds: c.historicalCourseCycleIds || [],
               }))
             : [],
         },

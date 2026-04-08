@@ -18,6 +18,15 @@ export class AdminUserCourseRelationDto {
 
   @Expose()
   academicCycleCode: string;
+
+  @Expose()
+  enrollmentTypeCode?: 'FULL' | 'PARTIAL';
+
+  @Expose()
+  evaluationIds?: string[];
+
+  @Expose()
+  historicalCourseCycleIds?: string[];
 }
 
 export class AdminCourseOptionDto {
