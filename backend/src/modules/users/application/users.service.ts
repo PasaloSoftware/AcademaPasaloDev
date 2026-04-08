@@ -486,22 +486,21 @@ export class UsersService {
           }
         }
 
-        const desiredProfessorSet = new Set(
-          finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
-            ? finalProfessorCourseCycleIds
-            : [],
+        const shouldKeepProfessorState = finalRoleCodes.includes(
+          ROLE_CODES.PROFESSOR,
         );
+        const desiredProfessorCourseCycleIds = shouldKeepProfessorState
+          ? finalProfessorCourseCycleIds
+          : [];
+        const desiredProfessorSet = new Set(desiredProfessorCourseCycleIds);
         const currentProfessorSet = new Set(currentProfessorCourseCycleIds);
 
-        const removedProfessorCourseCycleIds =
-          currentProfessorCourseCycleIds.filter(
-            (id) => !desiredProfessorSet.has(id),
-          );
-        const addedProfessorCourseCycleIds = (
-          finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
-            ? finalProfessorCourseCycleIds
-            : []
-        ).filter((id) => !currentProfessorSet.has(id));
+        const removedProfessorCourseCycleIds = shouldKeepProfessorState
+          ? []
+          : currentProfessorCourseCycleIds;
+        const addedProfessorCourseCycleIds = desiredProfessorCourseCycleIds.filter(
+          (id) => !currentProfessorSet.has(id),
+        );
 
 
         if (removedProfessorCourseCycleIds.length > 0) {

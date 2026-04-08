@@ -133,6 +133,18 @@ export const coursesService = {
   },
 
   /**
+   * Revocar un profesor de un curso-ciclo (ADMIN/SUPER_ADMIN)
+   */
+  async revokeProfessorFromCourseCycle(
+    courseCycleId: string,
+    professorUserId: string,
+  ): Promise<void> {
+    await apiClient.delete(
+      `/courses/cycle/${courseCycleId}/professors/${professorUserId}`,
+    );
+  },
+
+  /**
    * Obtener evaluaciones del ciclo vigente para un alumno (STUDENT)
    */
   async getCurrentCycleContent(courseCycleId: string): Promise<CurrentCycleResponse> {

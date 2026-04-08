@@ -6,6 +6,7 @@ import Icon from '@/components/ui/Icon';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { useToast } from '@/components/ui/ToastContainer';
 import { usersService } from '@/services/users.service';
+import { coursesService } from '@/services/courses.service';
 import type { AdminUserDetailCourse } from '@/services/users.service';
 import {
   PersonalInfoSection,
@@ -32,6 +33,8 @@ export default function UsuarioEditContent() {
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
   const [enrolledCourses, setEnrolledCourses] = useState<AdminUserDetailCourse[]>([]);
   const [teachingCourses, setTeachingCourses] = useState<AdminUserDetailCourse[]>([]);
+  const [initialTeachingCourseCycleIds, setInitialTeachingCourseCycleIds] =
+    useState<string[]>([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -52,6 +55,9 @@ export default function UsuarioEditContent() {
         setSelectedRoles(mapBackendRolesToCodes(p.roles));
         setEnrolledCourses(detail.enrolledCourses);
         setTeachingCourses(detail.teachingCourses);
+        setInitialTeachingCourseCycleIds(
+          detail.teachingCourses.map((course) => course.courseCycleId),
+        );
         setBreadcrumbItems([
           { icon: 'groups', label: 'Usuarios', href: '/plataforma/admin/usuarios' },
           { label: name, href: `/plataforma/admin/usuarios/${userId}` },
@@ -81,6 +87,16 @@ export default function UsuarioEditContent() {
     if (!canSave) return;
     setSaving(true);
     try {
+      const finalTeachingCourseCycleIds = selectedRoles.has('PROFESSOR')
+        ? teachingCourses.map((course) => course.courseCycleId)
+        : [];
+      const finalTeachingSet = new Set(finalTeachingCourseCycleIds);
+      const professorCourseCycleIdsToRemove = selectedRoles.has('PROFESSOR')
+        ? initialTeachingCourseCycleIds.filter(
+            (courseCycleId) => !finalTeachingSet.has(courseCycleId),
+          )
+        : [];
+
       await usersService.adminEdit(userId, {
         personalInfo: {
           firstName: personalInfo.firstName.trim(),
@@ -106,9 +122,19 @@ export default function UsuarioEditContent() {
             : [],
         },
         professorStateFinal: {
-          courseCycleIds: selectedRoles.has('PROFESSOR') ? teachingCourses.map((c) => c.courseCycleId) : [],
+          courseCycleIds: finalTeachingCourseCycleIds,
         },
       });
+
+      if (professorCourseCycleIdsToRemove.length > 0) {
+        for (const courseCycleId of professorCourseCycleIdsToRemove) {
+          await coursesService.revokeProfessorFromCourseCycle(
+            courseCycleId,
+            userId,
+          );
+        }
+      }
+
       showToast({ type: 'success', title: 'Usuario actualizado', description: 'Los cambios se han guardado correctamente.' });
       router.push(`/plataforma/admin/usuarios/${userId}`);
     } catch (err) {
