@@ -419,7 +419,7 @@ export default function CreateClassModal({
   // ---- Render helpers ----
 
   const renderErrorAlert = (title: string, detail: string) => (
-    <div className="self-stretch flex-1 px-2 py-3 bg-bg-error-light rounded-lg outline outline-2 outline-offset-[-2px] outline-stroke-error-secondary flex justify-start items-center gap-2">
+    <div className="self-stretch flex-1 px-2 py-3 bg-red-50 rounded-lg outline outline-2 outline-offset-[-2px] outline-red-200 flex justify-start items-center gap-2">
       <div className="px-2 py-1 rounded-full flex justify-start items-center">
         <Icon name="report" size={24} className="text-bg-error-solid" variant="rounded" />
       </div>
@@ -456,7 +456,7 @@ export default function CreateClassModal({
     return (
       <div className={`self-stretch flex-1 px-2 py-3 ${isError ? 'bg-red-50' : 'bg-yellow-50'} rounded-lg outline outline-2 outline-offset-[-2px] ${isError ? 'outline-red-200' : 'outline-orange-200'} flex justify-start items-center gap-2`}>
         <div className="px-2 py-1 rounded-full flex justify-start items-center">
-          <Icon name={isError ? 'report' : 'warning'} size={24} className={isError ? 'text-bg-error-solid' : 'text-icon-warning-primary'} variant="rounded" />
+          <Icon name={isError ? 'report' : 'warning'} size={24} className={isError ? 'text-bg-error-solid' : 'text-orange-600'} variant="rounded" />
         </div>
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
           <span className="self-stretch text-text-primary text-sm font-normal leading-4">{alert.title}</span>

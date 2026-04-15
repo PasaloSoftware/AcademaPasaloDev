@@ -232,14 +232,6 @@ export default function EventDetailModal({
               </button>
               {threeDotsOpen && (
                 <div className="absolute left-0 top-full z-50 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
-                  {onDuplicate && (
-                    <button
-                      onClick={() => { setThreeDotsOpen(false); onClose(); onDuplicate(); }}
-                      className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
-                    >
-                      <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Duplicar</span>
-                    </button>
-                  )}
                   <button
                     onClick={async () => {
                       setThreeDotsOpen(false);

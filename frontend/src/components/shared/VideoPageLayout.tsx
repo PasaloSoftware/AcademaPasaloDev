@@ -584,6 +584,11 @@ export default function VideoPageLayout({
     event.canWatchRecording &&
     event.recordingStatus === "READY" &&
     event.recordingUrl;
+  const isFirstRecordingUpload =
+    !isScheduled &&
+    !isLiveSoon &&
+    event.recordingStatus === "NOT_AVAILABLE" &&
+    !event.recordingUrl;
 
   // ---- Upload View ----
   if (showUploadView) {
@@ -1053,7 +1058,7 @@ export default function VideoPageLayout({
           ) : (
             <div className="w-full aspect-video bg-bg-tertiary rounded-xl inline-flex flex-col justify-center items-center gap-4">
               <Icon
-                name="timelapse"
+                name={isFirstRecordingUpload ? "video_call" : "timelapse"}
                 size={56}
                 className="text-icon-tertiary"
                 variant="rounded"
@@ -1061,8 +1066,15 @@ export default function VideoPageLayout({
               <span className="text-text-quartiary text-lg font-semibold leading-5">
                 {event.recordingStatus === "PROCESSING"
                   ? "GRABACIÓN EN PROCESO"
-                  : "GRABACIÓN NO DISPONIBLE"}
+                  : isFirstRecordingUpload
+                    ? "AÚN NO SE HA SUBIDO LA GRABACIÓN"
+                    : "GRABACIÓN NO DISPONIBLE"}
               </span>
+              {isFirstRecordingUpload && (
+                <span className="max-w-md text-center text-text-tertiary text-sm font-normal leading-5">
+                  Cuando finalice la clase, puedes usar el botón de acción para subir el video por primera vez.
+                </span>
+              )}
             </div>
           )}
 

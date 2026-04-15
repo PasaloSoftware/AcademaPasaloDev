@@ -31,7 +31,7 @@ const notificationTypeStyles: Record<string, NotificationTypeStyle> = {
   },
   MATERIAL_UPDATED: {
     icon: 'update',
-    bgClass: 'bg-bg-warning-light',
+    bgClass: 'bg-warning-light',
     iconClass: 'text-icon-warning-primary',
   },
   CLASS_SCHEDULED: {
@@ -41,12 +41,12 @@ const notificationTypeStyles: Record<string, NotificationTypeStyle> = {
   },
   CLASS_UPDATED: {
     icon: 'update',
-    bgClass: 'bg-bg-warning-light',
+    bgClass: 'bg-warning-light',
     iconClass: 'text-icon-warning-primary',
   },
   CLASS_CANCELLED: {
     icon: 'event_busy',
-    bgClass: 'bg-bg-error-light',
+    bgClass: 'bg-red-50',
     iconClass: 'text-icon-error-primary',
   },
   CLASS_REMINDER: {
@@ -66,7 +66,7 @@ const notificationTypeStyles: Record<string, NotificationTypeStyle> = {
   },
   DELETION_REQUEST_REJECTED: {
     icon: 'cancel',
-    bgClass: 'bg-bg-error-light',
+    bgClass: 'bg-red-50',
     iconClass: 'text-icon-error-primary',
   },
   AUDIT_EXPORT_READY: {

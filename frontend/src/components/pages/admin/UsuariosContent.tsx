@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
+import { useToast } from '@/components/ui/ToastContainer';
 import { usersService } from '@/services/users.service';
 import type { AdminUserItem, AdminUserSortField, AdminUserSortOrder } from '@/services/users.service';
 
@@ -17,7 +18,7 @@ const ROLE_STYLES: Record<string, { bg: string; text: string; label: string }> =
   Alumno:              { bg: 'bg-bg-accent-light',          text: 'text-text-accent-primary',    label: 'ALUMNO' },
   Asesor:              { bg: 'bg-bg-info-primary-light',    text: 'text-text-info-primary',      label: 'ASESOR' },
   Administrador:       { bg: 'bg-bg-info-secondary-light',  text: 'text-text-info-secondary',    label: 'ADMINISTRADOR' },
-  Superadministrador:  { bg: 'bg-bg-warning-light',         text: 'text-text-warning-primary',   label: 'SUPERADMINISTRADOR' },
+  Superadministrador:  { bg: 'bg-warning-light',         text: 'text-text-warning-primary',   label: 'SUPERADMINISTRADOR' },
 };
 
 function sortRoles(roles: string[]): string[] {
@@ -90,6 +91,7 @@ function getPageNumbers(current: number, total: number): (number | '...')[] {
 export default function UsuariosContent() {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const { showToast } = useToast();
 
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +118,7 @@ export default function UsuariosContent() {
 
   // Context menu state
   const [menuUserId, setMenuUserId] = useState<string | null>(null);
+  const [statusUpdatingUserId, setStatusUpdatingUserId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -219,6 +222,46 @@ export default function UsuariosContent() {
   const rangeStart = (currentPage - 1) * pageSize + 1;
   const rangeEnd = Math.min(currentPage * pageSize, totalItems);
   const pageNumbers = getPageNumbers(currentPage, totalPages);
+
+  const goToUserDetail = (userId: string) => {
+    router.push(`/plataforma/admin/usuarios/${encodeURIComponent(userId)}`);
+  };
+
+  const goToUserEdit = (userId: string) => {
+    router.push(`/plataforma/admin/usuarios/${encodeURIComponent(userId)}/editar`);
+  };
+
+  const handleToggleUserStatus = async (user: AdminUserItem) => {
+    setStatusUpdatingUserId(user.id);
+    try {
+      const nextIsActive = !user.isActive;
+      await usersService.updateStatus(user.id, nextIsActive);
+      setUsers((currentUsers) =>
+        currentUsers.map((currentUser) =>
+          currentUser.id === user.id
+            ? { ...currentUser, isActive: nextIsActive }
+            : currentUser,
+        ),
+      );
+      setMenuUserId(null);
+      showToast({
+        type: 'success',
+        title: nextIsActive ? 'Usuario activado' : 'Usuario inactivado',
+        description: nextIsActive
+          ? 'El usuario ya puede volver a acceder a la plataforma.'
+          : 'El acceso del usuario fue deshabilitado correctamente.',
+      });
+    } catch (err) {
+      showToast({
+        type: 'error',
+        title: 'No se pudo actualizar el estado',
+        description:
+          err instanceof Error ? err.message : 'Ocurrió un error inesperado.',
+      });
+    } finally {
+      setStatusUpdatingUserId(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -329,7 +372,7 @@ export default function UsuariosContent() {
               </tr>
             ) : (
               users.map((user) => (
-                <tr key={user.id} onClick={() => router.push(`/plataforma/admin/usuarios/${user.id}`)} className="border-b border-stroke-primary last:border-b-0 cursor-pointer hover:bg-bg-secondary transition-colors">
+                <tr key={user.id} onClick={() => goToUserDetail(user.id)} className="border-b border-stroke-primary last:border-b-0 cursor-pointer hover:bg-bg-secondary transition-colors">
                   <td className="h-14 px-4 py-2">
                     <span className="text-text-tertiary text-sm font-normal leading-4 line-clamp-2">{user.fullName}</span>
                   </td>
@@ -364,22 +407,31 @@ export default function UsuariosContent() {
                     </button>
                     {menuUserId === user.id && (
                       <div ref={menuRef} className="absolute right-8 top-10 z-30 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
-                        <button onClick={() => { setMenuUserId(null); router.push(`/plataforma/admin/usuarios/${user.id}`); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); setMenuUserId(null); goToUserDetail(user.id); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
                           <Icon name="visibility" size={20} className="text-icon-secondary" variant="rounded" />
                           <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Ver</span>
                         </button>
-                        <button onClick={() => { setMenuUserId(null); router.push(`/plataforma/admin/usuarios/${user.id}/editar`); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); setMenuUserId(null); goToUserEdit(user.id); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
                           <Icon name="edit" size={20} className="text-icon-secondary" variant="rounded" />
                           <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
                         </button>
-                        <button onClick={() => setMenuUserId(null)} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (statusUpdatingUserId === user.id) return;
+                            handleToggleUserStatus(user);
+                          }}
+                          disabled={statusUpdatingUserId === user.id}
+                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                           <Icon name={user.isActive ? 'person_off' : 'check_circle'} size={20} className="text-icon-secondary" variant="rounded" />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">{user.isActive ? 'Inactivar' : 'Activar'}</span>
-                        </button>
-                        <div className="h-px bg-stroke-secondary" />
-                        <button onClick={() => setMenuUserId(null)} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-                          <Icon name="delete" size={20} className="text-icon-secondary" variant="rounded" />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
+                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                            {statusUpdatingUserId === user.id
+                              ? 'Actualizando...'
+                              : user.isActive
+                                ? 'Inactivar'
+                                : 'Activar'}
+                          </span>
                         </button>
                       </div>
                     )}

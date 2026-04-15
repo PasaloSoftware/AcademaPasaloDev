@@ -6,9 +6,19 @@ interface FloatingInputProps {
   value: string;
   onChange: (value: string) => void;
   helperText?: string;
+  maxLength?: number;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 }
 
-export default function FloatingInput({ id, label, value, onChange, helperText }: FloatingInputProps) {
+export default function FloatingInput({
+  id,
+  label,
+  value,
+  onChange,
+  helperText,
+  maxLength,
+  inputMode,
+}: FloatingInputProps) {
   const isFilled = value.length > 0;
 
   return (
@@ -19,6 +29,8 @@ export default function FloatingInput({ id, label, value, onChange, helperText }
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          maxLength={maxLength}
+          inputMode={inputMode}
           placeholder={isFilled ? '' : label}
           className="flex-1 text-text-primary text-base font-normal leading-4 line-clamp-1 bg-transparent outline-none placeholder:text-text-tertiary"
         />
