@@ -8,6 +8,13 @@ on:
     branches:
       - main
       - develop
+
+  # ──────────────────────────────────────────────────────────────────
+  # Deploy manual de emergencia — bypasea el flujo CI normal.
+  # Queda auditado en Actions: quién lo corrió, cuándo, y qué tag.
+  # image_tag es requerido y sin default para evitar deploys accidentales.
+  # Ejemplo de tag válido: main-a1b2c3d  (se ve en el CI anterior)
+  # ──────────────────────────────────────────────────────────────────
   workflow_dispatch:
     inputs:
       branch:
@@ -26,6 +33,8 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    # workflow_run: solo si el CI fue exitoso
+    # workflow_dispatch: siempre — el operador es responsable
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -83,8 +92,6 @@ jobs:
       # Valida que el EC2 esté en estado 'running' antes de continuar.
       # Solo aplica para deploy a develop. Si está stopped/pending/etc,
       # falla inmediato con mensaje claro en lugar de colgar en SSH.
-      # Requiere: AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en secrets
-      # (ya disponibles — los usa EC2.yml).
       # ──────────────────────────────────────────────────────────────
       - name: Check EC2 is running (dev only)
         if: steps.ctx.outputs.branch == 'develop'
@@ -184,6 +191,37 @@ jobs:
           EOF
           "
 
+      # ──────────────────────────────────────────────────────────────
+      # Taggeamos las imágenes actualmente corriendo como :previous
+      # ANTES de hacer pull. Si el deploy falla, el rollback tiene
+      # algo concreto a lo que volver.
+      # Si no hay contenedores corriendo (primer deploy), es no-op.
+      # El tag anterior se persiste en .previous-tag para que el
+      # rollback lo pueda leer sin depender de variables del runner.
+      # ──────────────────────────────────────────────────────────────
+      - name: Tag current images as previous
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
+            set -Eeuo pipefail
+            cd ${{ steps.env.outputs.deploy_dir }}
+
+            BACKEND_IMG=\$(docker inspect academia-pasalo-backend \
+              --format '{{.Config.Image}}' 2>/dev/null || echo '')
+            FRONTEND_IMG=\$(docker inspect academia-pasalo-frontend \
+              --format '{{.Config.Image}}' 2>/dev/null || echo '')
+
+            if [ -n \"\$BACKEND_IMG\" ] && [ -n \"\$FRONTEND_IMG\" ]; then
+              docker tag \"\$BACKEND_IMG\" ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-backend:previous
+              docker tag \"\$FRONTEND_IMG\" ${{ secrets.DOCKER_USERNAME }}/academia-pasalo-frontend:previous
+              CURRENT_TAG=\$(echo \"\$BACKEND_IMG\" | cut -d: -f2)
+              echo \"\$CURRENT_TAG\" > .previous-tag
+              echo \"✅ Imágenes taggeadas como :previous (tag: \$CURRENT_TAG)\"
+            else
+              echo \"ℹ️ No hay contenedores corriendo — primer deploy, saltando :previous\"
+              echo '' > .previous-tag
+            fi
+          "
+
       - name: Deploy
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
@@ -256,13 +294,55 @@ jobs:
           echo "❌ Backend no responde después de 200s"
           exit 1
 
+      # ──────────────────────────────────────────────────────────────
+      # Rollback real: levanta las imágenes :previous si existen.
+      # Lee el tag guardado en .previous-tag para reconstruir el .env
+      # con el IMAGE_TAG correcto — docker compose necesita la variable
+      # para resolver el nombre de imagen aunque ya esté en local.
+      # Si .previous-tag está vacío (primer deploy fallido), solo baja
+      # los contenedores y avisa — no hay estado anterior al que volver.
+      # ──────────────────────────────────────────────────────────────
       - name: Rollback on failure
         if: failure()
         run: |
           echo "⚠️ Deploy falló — ejecutando rollback..."
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             cd ${{ steps.env.outputs.deploy_dir }}
-            docker compose -p academia-pasalo down --remove-orphans || true
-            echo '❌ Rollback ejecutado — revisá los logs manualmente'
+
+            PREVIOUS_TAG=\$(cat .previous-tag 2>/dev/null || echo '')
+
+            if [ -n \"\$PREVIOUS_TAG\" ]; then
+              echo \"↩️ Volviendo a tag: \$PREVIOUS_TAG\"
+              cat > .env << EOF
+          DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          IMAGE_TAG=\$PREVIOUS_TAG
+          DB_HOST=${{ env.DB_HOST }}
+          DB_PORT=${{ env.DB_PORT }}
+          DB_USER=${{ env.DB_USER }}
+          DB_PASSWORD=${{ env.DB_PASSWORD }}
+          DB_NAME=${{ env.DB_NAME }}
+          JWT_SECRET=${{ env.JWT_SECRET }}
+          GOOGLE_CLIENT_ID=${{ env.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ env.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ env.GOOGLE_REDIRECT_URI }}
+          MAXMIND_LICENSE_KEY=${{ env.MAXMIND_LICENSE_KEY }}
+          CORS_ORIGINS=${{ env.CORS_ORIGINS }}
+          GOOGLE_DRIVE_ROOT_FOLDER_ID=${{ env.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+          GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID=${{ env.GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID }}
+          STORAGE_PROVIDER=${{ env.STORAGE_PROVIDER }}
+          GOOGLE_WORKSPACE_ADMIN_EMAIL=${{ env.GOOGLE_WORKSPACE_ADMIN_EMAIL }}
+          GOOGLE_WORKSPACE_GROUP_DOMAIN=${{ env.GOOGLE_WORKSPACE_GROUP_DOMAIN }}
+          GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=${{ env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL }}
+          GRAFANA_PASSWORD=${{ env.GRAFANA_PASSWORD }}
+          EOF
+              docker compose -p academia-pasalo --env-file .env down --remove-orphans || true
+              docker compose -p academia-pasalo --env-file .env up -d || true
+              rm -f .env
+              echo \"✅ Rollback completado — revisá los logs para entender la causa\"
+            else
+              echo \"⚠️ No hay tag :previous — primer deploy fallido, sin estado anterior\"
+              docker compose -p academia-pasalo down --remove-orphans || true
+              echo \"❌ Servidor detenido — intervencion manual requerida\"
+            fi
             docker ps -a
           " || true
