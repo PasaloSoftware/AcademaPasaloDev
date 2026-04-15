@@ -22,7 +22,7 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/curso/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN'],
+    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'],
     component: 'CursoContent',
     redirectOnDenied: '/plataforma/inicio'
   },
@@ -65,6 +65,11 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
   '/plataforma/admin/usuarios': {
     allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
     component: 'UsuariosContent',
+    redirectOnDenied: '/plataforma/inicio'
+  },
+  '/plataforma/admin/cursos': {
+    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
+    component: 'CursosContent',
     redirectOnDenied: '/plataforma/inicio'
   },
   '/plataforma/admin/usuarios/registrar': {
@@ -114,7 +119,8 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
   '/plataforma/curso/[id]': {
     STUDENT: 'student/CursoContent',
     TEACHER: 'teacher/CursoContent',
-    ADMIN: 'admin/CursoContent'
+    ADMIN: 'admin/CursoContent',
+    SUPER_ADMIN: 'admin/CursoContent'
   },
   '/plataforma/curso/[id]/evaluacion/[id]': {
     STUDENT: 'student/EvaluationContent',
@@ -154,6 +160,10 @@ export const roleBasedComponents: Record<string, Partial<Record<UserRole, string
   '/plataforma/admin/usuarios': {
     ADMIN: 'admin/UsuariosContent',
     SUPER_ADMIN: 'admin/UsuariosContent'
+  },
+  '/plataforma/admin/cursos': {
+    ADMIN: 'admin/CursosContent',
+    SUPER_ADMIN: 'admin/CursosContent'
   },
   '/plataforma/admin/usuarios/registrar': {
     ADMIN: 'admin/UsuarioCreateContent',

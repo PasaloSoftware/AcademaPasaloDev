@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
+import FloatingSelect from '@/components/ui/FloatingSelect';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { useToast } from '@/components/ui/ToastContainer';
 import { usersService } from '@/services/users.service';
@@ -114,7 +115,6 @@ export default function UsuariosContent() {
   const [sidebarCareer, setSidebarCareer] = useState('');
   const [sidebarStatus, setSidebarStatus] = useState<'ACTIVE' | 'INACTIVE' | ''>('');
   const [careers, setCareers] = useState<Array<{ id: number; name: string }>>([]);
-  const [careerDropdownOpen, setCareerDropdownOpen] = useState(false);
 
   // Context menu state
   const [menuUserId, setMenuUserId] = useState<string | null>(null);
@@ -406,15 +406,16 @@ export default function UsuariosContent() {
                       <Icon name="more_vert" size={20} className="text-icon-tertiary" />
                     </button>
                     {menuUserId === user.id && (
-                      <div ref={menuRef} className="absolute right-8 top-10 z-30 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
-                        <button onClick={(e) => { e.stopPropagation(); setMenuUserId(null); goToUserDetail(user.id); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                      <div ref={menuRef} className="absolute right-8 top-10 z-30 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start">
+                        <button onClick={(e) => { e.stopPropagation(); setMenuUserId(null); goToUserDetail(user.id); }} className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors">
                           <Icon name="visibility" size={20} className="text-icon-secondary" variant="rounded" />
                           <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Ver</span>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); setMenuUserId(null); goToUserEdit(user.id); }} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); setMenuUserId(null); goToUserEdit(user.id); }} className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors">
                           <Icon name="edit" size={20} className="text-icon-secondary" variant="rounded" />
                           <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
                         </button>
+                        <div className="self-stretch h-0 outline outline-1 outline-offset-[-0.50px] outline-stroke-secondary" />
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -422,7 +423,7 @@ export default function UsuariosContent() {
                             handleToggleUserStatus(user);
                           }}
                           disabled={statusUpdatingUserId === user.id}
-                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Icon name={user.isActive ? 'person_off' : 'check_circle'} size={20} className="text-icon-secondary" variant="rounded" />
                           <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
@@ -514,7 +515,7 @@ export default function UsuariosContent() {
             <div className="flex-1 p-6 flex flex-col gap-8 overflow-y-auto">
               {/* Rol */}
               <div className="flex flex-col gap-4">
-                <span className="text-text-quartiary text-base font-semibold leading-5">Rol</span>
+                <span className="text-gray-600 text-base font-semibold leading-5">Rol</span>
                 <div className="flex flex-wrap items-center gap-2">
                   {ROLE_FILTERS.map(({ label, value }) => {
                     const isActive = sidebarRole === value;
@@ -537,42 +538,25 @@ export default function UsuariosContent() {
 
               {/* Carrera */}
               <div className="flex flex-col gap-4">
-                <span className="text-text-quartiary text-base font-semibold leading-5">Carrera</span>
-                <div className="relative">
-                  <div
-                    onClick={() => setCareerDropdownOpen(!careerDropdownOpen)}
-                    className={`h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${careerDropdownOpen ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} flex items-center gap-2 cursor-pointer`}
-                  >
-                    <span className={`flex-1 text-base font-normal leading-4 line-clamp-1 ${sidebarCareer ? 'text-text-primary' : 'text-text-tertiary'}`}>
-                      {sidebarCareer ? careers.find((c) => String(c.id) === sidebarCareer)?.name || 'Todas' : 'Todas'}
-                    </span>
-                    <Icon name="expand_more" size={20} className="text-icon-tertiary" />
-                  </div>
-                  {careerDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 z-10 max-h-60 overflow-y-auto p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
-                      <button
-                        onClick={() => { setSidebarCareer(''); setCareerDropdownOpen(false); }}
-                        className="px-2 py-3 rounded text-left text-text-secondary text-sm font-normal leading-4 hover:bg-bg-secondary transition-colors"
-                      >
-                        Todas
-                      </button>
-                      {careers.map((career) => (
-                        <button
-                          key={career.id}
-                          onClick={() => { setSidebarCareer(String(career.id)); setCareerDropdownOpen(false); }}
-                          className="px-2 py-3 rounded text-left text-text-secondary text-sm font-normal leading-4 hover:bg-bg-secondary transition-colors"
-                        >
-                          {career.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <span className="text-gray-600 text-base font-semibold leading-5">Carrera</span>
+                <FloatingSelect
+                  label="Carrera"
+                  value={sidebarCareer || null}
+                  options={careers.map((career) => ({
+                    value: String(career.id),
+                    label: career.name,
+                  }))}
+                  onChange={(value) => setSidebarCareer(value || '')}
+                  allLabel="Todas"
+                  className="w-full"
+                  variant="filled"
+                  size="large"
+                />
               </div>
 
               {/* Estado */}
               <div className="flex flex-col gap-4">
-                <span className="text-text-quartiary text-base font-semibold leading-5">Estado</span>
+                <span className="text-gray-600 text-base font-semibold leading-5">Estado</span>
                 <div className="flex flex-col gap-2">
                   {([['ACTIVE', 'Activo'], ['INACTIVE', 'Inactivo']] as const).map(([val, label]) => {
                     const checked = sidebarStatus === val;

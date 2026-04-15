@@ -43,6 +43,18 @@ export interface AdminCourseCycleListResponse {
   totalPages: number;
 }
 
+function unwrapPayload<T>(response: unknown): T {
+  if (
+    response &&
+    typeof response === 'object' &&
+    'data' in response
+  ) {
+    return (response as { data: T }).data;
+  }
+
+  return response as T;
+}
+
 export const coursesService = {
   /**
    * Crear una nueva materia (ADMIN/SUPER_ADMIN)
@@ -61,32 +73,35 @@ export const coursesService = {
    * Listar todas las materias (ADMIN/SUPER_ADMIN)
    */
   async findAll(): Promise<Course[]> {
-    const response = await apiClient.get<ApiResponse<Course[]>>('/courses');
-    return response.data.data;
+    const response = await apiClient.get<Course[]>('/courses');
+    const payload = unwrapPayload<Course[] | undefined>(response);
+    return Array.isArray(payload) ? payload : [];
   },
 
   /**
    * Obtener detalle de una materia (ADMIN/SUPER_ADMIN)
    */
   async findOne(id: string): Promise<Course> {
-    const response = await apiClient.get<ApiResponse<Course>>(`/courses/${id}`);
-    return response.data.data;
+    const response = await apiClient.get<Course>(`/courses/${id}`);
+    return unwrapPayload<Course>(response);
   },
 
   /**
    * Listar tipos de curso (Ciencias, Letras, Facultad)
    */
   async getCourseTypes(): Promise<CourseType[]> {
-    const response = await apiClient.get<ApiResponse<CourseType[]>>('/courses/types');
-    return response.data.data;
+    const response = await apiClient.get<CourseType[]>('/courses/types');
+    const payload = unwrapPayload<CourseType[] | undefined>(response);
+    return Array.isArray(payload) ? payload : [];
   },
 
   /**
    * Listar niveles académicos (1er Ciclo, 2do Ciclo, etc.)
    */
   async getCourseLevels(): Promise<CycleLevel[]> {
-    const response = await apiClient.get<ApiResponse<CycleLevel[]>>('/courses/levels');
-    return response.data.data;
+    const response = await apiClient.get<CycleLevel[]>('/courses/levels');
+    const payload = unwrapPayload<CycleLevel[] | undefined>(response);
+    return Array.isArray(payload) ? payload : [];
   },
 
   /**

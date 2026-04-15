@@ -36,6 +36,8 @@ import SharedPerfilContent from '@/components/pages/shared/PerfilContent';
 // Importar componentes de admin
 import AdminInicioContent from '@/components/pages/admin/InicioContent';
 import AdminAuditoriaContent from '@/components/pages/admin/AuditoriaContent';
+import AdminCursoContent from '@/components/pages/admin/CursoContent';
+import AdminCursosContent from '@/components/pages/admin/CursosContent';
 import AdminUsuariosContent from '@/components/pages/admin/UsuariosContent';
 import AdminUsuarioDetailContent from '@/components/pages/admin/UsuarioDetailContent';
 import AdminUsuarioEditContent from '@/components/pages/admin/UsuarioEditContent';
@@ -71,6 +73,8 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   // Admin
   'admin/InicioContent': AdminInicioContent,
   'admin/AuditoriaContent': AdminAuditoriaContent,
+  'admin/CursoContent': AdminCursoContent,
+  'admin/CursosContent': AdminCursosContent,
   'admin/UsuariosContent': AdminUsuariosContent,
   'admin/UsuarioDetailContent': AdminUsuarioDetailContent,
   'admin/UsuarioEditContent': AdminUsuarioEditContent,

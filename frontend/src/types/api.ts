@@ -116,6 +116,9 @@ export interface Course {
   name: string;
   courseTypeId: string;
   cycleLevelId: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  courseType?: CourseType;
   cycleLevel?: { name: string };
   createdAt: string;
   updatedAt?: string;
