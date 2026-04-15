@@ -184,7 +184,7 @@ export default function CursosContent() {
           academicCycleCode: preferredCycle?.academicCycle.code || null,
           advisorLabel: preferredCycle ? getAdvisorLabel(preferredCycle.professors) : 'Sin asignar',
           studentCountLabel: '-',
-          isActive: preferredCycle ? preferredCycle.academicCycle.isCurrent : false,
+          isActive: course.isActive,
           courseCycleId: preferredCycle?.courseCycleId || null,
         } satisfies CourseManagementRow;
       });

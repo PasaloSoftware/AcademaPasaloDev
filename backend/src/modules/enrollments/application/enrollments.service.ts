@@ -44,6 +44,8 @@ import {
   getErrnoFromDbError,
   getMessageFromDbError,
 } from '@common/utils/mysql-error.util';
+import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
+import { AdminCourseCycleStudentsQueryDto } from '@modules/enrollments/dto/admin-course-cycle-students.dto';
 
 @Injectable()
 export class EnrollmentsService {
@@ -60,6 +62,7 @@ export class EnrollmentsService {
     private readonly cacheService: RedisCacheService,
     private readonly mediaAccessMembershipDispatchService: MediaAccessMembershipDispatchService,
     private readonly settingsService: SettingsService,
+    private readonly courseCycleRepository: CourseCycleRepository,
   ) {}
 
   async findMyEnrollments(userId: string): Promise<MyEnrollmentsResponseDto[]> {
@@ -407,6 +410,52 @@ export class EnrollmentsService {
       revokedCourseCycles: courseCycleIdsToRevoke.length,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  async findAdminStudentsByCourseCycle(
+    courseCycleId: string,
+    query: AdminCourseCycleStudentsQueryDto,
+  ): Promise<{
+    items: Array<{
+      enrollmentId: string;
+      userId: string;
+      fullName: string;
+      email: string;
+    }>;
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  }> {
+    const courseCycle =
+      await this.courseCycleRepository.findById(courseCycleId);
+    if (!courseCycle) {
+      throw new BadRequestException('Ciclo de curso no encontrado.');
+    }
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+
+    const { rows, totalItems } =
+      await this.enrollmentRepository.findAdminStudentsByCourseCyclePage({
+        courseCycleId,
+        page,
+        pageSize,
+        search: query.search,
+      });
+
+    return {
+      items: rows.map((row) => ({
+        enrollmentId: row.enrollmentId,
+        userId: row.userId,
+        fullName: row.fullName,
+        email: row.email,
+      })),
+      page,
+      pageSize,
+      totalItems,
+      totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize),
+    };
   }
 
   async getEnrollmentOptionsByCourseCycle(

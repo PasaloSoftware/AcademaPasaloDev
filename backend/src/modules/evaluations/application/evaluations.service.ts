@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { CreateEvaluationDto } from '@modules/evaluations/dto/create-evaluation.dto';
+import { ReorderEvaluationsDto } from '@modules/evaluations/dto/reorder-evaluations.dto';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
 import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
@@ -107,11 +108,18 @@ export class EvaluationsService {
         );
       }
 
+      const nextDisplayOrder =
+        (await this.evaluationRepository.findMaxDisplayOrderByCourseCycle(
+          dto.courseCycleId,
+          manager,
+        )) + 1;
+
       return await this.evaluationRepository.create(
         {
           courseCycleId: dto.courseCycleId,
           evaluationTypeId,
           number: dto.number,
+          displayOrder: nextDisplayOrder,
           startDate: evalStart,
           endDate: evalEnd,
         },
@@ -163,6 +171,75 @@ export class EvaluationsService {
     const evaluations =
       await this.evaluationRepository.findByCourseCycle(courseCycleId);
     return this.filterOutBankEvaluations(evaluations);
+  }
+
+  async reorderByCourseCycle(
+    courseCycleId: string,
+    dto: ReorderEvaluationsDto,
+  ): Promise<Evaluation[]> {
+    await this.assertCourseCycleExists(courseCycleId);
+
+    if (!(await this.evaluationRepository.hasDisplayOrderColumn())) {
+      throw new BadRequestException(
+        'La base de datos aun no esta preparada para reordenar evaluaciones. Ejecute el script backend/db/2026-04-15_add_evaluation_display_order.sql.',
+      );
+    }
+
+    const visibleEvaluations = this.filterOutBankEvaluations(
+      await this.evaluationRepository.findByCourseCycle(courseCycleId),
+    );
+
+    if (visibleEvaluations.length === 0) {
+      throw new BadRequestException(
+        'El curso-ciclo no tiene evaluaciones academicas para reordenar.',
+      );
+    }
+
+    const expectedIds = visibleEvaluations.map((evaluation) =>
+      String(evaluation.id),
+    );
+    const requestedIds = dto.evaluationIds.map((id) => String(id));
+
+    if (expectedIds.length !== requestedIds.length) {
+      throw new BadRequestException(
+        'Debe enviar exactamente todas las evaluaciones academicas visibles del curso-ciclo.',
+      );
+    }
+
+    const expectedSet = new Set(expectedIds);
+    const hasUnknownIds = requestedIds.some((id) => !expectedSet.has(id));
+    if (hasUnknownIds) {
+      throw new BadRequestException(
+        'La lista contiene evaluaciones que no pertenecen al curso-ciclo indicado.',
+      );
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      let nextOrder = 1;
+      for (const evaluationId of requestedIds) {
+        await this.evaluationRepository.updateDisplayOrder(
+          evaluationId,
+          nextOrder,
+          manager,
+        );
+        nextOrder += 1;
+      }
+    });
+
+    await this.cacheService.invalidateIndex(
+      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(courseCycleId),
+    );
+
+    this.logger.log({
+      message: 'Evaluaciones reordenadas exitosamente',
+      courseCycleId,
+      evaluationIds: requestedIds,
+      timestamp: new Date().toISOString(),
+    });
+
+    return this.filterOutBankEvaluations(
+      await this.evaluationRepository.findByCourseCycle(courseCycleId),
+    );
   }
 
   private async assertCourseCycleExists(courseCycleId: string): Promise<void> {

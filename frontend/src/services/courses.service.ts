@@ -86,6 +86,17 @@ export const coursesService = {
     return unwrapPayload<Course>(response);
   },
 
+  async updateStatus(id: string, isActive: boolean): Promise<Course> {
+    const response = await apiClient.patch<Course>(`/courses/${id}/status`, {
+      isActive,
+    });
+    return unwrapPayload<Course>(response);
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/courses/${id}`);
+  },
+
   /**
    * Listar tipos de curso (Ciencias, Letras, Facultad)
    */

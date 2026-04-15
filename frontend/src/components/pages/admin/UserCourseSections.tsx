@@ -468,7 +468,7 @@ function EnrollmentModal({
 
         {/* Enrollment type */}
         <div className="flex flex-col gap-2">
-          <span className="text-text-quartiary text-sm font-medium leading-4">Modalidad de Inscripción</span>
+          <span className="text-gray-600 text-sm font-medium leading-4">Modalidad de Inscripción</span>
 
           {/* FULL */}
           <button
@@ -542,7 +542,7 @@ function EnrollmentModal({
               </div>
               <div className="flex-1 flex flex-col gap-1">
                 <span className="text-text-primary text-base font-semibold leading-5">Ciclos Pasados</span>
-                <span className="text-text-quartiary text-xs font-normal leading-4">Habilitar material histórico</span>
+                <span className="text-gray-600 text-xs font-normal leading-4">Habilitar material histórico</span>
               </div>
             </div>
             {/* Toggle */}

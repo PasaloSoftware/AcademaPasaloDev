@@ -39,6 +39,9 @@ export class CourseResponseDto {
   secondaryColor: string;
 
   @Expose()
+  isActive: boolean;
+
+  @Expose()
   @Type(() => CourseTypeResponseDto)
   courseType: CourseTypeResponseDto;
 

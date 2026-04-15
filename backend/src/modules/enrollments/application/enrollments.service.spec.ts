@@ -11,6 +11,7 @@ import { EnrollmentTypeRepository } from '@modules/enrollments/infrastructure/en
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { SettingsService } from '@modules/settings/application/settings.service';
+import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
 
 describe('EnrollmentsService', () => {
   let service: EnrollmentsService;
@@ -33,6 +34,7 @@ describe('EnrollmentsService', () => {
     findById: jest.fn(),
     update: jest.fn(),
     findMyEnrollments: jest.fn(),
+    findAdminStudentsByCourseCyclePage: jest.fn(),
   };
 
   const enrollmentStatusRepositoryMock = {
@@ -67,6 +69,10 @@ describe('EnrollmentsService', () => {
     getString: jest.fn().mockResolvedValue('ac-2026-1'),
   };
 
+  const courseCycleRepositoryMock = {
+    findById: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -95,6 +101,10 @@ describe('EnrollmentsService', () => {
         {
           provide: SettingsService,
           useValue: settingsServiceMock,
+        },
+        {
+          provide: CourseCycleRepository,
+          useValue: courseCycleRepositoryMock,
         },
       ],
     }).compile();
@@ -149,7 +159,56 @@ describe('EnrollmentsService', () => {
 
     const result = await service.findMyEnrollments('user-1');
 
-    expect(result[0].courseCycle.course.cycleLevel.name).toBe('1° CICLO');
+    expect(result[0].courseCycle.course.cycleLevel.name).toBe('1\u00B0 CICLO');
+  });
+
+  it('findAdminStudentsByCourseCycle retorna listado paginado', async () => {
+    courseCycleRepositoryMock.findById.mockResolvedValue({ id: 'cc-1' });
+    enrollmentRepositoryMock.findAdminStudentsByCourseCyclePage.mockResolvedValue(
+      {
+        rows: [
+          {
+            enrollmentId: 'enr-1',
+            userId: 'u-1',
+            fullName: 'Maria Ramos',
+            email: 'maria@pucp.edu.pe',
+          },
+        ],
+        totalItems: 1,
+      },
+    );
+
+    const result = await service.findAdminStudentsByCourseCycle('cc-1', {
+      page: 1,
+      pageSize: 10,
+      search: 'maria',
+    });
+
+    expect(result.items).toEqual([
+      {
+        enrollmentId: 'enr-1',
+        userId: 'u-1',
+        fullName: 'Maria Ramos',
+        email: 'maria@pucp.edu.pe',
+      },
+    ]);
+    expect(result.totalItems).toBe(1);
+    expect(result.totalPages).toBe(1);
+  });
+
+  it('findAdminStudentsByCourseCycle rechaza courseCycle inexistente', async () => {
+    courseCycleRepositoryMock.findById.mockResolvedValue(null);
+
+    await expect(
+      service.findAdminStudentsByCourseCycle('cc-x', {
+        page: 1,
+        pageSize: 10,
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(
+      enrollmentRepositoryMock.findAdminStudentsByCourseCyclePage,
+    ).not.toHaveBeenCalled();
   });
 
   it('enroll FULL con historicos encola grant de course_cycle para base e historicos', async () => {

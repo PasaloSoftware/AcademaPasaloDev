@@ -95,6 +95,7 @@ import {
   UploadBankDocumentDto,
   UploadBankDocumentResponseDto,
 } from '@modules/courses/dto/bank-documents.dto';
+import { UpdateCourseStatusDto } from '@modules/courses/dto/update-course-status.dto';
 
 type EvaluationWithAccess = Evaluation & {
   enrollmentEvaluations?: EnrollmentEvaluation[];
@@ -291,6 +292,45 @@ export class CoursesService {
     ]);
 
     return updatedCourse;
+  }
+
+  async updateStatus(id: string, dto: UpdateCourseStatusDto): Promise<Course> {
+    await this.findCourseById(id);
+
+    const updatedCourse = await this.courseRepository.updateAndReturn(id, {
+      isActive: dto.isActive,
+    });
+
+    this.logger.log({
+      message: 'Estado de materia actualizado exitosamente',
+      courseId: id,
+      isActive: dto.isActive,
+      timestamp: new Date().toISOString(),
+    });
+
+    return updatedCourse;
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.findCourseById(id);
+
+    try {
+      await this.courseRepository.deleteById(id);
+    } catch (error) {
+      const dbErrno = getErrnoFromDbError(error);
+      if (dbErrno === MySqlErrorCode.FOREIGN_KEY_CONSTRAINT_FAIL) {
+        throw new ConflictException(
+          'No se puede eliminar la materia porque tiene curso-ciclos o registros relacionados.',
+        );
+      }
+      throw error;
+    }
+
+    this.logger.log({
+      message: 'Materia eliminada exitosamente',
+      courseId: id,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   async assignToCycle(dto: AssignCourseToCycleDto): Promise<CourseCycle> {

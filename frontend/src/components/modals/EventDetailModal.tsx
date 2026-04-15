@@ -323,7 +323,7 @@ export default function EventDetailModal({
             </span>
           </div>
           <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
-            <span className="text-text-quartiary text-[8px] font-medium leading-[10px]">
+            <span className="text-gray-600 text-[8px] font-medium leading-[10px]">
               ASESOR
             </span>
             <span className="self-stretch text-text-secondary text-sm font-normal leading-4 line-clamp-1">

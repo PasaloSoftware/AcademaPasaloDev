@@ -33,6 +33,8 @@ export class Course {
   @Column({ name: 'secondary_color', length: 7, nullable: true })
   secondaryColor: string;
 
+  isActive: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -431,7 +431,7 @@ function UpdateVideoModal({
                 <span className="text-text-primary text-base font-semibold leading-5">
                   Arrastra y suelta tu video aquí
                 </span>
-                <span className="text-text-quartiary text-xs font-normal leading-4">
+                <span className="text-gray-600 text-xs font-normal leading-4">
                   MP4, MKV (Máx. 10 GB)
                 </span>
               </div>

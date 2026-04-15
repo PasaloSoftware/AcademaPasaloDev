@@ -3,6 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, IsNull } from 'typeorm';
 import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
 
+export type AdminCourseCycleStudentRow = {
+  enrollmentId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+};
+
 @Injectable()
 export class EnrollmentRepository {
   constructor(
@@ -70,6 +77,71 @@ export class EnrollmentRepository {
 
   async findById(id: string): Promise<Enrollment | null> {
     return await this.ormRepository.findOne({ where: { id } });
+  }
+
+  async findAdminStudentsByCourseCyclePage(params: {
+    courseCycleId: string;
+    page: number;
+    pageSize: number;
+    search?: string;
+  }): Promise<{ rows: AdminCourseCycleStudentRow[]; totalItems: number }> {
+    const page = Math.max(1, params.page);
+    const pageSize = Math.max(1, params.pageSize);
+    const search = params.search?.trim().toLowerCase();
+
+    const baseQb = this.ormRepository
+      .createQueryBuilder('enrollment')
+      .innerJoin('enrollment.user', 'user')
+      .where('enrollment.courseCycleId = :courseCycleId', {
+        courseCycleId: params.courseCycleId,
+      })
+      .andWhere('enrollment.cancelledAt IS NULL');
+
+    if (search) {
+      baseQb.andWhere(
+        [
+          'LOWER(user.email) LIKE :search',
+          "OR LOWER(CONCAT_WS(' ', user.firstName, user.lastName1, user.lastName2)) LIKE :search",
+        ].join(' '),
+        { search: `%${search}%` },
+      );
+    }
+
+    const totalItems = await baseQb.getCount();
+
+    const rows = await this.ormRepository
+      .createQueryBuilder('enrollment')
+      .innerJoin('enrollment.user', 'user')
+      .where('enrollment.courseCycleId = :courseCycleId', {
+        courseCycleId: params.courseCycleId,
+      })
+      .andWhere('enrollment.cancelledAt IS NULL')
+      .andWhere(
+        search
+          ? [
+              '(',
+              'LOWER(user.email) LIKE :search',
+              "OR LOWER(CONCAT_WS(' ', user.firstName, user.lastName1, user.lastName2)) LIKE :search",
+              ')',
+            ].join(' ')
+          : '1 = 1',
+        search ? { search: `%${search}%` } : {},
+      )
+      .select([
+        'enrollment.id AS enrollmentId',
+        'user.id AS userId',
+        "TRIM(CONCAT_WS(' ', user.first_name, user.last_name_1, user.last_name_2)) AS fullName",
+        'user.email AS email',
+      ])
+      .orderBy('user.firstName', 'ASC')
+      .addOrderBy('user.lastName1', 'ASC')
+      .addOrderBy('user.lastName2', 'ASC')
+      .addOrderBy('user.email', 'ASC')
+      .offset((page - 1) * pageSize)
+      .limit(pageSize)
+      .getRawMany<AdminCourseCycleStudentRow>();
+
+    return { rows, totalItems };
   }
 
   async update(id: string, data: Partial<Enrollment>): Promise<void> {

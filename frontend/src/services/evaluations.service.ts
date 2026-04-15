@@ -33,4 +33,15 @@ export const evaluationsService = {
     );
     return response.data;
   },
+
+  async reorderByCourseCycle(
+    courseCycleId: string,
+    evaluationIds: string[]
+  ): Promise<Evaluation[]> {
+    const response = await apiClient.put<Evaluation[]>(
+      `/evaluations/course-cycle/${courseCycleId}/reorder`,
+      { evaluationIds }
+    );
+    return response.data;
+  },
 };

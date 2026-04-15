@@ -239,7 +239,7 @@ function NotificationCard({
               {notification.title}
             </span>
             <div className="flex justify-end items-center gap-2">
-              <span className="text-text-quartiary text-xs font-normal leading-4">
+              <span className="text-gray-600 text-xs font-normal leading-4">
                 {formatNotificationTime(notification.createdAt)}
               </span>
               {!notification.isRead && (

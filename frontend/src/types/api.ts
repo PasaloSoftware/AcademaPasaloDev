@@ -118,6 +118,7 @@ export interface Course {
   cycleLevelId: string;
   primaryColor?: string;
   secondaryColor?: string;
+  isActive: boolean;
   courseType?: CourseType;
   cycleLevel?: { name: string };
   createdAt: string;
@@ -156,6 +157,7 @@ export interface Evaluation {
   courseCycleId: string;
   evaluationTypeId: string;
   number: number;
+  displayOrder?: number;
   startDate: string;
   endDate: string;
   evaluationType?: EvaluationType;
