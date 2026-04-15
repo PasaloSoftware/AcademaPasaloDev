@@ -8,35 +8,65 @@ on:
     branches:
       - main
       - develop
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch / ambiente a desplegar"
+        required: true
+        type: choice
+        options:
+          - main
+          - develop
+      image_tag:
+        description: "Image tag exacto (ej: main-a1b2c3d)"
+        required: true
+        type: string
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
+      - name: Resolve trigger context
+        id: ctx
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "branch=${{ github.event.inputs.branch }}"       >> $GITHUB_OUTPUT
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+            echo "trigger=manual"                                  >> $GITHUB_OUTPUT
+          else
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+            echo "branch=${BRANCH}"                               >> $GITHUB_OUTPUT
+            echo "image_tag=${BRANCH}-${SHA}"                     >> $GITHUB_OUTPUT
+            echo "trigger=automatic"                              >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ steps.ctx.outputs.branch }}
 
       - name: Determine environment
         id: env
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          BRANCH="${{ steps.ctx.outputs.branch }}"
           if [ "$BRANCH" = "main" ]; then
-            echo "infisical_env=production" >> $GITHUB_OUTPUT
-            echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
-            echo "nginx_conf=nginx.prod.conf" >> $GITHUB_OUTPUT
+            echo "infisical_env=production"                >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.prod.yml"    >> $GITHUB_OUTPUT
+            echo "nginx_conf=nginx.prod.conf"              >> $GITHUB_OUTPUT
             echo "deploy_dir=/home/ubuntu/academia-pasalo" >> $GITHUB_OUTPUT
-            echo "is_prod=true" >> $GITHUB_OUTPUT
+            echo "is_prod=true"                            >> $GITHUB_OUTPUT
           else
-            echo "infisical_env=development" >> $GITHUB_OUTPUT
-            echo "compose_file=docker-compose.dev.yml" >> $GITHUB_OUTPUT
-            echo "nginx_conf=nginx.dev.conf" >> $GITHUB_OUTPUT
+            echo "infisical_env=development"               >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.dev.yml"     >> $GITHUB_OUTPUT
+            echo "nginx_conf=nginx.dev.conf"               >> $GITHUB_OUTPUT
             echo "deploy_dir=/home/ubuntu/academia-pasalo" >> $GITHUB_OUTPUT
-            echo "is_prod=false" >> $GITHUB_OUTPUT
+            echo "is_prod=false"                           >> $GITHUB_OUTPUT
           fi
 
       - name: Load secrets from Infisical
@@ -49,30 +79,51 @@ jobs:
           project-slug: "academia-pasalo"
           export-type: env
 
-      - name: Set image tag
-        id: tag
+      # ──────────────────────────────────────────────────────────────
+      # Valida que el EC2 esté en estado 'running' antes de continuar.
+      # Solo aplica para deploy a develop. Si está stopped/pending/etc,
+      # falla inmediato con mensaje claro en lugar de colgar en SSH.
+      # Requiere: AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en secrets
+      # (ya disponibles — los usa EC2.yml).
+      # ──────────────────────────────────────────────────────────────
+      - name: Check EC2 is running (dev only)
+        if: steps.ctx.outputs.branch == 'develop'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          SHA=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)
-          echo "image_tag=${BRANCH}-${SHA}" >> $GITHUB_OUTPUT
+          INSTANCE_ID="i-075c22a8bf3645192"
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[0].Instances[0].State.Name" \
+            --output text)
+          echo "EC2 state: $STATE"
+          if [ "$STATE" != "running" ]; then
+            echo "❌ EC2 no está disponible (estado: $STATE)."
+            echo "   Iniciá la instancia desde Actions → 'Turn On/Off EC2' → start"
+            echo "   y volvé a correr este workflow cuando esté en 'running'."
+            exit 1
+          fi
+          echo "✅ EC2 está running — continuando con el deploy."
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          BRANCH="${{ steps.ctx.outputs.branch }}"
           if [ "$BRANCH" = "main" ]; then
             echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
-            ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+            ssh-keyscan -T 30 -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           else
             echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
-            ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+            ssh-keyscan -T 30 -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           fi
           chmod 600 ~/.ssh/deploy_key
 
       - name: Set deploy host
         id: host
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          BRANCH="${{ steps.ctx.outputs.branch }}"
           if [ "$BRANCH" = "main" ]; then
             echo "value=${{ secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
           else
@@ -99,7 +150,7 @@ jobs:
             ops/nginx/${{ steps.env.outputs.nginx_conf }} \
             ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/nginx.conf
 
-          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+          if [ "${{ steps.ctx.outputs.branch }}" = "main" ]; then
             scp -i ~/.ssh/deploy_key \
               ops/monitoring/prometheus.yml \
               ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/prometheus.yml
@@ -121,7 +172,7 @@ jobs:
             "
 
       - name: Write mysql-exporter config (prod only)
-        if: github.event.workflow_run.head_branch == 'main'
+        if: steps.ctx.outputs.branch == 'main'
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             cat > ${{ steps.env.outputs.deploy_dir }}/mysql-exporter.cnf << 'EOF'
@@ -143,7 +194,7 @@ jobs:
 
             cat > .env << 'EOF'
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-          IMAGE_TAG=${{ steps.tag.outputs.image_tag }}
+          IMAGE_TAG=${{ steps.ctx.outputs.image_tag }}
           DB_HOST=${{ env.DB_HOST }}
           DB_PORT=${{ env.DB_PORT }}
           DB_USER=${{ env.DB_USER }}
@@ -173,7 +224,7 @@ jobs:
           "
 
       - name: Run SQL seed (dev only)
-        if: github.event.workflow_run.head_branch == 'develop'
+        if: steps.ctx.outputs.branch == 'develop'
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             set -Eeuo pipefail
