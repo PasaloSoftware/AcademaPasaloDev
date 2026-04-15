@@ -74,6 +74,9 @@ function UpdateVideoModal({
     expiresAt: string | null;
   } | null>(null);
   const [canceling, setCanceling] = useState(false);
+  const hasPublishedRecording =
+    event.recordingStatus === 'READY' && !!event.recordingUrl;
+  const isFirstUpload = !hasPublishedRecording;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingDriveTokenResolveRef = useRef<((token: string) => void) | null>(null);
   const pendingDriveTokenRejectRef = useRef<((reason?: unknown) => void) | null>(null);
@@ -364,7 +367,7 @@ function UpdateVideoModal({
         {/* Header */}
         <div className="pl-6 pr-3 py-4 border-b border-stroke-secondary flex items-center gap-3">
           <h2 className="flex-1 text-text-primary text-xl font-semibold leading-6">
-            Subir Grabación
+            {isFirstUpload ? 'Subir Grabación' : 'Actualizar Grabación'}
           </h2>
           {!saving && (
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-bg-secondary transition-colors">
@@ -375,6 +378,17 @@ function UpdateVideoModal({
 
         {/* Body */}
         <div className="p-6 flex flex-col gap-5">
+          {isFirstUpload && !activeUpload && (
+            <div className="rounded-lg bg-bg-info-primary-light p-3 outline outline-1 outline-stroke-info-secondary flex flex-col gap-1.5">
+              <span className="text-text-info-primary text-sm font-medium leading-4">
+                Esta clase todavía no tiene una grabación publicada.
+              </span>
+              <span className="text-text-secondary text-xs leading-4">
+                Sube el video final para publicarlo por primera vez en la plataforma.
+              </span>
+            </div>
+          )}
+
           {/* Active upload warning */}
           {statusLoading && (
             <span className="text-text-tertiary text-xs leading-3">Verificando estado de carga...</span>
@@ -417,7 +431,7 @@ function UpdateVideoModal({
                 <span className="text-text-primary text-base font-semibold leading-5">
                   Arrastra y suelta tu video aquí
                 </span>
-                <span className="text-text-quartiary text-xs font-normal leading-4">
+                <span className="text-gray-600 text-xs font-normal leading-4">
                   MP4, MKV (Máx. 10 GB)
                 </span>
               </div>
@@ -518,7 +532,7 @@ function UpdateVideoModal({
                 : 'bg-bg-disabled text-text-disabled'
             }`}
           >
-            {saving ? 'Subiendo...' : 'Subir Video'}
+            {saving ? 'Subiendo...' : isFirstUpload ? 'Subir Video' : 'Actualizar Video'}
           </button>
         </div>
       </div>
@@ -672,6 +686,8 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     const isFinished = event.sessionStatus === 'FINALIZADA';
     const isLive = event.sessionStatus === 'EN_CURSO';
     const isScheduled = event.sessionStatus === 'PROGRAMADA';
+    const hasPublishedRecording =
+      event.recordingStatus === 'READY' && !!event.recordingUrl;
     const isLiveSoonLocal =
       isLive ||
       (isScheduled &&
@@ -686,7 +702,9 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
             className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
           >
             <Icon name="videocam" size={16} className="text-icon-white" variant="rounded" />
-            <span className="text-text-white text-sm font-medium leading-4">Actualizar Video</span>
+            <span className="text-text-white text-sm font-medium leading-4">
+              {hasPublishedRecording ? 'Actualizar Video' : 'Subir Video'}
+            </span>
           </button>
         );
       }

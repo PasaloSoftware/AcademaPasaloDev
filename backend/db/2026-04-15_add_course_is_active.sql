@@ -1,0 +1,2 @@
+ALTER TABLE course
+  ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE AFTER secondary_color;

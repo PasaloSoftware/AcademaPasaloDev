@@ -349,7 +349,7 @@ export default function MaterialUploadView({
             <span className="text-text-primary text-base font-semibold leading-5">
               Arrastra y suelta tus archivos aquí
             </span>
-            <span className="text-text-quartiary text-xs font-normal leading-4">
+            <span className="text-gray-600 text-xs font-normal leading-4">
               PDF, DOC, DOCX, XLS, XLSX (Máx. 10 MB)
             </span>
           </div>
@@ -380,7 +380,7 @@ export default function MaterialUploadView({
         {/* Selected Files */}
         {stagedFiles.length > 0 && (
           <div className="self-stretch flex flex-col gap-2">
-            <span className="text-text-quartiary text-sm font-semibold leading-4">
+            <span className="text-gray-600 text-sm font-semibold leading-4">
               Archivos seleccionados
             </span>
             {stagedFiles.map((entry) => {

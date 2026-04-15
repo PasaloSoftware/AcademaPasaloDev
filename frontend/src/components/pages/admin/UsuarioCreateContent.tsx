@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/ToastContainer';
 import { usersService } from '@/services/users.service';
 import type { AdminUserDetailCourse } from '@/services/users.service';
@@ -16,6 +17,7 @@ import type { PersonalInfoData } from './UserCourseSections';
 export default function UsuarioCreateContent() {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const { user } = useAuth();
   const { showToast } = useToast();
 
   const [saving, setSaving] = useState(false);
@@ -47,13 +49,48 @@ export default function UsuarioCreateContent() {
     });
   };
 
+  const hasValidPhone = personalInfo.phone.trim().length === 0 || personalInfo.phone.trim().length === 9;
   const canSave = personalInfo.firstName.trim() && personalInfo.lastName1.trim() && personalInfo.email.trim() && selectedRoles.size > 0;
+  const activeRoleCode = (() => {
+    if (!user?.roles?.length) return null;
+    if (user.lastActiveRoleId) {
+      const activeRole = user.roles.find(
+        (role) => (role.id || role.code) === user.lastActiveRoleId,
+      );
+      if (activeRole) return activeRole.code;
+    }
+    return user.roles[0]?.code || null;
+  })();
+  const canManageAdminRole = activeRoleCode === 'SUPER_ADMIN';
+
+  const focusPhoneField = () => {
+    const phoneInput = document.getElementById('create-phone') as HTMLInputElement | null;
+    if (!phoneInput) return;
+    phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => {
+      phoneInput.focus();
+      phoneInput.select();
+    }, 150);
+  };
 
   const handleSave = async () => {
     if (!canSave) return;
+    if (!hasValidPhone) {
+      showToast({
+        type: 'error',
+        title: 'Teléfono inválido',
+        description: 'El teléfono debe tener exactamente 9 dígitos.',
+      });
+      focusPhoneField();
+      return;
+    }
     setSaving(true);
     try {
-      const roleCodes = Array.from(selectedRoles);
+      const roleCodes = Array.from(selectedRoles).filter((roleCode) => {
+        if (roleCode === 'SUPER_ADMIN') return false;
+        if (roleCode === 'ADMIN') return canManageAdminRole;
+        return true;
+      });
 
       let studentEnrollment;
       if (selectedRoles.has('STUDENT') && enrolledCourses.length > 0) {

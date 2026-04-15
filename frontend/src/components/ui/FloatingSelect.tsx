@@ -16,6 +16,8 @@ interface FloatingSelectProps {
   allLabel?: string;
   disabled?: boolean;
   className?: string;
+  variant?: 'floating' | 'filled';
+  size?: 'medium' | 'large';
 }
 
 export default function FloatingSelect({
@@ -26,6 +28,8 @@ export default function FloatingSelect({
   allLabel = 'Todos',
   disabled = false,
   className = 'w-64',
+  variant = 'floating',
+  size = 'medium',
 }: FloatingSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,6 +37,11 @@ export default function FloatingSelect({
   const selectedLabel = value
     ? options.find((o) => o.value === value)?.label ?? allLabel
     : allLabel;
+
+  const isFloating = variant === 'floating';
+  const triggerHeightClass = size === 'large' ? 'h-12 px-3 py-3.5' : 'h-10 px-2.5 py-3';
+  const triggerTextClass = size === 'large' ? 'text-base leading-4' : 'text-sm leading-4';
+  const dropdownItemClass = size === 'large' ? 'px-3 py-4 text-base leading-4' : 'px-3 py-4 text-base leading-4';
 
   // Close on click outside
   useEffect(() => {
@@ -61,17 +70,20 @@ export default function FloatingSelect({
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className={`${className} relative inline-flex flex-col justify-start items-start gap-1`}>
+    <div
+      ref={containerRef}
+      className={`${className} relative inline-flex flex-col justify-start items-start ${isFloating ? 'gap-1' : 'gap-0'}`}
+    >
       {/* Trigger */}
       <button
         type="button"
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
         disabled={disabled}
-        className={`self-stretch h-10 px-2.5 py-3 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${
+        className={`self-stretch ${triggerHeightClass} bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${
           isOpen ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'
         } inline-flex justify-start items-center gap-2 transition-colors`}
       >
-        <span className="flex-1 text-left text-text-primary text-sm font-normal leading-4 line-clamp-1">
+        <span className={`flex-1 text-left text-text-primary font-normal line-clamp-1 ${triggerTextClass}`}>
           {selectedLabel}
         </span>
         <Icon
@@ -84,13 +96,15 @@ export default function FloatingSelect({
       </button>
 
       {/* Floating label */}
-      <div className="px-1 left-[6px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-        <span className={`text-xs font-normal leading-4 ${
-          isOpen ? 'text-text-accent-primary' : 'text-text-tertiary'
-        }`}>
-          {label}
-        </span>
-      </div>
+      {isFloating && (
+        <div className="px-1 left-[6px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
+          <span className={`text-xs font-normal leading-4 ${
+            isOpen ? 'text-text-accent-primary' : 'text-text-tertiary'
+          }`}>
+            {label}
+          </span>
+        </div>
+      )}
 
       {/* Dropdown */}
       {isOpen && (
@@ -102,7 +116,7 @@ export default function FloatingSelect({
               onChange(null);
               setIsOpen(false);
             }}
-            className="self-stretch px-3 py-4 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+            className={`self-stretch bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors ${dropdownItemClass}`}
           >
             <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
               {allLabel}
@@ -121,7 +135,7 @@ export default function FloatingSelect({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className="self-stretch px-3 py-4 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+              className={`self-stretch bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors ${dropdownItemClass}`}
             >
               <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
                 {option.label}

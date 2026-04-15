@@ -52,7 +52,7 @@ function StarRatingInput({
         })}
       </div>
       <div className="self-stretch flex flex-col justify-center items-center">
-        <span className="self-stretch text-center text-text-quartiary text-xs font-normal leading-4">
+        <span className="self-stretch text-center text-gray-600 text-xs font-normal leading-4">
           Haz clic para calificar
         </span>
       </div>

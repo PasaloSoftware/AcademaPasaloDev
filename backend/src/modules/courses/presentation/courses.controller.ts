@@ -29,6 +29,7 @@ import {
 } from '@modules/courses/dto/student-course-view.dto';
 import { UserResponseDto } from '@modules/users/dto/user-response.dto';
 import { UpdateCourseDto } from '@modules/courses/dto/update-course.dto';
+import { UpdateCourseStatusDto } from '@modules/courses/dto/update-course-status.dto';
 import { AssignCourseCycleProfessorDto } from '@modules/courses/dto/assign-course-cycle-professor.dto';
 import { UpdateCourseCycleEvaluationStructureDto } from '@modules/courses/dto/update-course-cycle-evaluation-structure.dto';
 import { UpdateCourseCycleIntroVideoDto } from '@modules/courses/dto/update-course-cycle-intro-video.dto';
@@ -233,6 +234,27 @@ export class CoursesController {
     return plainToInstance(CourseResponseDto, course, {
       excludeExtraneousValues: true,
     });
+  }
+
+  @Patch(':id/status')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Estado de materia actualizado exitosamente')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateCourseStatusDto,
+  ) {
+    const course = await this.coursesService.updateStatus(id, dto);
+    return plainToInstance(CourseResponseDto, course, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Delete(':id')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Materia eliminada exitosamente')
+  async delete(@Param('id') id: string): Promise<void> {
+    await this.coursesService.delete(id);
   }
 
   @Put('cycle/:id/evaluation-structure')

@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -21,6 +22,10 @@ import {
   EnrollmentOptionsResponseDto,
 } from '@modules/enrollments/dto/enrollment-options.dto';
 import { plainToInstance } from 'class-transformer';
+import {
+  AdminCourseCycleStudentsQueryDto,
+  AdminCourseCycleStudentsResponseDto,
+} from '@modules/enrollments/dto/admin-course-cycle-students.dto';
 
 @Controller('enrollments')
 @Auth()
@@ -56,6 +61,22 @@ export class EnrollmentsController {
     const data =
       await this.enrollmentsService.getEnrollmentCourseCycleOptions(courseId);
     return plainToInstance(EnrollmentCourseCycleOptionsResponseDto, data, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Get('course-cycle/:courseCycleId/students')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Alumnos matriculados obtenidos exitosamente')
+  async getAdminStudentsByCourseCycle(
+    @Param('courseCycleId') courseCycleId: string,
+    @Query() query: AdminCourseCycleStudentsQueryDto,
+  ) {
+    const data = await this.enrollmentsService.findAdminStudentsByCourseCycle(
+      courseCycleId,
+      query,
+    );
+    return plainToInstance(AdminCourseCycleStudentsResponseDto, data, {
       excludeExtraneousValues: true,
     });
   }

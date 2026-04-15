@@ -6,9 +6,11 @@ import {
   Param,
   HttpStatus,
   HttpCode,
+  Put,
 } from '@nestjs/common';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
 import { CreateEvaluationDto } from '@modules/evaluations/dto/create-evaluation.dto';
+import { ReorderEvaluationsDto } from '@modules/evaluations/dto/reorder-evaluations.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -39,5 +41,15 @@ export class EvaluationsController {
       user.id,
       (user as UserWithSession).activeRole,
     );
+  }
+
+  @Put('course-cycle/:id/reorder')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Evaluaciones reordenadas exitosamente')
+  async reorderByCourseCycle(
+    @Param('id') id: string,
+    @Body() dto: ReorderEvaluationsDto,
+  ) {
+    return await this.evaluationsService.reorderByCourseCycle(id, dto);
   }
 }

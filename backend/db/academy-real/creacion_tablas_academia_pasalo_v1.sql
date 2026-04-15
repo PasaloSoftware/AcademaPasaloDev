@@ -188,6 +188,7 @@ CREATE TABLE course (
   name VARCHAR(100) NOT NULL,
   primary_color VARCHAR(7) NULL,
   secondary_color VARCHAR(7) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL,
   updated_at DATETIME,
   FOREIGN KEY (course_type_id) REFERENCES course_type(id),
@@ -221,6 +222,7 @@ CREATE TABLE evaluation (
   course_cycle_id BIGINT NOT NULL,
   evaluation_type_id BIGINT NOT NULL,
   number INT NOT NULL,
+  display_order INT NOT NULL DEFAULT 0,
   start_date DATETIME NOT NULL,
   end_date DATETIME NOT NULL,
   FOREIGN KEY (course_cycle_id) REFERENCES course_cycle(id),
@@ -527,6 +529,9 @@ ON course_cycle_allowed_evaluation_type(course_cycle_id, is_active);
 
 CREATE INDEX idx_evaluation_course_cycle
 ON evaluation(course_cycle_id);
+
+CREATE INDEX idx_evaluation_course_cycle_display_order
+ON evaluation(course_cycle_id, display_order, start_date, number, id);
 
 CREATE INDEX idx_course_cycle_professor_user_active
 ON course_cycle_professor(professor_user_id, revoked_at, course_cycle_id);

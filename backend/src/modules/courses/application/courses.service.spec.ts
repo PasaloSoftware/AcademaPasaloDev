@@ -71,6 +71,7 @@ describe('CoursesService student views', () => {
             findById: jest.fn(),
             findByCode: jest.fn(),
             updateAndReturn: jest.fn(),
+            deleteById: jest.fn(),
           },
         },
         { provide: CourseTypeRepository, useValue: {} },
@@ -1288,6 +1289,59 @@ describe('CoursesService student views', () => {
       code: 'MAT102',
       name: 'Matematica avanzada',
     });
+  });
+
+  it('should update administrative status of a course', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+      isActive: true,
+    });
+    (courseRepository.updateAndReturn as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+      isActive: false,
+    });
+
+    const result = await service.updateStatus('c1', { isActive: false });
+
+    expect(courseRepository.updateAndReturn).toHaveBeenCalledWith('c1', {
+      isActive: false,
+    });
+    expect(result).toEqual({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+      isActive: false,
+    });
+  });
+
+  it('should delete a course when it has no related rows', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+    });
+    (courseRepository.deleteById as jest.Mock).mockResolvedValue(undefined);
+
+    await service.delete('c1');
+
+    expect(courseRepository.deleteById).toHaveBeenCalledWith('c1');
+  });
+
+  it('should reject delete when course has related records', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+    });
+    (courseRepository.deleteById as jest.Mock).mockRejectedValue({
+      errno: 1451,
+    });
+
+    await expect(service.delete('c1')).rejects.toThrow(ConflictException);
   });
 
   it('should return authorized intro video link for student with active enrollment', async () => {

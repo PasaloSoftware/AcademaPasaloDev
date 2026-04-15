@@ -27,7 +27,7 @@ const toastConfig: Record<ToastType, { bg: string; outline: string; icon: string
     iconClass: 'text-red-500',
   },
   warning: {
-    bg: 'bg-bg-warning-light',
+    bg: 'bg-warning-light',
     outline: 'outline-stroke-warning-secondary',
     icon: 'warning',
     iconClass: 'text-icon-warning-primary',
