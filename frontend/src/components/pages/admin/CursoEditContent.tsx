@@ -1,11 +1,23 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import Modal from "@/components/ui/Modal";
-import FloatingInput from "@/components/ui/FloatingInput";
-import FloatingSelect from "@/components/ui/FloatingSelect";
+import CourseStudentsManagementSection from "@/components/pages/admin/CourseStudentsManagementSection";
+import {
+  CourseEditorFooter,
+  CourseEditorHeader,
+  CourseEditorTabs,
+  CourseProfessorManagerModal,
+  CourseResourceCard,
+  CourseSectionCard,
+  CourseGeneralInfoSection,
+  CourseEditorTab,
+  ProfessorModalOption,
+  getEvaluationTypeMeta,
+  getProfessorDisplayName,
+  normalizeCourseTypeName,
+} from "@/components/pages/admin/CourseEditorShared";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
 import {
@@ -15,10 +27,7 @@ import {
   type AdminCourseCycleProfessor,
 } from "@/services/courses.service";
 import { evaluationsService } from "@/services/evaluations.service";
-import {
-  enrollmentService,
-  type AdminCourseCycleStudentItem,
-} from "@/services/enrollment.service";
+import { usersService } from "@/services/users.service";
 import type { CourseType } from "@/types/api";
 import type {
   BankStructureResponse,
@@ -27,71 +36,6 @@ import type {
 
 interface CursoEditContentProps {
   cursoId: string;
-}
-
-type EditTab = "structure" | "students";
-
-const STUDENTS_PAGE_SIZE = 10;
-
-function getPageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | "...")[] = [1];
-  if (current > 3) pages.push("...");
-  for (
-    let i = Math.max(2, current - 1);
-    i <= Math.min(total - 1, current + 1);
-    i += 1
-  ) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push("...");
-  pages.push(total);
-  return pages;
-}
-
-function normalizeCourseTypeName(name?: string | null): string {
-  if (!name) return "Sin unidad";
-  const normalized = name.trim().toLowerCase();
-  if (normalized === "ciencias") return "Ciencias";
-  if (normalized === "letras") return "Letras";
-  if (normalized === "facultad") return "Facultad";
-  return name.trim();
-}
-
-function getProfessorDisplayName(professor: AdminCourseCycleProfessor): string {
-  return [professor.firstName, professor.lastName1, professor.lastName2]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-}
-
-function getEvaluationTypeMeta(code: string): {
-  label: string;
-  bg: string;
-  text: string;
-} {
-  const normalized = code.toUpperCase();
-  if (normalized.startsWith("PC")) {
-    return {
-      label: "Practica Calificada",
-      bg: "bg-bg-info-secondary-light",
-      text: "text-text-info-secondary",
-    };
-  }
-
-  if (normalized.startsWith("EX")) {
-    return {
-      label: "Examen",
-      bg: "bg-bg-success-light",
-      text: "text-text-success-primary",
-    };
-  }
-
-  return {
-    label: normalized,
-    bg: "bg-bg-secondary",
-    text: "text-text-secondary",
-  };
 }
 
 export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
@@ -121,23 +65,19 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   const [dragOverEvaluationId, setDragOverEvaluationId] = useState<
     string | null
   >(null);
-  const [activeTab, setActiveTab] = useState<EditTab>("structure");
+  const [activeTab, setActiveTab] = useState<CourseEditorTab>("structure");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [students, setStudents] = useState<AdminCourseCycleStudentItem[]>([]);
-  const [studentsLoading, setStudentsLoading] = useState(true);
-  const [studentsSearch, setStudentsSearch] = useState("");
-  const [debouncedStudentsSearch, setDebouncedStudentsSearch] = useState("");
-  const [studentsPage, setStudentsPage] = useState(1);
-  const [studentsTotalItems, setStudentsTotalItems] = useState(0);
-  const [studentsTotalPages, setStudentsTotalPages] = useState(0);
-  const [cancelEnrollmentId, setCancelEnrollmentId] = useState<string | null>(
-    null,
-  );
-  const [cancelEnrollmentName, setCancelEnrollmentName] = useState<
+  const [professorModalOpen, setProfessorModalOpen] = useState(false);
+  const [availableProfessors, setAvailableProfessors] = useState<
+    ProfessorModalOption[]
+  >([]);
+  const [professorOptionsLoading, setProfessorOptionsLoading] = useState(false);
+  const [professorSearch, setProfessorSearch] = useState("");
+  const [debouncedProfessorSearch, setDebouncedProfessorSearch] = useState("");
+  const [professorActionLoadingId, setProfessorActionLoadingId] = useState<
     string | null
   >(null);
-  const [cancelEnrollmentLoading, setCancelEnrollmentLoading] = useState(false);
 
   const loadCourseEditData = useCallback(async () => {
     setLoading(true);
@@ -191,7 +131,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       setBreadcrumbItems([
         {
           icon: "class",
-          label: "Gestion de Cursos",
+          label: "Gesti�n de Cursos",
           href: "/plataforma/admin/cursos",
         },
         { label: "Curso", href: `/plataforma/curso/${cursoId}` },
@@ -214,46 +154,6 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     loadCourseEditData();
   }, [cursoId, loadCourseEditData]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedStudentsSearch(studentsSearch);
-      setStudentsPage(1);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [studentsSearch]);
-
-  const loadStudents = useCallback(async () => {
-    setStudentsLoading(true);
-    try {
-      const response = await enrollmentService.getAdminStudentsByCourseCycle({
-        courseCycleId: cursoId,
-        page: studentsPage,
-        pageSize: STUDENTS_PAGE_SIZE,
-        search: debouncedStudentsSearch.trim() || undefined,
-      });
-
-      setStudents(response.items);
-      setStudentsTotalItems(response.totalItems);
-      setStudentsTotalPages(response.totalPages);
-    } catch (err) {
-      console.error("Error al cargar alumnos matriculados:", err);
-      showToast({
-        type: "error",
-        title: "No se pudieron cargar los alumnos",
-        description:
-          err instanceof Error ? err.message : "Ocurrio un error inesperado.",
-      });
-    } finally {
-      setStudentsLoading(false);
-    }
-  }, [cursoId, studentsPage, debouncedStudentsSearch, showToast]);
-
-  useEffect(() => {
-    if (!cursoId) return;
-    if (activeTab !== "students") return;
-    loadStudents();
-  }, [cursoId, activeTab, loadStudents]);
-
   const selectedTypeName = useMemo(() => {
     const found = courseTypes.find((type) => type.id === selectedType);
     return normalizeCourseTypeName(found?.name || "");
@@ -268,17 +168,21 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     [courseTypes],
   );
 
+  const selectedProfessorIds = useMemo(
+    () =>
+      new Set((courseCycle?.professors || []).map((professor) => professor.id)),
+    [courseCycle],
+  );
+
+  const remainingProfessorOptions = useMemo(
+    () =>
+      availableProfessors.filter(
+        (professor) => !selectedProfessorIds.has(professor.id),
+      ),
+    [availableProfessors, selectedProfessorIds],
+  );
+
   const evaluations = orderedEvaluations;
-  const studentsRangeStart =
-    studentsTotalItems === 0 ? 0 : (studentsPage - 1) * STUDENTS_PAGE_SIZE + 1;
-  const studentsRangeEnd = Math.min(
-    studentsPage * STUDENTS_PAGE_SIZE,
-    studentsTotalItems,
-  );
-  const studentsPageNumbers = getPageNumbers(
-    Math.min(studentsPage, Math.max(1, studentsTotalPages || 1)),
-    Math.max(1, studentsTotalPages || 1),
-  );
   const evaluationOrderChanged =
     initialEvaluationOrder.length !== evaluations.length ||
     initialEvaluationOrder.some(
@@ -312,6 +216,8 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   };
 
   const handleSave = async () => {
+    if (!courseCycle) return;
+
     if (!evaluationOrderChanged) {
       showToast({
         type: "info",
@@ -357,30 +263,128 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     });
   };
 
-  const handleCancelEnrollment = async () => {
-    if (!cancelEnrollmentId) return;
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedProfessorSearch(professorSearch.trim());
+    }, 300);
 
-    setCancelEnrollmentLoading(true);
+    return () => window.clearTimeout(timeout);
+  }, [professorSearch]);
+
+  const loadProfessorOptions = useCallback(async () => {
+    setProfessorOptionsLoading(true);
     try {
-      await enrollmentService.cancel(cancelEnrollmentId);
-      setCancelEnrollmentId(null);
-      setCancelEnrollmentName(null);
-      showToast({
-        type: "success",
-        title: "Matricula cancelada",
-        description: "La matricula del alumno se cancelo correctamente.",
+      const response = await usersService.getAdminUsers({
+        page: 1,
+        search: debouncedProfessorSearch || undefined,
+        roles: "PROFESSOR",
+        status: "ACTIVE",
       });
-      await loadStudents();
+
+      setAvailableProfessors(
+        response.items.map((user) => {
+          const fullName = user.fullName.trim();
+          const parts = fullName.split(/\s+/);
+          const firstName = parts[0] || fullName;
+          const lastName1 = parts[1] || "";
+          const lastName2 = parts.slice(2).join(" ");
+
+          return {
+            id: user.id,
+            firstName,
+            lastName1,
+            lastName2,
+            fullName,
+          };
+        }),
+      );
     } catch (err) {
-      console.error("Error al cancelar matricula:", err);
+      console.error("Error al cargar asesores disponibles:", err);
       showToast({
         type: "error",
-        title: "No se pudo cancelar la matricula",
+        title: "No se pudieron cargar los asesores",
         description:
           err instanceof Error ? err.message : "Ocurrio un error inesperado.",
       });
     } finally {
-      setCancelEnrollmentLoading(false);
+      setProfessorOptionsLoading(false);
+    }
+  }, [debouncedProfessorSearch, showToast]);
+
+  useEffect(() => {
+    if (!professorModalOpen) return;
+    loadProfessorOptions();
+  }, [professorModalOpen, loadProfessorOptions]);
+
+  const handleAddProfessor = async (professor: ProfessorModalOption) => {
+    if (!courseCycle || courseCycle.professors.length >= 2) return;
+
+    setProfessorActionLoadingId(professor.id);
+    try {
+      await coursesService.assignProfessorToCourseCycle(cursoId, professor.id);
+      setCourseCycle({
+        ...courseCycle,
+        professors: [
+          ...courseCycle.professors,
+          {
+            id: professor.id,
+            firstName: professor.firstName,
+            lastName1: professor.lastName1,
+            lastName2: professor.lastName2,
+            profilePhotoUrl: null,
+          },
+        ],
+      });
+      showToast({
+        type: "success",
+        title: "Asesor agregado",
+        description: `${professor.fullName} fue asignado al curso.`,
+      });
+    } catch (err) {
+      console.error("Error al asignar asesor:", err);
+      showToast({
+        type: "error",
+        title: "No se pudo asignar el asesor",
+        description:
+          err instanceof Error ? err.message : "Ocurrio un error inesperado.",
+      });
+    } finally {
+      setProfessorActionLoadingId(null);
+    }
+  };
+
+  const handleRemoveProfessor = async (professorId: string) => {
+    if (!courseCycle) return;
+
+    const professor = courseCycle.professors.find(
+      (item) => item.id === professorId,
+    );
+    if (!professor) return;
+
+    setProfessorActionLoadingId(professorId);
+    try {
+      await coursesService.revokeProfessorFromCourseCycle(cursoId, professorId);
+      setCourseCycle({
+        ...courseCycle,
+        professors: courseCycle.professors.filter(
+          (item) => item.id !== professorId,
+        ),
+      });
+      showToast({
+        type: "success",
+        title: "Asesor removido",
+        description: `${getProfessorDisplayName(professor)} fue retirado del curso.`,
+      });
+    } catch (err) {
+      console.error("Error al remover asesor:", err);
+      showToast({
+        type: "error",
+        title: "No se pudo remover el asesor",
+        description:
+          err instanceof Error ? err.message : "Ocurrio un error inesperado.",
+      });
+    } finally {
+      setProfessorActionLoadingId(null);
     }
   };
 
@@ -421,151 +425,43 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start gap-8 overflow-hidden">
-      <button
-        onClick={() => router.push(`/plataforma/curso/${cursoId}`)}
-        className="p-1 rounded-lg inline-flex justify-center items-center gap-2 hover:bg-bg-accent-light transition-colors"
-      >
-        <Icon
-          name="arrow_back"
-          size={20}
-          className="text-icon-accent-primary"
-        />
-        <span className="text-text-accent-primary text-base font-medium leading-4">
-          Volver a {courseCycle.course.name}
-        </span>
-      </button>
+      <CourseEditorHeader
+        title="Editar Curso"
+        backLabel={`Volver a ${courseCycle.course.name}`}
+        onBack={() => router.push(`/plataforma/curso/${cursoId}`)}
+      />
 
-      <div className="self-stretch text-text-primary text-3xl font-semibold leading-8">
-        Editar Curso
-      </div>
+      <CourseGeneralInfoSection
+        courseName={courseName}
+        onCourseNameChange={setCourseName}
+        courseCode={courseCode}
+        onCourseCodeChange={setCourseCode}
+        selectedType={selectedType}
+        onSelectedTypeChange={setSelectedType}
+        typeOptions={typeOptions}
+        professors={courseCycle.professors}
+        onOpenProfessorModal={() => setProfessorModalOpen(true)}
+      />
 
-      <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col justify-start items-start gap-6">
-        <div className="self-stretch inline-flex justify-start items-start gap-2">
-          <Icon name="info" size={20} className="text-icon-info-secondary" />
-          <div className="flex-1 text-text-primary text-lg font-semibold leading-5">
-            Informacion General
-          </div>
-        </div>
-        <div className="self-stretch flex flex-col justify-start items-start gap-4">
-          <FloatingInput
-            id="course-name"
-            label="Nombre del Curso"
-            value={courseName}
-            onChange={setCourseName}
-          />
-          <FloatingInput
-            id="course-code"
-            label="Abreviatura del Curso"
-            value={courseCode}
-            onChange={setCourseCode}
-          />
-          <FloatingSelect
-            label="Unidad"
-            value={selectedType}
-            options={typeOptions}
-            onChange={setSelectedType}
-            allLabel="Selecciona una unidad"
-            className="w-full"
-            variant="floating"
-            size="large"
-          />
-          <div className="self-stretch relative inline-flex flex-col justify-start items-start gap-1">
-            <div className="self-stretch min-h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-              <div className="flex-1 flex justify-start items-center gap-2 flex-wrap">
-                {courseCycle.professors.length === 0 ? (
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    Sin asesores asignados
-                  </span>
-                ) : (
-                  courseCycle.professors.map((professor) => (
-                    <div
-                      key={professor.id}
-                      className="px-2.5 py-1.5 bg-bg-info-primary-light rounded-full flex justify-center items-center gap-1"
-                    >
-                      <span className="text-text-info-primary text-xs font-medium leading-3">
-                        {getProfessorDisplayName(professor)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handlePendingAction("Editar asesores")}
-                        className="inline-flex items-center justify-center"
-                      >
-                        <Icon
-                          name="close"
-                          size={14}
-                          className="text-icon-info-primary"
-                          variant="outlined"
-                        />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handlePendingAction("Editar asesores")}
-              >
-                <Icon
-                  name="expand_more"
-                  size={16}
-                  className="text-icon-tertiary"
-                />
-              </button>
-            </div>
-            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-              <span className="text-text-tertiary text-xs font-normal leading-4">
-                Asesor asignado
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-center items-center">
-        <button
-          onClick={() => setActiveTab("structure")}
-          className={`px-6 py-3 rounded-lg flex justify-center items-center gap-2 ${activeTab === "structure" ? "bg-bg-accent-primary-solid" : "bg-bg-primary"}`}
-        >
-          <div
-            className={`text-center text-base leading-4 ${activeTab === "structure" ? "text-text-white font-medium" : "text-text-secondary font-normal"}`}
-          >
-            Gestion de Estructura
-          </div>
-        </button>
-        <button
-          onClick={() => setActiveTab("students")}
-          className={`px-6 py-3 rounded-lg flex justify-center items-center gap-2 ${activeTab === "students" ? "bg-bg-accent-primary-solid" : "bg-bg-primary"}`}
-        >
-          <div
-            className={`text-center text-base leading-4 ${activeTab === "students" ? "text-text-white font-medium" : "text-text-secondary font-normal"}`}
-          >
-            Gestion de Alumnos
-          </div>
-        </button>
-      </div>
+      <CourseEditorTabs activeTab={activeTab} onChange={setActiveTab} />
 
       {activeTab === "structure" ? (
         <div className="self-stretch flex flex-col justify-start items-start gap-8">
-          <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col justify-start items-start gap-6">
-            <div className="self-stretch inline-flex justify-start items-center gap-2">
-              <Icon
-                name="assignment"
-                size={20}
-                className="text-icon-info-secondary"
-              />
-              <div className="flex-1 text-text-primary text-lg font-semibold leading-5">
-                Configuracion de Evaluaciones
-              </div>
+          <CourseSectionCard
+            title="Configuracion de Evaluaciones"
+            icon="assignment"
+            actions={
               <button
-                onClick={() => handlePendingAction("Anadir evaluacion")}
+                onClick={() => handlePendingAction("A�adir evaluacion")}
                 className="px-4 py-2 bg-bg-accent-primary-solid rounded flex justify-center items-center gap-1 hover:bg-bg-accent-solid-hover transition-colors"
               >
                 <Icon name="add" size={14} className="text-icon-white" />
                 <span className="text-text-white text-xs font-medium leading-4">
-                  Anadir evaluacion
+                  A�adir evaluacion
                 </span>
               </button>
-            </div>
+            }
+          >
             <div className="self-stretch flex flex-col justify-start items-start gap-3">
               {evaluations.map((evaluation) => {
                 const typeMeta = getEvaluationTypeMeta(
@@ -611,13 +507,13 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                       <button
                         type="button"
                         onClick={(event) => event.preventDefault()}
-                        className="cursor-grab active:cursor-grabbing rounded-lg p-1 hover:bg-bg-secondary transition-colors"
+                        className="inline-flex h-9 w-9 items-center justify-center cursor-grab active:cursor-grabbing rounded-lg p-0 leading-none hover:bg-bg-secondary transition-colors"
                         title="Arrastra para reordenar"
                       >
                         <Icon
                           name="drag_indicator"
                           size={28}
-                          className="text-gray-500"
+                          className="block text-gray-500 leading-none"
                         />
                       </button>
                       <div className="inline-flex flex-col justify-start items-start gap-1">
@@ -679,422 +575,174 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                 );
               })}
             </div>
-          </div>
+          </CourseSectionCard>
 
-          <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col justify-start items-start gap-6">
-            <div className="self-stretch inline-flex justify-start items-center gap-2">
-              <Icon
-                name="chrome_reader_mode"
-                size={20}
-                className="text-icon-info-secondary"
-              />
-              <div className="flex-1 text-text-primary text-lg font-semibold leading-5">
-                Banco de Enunciados
-              </div>
+          <CourseSectionCard
+            title="Banco de Enunciados"
+            icon="chrome_reader_mode"
+            actions={
               <button
-                onClick={() => handlePendingAction("Anadir carpeta al banco")}
+                onClick={() => handlePendingAction("A�adir carpeta al banco")}
                 className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
               >
                 <Icon
-                  name="create_new_folder"
+                  name="add"
                   size={14}
                   className="text-icon-accent-primary"
                 />
                 <span className="text-text-accent-primary text-xs font-medium leading-4">
-                  Anadir carpeta
+                  A�adir carpeta
                 </span>
               </button>
-            </div>
-            <div className="self-stretch grid grid-cols-1 md:grid-cols-2 gap-4">
+            }
+          >
+            <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {(bankStructure?.items || []).map((item) => {
                 const typeMeta = getEvaluationTypeMeta(item.evaluationTypeCode);
                 return (
-                  <div
+                  <CourseResourceCard
                     key={item.evaluationTypeId}
-                    className="min-h-52 p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-between items-start gap-6"
-                  >
-                    <div className="self-stretch flex flex-col justify-start items-start gap-4">
-                      <div
-                        className={`p-3 ${typeMeta.bg} rounded-xl inline-flex justify-start items-center`}
-                      >
-                        <Icon
-                          name="folder"
-                          size={24}
-                          className={typeMeta.text}
-                        />
+                    title={item.evaluationTypeName}
+                    description={`Contiene ${item.entries?.length || 0} evaluaciones.`}
+                    iconName="folder"
+                    iconToneClassName={typeMeta.text}
+                    iconWrapperClassName={typeMeta.bg}
+                    actions={
+                      <div className="inline-flex justify-end items-center gap-2">
+                        <button
+                          onClick={() =>
+                            handlePendingAction("Editar carpeta de enunciados")
+                          }
+                          className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+                          title="Editar carpeta"
+                        >
+                          <Icon
+                            name="edit"
+                            size={20}
+                            className="text-icon-tertiary"
+                          />
+                        </button>
+                        <button
+                          onClick={() =>
+                            handlePendingAction(
+                              "Eliminar carpeta de enunciados",
+                            )
+                          }
+                          className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+                          title="Eliminar carpeta"
+                        >
+                          <Icon
+                            name="delete"
+                            size={20}
+                            className="text-icon-tertiary"
+                          />
+                        </button>
                       </div>
-                      <div className="self-stretch flex flex-col justify-start items-start gap-1">
-                        <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-                          {item.evaluationTypeName}
-                        </div>
-                        <div className="self-stretch text-text-secondary text-xs font-normal leading-4">
-                          Contiene {item.entries?.length || 0} evaluaciones.
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() =>
-                        handlePendingAction("Gestionar enunciados")
-                      }
-                      className="px-1 py-1.5 rounded-lg inline-flex justify-center items-center gap-2 hover:bg-bg-accent-light transition-colors"
-                    >
-                      <span className="text-text-accent-primary text-base font-medium leading-4">
-                        Gestionar Enunciados
-                      </span>
-                    </button>
-                  </div>
+                    }
+                  />
                 );
               })}
               {!bankStructure?.items?.length && (
-                <div className="md:col-span-2 self-stretch p-6 bg-bg-secondary rounded-xl border border-dashed border-stroke-secondary text-text-tertiary text-sm">
+                <div className="md:col-span-2 xl:col-span-3 self-stretch p-6 bg-bg-secondary rounded-xl border border-dashed border-stroke-secondary text-text-tertiary text-sm">
                   No hay estructura de banco configurada para este curso.
                 </div>
               )}
             </div>
-          </div>
+          </CourseSectionCard>
 
-          <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col justify-start items-start gap-6">
-            <div className="self-stretch inline-flex justify-start items-center gap-2">
-              <Icon
-                name="article"
-                size={20}
-                className="text-icon-info-secondary"
-              />
-              <div className="flex-1 text-text-primary text-lg font-semibold leading-5">
-                Material Adicional
-              </div>
+          <CourseSectionCard
+            title="Material Adicional"
+            icon="article"
+            actions={
               <button
                 onClick={() =>
-                  handlePendingAction("Anadir carpeta de material")
+                  handlePendingAction("A�adir carpeta de material")
                 }
                 className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
               >
                 <Icon
-                  name="create_new_folder"
+                  name="add"
                   size={14}
                   className="text-icon-accent-primary"
                 />
                 <span className="text-text-accent-primary text-xs font-medium leading-4">
-                  Anadir carpeta
+                  A�adir carpeta
                 </span>
               </button>
-            </div>
-            <div className="self-stretch grid grid-cols-1 md:grid-cols-2 gap-4">
+            }
+          >
+            <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {["Enunciados", "Resumenes"].map((label) => (
-                <div
+                <CourseResourceCard
                   key={label}
-                  className="min-h-52 p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-between items-start gap-6"
-                >
-                  <div className="self-stretch flex flex-col justify-start items-start gap-4">
-                    <div className="w-12 h-12 p-2 bg-bg-disabled rounded-xl inline-flex justify-center items-center">
-                      <Icon
-                        name="folder"
-                        size={24}
-                        className="text-icon-disabled"
-                      />
+                  title={label}
+                  description="Gesti�n de material adicional pendiente de integracion."
+                  actions={
+                    <div className="inline-flex justify-end items-center gap-2">
+                      <button
+                        onClick={() =>
+                          handlePendingAction("Editar carpeta de material")
+                        }
+                        className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+                        title="Editar carpeta"
+                      >
+                        <Icon
+                          name="edit"
+                          size={20}
+                          className="text-icon-tertiary"
+                        />
+                      </button>
+                      <button
+                        onClick={() =>
+                          handlePendingAction("Eliminar carpeta de material")
+                        }
+                        className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+                        title="Eliminar carpeta"
+                      >
+                        <Icon
+                          name="delete"
+                          size={20}
+                          className="text-icon-tertiary"
+                        />
+                      </button>
                     </div>
-                    <div className="self-stretch flex flex-col justify-start items-start gap-1">
-                      <div className="self-stretch text-text-primary text-lg font-semibold leading-5">
-                        {label}
-                      </div>
-                      <div className="self-stretch text-text-secondary text-xs font-normal leading-4">
-                        Gestion de material adicional pendiente de integracion.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handlePendingAction("Gestionar material")}
-                    className="px-1 py-1.5 rounded-lg inline-flex justify-center items-center gap-2 hover:bg-bg-accent-light transition-colors"
-                  >
-                    <span className="text-text-accent-primary text-base font-medium leading-4">
-                      Gestionar Material
-                    </span>
-                  </button>
-                </div>
+                  }
+                />
               ))}
             </div>
-          </div>
+          </CourseSectionCard>
         </div>
       ) : (
-        <div className="self-stretch p-6 bg-bg-primary rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-slate-100 inline-flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch inline-flex justify-start items-center gap-5">
-            <div className="flex-1 flex justify-start items-center gap-2">
-              <Icon
-                name="school"
-                size={20}
-                className="text-icon-info-secondary"
-              />
-              <div className="justify-center text-text-primary text-lg font-semibold leading-5">
-                Gestion de Alumnos
-              </div>
-            </div>
-            <div className="w-28 h-6" />
-          </div>
-
-          <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2 focus-within:outline-stroke-accent-secondary transition-colors">
-            <Icon name="search" size={16} className="text-icon-tertiary" />
-            <input
-              type="text"
-              value={studentsSearch}
-              onChange={(event) => setStudentsSearch(event.target.value)}
-              placeholder="Buscar nombre o correo para matricular..."
-              className="flex-1 bg-transparent outline-none text-text-primary text-base font-normal leading-4 placeholder:text-text-tertiary"
-            />
-          </div>
-
-          <div className="self-stretch flex flex-col justify-start items-start gap-5">
-            <div className="self-stretch justify-center text-text-quartiary text-sm font-semibold leading-4">
-              Alumnos Matriculados
-            </div>
-            <div className="self-stretch bg-bg-primary rounded-xl outline outline-1 outline-stroke-primary flex flex-col justify-start items-start overflow-hidden">
-              <div className="self-stretch overflow-x-auto">
-                <table className="w-full min-w-[720px] border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="h-12 p-4 bg-bg-tertiary rounded-tl-xl border-b border-stroke-primary text-left">
-                        <span className="text-text-secondary text-sm font-medium leading-4">
-                          Nombre Completo
-                        </span>
-                      </th>
-                      <th className="h-12 p-4 bg-bg-tertiary border-b border-stroke-primary text-left">
-                        <span className="text-text-secondary text-sm font-medium leading-4">
-                          Correo Electrónico
-                        </span>
-                      </th>
-                      <th className="h-12 p-4 bg-bg-tertiary rounded-tr-xl border-b border-stroke-primary text-center w-24">
-                        <span className="text-text-secondary text-sm font-medium leading-4">
-                          Acciones
-                        </span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {studentsLoading ? (
-                      <tr>
-                        <td colSpan={3} className="py-16 text-center">
-                          <div className="w-8 h-8 border-3 border-accent-solid border-t-transparent rounded-full animate-spin mx-auto" />
-                        </td>
-                      </tr>
-                    ) : students.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="py-12 text-center">
-                          <div className="flex flex-col items-center gap-2">
-                            <Icon
-                              name="school"
-                              size={32}
-                              className="text-icon-tertiary"
-                            />
-                            <span className="text-text-tertiary text-sm">
-                              No se encontraron alumnos matriculados
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      students.map((student) => (
-                        <tr
-                          key={student.enrollmentId}
-                          className="border-b border-stroke-primary last:border-b-0"
-                        >
-                          <td className="h-14 px-4 py-2">
-                            <div className="flex-1 justify-start text-text-tertiary text-sm font-normal leading-4 line-clamp-2">
-                              {student.fullName}
-                            </div>
-                          </td>
-                          <td className="h-14 px-4 py-2">
-                            <div className="flex-1 justify-start text-text-tertiary text-sm font-normal leading-4 line-clamp-2">
-                              {student.email}
-                            </div>
-                          </td>
-                          <td className="h-14 px-4 py-2 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() =>
-                                  router.push(
-                                    `/plataforma/admin/usuarios/${student.userId}`,
-                                  )
-                                }
-                                className="p-1 rounded-full hover:bg-bg-secondary transition-colors"
-                                title="Ver usuario"
-                              >
-                                <Icon
-                                  name="visibility"
-                                  size={20}
-                                  className="text-icon-tertiary"
-                                />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setCancelEnrollmentId(student.enrollmentId);
-                                  setCancelEnrollmentName(student.fullName);
-                                }}
-                                className="p-1 rounded-full hover:bg-bg-secondary transition-colors"
-                                title="Cancelar matrícula"
-                              >
-                                <Icon
-                                  name="person_remove"
-                                  size={20}
-                                  className="text-icon-tertiary"
-                                />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {studentsTotalItems > 0 && (
-                <div className="self-stretch px-4 py-3 flex flex-col justify-start items-start gap-2.5">
-                  <div className="self-stretch inline-flex justify-between items-center">
-                    <div className="flex justify-center items-center gap-1">
-                      <div className="justify-start text-text-tertiary text-sm font-normal leading-4">
-                        Mostrando
-                      </div>
-                      <div className="flex justify-start items-center">
-                        <div className="justify-start text-text-tertiary text-sm font-medium leading-4">
-                          {studentsRangeStart}
-                        </div>
-                        <div className="justify-start text-text-tertiary text-sm font-medium leading-4">
-                          -
-                        </div>
-                        <div className="justify-start text-text-tertiary text-sm font-medium leading-4">
-                          {studentsRangeEnd}
-                        </div>
-                      </div>
-                      <div className="justify-start text-text-tertiary text-sm font-normal leading-4">
-                        de
-                      </div>
-                      <div className="justify-start text-text-tertiary text-sm font-medium leading-4">
-                        {studentsTotalItems}
-                      </div>
-                    </div>
-                    <div className="flex justify-start items-center gap-2">
-                      <button
-                        onClick={() =>
-                          setStudentsPage((prev) => Math.max(1, prev - 1))
-                        }
-                        disabled={studentsPage === 1}
-                        className="p-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex justify-center items-center gap-1 overflow-hidden disabled:opacity-40"
-                      >
-                        <Icon
-                          name="chevron_left"
-                          size={16}
-                          className="text-icon-tertiary"
-                        />
-                      </button>
-                      <div className="flex justify-start items-center gap-2">
-                        {studentsPageNumbers.map((page, idx) =>
-                          page === "..." ? (
-                            <span
-                              key={`students-dots-${idx}`}
-                              className="min-w-8 px-1 py-2 text-text-tertiary text-sm font-normal leading-4"
-                            >
-                              ...
-                            </span>
-                          ) : (
-                            <button
-                              key={page}
-                              onClick={() => setStudentsPage(page)}
-                              className={`min-w-8 px-1 py-2 rounded-lg inline-flex flex-col justify-center items-center ${
-                                page === studentsPage
-                                  ? "bg-bg-accent-primary-solid text-text-white text-sm font-medium leading-4"
-                                  : "text-text-tertiary text-sm font-normal leading-4 hover:bg-bg-secondary"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                      <button
-                        onClick={() =>
-                          setStudentsPage((prev) =>
-                            Math.min(Math.max(1, studentsTotalPages), prev + 1),
-                          )
-                        }
-                        disabled={
-                          studentsPage >= Math.max(1, studentsTotalPages)
-                        }
-                        className="p-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex justify-center items-center gap-1 overflow-hidden disabled:opacity-40"
-                      >
-                        <Icon
-                          name="chevron_right"
-                          size={16}
-                          className="text-icon-tertiary"
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <CourseStudentsManagementSection
+          courseCycleId={cursoId}
+          enabled={activeTab === "students"}
+          containerClassName="self-stretch p-6 bg-bg-primary rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] border border-stroke-secondary inline-flex flex-col justify-start items-start gap-6"
+          headerTrailing={<div className="w-28 h-6" />}
+        />
       )}
 
-      <div className="self-stretch inline-flex justify-end items-center gap-4">
-        <button
-          onClick={() => router.push(`/plataforma/curso/${cursoId}`)}
-          className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
-        >
-          <span className="text-text-tertiary text-sm font-medium leading-4">
-            Cancelar
-          </span>
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={!isDirty}
-          className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 ${isDirty ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover" : "bg-bg-disabled cursor-not-allowed"}`}
-        >
-          <span
-            className={`${isDirty ? "text-text-white" : "text-text-disabled"} text-sm font-medium leading-4`}
-          >
-            Guardar
-          </span>
-        </button>
-      </div>
+      <CourseEditorFooter
+        onCancel={() => router.push(`/plataforma/curso/${cursoId}`)}
+        onSave={handleSave}
+        saveDisabled={!isDirty}
+      />
 
-      <Modal
-        isOpen={Boolean(cancelEnrollmentId)}
+      <CourseProfessorManagerModal
+        isOpen={professorModalOpen}
         onClose={() => {
-          if (cancelEnrollmentLoading) return;
-          setCancelEnrollmentId(null);
-          setCancelEnrollmentName(null);
+          if (professorActionLoadingId) return;
+          setProfessorSearch("");
+          setProfessorModalOpen(false);
         }}
-        title="Cancelar matrícula"
-        size="sm"
-        footer={
-          <>
-            <Modal.Button
-              variant="secondary"
-              onClick={() => {
-                setCancelEnrollmentId(null);
-                setCancelEnrollmentName(null);
-              }}
-              disabled={cancelEnrollmentLoading}
-            >
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              variant="danger"
-              onClick={handleCancelEnrollment}
-              loading={cancelEnrollmentLoading}
-              loadingText="Cancelando..."
-            >
-              Retirar alumno
-            </Modal.Button>
-          </>
-        }
-      >
-        <p className="text-text-secondary text-sm leading-5">
-          {cancelEnrollmentName
-            ? `Se cancelará la matrícula de ${cancelEnrollmentName} en este curso.`
-            : "Se cancelará la matrícula del alumno en este curso."}
-        </p>
-      </Modal>
+        assignedProfessors={courseCycle.professors}
+        availableProfessors={remainingProfessorOptions}
+        professorOptionsLoading={professorOptionsLoading}
+        professorSearch={professorSearch}
+        onProfessorSearchChange={setProfessorSearch}
+        actionLoadingId={professorActionLoadingId}
+        onAddProfessor={handleAddProfessor}
+        onRemoveProfessor={handleRemoveProfessor}
+      />
     </div>
   );
 }

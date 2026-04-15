@@ -3,7 +3,7 @@
  * Define qué componentes debe ver cada rol en cada ruta
  */
 
-import { UserRole } from '@/config/navigation';
+import { UserRole } from "@/config/navigation";
 
 export type RouteAccess = {
   allowedRoles: UserRole[];
@@ -16,182 +16,194 @@ export type RouteAccess = {
  * Define qué roles pueden acceder a cada ruta y qué componente deben ver
  */
 export const routeAccessConfig: Record<string, RouteAccess> = {
-  '/plataforma/inicio': {
-    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'],
-    component: 'InicioContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/inicio": {
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
+    component: "InicioContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'],
-    component: 'CursoContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
+    component: "CursoContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]/editar': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'CursoEditContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]/editar": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "CursoEditContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]/evaluacion/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER'],
-    component: 'EvaluationContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]/evaluacion/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER"],
+    component: "EvaluationContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]/evaluacion/[id]/clase/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER'],
-    component: 'VideoPageContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]/evaluacion/[id]/clase/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER"],
+    component: "VideoPageContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]/ciclo-anterior/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER'],
-    component: 'PreviousCycleContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]/ciclo-anterior/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER"],
+    component: "PreviousCycleContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER'],
-    component: 'PreviousCycleEvaluationContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER"],
+    component: "PreviousCycleEvaluationContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/curso/[id]/banco/[id]': {
-    allowedRoles: ['STUDENT', 'TEACHER'],
-    component: 'BancoEnunciadosContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/curso/[id]/banco/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER"],
+    component: "BancoEnunciadosContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/calendario': {
-    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN'],
-    component: 'CalendarioContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/calendario": {
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN"],
+    component: "CalendarioContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/notificaciones': {
-    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'],
-    component: 'NotificacionesContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/notificaciones": {
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
+    component: "NotificacionesContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
   // Rutas de administración
-  '/plataforma/admin/usuarios': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'UsuariosContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/usuarios": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "UsuariosContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/admin/cursos': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'CursosContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/cursos": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "CursosContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/admin/usuarios/registrar': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'UsuarioCreateContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/cursos/crear": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "CursoCreateContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/admin/usuarios/[id]': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'UsuarioDetailContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/usuarios/registrar": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "UsuarioCreateContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/admin/usuarios/[id]/editar': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'UsuarioEditContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/usuarios/[id]": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "UsuarioDetailContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/admin/auditoria': {
-    allowedRoles: ['ADMIN', 'SUPER_ADMIN'],
-    component: 'AuditoriaContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/usuarios/[id]/editar": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "UsuarioEditContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
-  '/plataforma/admin/configuracion': {
-    allowedRoles: ['SUPER_ADMIN'],
-    component: 'ConfiguracionContent',
-    redirectOnDenied: '/plataforma/inicio'
+  "/plataforma/admin/auditoria": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "AuditoriaContent",
+    redirectOnDenied: "/plataforma/inicio",
+  },
+  "/plataforma/admin/configuracion": {
+    allowedRoles: ["SUPER_ADMIN"],
+    component: "ConfiguracionContent",
+    redirectOnDenied: "/plataforma/inicio",
   },
   // Ruta compartida para todos los roles
-  '/plataforma/perfil': {
-    allowedRoles: ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'],
-    component: 'PerfilContent',
-    redirectOnDenied: '/plataforma/inicio'
-  }
+  "/plataforma/perfil": {
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
+    component: "PerfilContent",
+    redirectOnDenied: "/plataforma/inicio",
+  },
 };
 
 /**
  * Componentes específicos por rol para cada ruta
  * Permite que la misma ruta renderice diferentes componentes según el rol
  */
-export const roleBasedComponents: Record<string, Partial<Record<UserRole, string>>> = {
-  '/plataforma/inicio': {
-    STUDENT: 'student/InicioContent',
-    TEACHER: 'teacher/InicioContent',
-    ADMIN: 'admin/InicioContent',
-    SUPER_ADMIN: 'admin/InicioContent'
+export const roleBasedComponents: Record<
+  string,
+  Partial<Record<UserRole, string>>
+> = {
+  "/plataforma/inicio": {
+    STUDENT: "student/InicioContent",
+    TEACHER: "teacher/InicioContent",
+    ADMIN: "admin/InicioContent",
+    SUPER_ADMIN: "admin/InicioContent",
   },
-  '/plataforma/curso/[id]': {
-    STUDENT: 'student/CursoContent',
-    TEACHER: 'teacher/CursoContent',
-    ADMIN: 'admin/CursoContent',
-    SUPER_ADMIN: 'admin/CursoContent'
+  "/plataforma/curso/[id]": {
+    STUDENT: "student/CursoContent",
+    TEACHER: "teacher/CursoContent",
+    ADMIN: "admin/CursoContent",
+    SUPER_ADMIN: "admin/CursoContent",
   },
-  '/plataforma/curso/[id]/editar': {
-    ADMIN: 'admin/CursoEditContent',
-    SUPER_ADMIN: 'admin/CursoEditContent'
+  "/plataforma/curso/[id]/editar": {
+    ADMIN: "admin/CursoEditContent",
+    SUPER_ADMIN: "admin/CursoEditContent",
   },
-  '/plataforma/curso/[id]/evaluacion/[id]': {
-    STUDENT: 'student/EvaluationContent',
-    TEACHER: 'teacher/EvaluationContent'
+  "/plataforma/curso/[id]/evaluacion/[id]": {
+    STUDENT: "student/EvaluationContent",
+    TEACHER: "teacher/EvaluationContent",
   },
-  '/plataforma/curso/[id]/evaluacion/[id]/clase/[id]': {
-    STUDENT: 'student/VideoPageContent',
-    TEACHER: 'teacher/VideoPageContent'
+  "/plataforma/curso/[id]/evaluacion/[id]/clase/[id]": {
+    STUDENT: "student/VideoPageContent",
+    TEACHER: "teacher/VideoPageContent",
   },
-  '/plataforma/curso/[id]/ciclo-anterior/[id]': {
-    STUDENT: 'student/PreviousCycleContent',
-    TEACHER: 'teacher/PreviousCycleContent'
+  "/plataforma/curso/[id]/ciclo-anterior/[id]": {
+    STUDENT: "student/PreviousCycleContent",
+    TEACHER: "teacher/PreviousCycleContent",
   },
-  '/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]': {
-    STUDENT: 'student/PreviousCycleEvaluationContent',
-    TEACHER: 'teacher/PreviousCycleEvaluationContent'
+  "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]": {
+    STUDENT: "student/PreviousCycleEvaluationContent",
+    TEACHER: "teacher/PreviousCycleEvaluationContent",
   },
-  '/plataforma/curso/[id]/banco/[id]': {
-    STUDENT: 'student/BancoEnunciadosContent',
-    TEACHER: 'teacher/BancoEnunciadosContent'
+  "/plataforma/curso/[id]/banco/[id]": {
+    STUDENT: "student/BancoEnunciadosContent",
+    TEACHER: "teacher/BancoEnunciadosContent",
   },
-  '/plataforma/calendario': {
-    STUDENT: 'student/CalendarioContent',
-    TEACHER: 'teacher/CalendarioContent',
-    ADMIN: 'admin/CalendarioContent'
+  "/plataforma/calendario": {
+    STUDENT: "student/CalendarioContent",
+    TEACHER: "teacher/CalendarioContent",
+    ADMIN: "admin/CalendarioContent",
   },
-  '/plataforma/notificaciones': {
-    STUDENT: 'student/NotificacionesContent',
-    TEACHER: 'teacher/NotificacionesContent',
-    ADMIN: 'admin/NotificacionesContent',
-    SUPER_ADMIN: 'admin/NotificacionesContent'
+  "/plataforma/notificaciones": {
+    STUDENT: "student/NotificacionesContent",
+    TEACHER: "teacher/NotificacionesContent",
+    ADMIN: "admin/NotificacionesContent",
+    SUPER_ADMIN: "admin/NotificacionesContent",
   },
-  '/plataforma/admin/auditoria': {
-    ADMIN: 'admin/AuditoriaContent',
-    SUPER_ADMIN: 'admin/AuditoriaContent'
+  "/plataforma/admin/auditoria": {
+    ADMIN: "admin/AuditoriaContent",
+    SUPER_ADMIN: "admin/AuditoriaContent",
   },
-  '/plataforma/admin/usuarios': {
-    ADMIN: 'admin/UsuariosContent',
-    SUPER_ADMIN: 'admin/UsuariosContent'
+  "/plataforma/admin/usuarios": {
+    ADMIN: "admin/UsuariosContent",
+    SUPER_ADMIN: "admin/UsuariosContent",
   },
-  '/plataforma/admin/cursos': {
-    ADMIN: 'admin/CursosContent',
-    SUPER_ADMIN: 'admin/CursosContent'
+  "/plataforma/admin/cursos": {
+    ADMIN: "admin/CursosContent",
+    SUPER_ADMIN: "admin/CursosContent",
   },
-  '/plataforma/admin/usuarios/registrar': {
-    ADMIN: 'admin/UsuarioCreateContent',
-    SUPER_ADMIN: 'admin/UsuarioCreateContent'
+  "/plataforma/admin/cursos/crear": {
+    ADMIN: "admin/CursoCreateContent",
+    SUPER_ADMIN: "admin/CursoCreateContent",
   },
-  '/plataforma/admin/usuarios/[id]': {
-    ADMIN: 'admin/UsuarioDetailContent',
-    SUPER_ADMIN: 'admin/UsuarioDetailContent'
+  "/plataforma/admin/usuarios/registrar": {
+    ADMIN: "admin/UsuarioCreateContent",
+    SUPER_ADMIN: "admin/UsuarioCreateContent",
   },
-  '/plataforma/admin/usuarios/[id]/editar': {
-    ADMIN: 'admin/UsuarioEditContent',
-    SUPER_ADMIN: 'admin/UsuarioEditContent'
+  "/plataforma/admin/usuarios/[id]": {
+    ADMIN: "admin/UsuarioDetailContent",
+    SUPER_ADMIN: "admin/UsuarioDetailContent",
   },
-  '/plataforma/perfil': {
-    STUDENT: 'shared/PerfilContent',
-    TEACHER: 'teacher/PerfilContent',
-    ADMIN: 'shared/PerfilContent',
-    SUPER_ADMIN: 'shared/PerfilContent'
-  }
+  "/plataforma/admin/usuarios/[id]/editar": {
+    ADMIN: "admin/UsuarioEditContent",
+    SUPER_ADMIN: "admin/UsuarioEditContent",
+  },
+  "/plataforma/perfil": {
+    STUDENT: "shared/PerfilContent",
+    TEACHER: "teacher/PerfilContent",
+    ADMIN: "shared/PerfilContent",
+    SUPER_ADMIN: "shared/PerfilContent",
+  },
 };
 
 /**
@@ -210,7 +222,10 @@ export function hasRouteAccess(route: string, userRole: UserRole): boolean {
 /**
  * Obtiene el componente que debe renderizar un rol en una ruta específica
  */
-export function getComponentForRoute(route: string, userRole: UserRole): string | null {
+export function getComponentForRoute(
+  route: string,
+  userRole: UserRole,
+): string | null {
   const components = roleBasedComponents[route];
   if (!components) {
     console.warn(`⚠️ Componentes no configurados para la ruta: ${route}`);
@@ -231,7 +246,7 @@ export function getComponentForRoute(route: string, userRole: UserRole): string 
  */
 export function getRedirectOnDenied(route: string): string {
   const access = routeAccessConfig[route];
-  return access?.redirectOnDenied || '/plataforma/inicio';
+  return access?.redirectOnDenied || "/plataforma/inicio";
 }
 
 /**
@@ -240,7 +255,7 @@ export function getRedirectOnDenied(route: string): string {
  */
 export function sanitizeRouteParam(param: string): string {
   // Remover caracteres peligrosos
-  return param.replace(/[^a-zA-Z0-9-_]/g, '');
+  return param.replace(/[^a-zA-Z0-9-_]/g, "");
 }
 
 /**
@@ -249,6 +264,6 @@ export function sanitizeRouteParam(param: string): string {
  */
 export function normalizeRoute(route: string): string {
   return route
-    .replace(/\/[0-9a-f-]+(?=\/|$)/gi, '/[id]')
-    .replace(/\/banco\/[^/]+(?=\/|$)/i, '/banco/[id]');
+    .replace(/\/[0-9a-f-]+(?=\/|$)/gi, "/[id]")
+    .replace(/\/banco\/[^/]+(?=\/|$)/i, "/banco/[id]");
 }

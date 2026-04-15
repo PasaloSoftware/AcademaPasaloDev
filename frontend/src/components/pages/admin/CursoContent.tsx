@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import Modal from "@/components/ui/Modal";
+import CourseStudentsManagementSection from "@/components/pages/admin/CourseStudentsManagementSection";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
 import {
@@ -11,34 +12,12 @@ import {
   type AdminCourseCycleItem,
   type AdminCourseCycleListResponse,
 } from "@/services/courses.service";
-import {
-  enrollmentService,
-  type AdminCourseCycleStudentItem,
-} from "@/services/enrollment.service";
 import { getCourseColor } from "@/lib/courseColors";
 import type { CurrentCycleResponse } from "@/types/curso";
 import type { Course } from "@/types/api";
 
 interface CursoContentProps {
   cursoId: string;
-}
-
-const STUDENTS_PAGE_SIZE = 10;
-
-function getPageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | "...")[] = [1];
-  if (current > 3) pages.push("...");
-  for (
-    let i = Math.max(2, current - 1);
-    i <= Math.min(total - 1, current + 1);
-    i++
-  ) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push("...");
-  pages.push(total);
-  return pages;
 }
 
 const COURSE_TYPE_STYLES: Record<
@@ -154,20 +133,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
-  const [students, setStudents] = useState<AdminCourseCycleStudentItem[]>([]);
-  const [studentsLoading, setStudentsLoading] = useState(true);
-  const [studentsSearch, setStudentsSearch] = useState("");
-  const [debouncedStudentsSearch, setDebouncedStudentsSearch] = useState("");
-  const [studentsPage, setStudentsPage] = useState(1);
   const [studentsTotalItems, setStudentsTotalItems] = useState(0);
-  const [studentsTotalPages, setStudentsTotalPages] = useState(0);
-  const [cancelEnrollmentId, setCancelEnrollmentId] = useState<string | null>(
-    null,
-  );
-  const [cancelEnrollmentName, setCancelEnrollmentName] = useState<
-    string | null
-  >(null);
-  const [cancelEnrollmentLoading, setCancelEnrollmentLoading] = useState(false);
 
   const loadCourseDetail = useCallback(async () => {
     setLoading(true);
@@ -211,7 +177,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       setBreadcrumbItems([
         {
           icon: "class",
-          label: "Gestion de Cursos",
+          label: "Gestión de Cursos",
           href: "/plataforma/admin/cursos",
         },
         { label: "Curso" },
@@ -231,45 +197,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     loadCourseDetail();
   }, [cursoId, loadCourseDetail]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedStudentsSearch(studentsSearch);
-      setStudentsPage(1);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [studentsSearch]);
-
-  const loadStudents = useCallback(async () => {
-    setStudentsLoading(true);
-    try {
-      const response = await enrollmentService.getAdminStudentsByCourseCycle({
-        courseCycleId: cursoId,
-        page: studentsPage,
-        pageSize: STUDENTS_PAGE_SIZE,
-        search: debouncedStudentsSearch.trim() || undefined,
-      });
-
-      setStudents(response.items);
-      setStudentsTotalItems(response.totalItems);
-      setStudentsTotalPages(response.totalPages);
-    } catch (err) {
-      console.error("Error al cargar alumnos matriculados:", err);
-      showToast({
-        type: "error",
-        title: "No se pudieron cargar los alumnos",
-        description:
-          err instanceof Error ? err.message : "Ocurrio un error inesperado.",
-      });
-    } finally {
-      setStudentsLoading(false);
-    }
-  }, [cursoId, studentsPage, debouncedStudentsSearch, showToast]);
-
-  useEffect(() => {
-    if (!cursoId) return;
-    loadStudents();
-  }, [cursoId, loadStudents]);
-
   const courseColors = useMemo(
     () => getCourseColor(courseCycle?.course.code || cursoId),
     [courseCycle?.course.code, cursoId],
@@ -282,16 +209,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         `${professor.firstName} ${professor.lastName1}`.trim(),
       )
       .join(" & ") || "Sin asignar";
-  const studentsRangeStart =
-    studentsTotalItems === 0 ? 0 : (studentsPage - 1) * STUDENTS_PAGE_SIZE + 1;
-  const studentsRangeEnd = Math.min(
-    studentsPage * STUDENTS_PAGE_SIZE,
-    studentsTotalItems,
-  );
-  const studentsPageNumbers = getPageNumbers(
-    Math.min(studentsPage, Math.max(1, studentsTotalPages || 1)),
-    Math.max(1, studentsTotalPages || 1),
-  );
 
   const handleToggleStatus = async () => {
     if (!course) return;
@@ -350,33 +267,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
   };
 
-  const handleCancelEnrollment = async () => {
-    if (!cancelEnrollmentId) return;
-
-    setCancelEnrollmentLoading(true);
-    try {
-      await enrollmentService.cancel(cancelEnrollmentId);
-      setCancelEnrollmentId(null);
-      setCancelEnrollmentName(null);
-      showToast({
-        type: "success",
-        title: "Matricula cancelada",
-        description: "La matricula del alumno se cancelo correctamente.",
-      });
-      await loadStudents();
-    } catch (err) {
-      console.error("Error al cancelar matricula:", err);
-      showToast({
-        type: "error",
-        title: "No se pudo cancelar la matricula",
-        description:
-          err instanceof Error ? err.message : "Ocurrio un error inesperado.",
-      });
-    } finally {
-      setCancelEnrollmentLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -406,7 +296,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           onClick={() => router.push("/plataforma/admin/cursos")}
           className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg text-text-white text-sm font-medium leading-4 hover:bg-bg-accent-solid-hover transition-colors"
         >
-          Volver a Gestion de Cursos
+          Volver a Gestión de Cursos
         </button>
       </div>
     );
@@ -424,7 +314,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           className="text-icon-accent-primary"
         />
         <span className="text-text-accent-primary text-base font-medium leading-4">
-          Volver a Gestion de Cursos
+          Volver a Gestión de Cursos
         </span>
       </button>
 
@@ -576,217 +466,10 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       </div>
 
       <div className="self-stretch grid grid-cols-1 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)] 2xl:grid-cols-[minmax(0,1.22fr)_minmax(380px,0.86fr)] gap-8 items-start">
-        <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch inline-flex justify-start items-center gap-5">
-            <div className="flex-1 flex justify-start items-center gap-2">
-              <Icon
-                name="school"
-                size={20}
-                className="text-icon-info-secondary"
-              />
-              <div className="text-text-primary text-lg font-semibold leading-5">
-                Gestion de Alumnos
-              </div>
-            </div>
-          </div>
-          <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2 focus-within:outline-stroke-accent-secondary transition-colors">
-            <Icon name="search" size={16} className="text-icon-tertiary" />
-            <input
-              type="text"
-              value={studentsSearch}
-              onChange={(e) => setStudentsSearch(e.target.value)}
-              placeholder="Buscar nombre o correo para matricular..."
-              className="flex-1 bg-transparent outline-none text-text-primary text-base font-normal leading-4 placeholder:text-text-tertiary"
-            />
-          </div>
-
-          <div className="self-stretch inline-flex flex-col justify-start items-start gap-5">
-            <div className="self-stretch text-text-quartiary text-sm font-semibold leading-4">
-              Alumnos Matriculados
-            </div>
-            <div className="self-stretch bg-bg-primary rounded-xl outline outline-1 outline-stroke-primary flex flex-col justify-start items-start overflow-hidden">
-              <div className="self-stretch overflow-x-auto">
-                <table className="w-full min-w-[720px] border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="h-12 p-4 bg-bg-tertiary rounded-tl-xl border-b border-stroke-primary text-left">
-                        <span className="text-text-secondary text-sm font-medium leading-4">
-                          Nombre Completo
-                        </span>
-                      </th>
-                      <th className="h-12 p-4 bg-bg-tertiary border-b border-stroke-primary text-left">
-                        <span className="text-text-secondary text-sm font-medium leading-4">
-                          Correo Electrónico
-                        </span>
-                      </th>
-                      <th className="h-12 p-4 bg-bg-tertiary rounded-tr-xl border-b border-stroke-primary text-center w-24">
-                        <span className="text-text-secondary text-sm font-medium leading-4">
-                          Acciones
-                        </span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {studentsLoading ? (
-                      <tr>
-                        <td colSpan={3} className="py-16 text-center">
-                          <div className="w-8 h-8 border-3 border-accent-solid border-t-transparent rounded-full animate-spin mx-auto" />
-                        </td>
-                      </tr>
-                    ) : students.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="py-12 text-center">
-                          <div className="flex flex-col items-center gap-2">
-                            <Icon
-                              name="school"
-                              size={32}
-                              className="text-icon-tertiary"
-                            />
-                            <span className="text-text-tertiary text-sm">
-                              No se encontraron alumnos matriculados
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      students.map((student) => (
-                        <tr
-                          key={student.enrollmentId}
-                          className="border-b border-stroke-primary last:border-b-0"
-                        >
-                          <td className="h-14 px-4 py-2">
-                            <div className="text-text-tertiary text-sm font-normal leading-4 line-clamp-2">
-                              {student.fullName}
-                            </div>
-                          </td>
-                          <td className="h-14 px-4 py-2">
-                            <div className="text-text-tertiary text-sm font-normal leading-4 line-clamp-2">
-                              {student.email}
-                            </div>
-                          </td>
-                          <td className="h-14 px-4 py-2 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() =>
-                                  router.push(
-                                    `/plataforma/admin/usuarios/${student.userId}`,
-                                  )
-                                }
-                                className="p-1 rounded-full hover:bg-bg-secondary transition-colors"
-                                title="Ver usuario"
-                              >
-                                <Icon
-                                  name="visibility"
-                                  size={20}
-                                  className="text-icon-tertiary"
-                                />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setCancelEnrollmentId(student.enrollmentId);
-                                  setCancelEnrollmentName(student.fullName);
-                                }}
-                                className="p-1 rounded-full hover:bg-bg-secondary transition-colors"
-                                title="Cancelar matrícula"
-                              >
-                                <Icon
-                                  name="person_remove"
-                                  size={20}
-                                  className="text-icon-tertiary"
-                                />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {studentsTotalItems > 0 && (
-                <div className="self-stretch px-4 py-3 flex justify-between items-center">
-                  <div className="flex justify-center items-center gap-1">
-                    <div className="text-text-tertiary text-sm font-normal leading-4">
-                      Mostrando
-                    </div>
-                    <div className="flex justify-start items-center">
-                      <div className="text-text-tertiary text-sm font-medium leading-4">
-                        {studentsRangeStart}
-                      </div>
-                      <div className="text-text-tertiary text-sm font-medium leading-4">
-                        -
-                      </div>
-                      <div className="text-text-tertiary text-sm font-medium leading-4">
-                        {studentsRangeEnd}
-                      </div>
-                    </div>
-                    <div className="text-text-tertiary text-sm font-normal leading-4">
-                      de
-                    </div>
-                    <div className="text-text-tertiary text-sm font-medium leading-4">
-                      {studentsTotalItems}
-                    </div>
-                  </div>
-                  <div className="flex justify-start items-center gap-2">
-                    <button
-                      onClick={() =>
-                        setStudentsPage((prev) => Math.max(1, prev - 1))
-                      }
-                      disabled={studentsPage === 1}
-                      className="p-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex justify-center items-center gap-1 overflow-hidden disabled:opacity-40"
-                    >
-                      <Icon
-                        name="chevron_left"
-                        size={16}
-                        className="text-icon-tertiary"
-                      />
-                    </button>
-                    <div className="flex justify-start items-center gap-2">
-                      {studentsPageNumbers.map((page, idx) =>
-                        page === "..." ? (
-                          <span
-                            key={`students-dots-${idx}`}
-                            className="min-w-8 px-1 py-2 text-text-tertiary text-sm font-normal leading-4"
-                          >
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={page}
-                            onClick={() => setStudentsPage(page)}
-                            className={`min-w-8 px-1 py-2 rounded-lg text-sm leading-4 ${
-                              page === studentsPage
-                                ? "bg-bg-accent-primary-solid text-text-white font-medium"
-                                : "text-text-tertiary font-normal hover:bg-bg-secondary"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                    <button
-                      onClick={() =>
-                        setStudentsPage((prev) =>
-                          Math.min(Math.max(1, studentsTotalPages), prev + 1),
-                        )
-                      }
-                      disabled={studentsPage >= Math.max(1, studentsTotalPages)}
-                      className="p-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex justify-center items-center gap-1 overflow-hidden disabled:opacity-40"
-                    >
-                      <Icon
-                        name="chevron_right"
-                        size={16}
-                        className="text-icon-tertiary"
-                      />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <CourseStudentsManagementSection
+          courseCycleId={cursoId}
+          onTotalItemsChange={setStudentsTotalItems}
+        />
 
         <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start gap-6">
           <div className="self-stretch inline-flex justify-start items-start gap-2">
@@ -913,45 +596,6 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           Esta accion eliminara la materia si no tiene curso-ciclos ni registros
           relacionados. Si existen dependencias, el sistema bloqueara la
           eliminacion.
-        </p>
-      </Modal>
-
-      <Modal
-        isOpen={Boolean(cancelEnrollmentId)}
-        onClose={() => {
-          if (cancelEnrollmentLoading) return;
-          setCancelEnrollmentId(null);
-          setCancelEnrollmentName(null);
-        }}
-        title="Cancelar matrícula"
-        size="sm"
-        footer={
-          <>
-            <Modal.Button
-              variant="secondary"
-              onClick={() => {
-                setCancelEnrollmentId(null);
-                setCancelEnrollmentName(null);
-              }}
-              disabled={cancelEnrollmentLoading}
-            >
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              variant="danger"
-              onClick={handleCancelEnrollment}
-              loading={cancelEnrollmentLoading}
-              loadingText="Cancelando..."
-            >
-              Retirar alumno
-            </Modal.Button>
-          </>
-        }
-      >
-        <p className="text-text-secondary text-sm leading-5">
-          {cancelEnrollmentName
-            ? `Se cancelará la matrícula de ${cancelEnrollmentName} en este curso.`
-            : "Se cancelará la matrícula del alumno en este curso."}
         </p>
       </Modal>
     </div>

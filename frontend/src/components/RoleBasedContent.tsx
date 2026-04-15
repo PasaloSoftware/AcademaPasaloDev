@@ -3,46 +3,47 @@
  * Proporciona seguridad y modularidad al sistema de páginas
  */
 
-'use client';
+"use client";
 
-import { useRoleBasedRoute } from '@/hooks/useRoleBasedRoute';
-import Icon from '@/components/ui/Icon';
+import { useRoleBasedRoute } from "@/hooks/useRoleBasedRoute";
+import Icon from "@/components/ui/Icon";
 
 // Importar componentes de estudiante
-import StudentInicioContent from '@/components/pages/student/InicioContent';
-import StudentCursoContent from '@/components/pages/student/CursoContent';
-import StudentCalendarioContent from '@/components/pages/student/CalendarioContent';
-import StudentEvaluationContent from '@/components/pages/student/EvaluationContent';
-import StudentPreviousCycleContent from '@/components/pages/student/PreviousCycleContent';
-import StudentPreviousCycleEvaluationContent from '@/components/pages/student/PreviousCycleEvaluationContent';
-import StudentBancoEnunciadosContent from '@/components/pages/student/BancoEnunciadosContent';
-import StudentVideoPageContent from '@/components/pages/student/VideoPageContent';
-import StudentNotificacionesContent from '@/components/pages/student/NotificacionesContent';
+import StudentInicioContent from "@/components/pages/student/InicioContent";
+import StudentCursoContent from "@/components/pages/student/CursoContent";
+import StudentCalendarioContent from "@/components/pages/student/CalendarioContent";
+import StudentEvaluationContent from "@/components/pages/student/EvaluationContent";
+import StudentPreviousCycleContent from "@/components/pages/student/PreviousCycleContent";
+import StudentPreviousCycleEvaluationContent from "@/components/pages/student/PreviousCycleEvaluationContent";
+import StudentBancoEnunciadosContent from "@/components/pages/student/BancoEnunciadosContent";
+import StudentVideoPageContent from "@/components/pages/student/VideoPageContent";
+import StudentNotificacionesContent from "@/components/pages/student/NotificacionesContent";
 
 // Importar componentes de docente
-import TeacherInicioContent from '@/components/pages/teacher/InicioContent';
-import TeacherCalendarioContent from '@/components/pages/teacher/CalendarioContent';
-import TeacherCursoContent from '@/components/pages/teacher/CursoContent';
-import TeacherEvaluationContent from '@/components/pages/teacher/EvaluationContent';
-import TeacherVideoPageContent from '@/components/pages/teacher/VideoPageContent';
-import TeacherPreviousCycleContent from '@/components/pages/teacher/PreviousCycleContent';
-import TeacherPreviousCycleEvaluationContent from '@/components/pages/teacher/PreviousCycleEvaluationContent';
-import TeacherBancoEnunciadosContent from '@/components/pages/teacher/BancoEnunciadosContent';
-import TeacherPerfilContent from '@/components/pages/teacher/PerfilContent';
+import TeacherInicioContent from "@/components/pages/teacher/InicioContent";
+import TeacherCalendarioContent from "@/components/pages/teacher/CalendarioContent";
+import TeacherCursoContent from "@/components/pages/teacher/CursoContent";
+import TeacherEvaluationContent from "@/components/pages/teacher/EvaluationContent";
+import TeacherVideoPageContent from "@/components/pages/teacher/VideoPageContent";
+import TeacherPreviousCycleContent from "@/components/pages/teacher/PreviousCycleContent";
+import TeacherPreviousCycleEvaluationContent from "@/components/pages/teacher/PreviousCycleEvaluationContent";
+import TeacherBancoEnunciadosContent from "@/components/pages/teacher/BancoEnunciadosContent";
+import TeacherPerfilContent from "@/components/pages/teacher/PerfilContent";
 
 // Importar componentes de shared
-import SharedPerfilContent from '@/components/pages/shared/PerfilContent';
+import SharedPerfilContent from "@/components/pages/shared/PerfilContent";
 
 // Importar componentes de admin
-import AdminInicioContent from '@/components/pages/admin/InicioContent';
-import AdminAuditoriaContent from '@/components/pages/admin/AuditoriaContent';
-import AdminCursoContent from '@/components/pages/admin/CursoContent';
-import AdminCursoEditContent from '@/components/pages/admin/CursoEditContent';
-import AdminCursosContent from '@/components/pages/admin/CursosContent';
-import AdminUsuariosContent from '@/components/pages/admin/UsuariosContent';
-import AdminUsuarioDetailContent from '@/components/pages/admin/UsuarioDetailContent';
-import AdminUsuarioEditContent from '@/components/pages/admin/UsuarioEditContent';
-import AdminUsuarioCreateContent from '@/components/pages/admin/UsuarioCreateContent';
+import AdminInicioContent from "@/components/pages/admin/InicioContent";
+import AdminAuditoriaContent from "@/components/pages/admin/AuditoriaContent";
+import AdminCursoContent from "@/components/pages/admin/CursoContent";
+import AdminCursoCreateContent from "@/components/pages/admin/CursoCreateContent";
+import AdminCursoEditContent from "@/components/pages/admin/CursoEditContent";
+import AdminCursosContent from "@/components/pages/admin/CursosContent";
+import AdminUsuariosContent from "@/components/pages/admin/UsuariosContent";
+import AdminUsuarioDetailContent from "@/components/pages/admin/UsuarioDetailContent";
+import AdminUsuarioEditContent from "@/components/pages/admin/UsuarioEditContent";
+import AdminUsuarioCreateContent from "@/components/pages/admin/UsuarioCreateContent";
 
 /**
  * Mapa de componentes disponibles
@@ -51,42 +52,45 @@ import AdminUsuarioCreateContent from '@/components/pages/admin/UsuarioCreateCon
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const componentMap: Record<string, React.ComponentType<any>> = {
   // Estudiante
-  'student/InicioContent': StudentInicioContent,
-  'student/CursoContent': StudentCursoContent,
-  'student/CalendarioContent': StudentCalendarioContent,
-  'student/EvaluationContent': StudentEvaluationContent,
-  'student/PreviousCycleContent': StudentPreviousCycleContent,
-  'student/PreviousCycleEvaluationContent': StudentPreviousCycleEvaluationContent,
-  'student/BancoEnunciadosContent': StudentBancoEnunciadosContent,
-  'student/VideoPageContent': StudentVideoPageContent,
-  'student/NotificacionesContent': StudentNotificacionesContent,
+  "student/InicioContent": StudentInicioContent,
+  "student/CursoContent": StudentCursoContent,
+  "student/CalendarioContent": StudentCalendarioContent,
+  "student/EvaluationContent": StudentEvaluationContent,
+  "student/PreviousCycleContent": StudentPreviousCycleContent,
+  "student/PreviousCycleEvaluationContent":
+    StudentPreviousCycleEvaluationContent,
+  "student/BancoEnunciadosContent": StudentBancoEnunciadosContent,
+  "student/VideoPageContent": StudentVideoPageContent,
+  "student/NotificacionesContent": StudentNotificacionesContent,
 
   // Docente
-  'teacher/InicioContent': TeacherInicioContent,
-  'teacher/CalendarioContent': TeacherCalendarioContent,
-  'teacher/CursoContent': TeacherCursoContent,
-  'teacher/EvaluationContent': TeacherEvaluationContent,
-  'teacher/VideoPageContent': TeacherVideoPageContent,
-  'teacher/PreviousCycleContent': TeacherPreviousCycleContent,
-  'teacher/PreviousCycleEvaluationContent': TeacherPreviousCycleEvaluationContent,
-  'teacher/BancoEnunciadosContent': TeacherBancoEnunciadosContent,
-  
+  "teacher/InicioContent": TeacherInicioContent,
+  "teacher/CalendarioContent": TeacherCalendarioContent,
+  "teacher/CursoContent": TeacherCursoContent,
+  "teacher/EvaluationContent": TeacherEvaluationContent,
+  "teacher/VideoPageContent": TeacherVideoPageContent,
+  "teacher/PreviousCycleContent": TeacherPreviousCycleContent,
+  "teacher/PreviousCycleEvaluationContent":
+    TeacherPreviousCycleEvaluationContent,
+  "teacher/BancoEnunciadosContent": TeacherBancoEnunciadosContent,
+
   // Admin
-  'admin/InicioContent': AdminInicioContent,
-  'admin/AuditoriaContent': AdminAuditoriaContent,
-  'admin/CursoContent': AdminCursoContent,
-  'admin/CursoEditContent': AdminCursoEditContent,
-  'admin/CursosContent': AdminCursosContent,
-  'admin/UsuariosContent': AdminUsuariosContent,
-  'admin/UsuarioDetailContent': AdminUsuarioDetailContent,
-  'admin/UsuarioEditContent': AdminUsuarioEditContent,
-  'admin/UsuarioCreateContent': AdminUsuarioCreateContent,
+  "admin/InicioContent": AdminInicioContent,
+  "admin/AuditoriaContent": AdminAuditoriaContent,
+  "admin/CursoContent": AdminCursoContent,
+  "admin/CursoCreateContent": AdminCursoCreateContent,
+  "admin/CursoEditContent": AdminCursoEditContent,
+  "admin/CursosContent": AdminCursosContent,
+  "admin/UsuariosContent": AdminUsuariosContent,
+  "admin/UsuarioDetailContent": AdminUsuarioDetailContent,
+  "admin/UsuarioEditContent": AdminUsuarioEditContent,
+  "admin/UsuarioCreateContent": AdminUsuarioCreateContent,
 
   // Shared
-  'shared/PerfilContent': SharedPerfilContent,
+  "shared/PerfilContent": SharedPerfilContent,
 
   // Teacher (perfil)
-  'teacher/PerfilContent': TeacherPerfilContent,
+  "teacher/PerfilContent": TeacherPerfilContent,
 };
 
 interface RoleBasedContentProps {
@@ -98,11 +102,12 @@ interface RoleBasedContentProps {
 /**
  * Componente que renderiza el contenido correcto según el rol y la ruta
  */
-export default function RoleBasedContent({ 
-  customRoute, 
-  componentProps = {} 
+export default function RoleBasedContent({
+  customRoute,
+  componentProps = {},
 }: RoleBasedContentProps) {
-  const { hasAccess, componentPath, isLoading, userRole } = useRoleBasedRoute(customRoute);
+  const { hasAccess, componentPath, isLoading, userRole } =
+    useRoleBasedRoute(customRoute);
 
   // Estado de carga
   if (isLoading) {
@@ -142,7 +147,11 @@ export default function RoleBasedContent({
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
-          <Icon name="construction" size={80} className="text-warning-solid mx-auto" />
+          <Icon
+            name="construction"
+            size={80}
+            className="text-warning-solid mx-auto"
+          />
           <h2 className="text-2xl font-semibold text-primary">
             Página en Construcción
           </h2>
