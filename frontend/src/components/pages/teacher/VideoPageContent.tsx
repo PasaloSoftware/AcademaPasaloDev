@@ -18,6 +18,15 @@ interface VideoPageContentProps {
   cursoId: string;
   evalId: string;
   eventId: string;
+  cycleCode?: string;
+  previewData?: {
+    courseName: string;
+    evalShortName: string;
+    evaluationPath: string;
+    courseHref?: string;
+    cycleHref?: string;
+    cycleLabel?: string;
+  };
 }
 
 // ============================================
@@ -650,7 +659,13 @@ function ContextMenuButton({
 // Main Component
 // ============================================
 
-export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPageContentProps) {
+export default function VideoPageContent({
+  cursoId,
+  evalId,
+  eventId,
+  cycleCode,
+  previewData,
+}: VideoPageContentProps) {
   const [modalState, setModalState] = useState<{
     type: 'updateVideo' | 'editInfo' | 'deleteClass';
     event: ClassEvent;
@@ -658,6 +673,13 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
   } | null>(null);
 
   const resolveNames = useCallback(async (cId: string, eId: string) => {
+    if (previewData) {
+      return {
+        courseName: previewData.courseName,
+        evalShortName: previewData.evalShortName,
+      };
+    }
+
     let courseName = '';
     let evalShortName = '';
 
@@ -672,7 +694,9 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     }
 
     try {
-      const data = await coursesService.getCourseContent(cId);
+      const data = cycleCode
+        ? await coursesService.getPreviousCycleContent(cId, cycleCode)
+        : await coursesService.getCourseContent(cId);
       const eval_ = data.evaluations.find((e) => e.id === eId);
       if (eval_) evalShortName = eval_.shortName || eval_.fullName;
     } catch (err) {
@@ -680,7 +704,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     }
 
     return { courseName, evalShortName };
-  }, []);
+  }, [cycleCode, previewData]);
 
   const renderActions = useCallback((event: ClassEvent, reloadEvent: () => Promise<void>) => {
     const isFinished = event.sessionStatus === 'FINALIZADA';
@@ -769,6 +793,10 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
         resolveNames={resolveNames}
         renderActions={renderActions}
         canUploadMaterials
+        evaluationPathOverride={previewData?.evaluationPath}
+        courseHrefOverride={previewData?.courseHref}
+        cycleHrefOverride={previewData?.cycleHref}
+        cycleLabelOverride={previewData?.cycleLabel}
       />
 
       {modalState?.type === 'updateVideo' && (

@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useCallback } from 'react';
-import Icon from './Icon';
+import { useEffect, useCallback } from "react";
+import Icon from "./Icon";
 
 // ============================================
 // Tipos
 // ============================================
 
-type ModalSize = 'sm' | 'md' | 'lg';
+type ModalSize = "sm" | "md" | "lg";
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,13 +23,15 @@ interface ModalProps {
   showCloseButton?: boolean;
   /** z-index personalizado para casos especiales (ej. SessionClosedModal). Default: 50 */
   zIndex?: number;
+  /** Clases extra para el body del modal */
+  bodyClassName?: string;
 }
 
 // ============================================
 // Subcomponentes para el footer
 // ============================================
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger';
+type ButtonVariant = "primary" | "secondary" | "danger";
 
 interface ModalButtonProps {
   children: React.ReactNode;
@@ -38,28 +40,27 @@ interface ModalButtonProps {
   disabled?: boolean;
   loading?: boolean;
   loadingText?: string;
-  type?: 'button' | 'submit';
+  type?: "button" | "submit";
   className?: string;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-solid-hover',
+    "bg-bg-accent-primary-solid text-text-white hover:bg-bg-accent-solid-hover",
   secondary:
-    'bg-bg-primary text-text-tertiary outline outline-1 outline-offset-[-1px] outline-stroke-primary hover:bg-bg-secondary',
-  danger:
-    'bg-bg-error-solid text-text-white hover:bg-bg-error-solid/90',
+    "bg-bg-primary text-text-tertiary outline outline-1 outline-offset-[-1px] outline-stroke-primary hover:bg-bg-secondary",
+  danger: "bg-bg-error-solid text-text-white hover:bg-bg-error-solid/90",
 };
 
 function ModalButton({
   children,
   onClick,
-  variant = 'primary',
+  variant = "primary",
   disabled = false,
   loading = false,
   loadingText,
-  type = 'button',
-  className = '',
+  type = "button",
+  className = "",
 }: ModalButtonProps) {
   const isDisabled = disabled || loading;
 
@@ -68,7 +69,7 @@ function ModalButton({
       type={type}
       onClick={onClick}
       disabled={isDisabled}
-      className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 text-sm font-medium leading-4 transition-colors ${isDisabled ? 'bg-bg-disabled text-text-disabled cursor-not-allowed' : variantStyles[variant]} ${className}`}
+      className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 text-sm font-medium leading-4 transition-colors ${isDisabled ? "bg-bg-disabled text-text-disabled cursor-not-allowed" : variantStyles[variant]} ${className}`}
     >
       {loading ? (
         <>
@@ -87,9 +88,9 @@ function ModalButton({
 // ============================================
 
 const sizeClasses: Record<ModalSize, string> = {
-  sm: 'w-[448px]',       // 384px - Figma "Small"
-  md: 'max-w-lg w-full',   // 512px
-  lg: 'max-w-2xl w-full',  // 672px
+  sm: "w-[448px]", // 384px - Figma "Small"
+  md: "max-w-lg w-full", // 512px
+  lg: "max-w-2xl w-full", // 672px
 };
 
 // ============================================
@@ -101,16 +102,17 @@ function Modal({
   onClose,
   title,
   children,
-  size = 'sm',
+  size = "sm",
   footer,
   closeOnOverlay = true,
   showCloseButton = true,
   zIndex = 50,
+  bodyClassName = "",
 }: ModalProps) {
   // Cerrar con Escape
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     },
     [onClose],
   );
@@ -118,20 +120,20 @@ function Modal({
   useEffect(() => {
     if (!isOpen) return;
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     // Bloquear scroll del body
     const scrollY = window.scrollY;
-    document.body.style.position = 'fixed';
+    document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-    document.body.style.overflow = 'hidden';
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
       window.scrollTo(0, scrollY);
     };
   }, [isOpen, handleKeyDown]);
@@ -169,7 +171,9 @@ function Modal({
         </div>
 
         {/* Body */}
-        <div className="p-6 flex flex-col gap-5 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div
+          className={`p-6 flex flex-col gap-5 overflow-y-auto max-h-[calc(90vh-140px)] ${bodyClassName}`}
+        >
           {children}
         </div>
 
