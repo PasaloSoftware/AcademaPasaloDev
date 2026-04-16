@@ -8,6 +8,7 @@ import {
   CourseEditorFooter,
   CourseEditorHeader,
   CourseEditorTabs,
+  CourseEvaluationList,
   CourseProfessorManagerModal,
   CourseResourceCard,
   CourseSectionCard,
@@ -462,119 +463,33 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
               </button>
             }
           >
-            <div className="self-stretch flex flex-col justify-start items-start gap-3">
-              {evaluations.map((evaluation) => {
-                const typeMeta = getEvaluationTypeMeta(
-                  evaluation.evaluationTypeCode,
-                );
-                const isDragging = draggedEvaluationId === evaluation.id;
-                const isDragTarget =
-                  dragOverEvaluationId === evaluation.id &&
-                  draggedEvaluationId !== evaluation.id;
-                return (
-                  <div
-                    key={evaluation.id}
-                    draggable
-                    onDragStart={() => {
-                      setDraggedEvaluationId(evaluation.id);
-                      setDragOverEvaluationId(evaluation.id);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      if (dragOverEvaluationId !== evaluation.id) {
-                        setDragOverEvaluationId(evaluation.id);
-                      }
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      if (draggedEvaluationId) {
-                        moveEvaluation(draggedEvaluationId, evaluation.id);
-                      }
-                      setDraggedEvaluationId(null);
-                      setDragOverEvaluationId(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedEvaluationId(null);
-                      setDragOverEvaluationId(null);
-                    }}
-                    className={`self-stretch p-4 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] inline-flex justify-start items-center gap-6 flex-wrap lg:flex-nowrap transition-colors ${
-                      isDragTarget
-                        ? "outline-stroke-accent-primary bg-bg-accent-light"
-                        : "outline-stroke-secondary"
-                    } ${isDragging ? "opacity-60" : ""}`}
-                  >
-                    <div className="flex-1 flex justify-start items-center gap-6 min-w-[260px]">
-                      <button
-                        type="button"
-                        onClick={(event) => event.preventDefault()}
-                        className="inline-flex h-9 w-9 items-center justify-center cursor-grab active:cursor-grabbing rounded-lg p-0 leading-none hover:bg-bg-secondary transition-colors"
-                        title="Arrastra para reordenar"
-                      >
-                        <Icon
-                          name="drag_indicator"
-                          size={28}
-                          className="block text-gray-500 leading-none"
-                        />
-                      </button>
-                      <div className="inline-flex flex-col justify-start items-start gap-1">
-                        <div className="text-text-primary text-lg font-medium leading-5">
-                          {evaluation.fullName}
-                        </div>
-                        <div className="inline-flex justify-start items-start gap-4">
-                          <div className="flex justify-start items-center gap-1">
-                            <Icon
-                              name="collections_bookmark"
-                              size={12}
-                              className="text-icon-tertiary"
-                            />
-                            <div className="text-text-quartiary text-xs font-normal leading-4">
-                              {evaluation.shortName}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex justify-end items-center gap-4 flex-wrap ml-auto">
-                      <span
-                        className={`px-2.5 py-1.5 ${typeMeta.bg} rounded-full flex justify-center items-center gap-1`}
-                      >
-                        <span
-                          className={`${typeMeta.text} text-xs font-medium leading-3`}
-                        >
-                          {typeMeta.label}
-                        </span>
-                      </span>
-                      <div className="flex justify-start items-center gap-2">
-                        <button
-                          onClick={() =>
-                            handlePendingAction("Editar evaluacion")
-                          }
-                          className="p-0.5 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
-                        >
-                          <Icon
-                            name="edit"
-                            size={16}
-                            className="text-icon-tertiary"
-                          />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handlePendingAction("Eliminar evaluacion")
-                          }
-                          className="p-0.5 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
-                        >
-                          <Icon
-                            name="delete"
-                            size={16}
-                            className="text-icon-tertiary"
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <CourseEvaluationList
+              evaluations={evaluations}
+              draggedEvaluationId={draggedEvaluationId}
+              dragOverEvaluationId={dragOverEvaluationId}
+              onDragStart={(evaluationId) => {
+                setDraggedEvaluationId(evaluationId);
+                setDragOverEvaluationId(evaluationId);
+              }}
+              onDragOver={(evaluationId) => {
+                if (dragOverEvaluationId !== evaluationId) {
+                  setDragOverEvaluationId(evaluationId);
+                }
+              }}
+              onDrop={(evaluationId) => {
+                if (draggedEvaluationId) {
+                  moveEvaluation(draggedEvaluationId, evaluationId);
+                }
+                setDraggedEvaluationId(null);
+                setDragOverEvaluationId(null);
+              }}
+              onDragEnd={() => {
+                setDraggedEvaluationId(null);
+                setDragOverEvaluationId(null);
+              }}
+              onEdit={() => handlePendingAction("Editar evaluación")}
+              onDelete={() => handlePendingAction("Eliminar evaluación")}
+            />
           </CourseSectionCard>
 
           <CourseSectionCard

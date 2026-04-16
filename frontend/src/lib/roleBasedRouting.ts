@@ -32,27 +32,32 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/curso/[id]/evaluacion/[id]": {
-    allowedRoles: ["STUDENT", "TEACHER"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "EvaluationContent",
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/curso/[id]/evaluacion/[id]/clase/[id]": {
-    allowedRoles: ["STUDENT", "TEACHER"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "VideoPageContent",
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/curso/[id]/ciclo-anterior/[id]": {
-    allowedRoles: ["STUDENT", "TEACHER"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "PreviousCycleContent",
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]": {
-    allowedRoles: ["STUDENT", "TEACHER"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "PreviousCycleEvaluationContent",
     redirectOnDenied: "/plataforma/inicio",
   },
+  "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]/clase/[id]": {
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
+    component: "VideoPageContent",
+    redirectOnDenied: "/plataforma/inicio",
+  },
   "/plataforma/curso/[id]/banco/[id]": {
-    allowedRoles: ["STUDENT", "TEACHER"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "BancoEnunciadosContent",
     redirectOnDenied: "/plataforma/inicio",
   },
@@ -142,22 +147,38 @@ export const roleBasedComponents: Record<
   "/plataforma/curso/[id]/evaluacion/[id]": {
     STUDENT: "student/EvaluationContent",
     TEACHER: "teacher/EvaluationContent",
+    ADMIN: "admin/AdminPreviewEvaluationContent",
+    SUPER_ADMIN: "admin/AdminPreviewEvaluationContent",
   },
   "/plataforma/curso/[id]/evaluacion/[id]/clase/[id]": {
     STUDENT: "student/VideoPageContent",
     TEACHER: "teacher/VideoPageContent",
+    ADMIN: "admin/AdminPreviewVideoPageContent",
+    SUPER_ADMIN: "admin/AdminPreviewVideoPageContent",
   },
   "/plataforma/curso/[id]/ciclo-anterior/[id]": {
     STUDENT: "student/PreviousCycleContent",
     TEACHER: "teacher/PreviousCycleContent",
+    ADMIN: "admin/AdminPreviewPreviousCycleContent",
+    SUPER_ADMIN: "admin/AdminPreviewPreviousCycleContent",
   },
   "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]": {
     STUDENT: "student/PreviousCycleEvaluationContent",
     TEACHER: "teacher/PreviousCycleEvaluationContent",
+    ADMIN: "admin/AdminPreviewPreviousCycleEvaluationContent",
+    SUPER_ADMIN: "admin/AdminPreviewPreviousCycleEvaluationContent",
+  },
+  "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]/clase/[id]": {
+    STUDENT: "student/VideoPageContent",
+    TEACHER: "teacher/VideoPageContent",
+    ADMIN: "admin/AdminPreviewVideoPageContent",
+    SUPER_ADMIN: "admin/AdminPreviewVideoPageContent",
   },
   "/plataforma/curso/[id]/banco/[id]": {
     STUDENT: "student/BancoEnunciadosContent",
     TEACHER: "teacher/BancoEnunciadosContent",
+    ADMIN: "admin/AdminPreviewBancoEnunciadosContent",
+    SUPER_ADMIN: "admin/AdminPreviewBancoEnunciadosContent",
   },
   "/plataforma/calendario": {
     STUDENT: "student/CalendarioContent",

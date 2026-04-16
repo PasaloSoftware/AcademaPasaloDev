@@ -60,11 +60,17 @@ const defaultTypeIconConfig: FolderIconConfig = {
 interface BancoEnunciadosContentProps {
   cursoId: string;
   typeCode: string;
+  previewData?: {
+    courseName: string;
+    backHref?: string;
+    manageBreadcrumb?: boolean;
+  };
 }
 
 export default function BancoEnunciadosContent({
   cursoId,
   typeCode,
+  previewData,
 }: BancoEnunciadosContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
@@ -86,6 +92,11 @@ export default function BancoEnunciadosContent({
   const [preselectedFolderId, setPreselectedFolderId] = useState<string | undefined>();
 
   useEffect(() => {
+    if (previewData) {
+      setCourseName(previewData.courseName);
+      return;
+    }
+
     async function loadCourseName() {
       try {
         const enrollments = await coursesService.getMyCourseCycles();
@@ -97,7 +108,7 @@ export default function BancoEnunciadosContent({
     }
 
     if (cursoId) loadCourseName();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   useEffect(() => {
     async function loadBancoData() {
@@ -179,13 +190,16 @@ export default function BancoEnunciadosContent({
 
   useEffect(() => {
     if (!courseName) return;
+    if (previewData?.manageBreadcrumb === false) return;
+
+    const backHref = previewData?.backHref || `/plataforma/curso/${cursoId}`;
     setBreadcrumbItems([
       { label: 'Cursos' },
-      { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: 'Banco de Enunciados', href: `/plataforma/curso/${cursoId}` },
+      { label: courseName, href: backHref },
+      { label: 'Banco de Enunciados', href: backHref },
       { label: typeName || typeCode },
     ]);
-  }, [setBreadcrumbItems, courseName, typeName, typeCode, cursoId]);
+  }, [setBreadcrumbItems, courseName, typeName, typeCode, cursoId, previewData]);
 
   const loadFolderMaterials = useCallback(
     async (uiFolderId: string): Promise<FolderMaterial[]> => {
@@ -350,7 +364,7 @@ export default function BancoEnunciadosContent({
   return (
     <div className="w-full inline-flex flex-col justify-start items-start gap-8">
       <Link
-        href={`/plataforma/curso/${cursoId}`}
+        href={previewData?.backHref || `/plataforma/curso/${cursoId}`}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2"
       >
         <Icon

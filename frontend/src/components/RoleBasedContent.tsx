@@ -40,6 +40,11 @@ import AdminCursoContent from "@/components/pages/admin/CursoContent";
 import AdminCursoCreateContent from "@/components/pages/admin/CursoCreateContent";
 import AdminCursoEditContent from "@/components/pages/admin/CursoEditContent";
 import AdminCursosContent from "@/components/pages/admin/CursosContent";
+import AdminPreviewBancoEnunciadosContent from "@/components/pages/admin/AdminPreviewBancoEnunciadosContent";
+import AdminPreviewEvaluationContent from "@/components/pages/admin/AdminPreviewEvaluationContent";
+import AdminPreviewPreviousCycleContent from "@/components/pages/admin/AdminPreviewPreviousCycleContent";
+import AdminPreviewPreviousCycleEvaluationContent from "@/components/pages/admin/AdminPreviewPreviousCycleEvaluationContent";
+import AdminPreviewVideoPageContent from "@/components/pages/admin/AdminPreviewVideoPageContent";
 import AdminUsuariosContent from "@/components/pages/admin/UsuariosContent";
 import AdminUsuarioDetailContent from "@/components/pages/admin/UsuarioDetailContent";
 import AdminUsuarioEditContent from "@/components/pages/admin/UsuarioEditContent";
@@ -81,6 +86,13 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   "admin/CursoCreateContent": AdminCursoCreateContent,
   "admin/CursoEditContent": AdminCursoEditContent,
   "admin/CursosContent": AdminCursosContent,
+  "admin/AdminPreviewBancoEnunciadosContent":
+    AdminPreviewBancoEnunciadosContent,
+  "admin/AdminPreviewEvaluationContent": AdminPreviewEvaluationContent,
+  "admin/AdminPreviewPreviousCycleContent": AdminPreviewPreviousCycleContent,
+  "admin/AdminPreviewPreviousCycleEvaluationContent":
+    AdminPreviewPreviousCycleEvaluationContent,
+  "admin/AdminPreviewVideoPageContent": AdminPreviewVideoPageContent,
   "admin/UsuariosContent": AdminUsuariosContent,
   "admin/UsuarioDetailContent": AdminUsuarioDetailContent,
   "admin/UsuarioEditContent": AdminUsuarioEditContent,

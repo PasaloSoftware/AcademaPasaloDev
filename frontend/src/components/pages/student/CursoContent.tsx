@@ -24,6 +24,18 @@ import { useToast } from "@/components/ui/ToastContainer";
 
 interface CursoContentProps {
   cursoId: string;
+  previewData?: {
+    enrollment: Enrollment;
+    currentCycle: CurrentCycleResponse | null;
+    previousCycles?: PreviousCyclesResponse | null;
+    bankStructure?: BankStructureResponse | null;
+    introVideoUrl?: string | null;
+    manageBreadcrumb?: boolean;
+    allowFeedback?: boolean;
+    buildEvaluationUrl?: (evaluationId: string) => string;
+    buildPreviousCycleUrl?: (cycleCode: string) => string;
+    buildBankUrl?: (typeCode: string) => string;
+  };
 }
 
 type TabOption = "vigente" | "anteriores" | "banco";
@@ -32,45 +44,78 @@ type TabOption = "vigente" | "anteriores" | "banco";
 // Componente principal
 // ============================================
 
-export default function CursoContent({ cursoId }: CursoContentProps) {
+export default function CursoContent({
+  cursoId,
+  previewData,
+}: CursoContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const isPreview = Boolean(previewData);
 
   // Datos del enrollment (para header: nombre, profesor, tipo, nivel)
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(
+    previewData?.enrollment ?? null,
+  );
 
   // Tab activo
   const [activeTab, setActiveTab] = useState<TabOption>("vigente");
 
   // Datos del ciclo vigente
   const [currentCycle, setCurrentCycle] = useState<CurrentCycleResponse | null>(
-    null,
+    previewData?.currentCycle ?? null,
   );
-  const [loadingCurrent, setLoadingCurrent] = useState(true);
+  const [loadingCurrent, setLoadingCurrent] = useState(!isPreview);
   const [errorCurrent, setErrorCurrent] = useState<string | null>(null);
 
   // Datos de ciclos anteriores
   const [previousCycles, setPreviousCycles] =
-    useState<PreviousCyclesResponse | null>(null);
+    useState<PreviousCyclesResponse | null>(
+      previewData?.previousCycles ?? null,
+    );
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
   // Datos del banco de enunciados
   const [bankStructure, setBankStructure] =
-    useState<BankStructureResponse | null>(null);
+    useState<BankStructureResponse | null>(previewData?.bankStructure ?? null);
   const [loadingBank, setLoadingBank] = useState(false);
   // Video introductorio
-  const [introVideoUrl, setIntroVideoUrl] = useState<string | null>(null);
+  const [introVideoUrl, setIntroVideoUrl] = useState<string | null>(
+    previewData?.introVideoUrl ?? null,
+  );
 
   // Loading general (enrollment)
-  const [loadingEnrollment, setLoadingEnrollment] = useState(true);
+  const [loadingEnrollment, setLoadingEnrollment] = useState(!isPreview);
   const [error, setError] = useState<string | null>(null);
 
   // Feedback modal
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const { showToast } = useToast();
 
+  useEffect(() => {
+    if (!previewData) return;
+
+    setEnrollment(previewData.enrollment);
+    setCurrentCycle(previewData.currentCycle);
+    setPreviousCycles(previewData.previousCycles ?? null);
+    setBankStructure(previewData.bankStructure ?? null);
+    setIntroVideoUrl(previewData.introVideoUrl ?? null);
+    setLoadingEnrollment(false);
+    setLoadingCurrent(false);
+    setError(null);
+    setErrorCurrent(null);
+
+    if (previewData.manageBreadcrumb !== false) {
+      setBreadcrumbItems([
+        { label: "Cursos" },
+        { label: previewData.enrollment.courseCycle.course.name },
+      ]);
+    }
+  }, [previewData, setBreadcrumbItems]);
+
   // Obtener datos del enrollment para el header
   useEffect(() => {
+    if (previewData) return;
+
     async function loadEnrollment() {
       setLoadingEnrollment(true);
       setError(null);
@@ -100,10 +145,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
 
     if (cursoId) loadEnrollment();
-  }, [cursoId, setBreadcrumbItems]);
+  }, [cursoId, previewData, setBreadcrumbItems]);
 
   // Obtener evaluaciones del ciclo vigente
   useEffect(() => {
+    if (previewData) return;
+
     async function loadCurrentCycle() {
       setLoadingCurrent(true);
       setErrorCurrent(null);
@@ -119,10 +166,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
 
     if (cursoId) loadCurrentCycle();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   // Cargar lista de ciclos anteriores cuando canViewPreviousCycles = true
   useEffect(() => {
+    if (previewData) return;
+
     async function loadPreviousCycles() {
       if (!currentCycle?.canViewPreviousCycles) return;
       setLoadingPrevious(true);
@@ -137,10 +186,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
 
     loadPreviousCycles();
-  }, [cursoId, currentCycle?.canViewPreviousCycles]);
+  }, [cursoId, currentCycle?.canViewPreviousCycles, previewData]);
 
   // Cargar estructura del banco de enunciados
   useEffect(() => {
+    if (previewData) return;
+
     async function loadBankStructure() {
       setLoadingBank(true);
       try {
@@ -154,10 +205,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
 
     if (cursoId) loadBankStructure();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   // Cargar video introductorio
   useEffect(() => {
+    if (previewData) return;
+
     async function loadIntroVideo() {
       try {
         const data = await coursesService.getIntroVideoLink(cursoId);
@@ -170,7 +223,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
 
     if (cursoId) loadIntroVideo();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   const canViewPreviousCycles = Boolean(currentCycle?.canViewPreviousCycles);
 
@@ -207,9 +260,9 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       comment,
     });
     showToast({
-      type: 'success',
-      title: 'Comentario enviado con éxito',
-      description: 'Tu comentario ha sido enviado correctamente.',
+      type: "success",
+      title: "Comentario enviado con éxito",
+      description: "Tu comentario ha sido enviado correctamente.",
     });
   };
 
@@ -332,15 +385,21 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           </div>
 
           {/* Feedback */}
-          <button
-            onClick={() => setShowFeedbackModal(true)}
-            className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary inline-flex justify-center items-center gap-1.5"
-          >
-            <Icon name="star" size={16} className="text-icon-accent-primary" />
-            <span className="text-text-accent-primary text-sm font-medium leading-4">
-              Valorar Curso
-            </span>
-          </button>
+          {previewData?.allowFeedback !== false && (
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary inline-flex justify-center items-center gap-1.5"
+            >
+              <Icon
+                name="star"
+                size={16}
+                className="text-icon-accent-primary"
+              />
+              <span className="text-text-accent-primary text-sm font-medium leading-4">
+                Valorar Curso
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Right: Intro Video */}
@@ -428,7 +487,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     evaluation={evaluation}
                     onSelect={(eval_) =>
                       router.push(
-                        `/plataforma/curso/${cursoId}/evaluacion/${eval_.id}`,
+                        previewData?.buildEvaluationUrl?.(eval_.id) ||
+                          `/plataforma/curso/${cursoId}/evaluacion/${eval_.id}`,
                       )
                     }
                   />
@@ -478,7 +538,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     cycleCode={cycle.cycleCode}
                     onViewCycle={(code) =>
                       router.push(
-                        `/plataforma/curso/${cursoId}/ciclo-anterior/${code}`,
+                        previewData?.buildPreviousCycleUrl?.(code) ||
+                          `/plataforma/curso/${cursoId}/ciclo-anterior/${code}`,
                       )
                     }
                   />
@@ -486,18 +547,13 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </div>
             ) : (
               <div className="self-stretch p-12 bg-white rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
-                <Icon
-                  name="history"
-                  size={64}
-                  className="text-icon-tertiary"
-                />
+                <Icon name="history" size={64} className="text-icon-tertiary" />
                 <div className="text-center">
                   <p className="text-text-primary font-semibold mb-2">
                     No hay ciclos pasados disponibles
                   </p>
                   <p className="text-text-secondary text-sm">
-                    Los ciclos pasados aparecerán aquí cuando estén
-                    disponibles
+                    Los ciclos pasados aparecerán aquí cuando estén disponibles
                   </p>
                 </div>
               </div>
@@ -530,7 +586,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     typeName={item.evaluationTypeName}
                     onSelect={() =>
                       router.push(
-                        `/plataforma/curso/${cursoId}/banco/${item.evaluationTypeCode}`,
+                        previewData?.buildBankUrl?.(item.evaluationTypeCode) ||
+                          `/plataforma/curso/${cursoId}/banco/${item.evaluationTypeCode}`,
                       )
                     }
                   />
@@ -557,11 +614,13 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         )}
       </div>
 
-      <ValorarCursoModal
-        isOpen={showFeedbackModal}
-        onClose={() => setShowFeedbackModal(false)}
-        onSubmit={handleSubmitFeedback}
-      />
+      {previewData?.allowFeedback !== false && (
+        <ValorarCursoModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={handleSubmitFeedback}
+        />
+      )}
     </div>
   );
 }

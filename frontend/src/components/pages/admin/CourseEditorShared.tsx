@@ -17,6 +17,13 @@ export type ProfessorModalOption = {
   fullName: string;
 };
 
+export type CourseEditorEvaluationItem = {
+  id: string;
+  evaluationTypeCode: string;
+  shortName: string;
+  fullName: string;
+};
+
 export const MAX_COURSE_PROFESSORS = 2;
 
 export function normalizeCourseTypeName(name?: string | null): string {
@@ -385,6 +392,142 @@ export function CourseResourceCard({
           {actions}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+interface CourseEvaluationListProps {
+  evaluations: CourseEditorEvaluationItem[];
+  draggedEvaluationId?: string | null;
+  dragOverEvaluationId?: string | null;
+  onDragStart?: (evaluationId: string) => void;
+  onDragOver?: (evaluationId: string) => void;
+  onDrop?: (evaluationId: string) => void;
+  onDragEnd?: () => void;
+  onEdit: (evaluationId: string) => void;
+  onDelete: (evaluationId: string) => void;
+}
+
+export function CourseEvaluationList({
+  evaluations,
+  draggedEvaluationId = null,
+  dragOverEvaluationId = null,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onEdit,
+  onDelete,
+}: CourseEvaluationListProps) {
+  return (
+    <div className="self-stretch flex flex-col justify-start items-start gap-3">
+      {evaluations.map((evaluation) => {
+        const typeMeta = getEvaluationTypeMeta(evaluation.evaluationTypeCode);
+        const isDragging = draggedEvaluationId === evaluation.id;
+        const isDragTarget =
+          dragOverEvaluationId === evaluation.id &&
+          draggedEvaluationId !== evaluation.id;
+        const canDrag = Boolean(
+          onDragStart && onDragOver && onDrop && onDragEnd,
+        );
+
+        return (
+          <div
+            key={evaluation.id}
+            draggable={canDrag}
+            onDragStart={
+              canDrag ? () => onDragStart?.(evaluation.id) : undefined
+            }
+            onDragOver={
+              canDrag
+                ? (event) => {
+                    event.preventDefault();
+                    onDragOver?.(evaluation.id);
+                  }
+                : undefined
+            }
+            onDrop={
+              canDrag
+                ? (event) => {
+                    event.preventDefault();
+                    onDrop?.(evaluation.id);
+                  }
+                : undefined
+            }
+            onDragEnd={canDrag ? onDragEnd : undefined}
+            className={`self-stretch p-4 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] inline-flex justify-start items-center gap-6 flex-wrap lg:flex-nowrap transition-colors ${
+              isDragTarget
+                ? "outline-stroke-accent-primary bg-bg-accent-light"
+                : "outline-stroke-secondary"
+            } ${isDragging ? "opacity-60" : ""}`}
+          >
+            <div className="flex-1 flex justify-start items-center gap-6 min-w-[260px]">
+              <button
+                type="button"
+                onClick={(event) => event.preventDefault()}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg p-0 leading-none ${
+                  canDrag
+                    ? "cursor-grab active:cursor-grabbing hover:bg-bg-secondary transition-colors"
+                    : "text-gray-500"
+                }`}
+                title={canDrag ? "Arrastra para reordenar" : undefined}
+              >
+                <Icon
+                  name="drag_indicator"
+                  size={28}
+                  className={`block leading-none ${canDrag ? "text-gray-500" : ""}`}
+                />
+              </button>
+              <div className="inline-flex flex-col justify-start items-start gap-1">
+                <div className="text-text-primary text-lg font-medium leading-5">
+                  {evaluation.fullName}
+                </div>
+                <div className="inline-flex justify-start items-start gap-4">
+                  <div className="flex justify-start items-center gap-1">
+                    <Icon
+                      name="collections_bookmark"
+                      size={12}
+                      className="text-icon-tertiary"
+                    />
+                    <div className="text-text-quartiary text-xs font-normal leading-4">
+                      {evaluation.shortName}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end items-center gap-4 flex-wrap ml-auto">
+              <span
+                className={`px-2.5 py-1.5 ${typeMeta.bg} rounded-full flex justify-center items-center gap-1`}
+              >
+                <span
+                  className={`${typeMeta.text} text-xs font-medium leading-3`}
+                >
+                  {typeMeta.label}
+                </span>
+              </span>
+              <div className="flex justify-start items-center gap-2">
+                <button
+                  onClick={() => onEdit(evaluation.id)}
+                  className="p-0.5 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon name="edit" size={16} className="text-icon-tertiary" />
+                </button>
+                <button
+                  onClick={() => onDelete(evaluation.id)}
+                  className="p-0.5 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon
+                    name="delete"
+                    size={16}
+                    className="text-icon-tertiary"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

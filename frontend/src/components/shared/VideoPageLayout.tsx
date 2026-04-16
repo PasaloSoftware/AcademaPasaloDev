@@ -140,6 +140,10 @@ export interface VideoPageLayoutProps {
     reloadEvent: () => Promise<void>,
   ) => React.ReactNode;
   canUploadMaterials?: boolean;
+  evaluationPathOverride?: string;
+  courseHrefOverride?: string;
+  cycleHrefOverride?: string;
+  cycleLabelOverride?: string;
 }
 
 export default function VideoPageLayout({
@@ -149,6 +153,10 @@ export default function VideoPageLayout({
   resolveNames,
   renderActions,
   canUploadMaterials,
+  evaluationPathOverride,
+  courseHrefOverride,
+  cycleHrefOverride,
+  cycleLabelOverride,
 }: VideoPageLayoutProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
@@ -201,7 +209,11 @@ export default function VideoPageLayout({
   const [hiddenMatIds, setHiddenMatIds] = useState<Set<string>>(new Set());
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const evaluationPath = `/plataforma/curso/${cursoId}/evaluacion/${evalId}`;
+  const evaluationPath =
+    evaluationPathOverride || `/plataforma/curso/${cursoId}/evaluacion/${evalId}`;
+  const courseHref = courseHrefOverride || `/plataforma/curso/${cursoId}`;
+  const cycleHref = cycleHrefOverride || courseHref;
+  const cycleLabel = cycleLabelOverride || "Ciclo Vigente";
 
   const reloadEvent = useCallback(async () => {
     try {
@@ -287,9 +299,9 @@ export default function VideoPageLayout({
       { label: "Cursos" },
       {
         label: courseName || event.courseName,
-        href: `/plataforma/curso/${cursoId}`,
+        href: courseHref,
       },
-      { label: "Ciclo Vigente", href: `/plataforma/curso/${cursoId}` },
+      { label: cycleLabel, href: cycleHref },
       { label: evalShortName || event.evaluationName, href: evaluationPath },
       { label: `Clase ${event.sessionNumber}` },
     ]);
@@ -298,7 +310,9 @@ export default function VideoPageLayout({
     event,
     courseName,
     evalShortName,
-    cursoId,
+    courseHref,
+    cycleHref,
+    cycleLabel,
     evaluationPath,
   ]);
 
