@@ -19,11 +19,29 @@ export default function PerfilContent() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
 
+  const activeRoleCode = (() => {
+    if (!user?.roles?.length) return null;
+    if (user.lastActiveRoleId) {
+      const activeRole = user.roles.find(
+        (role) => (role.id || role.code) === user.lastActiveRoleId,
+      );
+      if (activeRole) return activeRole.code;
+    }
+    return user.roles[0]?.code || null;
+  })();
+  const shouldShowTeachingCourses = activeRoleCode === 'PROFESSOR';
+
   useEffect(() => {
     setBreadcrumbItems([{ label: 'Mi Perfil' }]);
   }, [setBreadcrumbItems]);
 
   useEffect(() => {
+    if (!shouldShowTeachingCourses) {
+      setEnrollments([]);
+      setLoadingCourses(false);
+      return;
+    }
+
     async function loadCourses() {
       try {
         const data = await coursesService.getMyCourseCycles();
@@ -35,7 +53,7 @@ export default function PerfilContent() {
       }
     }
     loadCourses();
-  }, []);
+  }, [shouldShowTeachingCourses]);
 
   if (!user) return null;
 
@@ -129,6 +147,7 @@ export default function PerfilContent() {
       </div>
 
       {/* ====== Cursos a Cargo ====== */}
+      {shouldShowTeachingCourses && (
       <div className="self-stretch p-6 bg-white rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-slate-100 flex flex-col justify-start items-start gap-6">
         <div className="self-stretch inline-flex justify-start items-center gap-5">
           <div className="flex-1 flex justify-start items-start gap-2">
@@ -188,6 +207,7 @@ export default function PerfilContent() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ type DriveFolderLookupResponse = {
 };
 
 type DriveFolderSearchResponse = {
-  files?: Array<{ id: string }>;
+  files?: Array<{ id: string; name?: string }>;
 };
 
 type DriveFolderCreateResponse = {
@@ -225,6 +225,65 @@ export class DriveScopeProvisioningService {
         `Conflicto al crear carpeta ${folderName} y no fue posible resolver estado final`,
       );
     }
+  }
+
+  async findDriveFolderUnderParent(
+    parentFolderId: string,
+    folderName: string,
+  ): Promise<string | null> {
+    const client = await this.getDriveClient();
+    const query = `'${parentFolderId}' in parents and name='${folderName}' and mimeType='${DRIVE_FOLDER_MIME_TYPE}' and trashed=false`;
+    const searchResponse = await client.request<DriveFolderSearchResponse>({
+      url: `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=2&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      method: 'GET',
+    });
+
+    const matchedFolders = searchResponse.data.files || [];
+    if (matchedFolders.length === 0) {
+      return null;
+    }
+    if (matchedFolders.length > 1) {
+      throw new InternalServerErrorException(
+        `Nombre de carpeta ambiguo bajo el mismo padre: ${folderName}`,
+      );
+    }
+    return matchedFolders[0].id;
+  }
+
+  async renameDriveFolder(folderId: string, folderName: string): Promise<void> {
+    const normalizedFolderId = String(folderId || '').trim();
+    const normalizedFolderName = String(folderName || '').trim();
+    if (!normalizedFolderId) {
+      throw new InternalServerErrorException('folderId invalido para Drive');
+    }
+    if (!normalizedFolderName) {
+      throw new InternalServerErrorException(
+        'folderName invalido para renombrar en Drive',
+      );
+    }
+
+    const client = await this.getDriveClient();
+    await client.request({
+      url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFolderId)}?supportsAllDrives=true`,
+      method: 'PATCH',
+      data: { name: normalizedFolderName },
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  async trashDriveFolder(folderId: string): Promise<void> {
+    const normalizedFolderId = String(folderId || '').trim();
+    if (!normalizedFolderId) {
+      throw new InternalServerErrorException('folderId invalido para Drive');
+    }
+
+    const client = await this.getDriveClient();
+    await client.request({
+      url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFolderId)}?supportsAllDrives=true`,
+      method: 'PATCH',
+      data: { trashed: true },
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   async getDriveFolderMetadata(folderId: string): Promise<{

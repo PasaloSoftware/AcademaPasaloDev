@@ -42,6 +42,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   let sameCategoryEvaluation: Evaluation;
   let differentCategoryEvaluation: Evaluation;
   let historicalEvaluation: Evaluation;
+  let peruContractEvaluation: Evaluation;
   let createdEventId: string;
   let historicalEventId: string;
 
@@ -393,7 +394,6 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
 
       expect(String(response.body.message || '')).toMatch(/ocupado/i);
       expect(String(response.body.message || '')).toMatch(/1/);
-
     });
 
     it('debe permitir creaciÃƒÂ³n aunque se cruce con otro curso de la misma categorÃƒÂ­a', async () => {
@@ -412,9 +412,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         .expect(201);
 
       expect(response.body.data).toHaveProperty('id');
-
     });
-
 
     it('debe permitir sesiones cruzadas entre evaluaciones distintas del mismo curso ciclo', async () => {
       const evaluationPc2 = await seeder.createEvaluation(
@@ -444,7 +442,9 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
 
     it('debe rechazar creaciÃƒÂ³n cuando el profesor adicional tiene una sesiÃƒÂ³n en el mismo horario', async () => {
       const startDatetime = new Date(tomorrow.getTime() + 8 * 60 * 60 * 1000);
-      const endDatetime = new Date(startDatetime.getTime() + 2 * 60 * 60 * 1000);
+      const endDatetime = new Date(
+        startDatetime.getTime() + 2 * 60 * 60 * 1000,
+      );
 
       await request(app.getHttpServer())
         .post('/api/v1/class-events')
@@ -469,14 +469,20 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           sessionNumber: 91,
           title: 'Bloque con asesor ocupado',
           topic: 'Conflicto asesor',
-          startDatetime: new Date(startDatetime.getTime() + 30 * 60 * 1000).toISOString(),
-          endDatetime: new Date(endDatetime.getTime() + 30 * 60 * 1000).toISOString(),
+          startDatetime: new Date(
+            startDatetime.getTime() + 30 * 60 * 1000,
+          ).toISOString(),
+          endDatetime: new Date(
+            endDatetime.getTime() + 30 * 60 * 1000,
+          ).toISOString(),
           liveMeetingUrl: 'https://zoom.us/j/1234500091',
           professorUserIds: [professor.user.id, secondaryProfessor.user.id],
         })
         .expect(409);
 
-      expect(String(response.body.message || '')).toMatch(/profesor adicional/i);
+      expect(String(response.body.message || '')).toMatch(
+        /profesor adicional/i,
+      );
     });
     it('debe permitir creaciÃ³n si el horario se cruza con curso de categorÃ­a distinta', async () => {
       const response = await request(app.getHttpServer())
@@ -510,6 +516,30 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
           liveMeetingUrl: 'https://zoom.us/test',
         })
         .expect(403);
+    });
+
+    it('debe rechazar creacion cuando liveMeetingUrl no es valida con mensaje estandarizado', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 120,
+          title: 'Clase URL invalida',
+          topic: 'Validacion',
+          startDatetime: tomorrow.toISOString(),
+          endDatetime: new Date(tomorrow.getTime() + 7200000).toISOString(),
+          liveMeetingUrl: 'zoom-no-valido',
+        })
+        .expect(400);
+
+      const message = Array.isArray(response.body.message)
+        ? response.body.message.join(' | ')
+        : String(response.body.message || '');
+
+      expect(message).toContain(
+        'El enlace de la clase debe ser una URL valida',
+      );
     });
   });
 
@@ -664,7 +694,6 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
 
       expect(String(resUpdate.body.message || '')).toMatch(/cruce/i);
       expect(String(resUpdate.body.message || '')).toMatch(/2/);
-
     });
 
     it('DELETE /api/v1/class-events/:id/cancel - Cancelar evento', async () => {
@@ -672,6 +701,49 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         .delete(`/api/v1/class-events/${createdEventId}/cancel`)
         .set('Authorization', `Bearer ${professor.token}`)
         .expect(204);
+    });
+
+    it('GET /api/v1/class-events/:id - no debe exponer detalle de evento cancelado', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/class-events/${createdEventId}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(404);
+    });
+
+    it('GET /api/v1/class-events/evaluation/:evaluationId - no debe listar evento cancelado', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/class-events/evaluation/${evaluation.id}`)
+        .set('Authorization', `Bearer ${professor.token}`)
+        .expect(200);
+
+      expect(
+        response.body.data.some(
+          (event: { id: string }) => event.id === createdEventId,
+        ),
+      ).toBe(false);
+    });
+
+    it('POST /api/v1/class-events - permite reutilizar sessionNumber tras cancelacion soft-delete', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/class-events')
+        .set('Authorization', `Bearer ${professor.token}`)
+        .send({
+          evaluationId: evaluation.id,
+          sessionNumber: 1,
+          title: 'Clase 1 Repuesta',
+          topic: 'Sesion recreada tras cancelacion',
+          startDatetime: new Date(
+            tomorrow.getTime() + 20 * 60 * 60 * 1000,
+          ).toISOString(),
+          endDatetime: new Date(
+            tomorrow.getTime() + 22 * 60 * 60 * 1000,
+          ).toISOString(),
+          liveMeetingUrl: 'https://zoom.us/j/1212121299',
+        })
+        .expect(201);
+
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data.sessionNumber).toBe(1);
     });
   });
 
@@ -1097,8 +1169,12 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         `SELECT id FROM class_event_recording_status WHERE code = 'NOT_AVAILABLE' LIMIT 1`,
       );
 
-      const eventStart = new Date(`${formatPeruLocalDatetime(futureStartDate, 20)}-05:00`);
-      const eventEnd = new Date(`${formatPeruLocalDatetime(futureStartDate, 22)}-05:00`);
+      const eventStart = new Date(
+        `${formatPeruLocalDatetime(futureStartDate, 20)}-05:00`,
+      );
+      const eventEnd = new Date(
+        `${formatPeruLocalDatetime(futureStartDate, 22)}-05:00`,
+      );
 
       await dataSource.query(
         `INSERT INTO class_event (
@@ -1197,12 +1273,22 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
   });
 
   describe('CONTRATO HORARIO PERU', () => {
+    beforeAll(async () => {
+      peruContractEvaluation = await seeder.createEvaluation(
+        courseCycle.id,
+        EVALUATION_TYPE_CODES.PC,
+        99,
+        formatDate(yesterday),
+        formatDate(nextWeek),
+      );
+    });
+
     it('interpreta ISO sin zona como hora America/Lima y responde UTC', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/class-events')
         .set('Authorization', `Bearer ${professor.token}`)
         .send({
-          evaluationId: evaluation.id,
+          evaluationId: peruContractEvaluation.id,
           sessionNumber: 150,
           title: 'Clase 150: Hora Lima',
           topic: 'Conversion horaria',
@@ -1225,7 +1311,7 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
         .post('/api/v1/class-events')
         .set('Authorization', `Bearer ${professor.token}`)
         .send({
-          evaluationId: evaluation.id,
+          evaluationId: peruContractEvaluation.id,
           sessionNumber: 151,
           title: 'Evento Rango Lima',
           topic: 'Filtro por fecha',
@@ -1254,4 +1340,3 @@ describe('E2E: Class Events (Eventos de Clase)', () => {
     });
   });
 });
-

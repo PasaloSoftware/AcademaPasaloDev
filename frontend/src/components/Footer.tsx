@@ -13,11 +13,16 @@ const footerLinks = [
   { label: "Plataforma", href: "/plataforma" },
 ];
 
+const legalLinks = [
+  { label: "Política de Privacidad", href: "/politica-de-privacidad" },
+  { label: "Términos y Condiciones", href: "/terminos-y-condiciones" },
+];
+
 export default function Footer() {
   return (
     <footer className="w-full bg-white border-t border-stroke-primary">
       <div className="mx-auto px-4 md:px-16 lg:px-28 py-8 lg:py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-20">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-16">
           {/* Brand Section */}
           <div className="flex flex-col gap-3.5 lg:gap-6">
             <Link href="/" className="flex-shrink-0">
@@ -82,6 +87,23 @@ export default function Footer() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-3.5 lg:gap-[18px]">
+            <h3 className="text-base lg:text-lg font-bold text-primary">
+              Legal
+            </h3>
+            <div className="flex flex-col gap-3 lg:gap-4">
+              {legalLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="text-sm lg:text-base text-gray-600 hover:text-deep-blue-700 transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* Horario Section */}
           <div className="flex flex-col gap-3.5 lg:gap-[18px]">
             <h3 className="text-base lg:text-lg font-bold text-primary">
@@ -99,6 +121,18 @@ export default function Footer() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 border-t border-stroke-secondary pt-5 text-xs text-gray-500 lg:text-sm">
+          Al usar la plataforma aceptas nuestros{" "}
+          <Link href="/terminos-y-condiciones" className="text-deep-blue-700 hover:underline">
+            Términos y Condiciones
+          </Link>{" "}
+          y nuestra{" "}
+          <Link href="/politica-de-privacidad" className="text-deep-blue-700 hover:underline">
+            Política de Privacidad
+          </Link>
+          .
         </div>
       </div>
     </footer>

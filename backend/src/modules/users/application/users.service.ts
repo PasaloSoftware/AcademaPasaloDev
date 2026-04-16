@@ -372,6 +372,7 @@ export class UsersService {
       dto.professorStateFinal?.courseCycleIds || [],
     );
 
+
     if (
       !finalRoleCodes.includes(ROLE_CODES.STUDENT) &&
       finalEnrollments.length > 0
@@ -485,22 +486,22 @@ export class UsersService {
           }
         }
 
-        const desiredProfessorSet = new Set(
-          finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
-            ? finalProfessorCourseCycleIds
-            : [],
+        const shouldKeepProfessorState = finalRoleCodes.includes(
+          ROLE_CODES.PROFESSOR,
         );
+        const desiredProfessorCourseCycleIds = shouldKeepProfessorState
+          ? finalProfessorCourseCycleIds
+          : [];
+        const desiredProfessorSet = new Set(desiredProfessorCourseCycleIds);
         const currentProfessorSet = new Set(currentProfessorCourseCycleIds);
 
-        const removedProfessorCourseCycleIds =
-          currentProfessorCourseCycleIds.filter(
-            (id) => !desiredProfessorSet.has(id),
-          );
-        const addedProfessorCourseCycleIds = (
-          finalRoleCodes.includes(ROLE_CODES.PROFESSOR)
-            ? finalProfessorCourseCycleIds
-            : []
-        ).filter((id) => !currentProfessorSet.has(id));
+        const removedProfessorCourseCycleIds = shouldKeepProfessorState
+          ? []
+          : currentProfessorCourseCycleIds;
+        const addedProfessorCourseCycleIds = desiredProfessorCourseCycleIds.filter(
+          (id) => !currentProfessorSet.has(id),
+        );
+
 
         if (removedProfessorCourseCycleIds.length > 0) {
           await manager
@@ -666,6 +667,22 @@ export class UsersService {
       });
     }
 
+    this.logger.log({
+      message: 'Admin edit completado',
+      userId,
+      performedByUserId,
+      rolesFinal: transactionResult.finalRoleCodes,
+      enrollmentsChanged: {
+        cancelled: transactionResult.cancelledEnrollmentIds.length,
+        created: transactionResult.createdEnrollmentIds.length,
+      },
+      professorCourseCyclesChanged: {
+        added: transactionResult.addedProfessorCourseCycleIds.length,
+        removed: transactionResult.removedProfessorCourseCycleIds.length,
+      },
+      timestamp: new Date().toISOString(),
+    });
+
     return {
       userId,
       rolesFinal: transactionResult.finalRoleCodes,
@@ -697,13 +714,15 @@ export class UsersService {
     const roleCodes = this.parseRoleCodesFilter(query.roles);
     const careerIds = this.parseCareerIdsFilter(query.careerIds);
     const isActive = this.parseStatusFilter(query.status);
-    const shouldUseBaseCache = !query.sortBy && this.shouldUseAdminUsersBaseCache({
-      page: safePage,
-      search: normalizedSearch,
-      roleCodes,
-      careerIds,
-      isActive,
-    });
+    const shouldUseBaseCache =
+      !query.sortBy &&
+      this.shouldUseAdminUsersBaseCache({
+        page: safePage,
+        search: normalizedSearch,
+        roleCodes,
+        careerIds,
+        isActive,
+      });
 
     if (shouldUseBaseCache) {
       const cacheKey = USER_CACHE_KEYS.ADMIN_USERS_TABLE_BASE_PAGE(safePage);
@@ -824,7 +843,9 @@ export class UsersService {
         LIMIT 1
       `,
     );
-    const activeCycleId = String(activeCycleRows[0]?.activeCycleId || '').trim();
+    const activeCycleId = String(
+      activeCycleRows[0]?.activeCycleId || '',
+    ).trim();
 
     const [enrolledCourses, teachingCourses] = await Promise.all([
       this.dataSource.query<
@@ -835,6 +856,7 @@ export class UsersService {
           courseCode: string;
           courseName: string;
           academicCycleCode: string;
+          enrollmentTypeCode: string;
         }>
       >(
         `
@@ -844,11 +866,13 @@ export class UsersService {
             cc.id AS courseCycleId,
             c.code AS courseCode,
             c.name AS courseName,
-            ac.code AS academicCycleCode
+            ac.code AS academicCycleCode,
+            UPPER(TRIM(et.code)) AS enrollmentTypeCode
           FROM enrollment e
           INNER JOIN course_cycle cc ON cc.id = e.course_cycle_id
           INNER JOIN course c ON c.id = cc.course_id
           INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+          INNER JOIN enrollment_type et ON et.id = e.enrollment_type_id
           WHERE e.user_id = ?
             AND e.cancelled_at IS NULL
             AND (? = '' OR cc.academic_cycle_id = ?)
@@ -887,6 +911,78 @@ export class UsersService {
       ),
     ]);
 
+    const enrolledRelationIds = enrolledCourses
+      .map((row) => String(row.relationId || '').trim())
+      .filter((value) => value.length > 0);
+
+    const enrolledEvaluationRows =
+      enrolledRelationIds.length > 0
+        ? await this.dataSource.query<
+            Array<{
+              enrollmentId: string;
+              evaluationId: string;
+              evaluationCourseCycleId: string;
+            }>
+          >(
+            `
+              SELECT
+                ee.enrollment_id AS enrollmentId,
+                ee.evaluation_id AS evaluationId,
+                ev.course_cycle_id AS evaluationCourseCycleId
+              FROM enrollment_evaluation ee
+              INNER JOIN evaluation ev ON ev.id = ee.evaluation_id
+              WHERE ee.enrollment_id IN (${enrolledRelationIds
+                .map(() => '?')
+                .join(',')})
+                AND ee.revoked_at IS NULL
+            `,
+            enrolledRelationIds,
+          )
+        : [];
+
+    const evaluationIdsByEnrollmentId = new Map<string, Set<string>>();
+    const historicalCyclesByEnrollmentId = new Map<string, Set<string>>();
+    const baseCycleByEnrollmentId = new Map<string, string>();
+
+    for (const row of enrolledCourses) {
+      const enrollmentId = String(row.relationId || '').trim();
+      const baseCourseCycleId = String(row.courseCycleId || '').trim();
+      if (enrollmentId && baseCourseCycleId) {
+        baseCycleByEnrollmentId.set(enrollmentId, baseCourseCycleId);
+      }
+    }
+
+    for (const row of enrolledEvaluationRows) {
+      const enrollmentId = String(row.enrollmentId || '').trim();
+      const evaluationId = String(row.evaluationId || '').trim();
+      const evaluationCourseCycleId = String(
+        row.evaluationCourseCycleId || '',
+      ).trim();
+      if (!enrollmentId || !evaluationId) {
+        continue;
+      }
+
+      if (!evaluationIdsByEnrollmentId.has(enrollmentId)) {
+        evaluationIdsByEnrollmentId.set(enrollmentId, new Set());
+      }
+      evaluationIdsByEnrollmentId.get(enrollmentId).add(evaluationId);
+
+      const baseCourseCycleId = baseCycleByEnrollmentId.get(enrollmentId);
+      if (
+        baseCourseCycleId &&
+        evaluationCourseCycleId &&
+        evaluationCourseCycleId !== baseCourseCycleId
+      ) {
+        if (!historicalCyclesByEnrollmentId.has(enrollmentId)) {
+          historicalCyclesByEnrollmentId.set(enrollmentId, new Set());
+        }
+        historicalCyclesByEnrollmentId
+          .get(enrollmentId)
+          .add(evaluationCourseCycleId);
+      }
+    }
+
+
     const orderedRoles = ROLE_DISPLAY_ORDER.filter((code) =>
       user.roles.some((role) => role.code === code),
     );
@@ -905,7 +1001,26 @@ export class UsersService {
         isActive: Boolean(user.isActive),
         profilePhotoUrl: user.profilePhotoUrl,
       },
-      enrolledCourses,
+      enrolledCourses: enrolledCourses.map((row) => {
+        const enrollmentId = String(row.relationId || '').trim();
+        return {
+          relationId: row.relationId,
+          courseId: row.courseId,
+          courseCycleId: row.courseCycleId,
+          courseCode: row.courseCode,
+          courseName: row.courseName,
+          academicCycleCode: row.academicCycleCode,
+          enrollmentTypeCode: String(row.enrollmentTypeCode || '')
+            .trim()
+            .toUpperCase() as 'FULL' | 'PARTIAL',
+          evaluationIds: Array.from(
+            evaluationIdsByEnrollmentId.get(enrollmentId) || [],
+          ).sort(),
+          historicalCourseCycleIds: Array.from(
+            historicalCyclesByEnrollmentId.get(enrollmentId) || [],
+          ).sort(),
+        };
+      }),
       teachingCourses,
     };
   }
@@ -1632,6 +1747,7 @@ export class UsersService {
       [input.userId],
     );
 
+
     const currentEnrollmentIds = currentEnrollmentRows
       .map((row) => String(row.id || '').trim())
       .filter((id) => id.length > 0);
@@ -1730,44 +1846,59 @@ export class UsersService {
       ).sort();
     }
 
+
     const cancelledEnrollmentIds: string[] = [];
     const createdEnrollmentIds: string[] = [];
-    const desiredByCourseCycle = new Map(
-      desiredEnrollments.map((payload) => [payload.courseCycleId, payload]),
-    );
 
-    for (const current of currentByCourseCycle.values()) {
-      if (desiredByCourseCycle.has(current.courseCycleId)) {
-        continue;
+    if (!shouldKeepStudentState) {
+      for (const current of currentByCourseCycle.values()) {
+        const cancelResult = await input.manager.query<{ affectedRows?: number }>(
+          `
+            UPDATE enrollment
+            SET cancelled_at = NOW()
+            WHERE id = ?
+              AND cancelled_at IS NULL
+          `,
+          [current.enrollmentId],
+        );
+        const cancelledRows = Number(
+          (cancelResult as unknown as { affectedRows?: number })?.affectedRows ||
+            0,
+        );
+        cancelledEnrollmentIds.push(current.enrollmentId);
+
+        if (cancelledRows !== 1) {
+          this.logger.warn({
+            message:
+              'Admin edit - cancelacion de matricula fuera de lo esperado al retirar rol STUDENT',
+            userId: input.userId,
+            enrollmentId: current.enrollmentId,
+            courseCycleId: current.courseCycleId,
+            affectedRows: cancelledRows,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
-      await input.manager.query(
-        `
-          UPDATE enrollment
-          SET cancelled_at = NOW()
-          WHERE id = ?
-            AND cancelled_at IS NULL
-        `,
-        [current.enrollmentId],
-      );
-      cancelledEnrollmentIds.push(current.enrollmentId);
     }
 
     for (const payload of desiredEnrollments) {
       const current = currentByCourseCycle.get(payload.courseCycleId);
+      const desiredPlan = await this.resolveEnrollmentGrantPlanForOnboarding({
+        payload,
+        manager: input.manager,
+      });
+
+
       if (!current) {
         const created = await this.createEnrollmentForOnboarding({
           userId: input.userId,
           payload,
+          precomputedPlan: desiredPlan,
           manager: input.manager,
         });
         createdEnrollmentIds.push(created.enrollmentId);
         continue;
       }
-
-      const desiredPlan = await this.resolveEnrollmentGrantPlanForOnboarding({
-        payload,
-        manager: input.manager,
-      });
       const shouldReplace = this.shouldReplaceEnrollmentForAdminEdit({
         current,
         desiredPlan: {
@@ -1780,23 +1911,13 @@ export class UsersService {
         continue;
       }
 
-      await input.manager.query(
-        `
-          UPDATE enrollment
-          SET cancelled_at = NOW()
-          WHERE id = ?
-            AND cancelled_at IS NULL
-        `,
-        [current.enrollmentId],
-      );
-      cancelledEnrollmentIds.push(current.enrollmentId);
-
-      const created = await this.createEnrollmentForOnboarding({
+      await this.updateEnrollmentForAdminEdit({
         userId: input.userId,
-        payload,
+        enrollmentId: current.enrollmentId,
+        payloadCourseCycleId: payload.courseCycleId,
+        desiredPlan,
         manager: input.manager,
       });
-      createdEnrollmentIds.push(created.enrollmentId);
     }
 
     return { cancelledEnrollmentIds, createdEnrollmentIds };
@@ -2117,6 +2238,15 @@ export class UsersService {
   private async createEnrollmentForOnboarding(input: {
     userId: string;
     payload: AdminStudentEnrollmentInputDto;
+    precomputedPlan?: {
+      enrollmentTypeCode: string;
+      enrollmentTypeId: string;
+      enrollmentStatusId: string;
+      baseCourseCycle: CourseCycle;
+      allowedCourseCycleIds: string[];
+      historicalCourseCycleIds: string[];
+      grantedEvaluationIds: string[];
+    };
     manager: EntityManager;
   }): Promise<{
     enrollmentId: string;
@@ -2124,23 +2254,38 @@ export class UsersService {
     grantedCourseCycleIds: string[];
   }> {
     const { userId, payload, manager } = input;
-    const activeEnrollment = await manager.getRepository(Enrollment).findOne({
-      where: {
+    const activeEnrollmentRows = await manager.query<Array<{ id: string }>>(
+      `
+        SELECT e.id AS id
+        FROM enrollment e
+        WHERE e.user_id = ?
+          AND e.course_cycle_id = ?
+          AND e.cancelled_at IS NULL
+        LIMIT 1
+      `,
+      [userId, payload.courseCycleId],
+    );
+    const activeEnrollmentId = String(activeEnrollmentRows[0]?.id || '').trim();
+    if (activeEnrollmentId) {
+      this.logger.warn({
+        message:
+          'Onboarding/AdminEdit - conflicto por matricula activa existente antes de crear',
         userId,
         courseCycleId: payload.courseCycleId,
-        cancelledAt: null,
-      },
-    });
-    if (activeEnrollment) {
+        existingEnrollmentId: activeEnrollmentId,
+        timestamp: new Date().toISOString(),
+      });
       throw new ConflictException(
         'El usuario ya cuenta con una matricula activa en este curso.',
       );
     }
 
-    const plan = await this.resolveEnrollmentGrantPlanForOnboarding({
-      payload,
-      manager,
-    });
+    const plan =
+      input.precomputedPlan ||
+      (await this.resolveEnrollmentGrantPlanForOnboarding({
+        payload,
+        manager,
+      }));
     const now = new Date();
 
     let enrollment: Enrollment;
@@ -2157,6 +2302,13 @@ export class UsersService {
       );
     } catch (error) {
       if (this.isActiveEnrollmentDuplicateError(error)) {
+        this.logger.warn({
+          message:
+            'Onboarding/AdminEdit - conflicto por indice unico de matricula activa al guardar',
+          userId,
+          courseCycleId: payload.courseCycleId,
+          timestamp: new Date().toISOString(),
+        });
         throw new ConflictException(
           'El usuario ya cuenta con una matricula activa en este curso.',
         );
@@ -2186,11 +2338,155 @@ export class UsersService {
       await manager.getRepository(EnrollmentEvaluation).save(records);
     }
 
+
     return {
       enrollmentId: enrollment.id,
       grantedEvaluationIds,
       grantedCourseCycleIds: plan.allowedCourseCycleIds,
     };
+  }
+
+  private async updateEnrollmentForAdminEdit(input: {
+    userId: string;
+    enrollmentId: string;
+    payloadCourseCycleId: string;
+    desiredPlan: {
+      enrollmentTypeCode: string;
+      enrollmentTypeId: string;
+      enrollmentStatusId: string;
+      baseCourseCycle: CourseCycle;
+      allowedCourseCycleIds: string[];
+      historicalCourseCycleIds: string[];
+      grantedEvaluationIds: string[];
+    };
+    manager: EntityManager;
+  }): Promise<void> {
+    await input.manager.query<{ affectedRows?: number }>(
+      `
+        UPDATE enrollment
+        SET enrollment_type_id = ?,
+            enrollment_status_id = ?
+        WHERE id = ?
+          AND cancelled_at IS NULL
+      `,
+      [
+        input.desiredPlan.enrollmentTypeId,
+        input.desiredPlan.enrollmentStatusId,
+        input.enrollmentId,
+      ],
+    );
+
+    await this.syncEnrollmentEvaluationsForAdminEdit({
+      userId: input.userId,
+      enrollmentId: input.enrollmentId,
+      payloadCourseCycleId: input.payloadCourseCycleId,
+      desiredPlan: input.desiredPlan,
+      manager: input.manager,
+    });
+  }
+
+  private async syncEnrollmentEvaluationsForAdminEdit(input: {
+    userId: string;
+    enrollmentId: string;
+    payloadCourseCycleId: string;
+    desiredPlan: {
+      baseCourseCycle: CourseCycle;
+      grantedEvaluationIds: string[];
+    };
+    manager: EntityManager;
+  }): Promise<void> {
+    const rows = await input.manager.query<
+      Array<{ evaluationId: string; revokedAt: Date | null }>
+    >(
+      `
+        SELECT
+          ee.evaluation_id AS evaluationId,
+          ee.revoked_at AS revokedAt
+        FROM enrollment_evaluation ee
+        WHERE ee.enrollment_id = ?
+      `,
+      [input.enrollmentId],
+    );
+
+    const desiredSet = new Set(
+      input.desiredPlan.grantedEvaluationIds.map((id) => String(id || '').trim()),
+    );
+    const allSet = new Set(
+      rows
+        .map((row) => String(row.evaluationId || '').trim())
+        .filter((id) => id.length > 0),
+    );
+    const activeSet = new Set(
+      rows
+        .filter((row) => row.revokedAt == null)
+        .map((row) => String(row.evaluationId || '').trim())
+        .filter((id) => id.length > 0),
+    );
+
+    const toRevoke = Array.from(activeSet).filter((id) => !desiredSet.has(id));
+    const toReactivate = Array.from(desiredSet).filter(
+      (id) => allSet.has(id) && !activeSet.has(id),
+    );
+    const toInsert = Array.from(desiredSet).filter((id) => !allSet.has(id));
+
+    if (toRevoke.length > 0) {
+      await input.manager.query(
+        `
+          UPDATE enrollment_evaluation
+          SET revoked_at = NOW(),
+              is_active = 0
+          WHERE enrollment_id = ?
+            AND revoked_at IS NULL
+            AND evaluation_id IN (${toRevoke.map(() => '?').join(',')})
+        `,
+        [input.enrollmentId, ...toRevoke],
+      );
+    }
+
+    const accessStartDate = toBusinessDayStartUtc(
+      input.desiredPlan.baseCourseCycle.academicCycle.startDate,
+    );
+    const accessEndDate = toBusinessDayEndUtc(
+      input.desiredPlan.baseCourseCycle.academicCycle.endDate,
+    );
+
+    if (toReactivate.length > 0) {
+      await input.manager.query(
+        `
+          UPDATE enrollment_evaluation
+          SET revoked_at = NULL,
+              revoked_by = NULL,
+              is_active = 1,
+              access_start_date = ?,
+              access_end_date = ?
+          WHERE enrollment_id = ?
+            AND revoked_at IS NOT NULL
+            AND evaluation_id IN (${toReactivate.map(() => '?').join(',')})
+        `,
+        [
+          accessStartDate,
+          accessEndDate,
+          input.enrollmentId,
+          ...toReactivate,
+        ],
+      );
+    }
+
+    if (toInsert.length > 0) {
+      const records = toInsert.map((evaluationId) =>
+        input.manager.getRepository(EnrollmentEvaluation).create({
+          enrollmentId: input.enrollmentId,
+          evaluationId,
+          accessStartDate: new Date(accessStartDate),
+          accessEndDate: new Date(accessEndDate),
+          isActive: true,
+          revokedAt: null,
+          revokedBy: null,
+        }),
+      );
+      await input.manager.getRepository(EnrollmentEvaluation).save(records);
+    }
+
   }
 
   private async assignProfessorCourseCyclesForOnboarding(input: {

@@ -69,4 +69,3 @@ describe('ClassEventsSchedulingService', () => {
     ).not.toThrow();
   });
 });
-

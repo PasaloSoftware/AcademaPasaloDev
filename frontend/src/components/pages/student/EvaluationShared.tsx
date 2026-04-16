@@ -158,7 +158,7 @@ export function getMinutesSinceStart(startDatetime: string): number {
 export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType: SessionCardType }) {
   if (event.isCancelled) {
     return (
-      <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center">
+      <div className="px-2 py-1 bg-red-50 rounded-full flex justify-center items-center">
         <span className="text-text-error-primary text-[10px] font-semibold leading-3">
           CANCELADA
         </span>
@@ -168,7 +168,7 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
 
   if (cardType === "EN_VIVO") {
     return (
-      <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center gap-1">
+      <div className="px-2 py-1 bg-red-50 rounded-full flex justify-center items-center gap-1">
         <Icon name="circle" size={12} className="text-icon-error-primary" variant="rounded" />
         <span className="text-text-error-primary text-[10px] font-semibold leading-3">
           EN VIVO
@@ -179,7 +179,7 @@ export function SessionBadge({ event, cardType }: { event: ClassEvent; cardType:
 
   if (cardType === "EN_VIVO_PRONTO") {
     return (
-      <div className="px-2 py-1 bg-bg-error-light rounded-full flex justify-center items-center gap-1">
+      <div className="px-2 py-1 bg-red-50 rounded-full flex justify-center items-center gap-1">
         <span className="text-text-error-primary text-[10px] font-semibold leading-3">
           PRÓXIMA
         </span>
@@ -474,12 +474,6 @@ export function ClassSessionCard({
                     className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
                   >
                     <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleAction("duplicate"); }}
-                    className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
-                  >
-                    <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Duplicar</span>
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction("copy-summary"); }}

@@ -135,7 +135,7 @@ export default function CourseCard({
             <div className="self-stretch inline-flex justify-start items-center gap-2">
               <TeacherAvatars teachers={teachers} />
               <div className="flex-1 self-stretch inline-flex flex-col justify-center items-start gap-0.5">
-                <span className="text-text-quartiary text-[10px] font-medium leading-3">
+                <span className="text-gray-600 text-[10px] font-medium leading-3">
                   ASESOR
                 </span>
                 <span className="self-stretch text-text-secondary text-base font-normal leading-4 line-clamp-2">
@@ -190,7 +190,7 @@ export default function CourseCard({
           <div className="self-stretch inline-flex justify-start items-center gap-2">
             <TeacherAvatars teachers={teachers} />
             <div className="flex-1 self-stretch inline-flex flex-col justify-center items-start gap-0.5">
-              <span className="text-text-quartiary text-[10px] font-medium leading-3">
+              <span className="text-gray-600 text-[10px] font-medium leading-3">
                 ASESOR
               </span>
               <span className="self-stretch text-text-secondary text-base font-normal leading-4 line-clamp-2">

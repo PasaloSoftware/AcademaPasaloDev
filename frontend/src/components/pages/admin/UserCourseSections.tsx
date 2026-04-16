@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/Icon';
 import FloatingInput from '@/components/ui/FloatingInput';
 import Modal from '@/components/ui/Modal';
+import { useAuth } from '@/contexts/AuthContext';
 import { usersService } from '@/services/users.service';
 import type { AdminUserDetailCourse } from '@/services/users.service';
 
@@ -119,6 +120,7 @@ export function PersonalInfoSection({
   idPrefix?: string;
 }) {
   const [careers, setCareers] = useState<Array<{ id: number; name: string }>>([]);
+  const phoneIsValid = data.phone.length === 0 || data.phone.length === 9;
 
   useEffect(() => {
     usersService.getCareers().then(setCareers).catch(() => setCareers([]));
@@ -135,7 +137,15 @@ export function PersonalInfoSection({
         <FloatingInput id={`${idPrefix}-lastName1`} label="Primer Apellido" value={data.lastName1} onChange={(v) => onChange('lastName1', v)} />
         <FloatingInput id={`${idPrefix}-lastName2`} label="Segundo Apellido" value={data.lastName2} onChange={(v) => onChange('lastName2', v)} />
         <FloatingInput id={`${idPrefix}-email`} label="Correo Electrónico" value={data.email} onChange={(v) => onChange('email', v)} />
-        <FloatingInput id={`${idPrefix}-phone`} label="Teléfono" value={data.phone} onChange={(v) => onChange('phone', v)} />
+        <FloatingInput
+          id={`${idPrefix}-phone`}
+          label="Teléfono"
+          value={data.phone}
+          onChange={(v) => onChange('phone', v.replace(/\D/g, '').slice(0, 9))}
+          helperText={!phoneIsValid ? 'El teléfono debe tener exactamente 9 dígitos' : undefined}
+          maxLength={9}
+          inputMode="numeric"
+        />
         <CareerSearchSelect value={data.career} careers={careers} onChange={(v) => onChange('career', v)} />
       </div>
     </div>
@@ -221,11 +231,11 @@ function CourseCard({
 
 function CourseSearchInput({
   placeholder,
-  existingCourseIds,
+  existingCourseCycleIds,
   onSelect,
 }: {
   placeholder: string;
-  existingCourseIds: string[];
+  existingCourseCycleIds: string[];
   onSelect: (course: CourseCatalogItem, courseCycleId: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -251,7 +261,6 @@ function CourseSearchInput({
   }, []);
 
   const filtered = catalog.filter((c) =>
-    !existingCourseIds.includes(c.courseId) &&
     (c.courseName.toLowerCase().includes(query.toLowerCase()) || c.courseCode.toLowerCase().includes(query.toLowerCase()))
   );
 
@@ -260,6 +269,11 @@ function CourseSearchInput({
     try {
       const cycleData = await usersService.getCourseCycleOptions(course.courseId);
       if (cycleData.currentCycle) {
+        if (existingCourseCycleIds.includes(cycleData.currentCycle.courseCycleId)) {
+          setQuery('');
+          setShowDropdown(false);
+          return;
+        }
         onSelect(course, cycleData.currentCycle.courseCycleId);
       }
     } catch {
@@ -326,34 +340,61 @@ interface EnrollmentModalProps {
   courseId: string;
   courseCycleId: string;
   studentName: string;
+  initialEnrollmentTypeCode?: 'FULL' | 'PARTIAL';
+  initialEvaluationIds?: string[];
+  initialHistoricalCourseCycleIds?: string[];
 }
 
-function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, courseCycleId, studentName }: EnrollmentModalProps) {
+function EnrollmentModal({
+  isOpen,
+  onClose,
+  onSave,
+  courseName,
+  courseId,
+  courseCycleId,
+  studentName,
+  initialEnrollmentTypeCode,
+  initialEvaluationIds,
+  initialHistoricalCourseCycleIds,
+}: EnrollmentModalProps) {
   const [enrollmentType, setEnrollmentType] = useState<'FULL' | 'PARTIAL'>('FULL');
   const [evaluations, setEvaluations] = useState<Array<{ id: string; shortName: string }>>([]);
   const [selectedEvalIds, setSelectedEvalIds] = useState<Set<string>>(new Set());
   const [historicalCycles, setHistoricalCycles] = useState<Array<{ courseCycleId: string; academicCycleCode: string }>>([]);
   const [selectedHistoricalIds, setSelectedHistoricalIds] = useState<Set<string>>(new Set());
-  const [showHistorical, setShowHistorical] = useState(true);
+  const [showHistorical, setShowHistorical] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !courseCycleId) return;
     setLoadingDetail(true);
-    setEnrollmentType('FULL');
-    setSelectedEvalIds(new Set());
+    setEnrollmentType(initialEnrollmentTypeCode || 'FULL');
+    setSelectedEvalIds(new Set(initialEvaluationIds || []));
     setSelectedHistoricalIds(new Set());
-    setShowHistorical(true);
+    setShowHistorical((initialEnrollmentTypeCode ?? 'FULL') === 'FULL');
 
     usersService.getCourseCycleDetail(courseCycleId)
       .then((detail) => {
         setEvaluations(detail.evaluations.map((e) => ({ id: e.id, shortName: e.shortName })));
         setHistoricalCycles(detail.historicalCycles);
-        setSelectedHistoricalIds(new Set(detail.historicalCycles.map((c) => c.courseCycleId)));
+        setSelectedHistoricalIds(
+          new Set(
+            initialHistoricalCourseCycleIds &&
+            initialHistoricalCourseCycleIds.length > 0
+              ? initialHistoricalCourseCycleIds
+              : detail.historicalCycles.map((c) => c.courseCycleId),
+          ),
+        );
       })
       .catch(() => { setEvaluations([]); setHistoricalCycles([]); })
       .finally(() => setLoadingDetail(false));
-  }, [isOpen, courseCycleId]);
+  }, [
+    isOpen,
+    courseCycleId,
+    initialEnrollmentTypeCode,
+    initialEvaluationIds,
+    initialHistoricalCourseCycleIds,
+  ]);
 
   const toggleEval = (id: string) => {
     setSelectedEvalIds((prev) => {
@@ -374,6 +415,7 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
   };
 
   const canSave = enrollmentType === 'FULL' || selectedEvalIds.size > 0;
+
 
   const handleSave = () => {
     onSave({
@@ -426,7 +468,7 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
 
         {/* Enrollment type */}
         <div className="flex flex-col gap-2">
-          <span className="text-text-quartiary text-sm font-medium leading-4">Modalidad de Inscripción</span>
+          <span className="text-gray-600 text-sm font-medium leading-4">Modalidad de Inscripción</span>
 
           {/* FULL */}
           <button
@@ -449,7 +491,10 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
           {/* PARTIAL */}
           <div className="flex flex-col">
             <button
-              onClick={() => setEnrollmentType('PARTIAL')}
+              onClick={() => {
+                setEnrollmentType('PARTIAL');
+                setShowHistorical(false);
+              }}
               className={`p-4 rounded-lg flex flex-col gap-0 transition-colors ${
                 enrollmentType === 'PARTIAL'
                   ? 'outline outline-1 outline-stroke-accent-primary'
@@ -497,7 +542,7 @@ function EnrollmentModal({ isOpen, onClose, onSave, courseName, courseId, course
               </div>
               <div className="flex-1 flex flex-col gap-1">
                 <span className="text-text-primary text-base font-semibold leading-5">Ciclos Pasados</span>
-                <span className="text-text-quartiary text-xs font-normal leading-4">Habilitar material histórico</span>
+                <span className="text-gray-600 text-xs font-normal leading-4">Habilitar material histórico</span>
               </div>
             </div>
             {/* Toggle */}
@@ -549,15 +594,21 @@ export function EnrollmentSection({
   readOnly?: boolean;
   studentName?: string;
 }) {
-  const existingCourseIds = courses.map((c) => c.courseId);
+  const existingCourseCycleIds = courses.map((c) => c.courseCycleId);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingCourse, setPendingCourse] = useState<{ courseId: string; courseName: string; courseCode: string; courseCycleId: string } | null>(null);
   const [editingRelationId, setEditingRelationId] = useState<string | null>(null);
+  const [editingConfig, setEditingConfig] = useState<{
+    enrollmentTypeCode?: 'FULL' | 'PARTIAL';
+    evaluationIds?: string[];
+    historicalCourseCycleIds?: string[];
+  } | null>(null);
 
   const handleSearchSelect = (catalog: CourseCatalogItem, courseCycleId: string) => {
     setEditingRelationId(null);
+    setEditingConfig(null);
     setPendingCourse({ courseId: catalog.courseId, courseName: catalog.courseName, courseCode: catalog.courseCode, courseCycleId });
     setModalOpen(true);
   };
@@ -615,7 +666,7 @@ export function EnrollmentSection({
       {!readOnly && (
         <CourseSearchInput
           placeholder="Buscar curso para matricular..."
-          existingCourseIds={existingCourseIds}
+          existingCourseCycleIds={existingCourseCycleIds}
           onSelect={handleSearchSelect}
         />
       )}
@@ -623,7 +674,7 @@ export function EnrollmentSection({
       {courses.length > 0 && (
         <div className="flex flex-col gap-5">
           <span className="text-gray-600 text-sm font-semibold leading-4">Cursos Matriculados</span>
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {courses.map((course) => (
               <CourseCard
                 key={course.relationId}
@@ -632,6 +683,11 @@ export function EnrollmentSection({
                 onEdit={!readOnly ? () => {
                   setPendingCourse({ courseId: course.courseId, courseName: course.courseName, courseCode: course.courseCode, courseCycleId: course.courseCycleId });
                   setEditingRelationId(course.relationId);
+                  setEditingConfig({
+                    enrollmentTypeCode: course.enrollmentTypeCode,
+                    evaluationIds: course.evaluationIds || [],
+                    historicalCourseCycleIds: course.historicalCourseCycleIds || [],
+                  });
                   setModalOpen(true);
                 } : undefined}
                 onRemove={!readOnly ? () => handleRemove(course.relationId) : undefined}
@@ -645,12 +701,20 @@ export function EnrollmentSection({
       {pendingCourse && (
         <EnrollmentModal
           isOpen={modalOpen}
-          onClose={() => { setModalOpen(false); setPendingCourse(null); setEditingRelationId(null); }}
+          onClose={() => {
+            setModalOpen(false);
+            setPendingCourse(null);
+            setEditingRelationId(null);
+            setEditingConfig(null);
+          }}
           onSave={handleModalSave}
           courseName={pendingCourse.courseName}
           courseId={pendingCourse.courseId}
           courseCycleId={pendingCourse.courseCycleId}
           studentName={studentName}
+          initialEnrollmentTypeCode={editingConfig?.enrollmentTypeCode}
+          initialEvaluationIds={editingConfig?.evaluationIds}
+          initialHistoricalCourseCycleIds={editingConfig?.historicalCourseCycleIds}
         />
       )}
     </div>
@@ -670,7 +734,7 @@ export function TeachingSection({
   onCoursesChange?: (courses: AdminUserDetailCourse[]) => void;
   readOnly?: boolean;
 }) {
-  const existingCourseIds = courses.map((c) => c.courseId);
+  const existingCourseCycleIds = courses.map((c) => c.courseCycleId);
 
   const handleAdd = (catalog: CourseCatalogItem, courseCycleId: string) => {
     if (!onCoursesChange) return;
@@ -703,7 +767,7 @@ export function TeachingSection({
       {!readOnly && (
         <CourseSearchInput
           placeholder="Buscar curso para asignar..."
-          existingCourseIds={existingCourseIds}
+          existingCourseCycleIds={existingCourseCycleIds}
           onSelect={handleAdd}
         />
       )}
@@ -711,7 +775,7 @@ export function TeachingSection({
       {courses.length > 0 && (
         <div className="flex flex-col gap-5">
           <span className="text-gray-600 text-sm font-semibold leading-4">Cursos Asignados</span>
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {courses.map((course) => (
               <CourseCard
                 key={course.relationId}
@@ -732,10 +796,10 @@ export function TeachingSection({
 // ============================================
 
 const ROLE_OPTIONS = [
-  { code: 'STUDENT', label: 'Alumno', adminOnly: false },
-  { code: 'PROFESSOR', label: 'Asesor', adminOnly: false },
-  { code: 'ADMIN', label: 'Administrador', adminOnly: true },
-  { code: 'SUPER_ADMIN', label: 'Superadministrador', adminOnly: true },
+  { code: 'STUDENT', label: 'Alumno', requiresSuperAdmin: false, alwaysDisabled: false },
+  { code: 'PROFESSOR', label: 'Asesor', requiresSuperAdmin: false, alwaysDisabled: false },
+  { code: 'ADMIN', label: 'Administrador', requiresSuperAdmin: true, alwaysDisabled: false },
+  { code: 'SUPER_ADMIN', label: 'Superadministrador', requiresSuperAdmin: false, alwaysDisabled: true },
 ];
 
 /** Maps backend role labels (e.g. "Alumno") to role codes (e.g. "STUDENT") */
@@ -765,8 +829,20 @@ export function RoleAssignmentSection({
   onTeachingCoursesChange: (courses: AdminUserDetailCourse[]) => void;
   studentName?: string;
 }) {
+  const { user } = useAuth();
   const hasStudentRole = selectedRoles.has('STUDENT');
   const hasTeacherRole = selectedRoles.has('PROFESSOR');
+  const activeRoleCode = (() => {
+    if (!user?.roles?.length) return null;
+    if (user.lastActiveRoleId) {
+      const activeRole = user.roles.find(
+        (role) => (role.id || role.code) === user.lastActiveRoleId,
+      );
+      if (activeRole) return activeRole.code;
+    }
+    return user.roles[0]?.code || null;
+  })();
+  const canManageAdminRole = activeRoleCode === 'SUPER_ADMIN';
 
   return (
     <div className="flex flex-col">
@@ -776,9 +852,9 @@ export function RoleAssignmentSection({
           <span className="flex-1 text-text-primary text-lg font-semibold leading-5">Asignación de Roles</span>
         </div>
         <div className="flex flex-col gap-4">
-          {ROLE_OPTIONS.map(({ code, label, adminOnly }) => {
+          {ROLE_OPTIONS.map(({ code, label, requiresSuperAdmin, alwaysDisabled }) => {
             const checked = selectedRoles.has(code);
-            const disabled = adminOnly;
+            const disabled = alwaysDisabled || (requiresSuperAdmin && !canManageAdminRole);
             return (
               <button
                 key={code}

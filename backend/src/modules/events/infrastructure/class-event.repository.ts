@@ -67,6 +67,7 @@ export class ClassEventRepository {
       )
       .leftJoinAndSelect('professors.professor', 'professor')
       .where('classEvent.id = :id', { id })
+      .andWhere('classEvent.isCancelled = :isCancelled', { isCancelled: false })
       .getOne();
   }
 
@@ -124,6 +125,7 @@ export class ClassEventRepository {
       )
       .leftJoinAndSelect('professors.professor', 'professor')
       .where('classEvent.evaluationId = :evaluationId', { evaluationId })
+      .andWhere('classEvent.isCancelled = :isCancelled', { isCancelled: false })
       .orderBy('classEvent.sessionNumber', 'ASC')
       .getMany();
   }
@@ -140,6 +142,7 @@ export class ClassEventRepository {
       where: {
         evaluationId,
         sessionNumber,
+        isCancelled: false,
       },
     });
   }
@@ -194,10 +197,16 @@ export class ClassEventRepository {
     const repo = manager
       ? manager.getRepository(ClassEvent)
       : this.ormRepository;
-    await repo.update(id, {
-      isCancelled: true,
-      updatedAt: new Date(),
-    });
+    await repo
+      .createQueryBuilder()
+      .update(ClassEvent)
+      .set({
+        isCancelled: true,
+        sessionNumber: null as unknown as number,
+        updatedAt: new Date(),
+      })
+      .where('id = :id', { id })
+      .execute();
   }
 
   async findOverlap(
@@ -302,9 +311,6 @@ export class ClassEventRepository {
     return await qb
       .where(':startDate < classEvent.endDatetime', { startDate })
       .andWhere(':endDate > classEvent.startDatetime', { endDate })
-      .andWhere('classEvent.isCancelled = :isCancelled', {
-        isCancelled: false,
-      })
       .andWhere(
         new Brackets((where) => {
           where

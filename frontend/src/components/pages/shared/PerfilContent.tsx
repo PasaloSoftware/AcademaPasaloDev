@@ -19,12 +19,30 @@ export default function PerfilContent() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
 
+  const activeRoleCode = (() => {
+    if (!user?.roles?.length) return null;
+    if (user.lastActiveRoleId) {
+      const activeRole = user.roles.find(
+        (role) => (role.id || role.code) === user.lastActiveRoleId,
+      );
+      if (activeRole) return activeRole.code;
+    }
+    return user.roles[0]?.code || null;
+  })();
+  const shouldShowEnrolledCourses = activeRoleCode === 'STUDENT';
+
   useEffect(() => {
     setBreadcrumbItems([{ label: 'Mi Perfil' }]);
   }, [setBreadcrumbItems]);
 
   // Load enrolled courses
   useEffect(() => {
+    if (!shouldShowEnrolledCourses) {
+      setEnrollments([]);
+      setLoadingCourses(false);
+      return;
+    }
+
     async function loadCourses() {
       try {
         const response = await enrollmentService.getMyCourses();
@@ -39,7 +57,7 @@ export default function PerfilContent() {
       }
     }
     loadCourses();
-  }, []);
+  }, [shouldShowEnrolledCourses]);
 
   if (!user) return null;
 
@@ -142,7 +160,7 @@ export default function PerfilContent() {
       </div>
 
       {/* ====== Cursos Inscritos (solo para roles con cursos) ====== */}
-      {user.roles.some((r) => r.code === 'STUDENT' || r.code === 'PROFESSOR') && (
+      {shouldShowEnrolledCourses && (
       <div className="self-stretch p-6 bg-white rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-slate-100 flex flex-col justify-start items-start gap-6">
         <div className="self-stretch inline-flex justify-start items-center gap-5">
           <div className="flex-1 flex justify-start items-start gap-2">

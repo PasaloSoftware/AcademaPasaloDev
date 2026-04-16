@@ -169,7 +169,9 @@ describe('ClassEventRecordingDriveService', () => {
     const mockClient = {
       request: jest
         .fn()
-        .mockResolvedValue({ data: { id: 'drive-file-1', copyRequiresWriterPermission: true } }),
+        .mockResolvedValue({
+          data: { id: 'drive-file-1', copyRequiresWriterPermission: true },
+        }),
     };
     googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
 
@@ -194,7 +196,9 @@ describe('ClassEventRecordingDriveService', () => {
     const mockClient = {
       request: jest
         .fn()
-        .mockResolvedValue({ data: { id: 'drive-file-1', copyRequiresWriterPermission: false } }),
+        .mockResolvedValue({
+          data: { id: 'drive-file-1', copyRequiresWriterPermission: false },
+        }),
     };
     googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
 

@@ -19,6 +19,7 @@ type CourseCycleDriveProvisionInput = {
   cycleCode: string;
   courseCode: string;
   bankCards: Array<{ evaluationTypeCode: string; number: number }>;
+  bankFolders?: Array<{ groupName: string; items: string[] }>;
 };
 
 type CourseCycleDriveProvisionResult = {
@@ -32,6 +33,33 @@ type CourseCycleDriveProvisionResult = {
 type BankLeafFolderResolutionInput = CourseCycleDriveProvisionInput & {
   evaluationTypeCode: string;
   evaluationNumber: number;
+  groupName?: string;
+  leafFolderName?: string;
+};
+
+type BankGroupFolderMutationInput = {
+  courseCycleId: string;
+  cycleCode: string;
+  courseCode: string;
+  currentGroupName: string;
+  nextGroupName: string;
+};
+
+type BankLeafFolderMutationInput = {
+  courseCycleId: string;
+  cycleCode: string;
+  courseCode: string;
+  groupName: string;
+  currentLeafFolderName: string;
+  nextLeafFolderName: string;
+};
+
+type BankFolderDeletionInput = {
+  courseCycleId: string;
+  cycleCode: string;
+  courseCode: string;
+  groupName: string;
+  leafFolderName?: string;
 };
 
 const BANK_TYPE_FOLDER_LABELS: Record<string, string> = {
@@ -57,44 +85,15 @@ export class CourseCycleDriveProvisioningService {
   async provision(
     input: CourseCycleDriveProvisionInput,
   ): Promise<CourseCycleDriveProvisionResult> {
+    const resolvedScope = await this.ensureCourseCycleScopeFolders(input);
+    const {
+      courseCycleId,
+      scopeFolderId,
+      bankFolderId,
+      viewerGroupEmail,
+      professorGroupEmail,
+    } = resolvedScope;
     const workspaceDomain = this.getWorkspaceGroupDomain();
-    const courseCycleId = this.normalizeNumericId(
-      input.courseCycleId,
-      'courseCycleId',
-    );
-    const cycleCode = this.normalizeToken(input.cycleCode, 'cycleCode');
-    const courseCode = this.normalizeToken(input.courseCode, 'courseCode');
-    const viewerGroupEmail = `cc-${courseCycleId}-viewers@${workspaceDomain}`;
-    const professorGroupEmail = `cc-${courseCycleId}-professors@${workspaceDomain}`;
-
-    await this.driveScopeProvisioningService.validateRootFolder();
-    const rootFolderId = this.driveScopeProvisioningService.getRootFolderId();
-
-    const courseCyclesParent =
-      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
-        rootFolderId,
-        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
-      );
-    const cycleFolderId =
-      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
-        courseCyclesParent,
-        cycleCode,
-      );
-    const scopeFolderId =
-      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
-        cycleFolderId,
-        `cc_${courseCycleId}_${courseCode}`,
-      );
-    const introFolderId =
-      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
-        scopeFolderId,
-        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLE_INTRO_VIDEO,
-      );
-    const bankFolderId =
-      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
-        scopeFolderId,
-        BANK_DOCUMENTS_FOLDER_NAME,
-      );
 
     const group = await this.workspaceGroupsService.findOrCreateGroup({
       email: viewerGroupEmail,
@@ -132,20 +131,18 @@ export class CourseCycleDriveProvisioningService {
     }
 
     let bankLeafFoldersCreated = 0;
-    const grouped = this.groupBankCardsByType(input.bankCards);
-    for (const [evaluationTypeCode, numbers] of grouped.entries()) {
-      const typeFolderLabel =
-        BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode;
+    const bankGroups = this.resolveBankGroups(input);
+    for (const group of bankGroups) {
       const typeFolderId =
         await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
           bankFolderId,
-          typeFolderLabel,
+          group.groupName,
         );
 
-      for (const number of numbers) {
+      for (const itemName of group.items) {
         await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
           typeFolderId,
-          `${evaluationTypeCode}${number}`,
+          itemName,
         );
         bankLeafFoldersCreated += 1;
       }
@@ -159,7 +156,7 @@ export class CourseCycleDriveProvisioningService {
 
     return {
       scopeFolderId,
-      introFolderId,
+      introFolderId: resolvedScope.introFolderId,
       bankFolderId,
       viewerGroupEmail: group.email,
       bankLeafFoldersCreated,
@@ -181,17 +178,21 @@ export class CourseCycleDriveProvisioningService {
       input.evaluationNumber,
       'evaluationNumber',
     );
-    const typeFolderLabel =
-      BANK_TYPE_FOLDER_LABELS[normalizedTypeCode] || normalizedTypeCode;
+    const typeFolderLabel = this.normalizeOptionalFolderName(input.groupName)
+      ? this.normalizeOptionalFolderName(input.groupName)!
+      : BANK_TYPE_FOLDER_LABELS[normalizedTypeCode] || normalizedTypeCode;
     const typeFolderId =
       await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
         provisioned.bankFolderId,
         typeFolderLabel,
       );
+    const leafFolderName = this.normalizeOptionalFolderName(input.leafFolderName)
+      ? this.normalizeOptionalFolderName(input.leafFolderName)!
+      : `${normalizedTypeCode}${normalizedNumber}`;
     const leafFolderId =
       await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
         typeFolderId,
-        `${normalizedTypeCode}${normalizedNumber}`,
+        leafFolderName,
       );
 
     return {
@@ -200,6 +201,84 @@ export class CourseCycleDriveProvisioningService {
       typeFolderId,
       leafFolderId,
     };
+  }
+
+  async renameBankGroupFolder(
+    input: BankGroupFolderMutationInput,
+  ): Promise<void> {
+    const resolvedScope = await this.ensureCourseCycleScopeFolders(input);
+    const typeFolderId =
+      await this.driveScopeProvisioningService.findDriveFolderUnderParent(
+        resolvedScope.bankFolderId,
+        String(input.currentGroupName || '').trim(),
+      );
+    if (!typeFolderId) {
+      return;
+    }
+
+    await this.driveScopeProvisioningService.renameDriveFolder(
+      typeFolderId,
+      String(input.nextGroupName || '').trim(),
+    );
+  }
+
+  async renameBankLeafFolder(
+    input: BankLeafFolderMutationInput,
+  ): Promise<void> {
+    const resolvedScope = await this.ensureCourseCycleScopeFolders(input);
+    const typeFolderId =
+      await this.driveScopeProvisioningService.findDriveFolderUnderParent(
+        resolvedScope.bankFolderId,
+        String(input.groupName || '').trim(),
+      );
+    if (!typeFolderId) {
+      return;
+    }
+
+    const leafFolderId =
+      await this.driveScopeProvisioningService.findDriveFolderUnderParent(
+        typeFolderId,
+        String(input.currentLeafFolderName || '').trim(),
+      );
+    if (!leafFolderId) {
+      return;
+    }
+
+    await this.driveScopeProvisioningService.renameDriveFolder(
+      leafFolderId,
+      String(input.nextLeafFolderName || '').trim(),
+    );
+  }
+
+  async deleteBankFolder(input: BankFolderDeletionInput): Promise<void> {
+    const resolvedScope = await this.ensureCourseCycleScopeFolders(input);
+    const typeFolderId =
+      await this.driveScopeProvisioningService.findDriveFolderUnderParent(
+        resolvedScope.bankFolderId,
+        String(input.groupName || '').trim(),
+      );
+    if (!typeFolderId) {
+      return;
+    }
+
+    const normalizedLeafFolderName = this.normalizeOptionalFolderName(
+      input.leafFolderName,
+    );
+    if (!normalizedLeafFolderName) {
+      await this.driveScopeProvisioningService.trashDriveFolder(typeFolderId);
+      return;
+    }
+
+    const leafFolderId =
+      await this.driveScopeProvisioningService.findDriveFolderUnderParent(
+        typeFolderId,
+        normalizedLeafFolderName,
+      );
+    if (!leafFolderId) {
+      return;
+    }
+
+    await this.driveScopeProvisioningService.trashDriveFolder(leafFolderId);
   }
 
   private async syncCurrentEligibleMembers(
@@ -295,6 +374,34 @@ export class CourseCycleDriveProvisioningService {
     return normalized;
   }
 
+  private resolveBankGroups(input: CourseCycleDriveProvisionInput): Array<{
+    groupName: string;
+    items: string[];
+  }> {
+    const explicitGroups = (input.bankFolders || [])
+      .map((group) => ({
+        groupName: String(group.groupName || '').trim(),
+        items: Array.from(
+          new Set(
+            (group.items || [])
+              .map((item) => String(item || '').trim())
+              .filter(Boolean),
+          ),
+        ),
+      }))
+      .filter((group) => group.groupName.length > 0 && group.items.length > 0);
+    if (explicitGroups.length > 0) {
+      return explicitGroups;
+    }
+
+    const grouped = this.groupBankCardsByType(input.bankCards);
+    return Array.from(grouped.entries()).map(([evaluationTypeCode, numbers]) => ({
+      groupName:
+        BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode,
+      items: numbers.map((number) => `${evaluationTypeCode}${number}`),
+    }));
+  }
+
   private normalizeToken(raw: string, fieldName: string): string {
     const normalized = String(raw || '').trim();
     if (!normalized) {
@@ -318,6 +425,11 @@ export class CourseCycleDriveProvisioningService {
     return value;
   }
 
+  private normalizeOptionalFolderName(raw?: string): string | null {
+    const normalized = String(raw || '').trim();
+    return normalized ? normalized : null;
+  }
+
   private getWorkspaceGroupDomain(): string {
     const domain = String(
       this.configService.get<string>('GOOGLE_WORKSPACE_GROUP_DOMAIN', '') || '',
@@ -330,5 +442,66 @@ export class CourseCycleDriveProvisioningService {
       );
     }
     return domain;
+  }
+
+  private async ensureCourseCycleScopeFolders(input: {
+    courseCycleId: string;
+    cycleCode: string;
+    courseCode: string;
+  }): Promise<{
+    courseCycleId: string;
+    scopeFolderId: string;
+    introFolderId: string;
+    bankFolderId: string;
+    viewerGroupEmail: string;
+    professorGroupEmail: string;
+  }> {
+    const workspaceDomain = this.getWorkspaceGroupDomain();
+    const courseCycleId = this.normalizeNumericId(
+      input.courseCycleId,
+      'courseCycleId',
+    );
+    const cycleCode = this.normalizeToken(input.cycleCode, 'cycleCode');
+    const courseCode = this.normalizeToken(input.courseCode, 'courseCode');
+    const viewerGroupEmail = `cc-${courseCycleId}-viewers@${workspaceDomain}`;
+    const professorGroupEmail = `cc-${courseCycleId}-professors@${workspaceDomain}`;
+
+    await this.driveScopeProvisioningService.validateRootFolder();
+    const rootFolderId = this.driveScopeProvisioningService.getRootFolderId();
+
+    const courseCyclesParent =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        rootFolderId,
+        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLES_PARENT,
+      );
+    const cycleFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        courseCyclesParent,
+        cycleCode,
+      );
+    const scopeFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        cycleFolderId,
+        `cc_${courseCycleId}_${courseCode}`,
+      );
+    const introFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        scopeFolderId,
+        MEDIA_ACCESS_DRIVE_FOLDERS.COURSE_CYCLE_INTRO_VIDEO,
+      );
+    const bankFolderId =
+      await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
+        scopeFolderId,
+        BANK_DOCUMENTS_FOLDER_NAME,
+      );
+
+    return {
+      courseCycleId,
+      scopeFolderId,
+      introFolderId,
+      bankFolderId,
+      viewerGroupEmail,
+      professorGroupEmail,
+    };
   }
 }

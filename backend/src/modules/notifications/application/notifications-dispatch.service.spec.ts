@@ -140,6 +140,23 @@ describe('NotificationsDispatchService', () => {
         },
       );
     });
+
+    it('incluye snapshot de sessionNumber cuando se provee', async () => {
+      await service.dispatchClassCancelled('event-4', { sessionNumber: 7 });
+
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        NOTIFICATION_JOB_NAMES.DISPATCH,
+        {
+          type: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
+          classEventId: 'event-4',
+          classSnapshot: { sessionNumber: 7 },
+        },
+        {
+          jobId: 'class-cancelled-event-4',
+          removeOnComplete: true,
+        },
+      );
+    });
   });
 
   describe('dispatchClassRecordingAvailable', () => {

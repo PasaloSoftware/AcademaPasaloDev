@@ -32,14 +32,15 @@ INSERT INTO evaluation_type (code, name) VALUES
 ('EX', 'Examen'),
 ('LAB', 'Laboratorio'),
 ('TUTORING', 'Tutoria Especializada'),
-('BANCO_ENUNCIADOS', 'Banco de Enunciados');
+('BANCO_ENUNCIADOS', 'Banco de Enunciados'),
+('TALLER_LIBRE', 'Talleres Libres');
 
 INSERT INTO academic_cycle (code, start_date, end_date, created_at) VALUES
 ('2024-1', '2024-01-08', '2024-03-31', NOW()),
 ('2024-2', '2024-04-01', '2024-06-30', NOW()),
-('2025-1', '2025-01-06', '2025-03-31', NOW()),
-('2025-2', '2025-04-01', '2025-06-30', NOW()),
-('2026-0', '2026-01-09', '2026-03-31', NOW()),
+('2025-1', '2025-03-20', '2025-07-15', NOW()),
+('2025-2', '2025-08-15', '2025-12-20', NOW()),
+('2026-0', '2026-01-03', '2026-03-15', NOW()),
 ('2026-1', '2026-04-01', '2026-07-15', NOW());
 
 INSERT INTO system_setting (setting_key, setting_value, description, created_at)

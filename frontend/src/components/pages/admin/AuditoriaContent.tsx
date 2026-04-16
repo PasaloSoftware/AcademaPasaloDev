@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { useAudit } from '@/hooks/useAudit';
 import { usersService } from '@/services/users.service';
+import { useToast } from '@/components/ui/ToastContainer';
 import Icon from '@/components/ui/Icon';
 import ConfirmBanModal from '@/components/modals/ConfirmBanModal';
 import type { AuditEntry, AuditHistoryParams, AuditSource } from '@/types/api';
@@ -41,6 +42,7 @@ function formatDateTime(iso: string): string {
 export default function AuditoriaContent() {
   const { setBreadcrumbItems } = useBreadcrumb();
   const { entries, loading, error, loadHistory, exportToExcel } = useAudit();
+  const { showToast } = useToast();
 
   // Filtros
   const [startDate, setStartDate] = useState(() => {
@@ -52,8 +54,16 @@ export default function AuditoriaContent() {
   const [sourceFilter, setSourceFilter] = useState<AuditSource | ''>('SECURITY');
 
   // Ban modal
-  const [banTarget, setBanTarget] = useState<{ userId: string; userName: string } | null>(null);
+  const [banTarget, setBanTarget] = useState<{
+    userId: string;
+    userName: string;
+    isActive: boolean;
+  } | null>(null);
   const [banLoading, setBanLoading] = useState(false);
+  const [userStatuses, setUserStatuses] = useState<Record<string, boolean>>({});
+  const [loadingStatuses, setLoadingStatuses] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // Detalle expandido
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -83,24 +93,76 @@ export default function AuditoriaContent() {
     exportToExcel(params);
   };
 
-  const handleBan = async () => {
-    if (!banTarget) return;
-    setBanLoading(true);
-    try {
-      await usersService.ban(banTarget.userId);
-      setBanTarget(null);
-      handleSearch(); // Recargar
-    } catch (err) {
-      console.error('Error banning user:', err);
-    } finally {
-      setBanLoading(false);
-    }
-  };
-
   // Filtrar por source en el frontend (el endpoint no tiene filtro de source)
   const filteredEntries = sourceFilter
     ? entries.filter((e) => e.source === sourceFilter)
     : entries;
+
+  const loadUserStatus = useCallback(async (userId: string) => {
+    if (userStatuses[userId] !== undefined || loadingStatuses[userId]) {
+      return;
+    }
+
+    setLoadingStatuses((current) => ({ ...current, [userId]: true }));
+    try {
+      const detail = await usersService.getAdminDetail(userId);
+      setUserStatuses((current) => ({
+        ...current,
+        [userId]: Boolean(detail.personalInfo.isActive),
+      }));
+    } catch (err) {
+      console.error('Error loading user status:', err);
+    } finally {
+      setLoadingStatuses((current) => ({ ...current, [userId]: false }));
+    }
+  }, [loadingStatuses, userStatuses]);
+
+  useEffect(() => {
+    const anomalyUserIds = Array.from(
+      new Set(
+        filteredEntries
+          .filter((entry) => entry.actionCode === 'ANOMALOUS_LOGIN_DETECTED')
+          .map((entry) => entry.userId)
+          .filter(Boolean),
+      ),
+    );
+
+    anomalyUserIds.forEach((userId) => {
+      void loadUserStatus(userId);
+    });
+  }, [filteredEntries, loadUserStatus]);
+
+  const handleBan = async () => {
+    if (!banTarget) return;
+    setBanLoading(true);
+    try {
+      const nextIsActive = !banTarget.isActive;
+      await usersService.updateStatus(banTarget.userId, nextIsActive);
+      setUserStatuses((current) => ({
+        ...current,
+        [banTarget.userId]: nextIsActive,
+      }));
+      setBanTarget(null);
+      showToast({
+        type: 'success',
+        title: nextIsActive ? 'Usuario activado' : 'Usuario inactivado',
+        description: nextIsActive
+          ? 'El usuario ya puede volver a acceder a la plataforma.'
+          : 'El acceso del usuario fue deshabilitado correctamente.',
+      });
+      handleSearch(); // Recargar
+    } catch (err) {
+      console.error('Error banning user:', err);
+      showToast({
+        type: 'error',
+        title: 'No se pudo actualizar el estado',
+        description:
+          err instanceof Error ? err.message : 'Ocurrio un error inesperado.',
+      });
+    } finally {
+      setBanLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,6 +256,9 @@ export default function AuditoriaContent() {
                   const badge = getActionBadge(entry.actionCode);
                   const isExpanded = expandedId === entry.id;
                   const isAnomaly = entry.actionCode === 'ANOMALOUS_LOGIN_DETECTED';
+                  const currentStatus = userStatuses[entry.userId];
+                  const isStatusLoading = loadingStatuses[entry.userId];
+                  const canToggleStatus = isAnomaly && currentStatus !== undefined;
 
                   return (
                     <Fragment key={entry.id}>
@@ -226,11 +291,31 @@ export default function AuditoriaContent() {
                             </button>
                             {isAnomaly && (
                               <button
-                                onClick={() => setBanTarget({ userId: entry.userId, userName: entry.userName })}
-                                className="px-2.5 py-1 rounded-lg text-xs font-medium text-error-solid bg-error-secondary border border-error-solid/20 hover:bg-error-solid hover:text-white transition-colors"
-                                title="Desactivar cuenta"
+                                onClick={() => {
+                                  if (!canToggleStatus) return;
+                                  setBanTarget({
+                                    userId: entry.userId,
+                                    userName: entry.userName,
+                                    isActive: currentStatus,
+                                  });
+                                }}
+                                disabled={!canToggleStatus || isStatusLoading}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                                  currentStatus
+                                    ? 'text-error-solid bg-error-secondary border-error-solid/20 hover:bg-error-solid hover:text-white'
+                                    : 'text-text-accent-primary bg-bg-accent-light border-stroke-accent-primary hover:bg-bg-accent-primary-solid hover:text-white'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                title={
+                                  currentStatus
+                                    ? 'Desactivar cuenta'
+                                    : 'Activar cuenta'
+                                }
                               >
-                                Desactivar
+                                {isStatusLoading
+                                  ? 'Cargando...'
+                                  : currentStatus
+                                    ? 'Desactivar'
+                                    : 'Activar'}
                               </button>
                             )}
                           </div>
@@ -264,6 +349,7 @@ export default function AuditoriaContent() {
       <ConfirmBanModal
         isOpen={!!banTarget}
         userName={banTarget?.userName || ''}
+        action={banTarget?.isActive ? 'deactivate' : 'activate'}
         onConfirm={handleBan}
         onCancel={() => setBanTarget(null)}
         loading={banLoading}

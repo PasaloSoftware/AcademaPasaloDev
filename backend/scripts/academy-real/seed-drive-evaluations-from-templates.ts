@@ -257,6 +257,8 @@ async function getEvaluationsFromDb(): Promise<EvaluationRow[]> {
           LIMIT 1
         )
       )
+        AND et.code <> 'BANCO_ENUNCIADOS'
+        AND ev.number > 0
       ORDER BY cc.id ASC, et.code ASC, ev.number ASC
       `,
     );

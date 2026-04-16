@@ -129,8 +129,7 @@ export class ClassEventsSchedulingService {
 
     const rangeStartTime =
       cycleStartTime !== null ? cycleStartTime : evalStartTime;
-    const rangeEndTime =
-      cycleEndTime !== null ? cycleEndTime : evalEndTime;
+    const rangeEndTime = cycleEndTime !== null ? cycleEndTime : evalEndTime;
     const rangeLabel =
       cycleStartTime !== null && cycleEndTime !== null
         ? 'ciclo academico'

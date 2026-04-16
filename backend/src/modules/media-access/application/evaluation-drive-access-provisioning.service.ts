@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -14,6 +15,7 @@ import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastru
 import { EvaluationDriveAccess } from '@modules/media-access/domain/evaluation-drive-access.entity';
 import { MEDIA_ACCESS_STAFF_GROUP_METADATA } from '@modules/media-access/domain/media-access.constants';
 import { technicalSettings } from '@config/technical-settings';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 
 @Injectable()
 export class EvaluationDriveAccessProvisioningService {
@@ -44,6 +46,14 @@ export class EvaluationDriveAccessProvisioningService {
     if (!evaluation) {
       throw new NotFoundException(
         'Evaluacion no encontrada para provision Drive',
+      );
+    }
+    const evaluationTypeCode = String(evaluation.evaluationType?.code || '')
+      .trim()
+      .toUpperCase();
+    if (evaluationTypeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS) {
+      throw new BadRequestException(
+        'BANCO_ENUNCIADOS no se provisiona como scope de evaluacion en Drive',
       );
     }
 

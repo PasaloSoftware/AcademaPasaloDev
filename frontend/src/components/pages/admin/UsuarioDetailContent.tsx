@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
+import Modal from '@/components/ui/Modal';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
 import { usersService } from '@/services/users.service';
 import type { AdminUserDetail } from '@/services/users.service';
+import { useToast } from '@/components/ui/ToastContainer';
 import { EnrollmentSection, TeachingSection } from './UserCourseSections';
 
 // ============================================
@@ -18,7 +20,7 @@ const ROLE_STYLES: Record<string, { bg: string; text: string; label: string }> =
   Alumno:              { bg: 'bg-bg-accent-light',          text: 'text-text-accent-primary',    label: 'ALUMNO' },
   Asesor:              { bg: 'bg-bg-info-primary-light',    text: 'text-text-info-primary',      label: 'ASESOR' },
   Administrador:       { bg: 'bg-bg-info-secondary-light',  text: 'text-text-info-secondary',    label: 'ADMINISTRADOR' },
-  Superadministrador:  { bg: 'bg-bg-warning-light',         text: 'text-text-warning-primary',   label: 'SUPERADMINISTRADOR' },
+  Superadministrador:  { bg: 'bg-warning-light',         text: 'text-text-warning-primary',   label: 'SUPERADMINISTRADOR' },
 };
 
 function sortRoles(roles: string[]): string[] {
@@ -59,11 +61,14 @@ export default function UsuarioDetailContent() {
   const params = useParams();
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+  const { showToast } = useToast();
   const userId = params.id as string;
 
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -108,6 +113,42 @@ export default function UsuarioDetailContent() {
   const roles = sortRoles(personalInfo.roles);
   const hasStudentRole = personalInfo.roles.some((r) => r === 'Alumno');
   const hasTeacherRole = personalInfo.roles.some((r) => r === 'Asesor');
+  const nextStatusIsActive = !personalInfo.isActive;
+
+  const handleToggleStatus = async () => {
+    setStatusSaving(true);
+    try {
+      await usersService.updateStatus(userId, nextStatusIsActive);
+      setDetail((current) =>
+        current
+          ? {
+              ...current,
+              personalInfo: {
+                ...current.personalInfo,
+                isActive: nextStatusIsActive,
+              },
+            }
+          : current,
+      );
+      setStatusModalOpen(false);
+      showToast({
+        type: 'success',
+        title: nextStatusIsActive ? 'Usuario activado' : 'Usuario inactivado',
+        description: nextStatusIsActive
+          ? 'El usuario ya puede volver a acceder a la plataforma.'
+          : 'El acceso del usuario fue deshabilitado correctamente.',
+      });
+    } catch (err) {
+      showToast({
+        type: 'error',
+        title: 'No se pudo actualizar el estado',
+        description:
+          err instanceof Error ? err.message : 'Ocurrió un error inesperado.',
+      });
+    } finally {
+      setStatusSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -164,13 +205,12 @@ export default function UsuarioDetailContent() {
               <Icon name="edit" size={20} className="text-icon-secondary" variant="rounded" />
               <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Editar</span>
             </button>
-            <button className="p-2 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
+            <button
+              onClick={() => setStatusModalOpen(true)}
+              className="p-2 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+            >
               <Icon name={personalInfo.isActive ? 'person_off' : 'check_circle'} size={20} className="text-icon-secondary" variant="rounded" />
               <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">{personalInfo.isActive ? 'Inactivar' : 'Activar'}</span>
-            </button>
-            <button className="p-2 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-              <Icon name="delete" size={20} className="text-icon-secondary" variant="rounded" />
-              <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
             </button>
           </div>
         </div>
@@ -203,6 +243,40 @@ export default function UsuarioDetailContent() {
 
       {/* Teaching courses (if professor) */}
       {hasTeacherRole && <TeachingSection courses={teachingCourses} readOnly />}
+
+      <Modal
+        isOpen={statusModalOpen}
+        onClose={() => !statusSaving && setStatusModalOpen(false)}
+        title={personalInfo.isActive ? 'Inactivar usuario' : 'Activar usuario'}
+        size="sm"
+        footer={
+          <>
+            <Modal.Button
+              variant="secondary"
+              onClick={() => setStatusModalOpen(false)}
+              disabled={statusSaving}
+            >
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              variant={personalInfo.isActive ? 'danger' : 'primary'}
+              onClick={handleToggleStatus}
+              loading={statusSaving}
+              loadingText={
+                personalInfo.isActive ? 'Inactivando...' : 'Activando...'
+              }
+            >
+              {personalInfo.isActive ? 'Inactivar' : 'Activar'}
+            </Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-secondary text-sm leading-5">
+          {personalInfo.isActive
+            ? 'El usuario perdera acceso a la plataforma hasta que vuelva a ser activado.'
+            : 'El usuario recuperara el acceso a la plataforma con sus permisos actuales.'}
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -5,8 +5,10 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
       - frontend
@@ -17,7 +19,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
   backend:
     image: ${DOCKER_USERNAME}/academia-pasalo-backend:${IMAGE_TAG}
     container_name: academia-pasalo-backend
@@ -58,7 +59,6 @@ services:
         condition: service_healthy
     networks:
       - academia-network
-
   frontend:
     image: ${DOCKER_USERNAME}/academia-pasalo-frontend:${IMAGE_TAG}
     container_name: academia-pasalo-frontend
@@ -74,13 +74,13 @@ services:
       - backend
     networks:
       - academia-network
-
   mysql:
     image: mysql:8.0
     container_name: academia-pasalo-mysql
     restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
@@ -91,11 +91,10 @@ services:
     networks:
       - academia-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
-
   redis:
     image: redis:8.0-alpine
     container_name: academia-pasalo-redis
@@ -112,14 +111,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
 networks:
   academia-network:
     driver: bridge
     ipam:
       config:
         - subnet: 172.30.0.0/16
-
 volumes:
   redis_data:
     driver: local

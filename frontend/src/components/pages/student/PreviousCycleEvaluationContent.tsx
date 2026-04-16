@@ -13,12 +13,22 @@ interface PreviousCycleEvaluationContentProps {
   cursoId: string;
   cycleCode: string;
   evalId: string;
+  previewData?: {
+    courseName: string;
+    evalShortName?: string;
+    evalFullName?: string;
+    backHref?: string;
+    backLabel?: string;
+    getClassPageUrl?: (eventId: string) => string;
+    manageBreadcrumb?: boolean;
+  };
 }
 
 export default function PreviousCycleEvaluationContent({
   cursoId,
   cycleCode,
   evalId,
+  previewData,
 }: PreviousCycleEvaluationContentProps) {
   const { setBreadcrumbItems } = useBreadcrumb();
 
@@ -28,6 +38,13 @@ export default function PreviousCycleEvaluationContent({
 
   // Cargar nombre del curso + evaluación desde ciclo anterior
   useEffect(() => {
+    if (previewData) {
+      setCourseName(previewData.courseName);
+      setEvalShortName(previewData.evalShortName || "");
+      setEvalFullName(previewData.evalFullName || "");
+      return;
+    }
+
     async function loadCourseData() {
       try {
         const response = await enrollmentService.getMyCourses();
@@ -60,19 +77,25 @@ export default function PreviousCycleEvaluationContent({
 
     loadCourseData();
     loadEvalNames();
-  }, [cursoId, cycleCode, evalId]);
+  }, [cursoId, cycleCode, evalId, previewData]);
 
   // Breadcrumb: Cursos > {Curso} > Ciclos Anteriores > Ciclo {code} > {EvalShortName}
   useEffect(() => {
     if (!courseName) return;
+    if (previewData?.manageBreadcrumb === false) return;
+
+    const previousCycleHref =
+      previewData?.backHref ||
+      `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}`;
+    const cyclesRootHref = `/plataforma/curso/${cursoId}`;
     setBreadcrumbItems([
       { label: "Cursos" },
-      { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: "Ciclos Anteriores", href: `/plataforma/curso/${cursoId}` },
-      { label: `Ciclo ${cycleCode}`, href: `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}` },
+      { label: courseName, href: cyclesRootHref },
+      { label: "Ciclos Anteriores", href: cyclesRootHref },
+      { label: `Ciclo ${cycleCode}`, href: previousCycleHref },
       { label: evalShortName },
     ]);
-  }, [setBreadcrumbItems, courseName, evalShortName, cursoId, cycleCode]);
+  }, [setBreadcrumbItems, courseName, evalShortName, cursoId, cycleCode, previewData]);
 
   // Fallback: detectar nombre desde eventos
   const handleEvalNameDetected = useCallback((name: string) => {
@@ -84,15 +107,19 @@ export default function PreviousCycleEvaluationContent({
   // Generar URL de clase (dentro de ciclo anterior)
   const getClassPageUrl = useCallback(
     (eventId: string) =>
+      previewData?.getClassPageUrl?.(eventId) ||
       `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}/evaluacion/${evalId}/clase/${eventId}`,
-    [cursoId, cycleCode, evalId],
+    [cursoId, cycleCode, evalId, previewData],
   );
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* Back Link */}
       <Link
-        href={`/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}`}
+        href={
+          previewData?.backHref ||
+          `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}`
+        }
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
       >
         <Icon
@@ -101,7 +128,7 @@ export default function PreviousCycleEvaluationContent({
           className="text-icon-accent-primary"
         />
         <span className="text-text-accent-primary text-base font-medium leading-4">
-          Volver al Ciclo {cycleCode}
+          {previewData?.backLabel || `Volver al Ciclo ${cycleCode}`}
         </span>
       </Link>
 

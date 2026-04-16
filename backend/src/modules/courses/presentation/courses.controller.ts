@@ -28,9 +28,8 @@ import {
   StudentPreviousCycleListResponseDto,
 } from '@modules/courses/dto/student-course-view.dto';
 import { UserResponseDto } from '@modules/users/dto/user-response.dto';
-import { CreateCourseDto } from '@modules/courses/dto/create-course.dto';
 import { UpdateCourseDto } from '@modules/courses/dto/update-course.dto';
-import { AssignCourseToCycleDto } from '@modules/courses/dto/assign-course-to-cycle.dto';
+import { UpdateCourseStatusDto } from '@modules/courses/dto/update-course-status.dto';
 import { AssignCourseCycleProfessorDto } from '@modules/courses/dto/assign-course-cycle-professor.dto';
 import { UpdateCourseCycleEvaluationStructureDto } from '@modules/courses/dto/update-course-cycle-evaluation-structure.dto';
 import { UpdateCourseCycleIntroVideoDto } from '@modules/courses/dto/update-course-cycle-intro-video.dto';
@@ -38,6 +37,8 @@ import { CreateCourseSetupDto } from '@modules/courses/dto/create-course-setup.d
 import {
   UploadBankDocumentDto,
   UploadBankDocumentResponseDto,
+  UpdateBankFolderDto,
+  UpdateBankFolderResponseDto,
 } from '@modules/courses/dto/bank-documents.dto';
 import {
   AdminCourseCycleListQueryDto,
@@ -203,6 +204,44 @@ export class CoursesController {
     });
   }
 
+  @Patch('cycle/:id/bank-folders/:evaluationTypeCode')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Carpeta del banco actualizada exitosamente')
+  async updateBankFolder(
+    @Param('id') courseCycleId: string,
+    @Param('evaluationTypeCode') evaluationTypeCode: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateBankFolderDto,
+  ) {
+    const result = await this.coursesService.updateBankFolder(
+      user,
+      courseCycleId,
+      evaluationTypeCode,
+      dto,
+      (user as UserWithSession).activeRole,
+    );
+    return plainToInstance(UpdateBankFolderResponseDto, result, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Delete('cycle/:id/bank-folders/:evaluationTypeCode')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Carpeta del banco eliminada exitosamente')
+  async deleteBankFolder(
+    @Param('id') courseCycleId: string,
+    @Param('evaluationTypeCode') evaluationTypeCode: string,
+    @CurrentUser() user: User,
+  ): Promise<void> {
+    await this.coursesService.deleteBankFolder(
+      user,
+      courseCycleId,
+      evaluationTypeCode,
+      (user as UserWithSession).activeRole,
+    );
+  }
+
   @Get('cycle/:id/intro-video-link')
   @Roles(
     ROLE_CODES.STUDENT,
@@ -224,17 +263,6 @@ export class CoursesController {
     );
   }
 
-  @Post()
-  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  @ResponseMessage('Materia creada exitosamente')
-  async create(@Body() createCourseDto: CreateCourseDto) {
-    const course = await this.coursesService.create(createCourseDto);
-    return plainToInstance(CourseResponseDto, course, {
-      excludeExtraneousValues: true,
-    });
-  }
-
   @Patch(':id')
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Materia actualizada exitosamente')
@@ -248,17 +276,25 @@ export class CoursesController {
     });
   }
 
-  @Post('assign-cycle')
+  @Patch(':id/status')
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  @ResponseMessage('Materia vinculada al ciclo exitosamente')
-  async assignToCycle(@Body() dto: AssignCourseToCycleDto) {
-    const result = await this.coursesService.assignToCycle(dto);
-    return {
-      statusCode: 201,
-      message: 'Curso asignado al ciclo exitosamente',
-      data: result,
-    };
+  @ResponseMessage('Estado de materia actualizado exitosamente')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateCourseStatusDto,
+  ) {
+    const course = await this.coursesService.updateStatus(id, dto);
+    return plainToInstance(CourseResponseDto, course, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Delete(':id')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Materia eliminada exitosamente')
+  async delete(@Param('id') id: string): Promise<void> {
+    await this.coursesService.delete(id);
   }
 
   @Put('cycle/:id/evaluation-structure')

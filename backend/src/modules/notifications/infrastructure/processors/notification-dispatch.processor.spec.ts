@@ -291,7 +291,7 @@ describe('NotificationDispatchProcessor', () => {
 
       expect(
         mockRecipientsService.resolveClassEventContext,
-      ).toHaveBeenCalledWith('evt-1');
+      ).toHaveBeenCalledWith('evt-1', undefined);
       expect(mockNotificationTypeRepo.findByCode).toHaveBeenCalledWith(type);
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
       expect(mockManager.create).toHaveBeenCalledWith(
@@ -335,6 +335,27 @@ describe('NotificationDispatchProcessor', () => {
             'El horario de la clase 1 de la PC1 del curso Matematicas ha sido actualizado. Revisa los detalles mas recientes en la plataforma.',
         }),
       );
+    });
+
+    it('usa sessionNumber snapshot en CLASS_CANCELLED cuando viene en payload', async () => {
+      mockRecipientsService.resolveClassEventContext.mockResolvedValue(
+        classContext,
+      );
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        ...notifType,
+        code: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
+        classEventId: 'evt-1',
+        classSnapshot: { sessionNumber: 8 },
+      });
+      await processor.process(job);
+
+      expect(
+        mockRecipientsService.resolveClassEventContext,
+      ).toHaveBeenCalledWith('evt-1', 8);
     });
 
     it('mantiene separado CLASS_RECORDING_AVAILABLE del cambio de horario', async () => {

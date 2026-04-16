@@ -329,7 +329,7 @@ export default function Sidebar({
         {/* Logout button */}
         <button
           onClick={handleLogout}
-          className={`${isCollapsed ? "p-2.5" : "px-6 py-3"} bg-error-light rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-error-light/80 transition-colors`}
+          className={`${isCollapsed ? "p-2.5" : "px-6 py-3"} bg-error-light rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-red-50/80 transition-colors`}
         >
           <Icon
             name="logout"

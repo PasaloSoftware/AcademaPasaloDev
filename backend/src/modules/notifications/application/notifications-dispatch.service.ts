@@ -101,12 +101,19 @@ export class NotificationsDispatchService {
     }
   }
 
-  async dispatchClassCancelled(classEventId: string): Promise<void> {
+  async dispatchClassCancelled(
+    classEventId: string,
+    options?: { sessionNumber?: number },
+  ): Promise<void> {
     try {
       await this.enqueueDispatchJob(
         {
           type: NOTIFICATION_TYPE_CODES.CLASS_CANCELLED,
           classEventId,
+          classSnapshot:
+            options?.sessionNumber !== undefined
+              ? { sessionNumber: options.sessionNumber }
+              : undefined,
         },
         `class-cancelled-${classEventId}`,
       );

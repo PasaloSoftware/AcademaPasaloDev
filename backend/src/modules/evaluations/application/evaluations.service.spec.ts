@@ -36,6 +36,10 @@ describe('EvaluationsService create', () => {
           useValue: {
             create: jest.fn(),
             findByCourseCycle: jest.fn(),
+            findAcademicTypes: jest.fn(),
+            findMaxDisplayOrderByCourseCycle: jest.fn(),
+            updateDisplayOrder: jest.fn(),
+            hasDisplayOrderColumn: jest.fn(),
           },
         },
         {
@@ -87,6 +91,9 @@ describe('EvaluationsService create', () => {
     (dataSource.transaction as jest.Mock).mockImplementation(
       async (cb) => await cb({}),
     );
+    (evaluationRepository.hasDisplayOrderColumn as jest.Mock).mockResolvedValue(
+      true,
+    );
   });
 
   it('should create evaluation when type is allowed in structure', async () => {
@@ -108,6 +115,9 @@ describe('EvaluationsService create', () => {
       evaluationTypeId: '2',
       number: 1,
     });
+    (
+      evaluationRepository.findMaxDisplayOrderByCourseCycle as jest.Mock
+    ).mockResolvedValue(3);
 
     const result = await service.create({
       courseCycleId: '10',
@@ -122,6 +132,7 @@ describe('EvaluationsService create', () => {
       expect.objectContaining({
         courseCycleId: '10',
         evaluationTypeId: '2',
+        displayOrder: 4,
       }),
       expect.anything(),
     );
@@ -235,5 +246,66 @@ describe('EvaluationsService create', () => {
     );
 
     expect(result.map((item) => item.id)).toEqual(['1', '3']);
+  });
+
+  it('should reorder visible evaluations of a course-cycle', async () => {
+    (cacheService.get as jest.Mock).mockResolvedValue(true);
+    (evaluationRepository.findByCourseCycle as jest.Mock)
+      .mockResolvedValueOnce([
+        { id: '10', evaluationType: { code: 'PC' } },
+        { id: '11', evaluationType: { code: 'EX' } },
+      ])
+      .mockResolvedValueOnce([
+        { id: '11', evaluationType: { code: 'EX' } },
+        { id: '10', evaluationType: { code: 'PC' } },
+      ]);
+
+    const result = await service.reorderByCourseCycle('55', {
+      evaluationIds: ['11', '10'],
+    });
+
+    expect(evaluationRepository.updateDisplayOrder).toHaveBeenNthCalledWith(
+      1,
+      '11',
+      1,
+      expect.anything(),
+    );
+    expect(evaluationRepository.updateDisplayOrder).toHaveBeenNthCalledWith(
+      2,
+      '10',
+      2,
+      expect.anything(),
+    );
+    expect(cacheService.invalidateIndex).toHaveBeenCalled();
+    expect(result.map((item) => item.id)).toEqual(['11', '10']);
+  });
+
+  it('should list academic evaluation types excluding technical bank type', async () => {
+    (evaluationRepository.findAcademicTypes as jest.Mock).mockResolvedValue([
+      { id: '1', code: 'PC', name: 'Practica Calificada' },
+      { id: '2', code: 'EX', name: 'Examen' },
+    ]);
+
+    const result = await service.findAllTypes();
+
+    expect(evaluationRepository.findAcademicTypes).toHaveBeenCalled();
+    expect(result).toEqual([
+      { id: '1', code: 'PC', name: 'Practica Calificada' },
+      { id: '2', code: 'EX', name: 'Examen' },
+    ]);
+  });
+
+  it('should reject reorder when payload does not contain the full visible set', async () => {
+    (cacheService.get as jest.Mock).mockResolvedValue(true);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      { id: '10', evaluationType: { code: 'PC' } },
+      { id: '11', evaluationType: { code: 'EX' } },
+    ]);
+
+    await expect(
+      service.reorderByCourseCycle('55', {
+        evaluationIds: ['11'],
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

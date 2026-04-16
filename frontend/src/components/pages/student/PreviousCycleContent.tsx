@@ -15,6 +15,12 @@ import Icon from "@/components/ui/Icon";
 interface PreviousCycleContentProps {
   cursoId: string;
   cycleCode: string;
+  previewData?: {
+    courseName: string;
+    backHref?: string;
+    buildEvaluationUrl?: (evaluationId: string) => string;
+    manageBreadcrumb?: boolean;
+  };
 }
 
 // ============================================
@@ -103,6 +109,7 @@ function PreviousCycleEvaluationCard({
 export default function PreviousCycleContent({
   cursoId,
   cycleCode,
+  previewData,
 }: PreviousCycleContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
@@ -115,6 +122,11 @@ export default function PreviousCycleContent({
 
   // Cargar nombre del curso desde enrollment
   useEffect(() => {
+    if (previewData) {
+      setCourseName(previewData.courseName);
+      return;
+    }
+
     async function loadCourseName() {
       try {
         const response = await enrollmentService.getMyCourses();
@@ -133,18 +145,21 @@ export default function PreviousCycleContent({
     }
 
     if (cursoId) loadCourseName();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   // Breadcrumb
   useEffect(() => {
     if (!courseName) return;
+    if (previewData?.manageBreadcrumb === false) return;
+
+    const courseHref = previewData?.backHref || `/plataforma/curso/${cursoId}`;
     setBreadcrumbItems([
       { label: "Cursos" },
-      { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: "Ciclos Anteriores", href: `/plataforma/curso/${cursoId}` },
+      { label: courseName, href: courseHref },
+      { label: "Ciclos Anteriores", href: courseHref },
       { label: `Ciclo ${cycleCode}` },
     ]);
-  }, [setBreadcrumbItems, courseName, cursoId, cycleCode]);
+  }, [setBreadcrumbItems, courseName, cursoId, cycleCode, previewData]);
 
   // Cargar contenido del ciclo anterior
   useEffect(() => {
@@ -215,7 +230,9 @@ export default function PreviousCycleContent({
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* Back Link */}
       <button
-        onClick={() => router.push(`/plataforma/curso/${cursoId}`)}
+        onClick={() =>
+          router.push(previewData?.backHref || `/plataforma/curso/${cursoId}`)
+        }
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
       >
         <Icon
@@ -257,7 +274,8 @@ export default function PreviousCycleContent({
                 evaluation={evaluation}
                 onSelect={(eval_) =>
                   router.push(
-                    `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}/evaluacion/${eval_.id}`,
+                    previewData?.buildEvaluationUrl?.(eval_.id) ||
+                      `/plataforma/curso/${cursoId}/ciclo-anterior/${cycleCode}/evaluacion/${eval_.id}`,
                   )
                 }
               />

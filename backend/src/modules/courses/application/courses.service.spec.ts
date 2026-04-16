@@ -71,6 +71,7 @@ describe('CoursesService student views', () => {
             findById: jest.fn(),
             findByCode: jest.fn(),
             updateAndReturn: jest.fn(),
+            deleteById: jest.fn(),
           },
         },
         { provide: CourseTypeRepository, useValue: {} },
@@ -126,6 +127,8 @@ describe('CoursesService student views', () => {
           provide: CourseCycleDriveProvisioningService,
           useValue: {
             ensureBankLeafFolder: jest.fn(),
+            renameBankGroupFolder: jest.fn(),
+            deleteBankFolder: jest.fn(),
           },
         },
         {
@@ -145,7 +148,9 @@ describe('CoursesService student views', () => {
           useValue: {
             findRootsByEvaluation: jest.fn(),
             findSubFolders: jest.fn(),
+            findByParentFolderIds: jest.fn(),
             create: jest.fn(),
+            save: jest.fn(),
           },
         },
         {
@@ -919,6 +924,13 @@ describe('CoursesService student views', () => {
       { id: 'root-pc', name: 'Practicas Calificadas' },
       { id: 'root-ex', name: 'Examenes' },
     ]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pc1', parentFolderId: 'root-pc', name: 'PC1' },
+      { id: 'leaf-pc2', parentFolderId: 'root-pc', name: 'PC2' },
+      { id: 'leaf-ex1', parentFolderId: 'root-ex', name: 'EX1' },
+    ]);
     (materialFolderRepository.findSubFolders as jest.Mock)
       .mockResolvedValueOnce([
         { id: 'leaf-pc1', name: 'PC1' },
@@ -1038,6 +1050,112 @@ describe('CoursesService student views', () => {
         label: 'PC1',
         folderId: null,
         folderName: null,
+      },
+    ]);
+  });
+
+  it('should include bank-only folders from material_folder even without academic evaluation rows', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (dataSource.query as jest.Mock).mockResolvedValue([{ typeCode: 'FULL' }]);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: '1',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+      {
+        evaluationTypeId: '3',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc-1',
+        number: 1,
+        evaluationTypeId: '1',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({
+      id: 'folder-active',
+    });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([
+      { id: 'root-pc', name: 'Practicas Calificadas' },
+      { id: 'root-pd', name: 'Practicas Dirigidas' },
+    ]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pc1', parentFolderId: 'root-pc', name: 'PC1' },
+      { id: 'leaf-pd1', parentFolderId: 'root-pd', name: 'PD1' },
+      { id: 'leaf-pd2', parentFolderId: 'root-pd', name: 'PD2' },
+    ]);
+    (materialFolderRepository.findSubFolders as jest.Mock)
+      .mockResolvedValueOnce([{ id: 'leaf-pc1', name: 'PC1' }])
+      .mockResolvedValueOnce([
+        { id: 'leaf-pd1', name: 'PD1' },
+        { id: 'leaf-pd2', name: 'PD2' },
+      ]);
+
+    const result = await service.getStudentBankStructure('100', '501');
+
+    expect(result.items).toEqual([
+      {
+        evaluationTypeId: '1',
+        evaluationTypeCode: 'PC',
+        evaluationTypeName: 'Practicas Calificadas',
+        entries: [
+          {
+            evaluationId: 'pc-1',
+            evaluationTypeCode: 'PC',
+            evaluationTypeName: 'Practicas Calificadas',
+            evaluationNumber: 1,
+            label: 'PC1',
+            folderId: 'leaf-pc1',
+            folderName: 'PC1',
+          },
+        ],
+      },
+      {
+        evaluationTypeId: '3',
+        evaluationTypeCode: 'PD',
+        evaluationTypeName: 'Practicas Dirigidas',
+        entries: [
+          {
+            evaluationId: null,
+            evaluationTypeCode: 'PD',
+            evaluationTypeName: 'Practicas Dirigidas',
+            evaluationNumber: 1,
+            label: 'PD1',
+            folderId: 'leaf-pd1',
+            folderName: 'PD1',
+          },
+          {
+            evaluationId: null,
+            evaluationTypeCode: 'PD',
+            evaluationTypeName: 'Practicas Dirigidas',
+            evaluationNumber: 2,
+            label: 'PD2',
+            folderId: 'leaf-pd2',
+            folderName: 'PD2',
+          },
+        ],
       },
     ]);
   });
@@ -1171,6 +1289,295 @@ describe('CoursesService student views', () => {
     });
   });
 
+  it('should upload a bank-only document to an existing PD folder without academic evaluation row', async () => {
+    const now = new Date('2026-03-16T05:10:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue({
+      ...currentCycle,
+      course: { ...currentCycle.course, code: 'MAT101' },
+      academicCycle: { ...currentCycle.academicCycle, code: '2026-1' },
+    });
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pd-type',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'folder-active' });
+    (
+      materialCatalogRepository.findMaterialStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'material-active' });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pd', name: 'Practicas Dirigidas' }]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pd1', parentFolderId: 'root-pd', name: 'PD1' },
+    ]);
+    (materialFolderRepository.findSubFolders as jest.Mock).mockResolvedValue([
+      { id: 'leaf-pd1', name: 'PD1' },
+    ]);
+    (
+      fileResourceRepository.findByHashAndSizeWithinEvaluation as jest.Mock
+    ).mockResolvedValueOnce(null);
+    (storageService.calculateHash as jest.Mock).mockResolvedValue('hash-pd');
+    (
+      courseCycleDriveProvisioningService.ensureBankLeafFolder as jest.Mock
+    ).mockResolvedValue({
+      scopeFolderId: 'scope-1',
+      bankFolderId: 'bank-folder-1',
+      typeFolderId: 'type-folder-pd',
+      leafFolderId: 'leaf-drive-pd1',
+    });
+    (storageService.saveFile as jest.Mock).mockResolvedValue({
+      storageProvider: 'GDRIVE',
+      storageKey: 'drive-file-pd',
+      storageUrl: 'https://drive.google.com/uc?id=drive-file-pd&export=download',
+    });
+
+    const manager = {
+      create: jest.fn((_entity, payload) => ({ ...payload })),
+      save: jest.fn(async (payload) => {
+        if ('checksumHash' in payload) {
+          return { id: 'file-pd', ...payload };
+        }
+        if ('versionNumber' in payload) {
+          return { id: 'version-pd', ...payload };
+        }
+        if ('materialFolderId' in payload && !payload.id) {
+          return { id: 'material-pd', ...payload };
+        }
+        return payload;
+      }),
+    };
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
+      return await cb(manager);
+    });
+
+    const result = await service.uploadBankDocument(
+      { id: 'prof-1' } as any,
+      '100',
+      {
+        evaluationTypeCode: 'PD',
+        evaluationNumber: '1',
+        displayName: 'Banco PD1',
+      },
+      {
+        originalname: 'Banco PD1.pdf',
+        mimetype: 'application/pdf',
+        size: 1100,
+        buffer: Buffer.from('%PDF test'),
+      } as Express.Multer.File,
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(
+      courseCycleDriveProvisioningService.ensureBankLeafFolder,
+    ).toHaveBeenCalledWith({
+      courseCycleId: '100',
+      courseCode: 'MAT101',
+      cycleCode: '2026-1',
+      bankCards: [],
+      bankFolders: [
+        {
+          groupName: 'Practicas Dirigidas',
+          items: ['PD1'],
+        },
+      ],
+      evaluationTypeCode: 'PD',
+      evaluationNumber: 1,
+      groupName: 'Practicas Dirigidas',
+      leafFolderName: 'PD1',
+    });
+    expect(result).toEqual({
+      courseCycleId: '100',
+      bankEvaluationId: 'bank-0',
+      evaluationId: null,
+      evaluationTypeId: 'pd-type',
+      evaluationTypeCode: 'PD',
+      evaluationTypeName: 'Practicas Dirigidas',
+      evaluationNumber: 1,
+      folderId: 'leaf-pd1',
+      folderName: 'PD1',
+      materialId: 'material-pd',
+      fileResourceId: 'file-pd',
+      currentVersionId: 'version-pd',
+      displayName: 'Banco PD1',
+      originalName: 'Banco PD1.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: '1100',
+      storageProvider: 'GDRIVE',
+      driveFileId: 'drive-file-pd',
+      downloadPath: '/materials/material-pd/download',
+      authorizedViewPath: '/materials/material-pd/authorized-link?mode=view',
+      lastModifiedAt: now,
+    });
+  });
+
+  it('should reject upload to a bank-only target when the folder does not exist in the bank structure', async () => {
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue({
+      ...currentCycle,
+      course: { ...currentCycle.course, code: 'MAT101' },
+      academicCycle: { ...currentCycle.academicCycle, code: '2026-1' },
+    });
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pd-type',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'folder-active' });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pd', name: 'Practicas Dirigidas' }]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pd2', parentFolderId: 'root-pd', name: 'PD2' },
+    ]);
+    (materialFolderRepository.findSubFolders as jest.Mock).mockResolvedValue([
+      { id: 'leaf-pd2', name: 'PD2' },
+    ]);
+
+    await expect(
+      service.uploadBankDocument(
+        { id: 'prof-1' } as any,
+        '100',
+        {
+          evaluationTypeCode: 'PD',
+          evaluationNumber: '1',
+          displayName: 'Banco PD1',
+        },
+        {
+          originalname: 'Banco PD1.pdf',
+          mimetype: 'application/pdf',
+          size: 1100,
+          buffer: Buffer.from('%PDF test'),
+        } as Express.Multer.File,
+        ROLE_CODES.PROFESSOR,
+      ),
+    ).rejects.toThrow(
+      'No existe una tarjeta del banco para el tipo y numero enviados',
+    );
+
+    expect(storageService.saveFile).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('should ignore unrelated bank folders when building bank structure', async () => {
+    (dataSource.query as jest.Mock).mockResolvedValue([{ typeCode: 'FULL' }]);
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (evaluationRepository.findAllWithUserAccess as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+        enrollmentEvaluations: [],
+      },
+    ]);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: '3',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'folder-active' });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pd', name: 'Practicas Dirigidas' }]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pd1', parentFolderId: 'root-pd', name: 'PD1' },
+      { id: 'leaf-other', parentFolderId: 'root-pd', name: 'GUIA' },
+      { id: 'leaf-pd0', parentFolderId: 'root-pd', name: 'PD0' },
+    ]);
+    (materialFolderRepository.findSubFolders as jest.Mock).mockResolvedValue([
+      { id: 'leaf-pd1', name: 'PD1' },
+      { id: 'leaf-other', name: 'GUIA' },
+      { id: 'leaf-pd0', name: 'PD0' },
+    ]);
+
+    const result = await service.getStudentBankStructure('100', '501');
+
+    expect(result.items).toEqual([
+      {
+        evaluationTypeId: '3',
+        evaluationTypeCode: 'PD',
+        evaluationTypeName: 'Practicas Dirigidas',
+        entries: [
+          {
+            evaluationId: null,
+            evaluationTypeCode: 'PD',
+            evaluationTypeName: 'Practicas Dirigidas',
+            evaluationNumber: 1,
+            label: 'PD1',
+            folderId: 'leaf-pd1',
+            folderName: 'PD1',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should reject duplicated bank document before uploading to Drive', async () => {
     (
       courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
@@ -1234,6 +1641,414 @@ describe('CoursesService student views', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  it('should update a bank-only folder set and synchronize Drive mutations', async () => {
+    const now = new Date('2026-03-18T10:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue({
+      ...currentCycle,
+      course: { ...currentCycle.course, code: 'MAT101' },
+      academicCycle: { ...currentCycle.academicCycle, code: '2026-1' },
+    });
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pd-type',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockImplementation(async (code: string) => {
+      if (code === 'ACTIVE') {
+        return { id: 'folder-active' };
+      }
+      if (code === 'ARCHIVED') {
+        return { id: 'folder-archived' };
+      }
+      return null;
+    });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pd', name: 'Practicas Dirigidas' }]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pd1', parentFolderId: 'root-pd', name: 'PD1' },
+      { id: 'leaf-pd2', parentFolderId: 'root-pd', name: 'PD2' },
+    ]);
+    (materialRepository.findByFolderIds as jest.Mock).mockResolvedValue([]);
+    (materialFolderRepository.save as jest.Mock).mockImplementation(
+      async (folder) => folder,
+    );
+    (materialFolderRepository.create as jest.Mock).mockResolvedValue({
+      id: 'leaf-pd3',
+      parentFolderId: 'root-pd',
+      name: 'PD3',
+    });
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
+      return await cb({} as any);
+    });
+
+    const result = await service.updateBankFolder(
+      { id: 'prof-1' } as any,
+      '100',
+      'PD',
+      {
+        groupName: 'Practicas Dirigidas Actualizadas',
+        items: ['PD2', 'PD3'],
+      },
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(materialFolderRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'root-pd',
+        name: 'Practicas Dirigidas Actualizadas',
+      }),
+      expect.anything(),
+    );
+    expect(materialFolderRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'leaf-pd1',
+        folderStatusId: 'folder-archived',
+      }),
+      expect.anything(),
+    );
+    expect(materialFolderRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentFolderId: 'root-pd',
+        name: 'PD3',
+      }),
+      expect.anything(),
+    );
+    expect(
+      courseCycleDriveProvisioningService.deleteBankFolder,
+    ).toHaveBeenCalledWith({
+      courseCycleId: '100',
+      courseCode: 'MAT101',
+      cycleCode: '2026-1',
+      groupName: 'Practicas Dirigidas',
+      leafFolderName: 'PD1',
+    });
+    expect(
+      courseCycleDriveProvisioningService.renameBankGroupFolder,
+    ).toHaveBeenCalledWith({
+      courseCycleId: '100',
+      courseCode: 'MAT101',
+      cycleCode: '2026-1',
+      currentGroupName: 'Practicas Dirigidas',
+      nextGroupName: 'Practicas Dirigidas Actualizadas',
+    });
+    expect(
+      courseCycleDriveProvisioningService.ensureBankLeafFolder,
+    ).toHaveBeenCalledWith({
+      courseCycleId: '100',
+      courseCode: 'MAT101',
+      cycleCode: '2026-1',
+      bankCards: [],
+      bankFolders: [
+        {
+          groupName: 'Practicas Dirigidas Actualizadas',
+          items: ['PD3'],
+        },
+      ],
+      evaluationTypeCode: 'PD',
+      evaluationNumber: 3,
+      groupName: 'Practicas Dirigidas Actualizadas',
+      leafFolderName: 'PD3',
+    });
+    expect(result).toEqual({
+      courseCycleId: '100',
+      bankEvaluationId: 'bank-0',
+      evaluationTypeId: 'pd-type',
+      evaluationTypeCode: 'PD',
+      evaluationTypeName: 'Practicas Dirigidas Actualizadas',
+      groupName: 'Practicas Dirigidas Actualizadas',
+      items: ['PD2', 'PD3'],
+      hasAcademicEvaluations: false,
+    });
+  });
+
+  it('should reject deleting a bank-only folder group when it already contains materials', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pd-type',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockResolvedValue({ id: 'folder-active' });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pd', name: 'Practicas Dirigidas' }]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pd1', parentFolderId: 'root-pd', name: 'PD1' },
+    ]);
+    (materialRepository.findByFolderIds as jest.Mock).mockResolvedValue([
+      { id: 'material-1' },
+    ]);
+
+    await expect(
+      service.deleteBankFolder(
+        { id: 'prof-1' } as any,
+        '100',
+        'PD',
+        ROLE_CODES.PROFESSOR,
+      ),
+    ).rejects.toThrow(
+      'No se puede eliminar o reemplazar una carpeta del banco que ya contiene archivos',
+    );
+
+    expect(
+      courseCycleAllowedEvaluationTypeRepository.replaceAllowedTypes,
+    ).not.toHaveBeenCalled();
+    expect(
+      courseCycleDriveProvisioningService.deleteBankFolder,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('should reject deleting a bank folder synchronized with academic evaluations', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pc-type',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc-1',
+        number: 1,
+        evaluationTypeId: 'pc-type',
+        evaluationType: {
+          code: 'PC',
+          name: 'Practica Calificada',
+        },
+      },
+    ]);
+
+    await expect(
+      service.deleteBankFolder(
+        { id: 'prof-1' } as any,
+        '100',
+        'PC',
+        ROLE_CODES.PROFESSOR,
+      ),
+    ).rejects.toThrow(
+      'No se puede eliminar una carpeta del banco sincronizada con evaluaciones academicas. Modifica primero la estructura de evaluaciones.',
+    );
+  });
+
+  it('should reject changing items for a bank folder synchronized with academic evaluations', async () => {
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue(
+      currentCycle,
+    );
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pc-type',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+      {
+        id: 'pc-1',
+        number: 1,
+        evaluationTypeId: 'pc-type',
+        evaluationType: {
+          code: 'PC',
+          name: 'Practica Calificada',
+        },
+      },
+    ]);
+
+    await expect(
+      service.updateBankFolder(
+        { id: 'prof-1' } as any,
+        '100',
+        'PC',
+        {
+          groupName: 'Practicas Calificadas',
+          items: ['PC2'],
+        },
+        ROLE_CODES.PROFESSOR,
+      ),
+    ).rejects.toThrow(
+      'No se puede alterar la lista de subcarpetas de un tipo sincronizado con evaluaciones academicas',
+    );
+  });
+
+  it('should delete a bank-only group and deactivate its allowed type', async () => {
+    const now = new Date('2026-03-19T08:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    (courseCycleRepository.findFullById as jest.Mock).mockResolvedValue({
+      ...currentCycle,
+      course: { ...currentCycle.course, code: 'MAT101' },
+      academicCycle: { ...currentCycle.academicCycle, code: '2026-1' },
+    });
+    (
+      courseCycleProfessorRepository.canProfessorReadCourseCycle as jest.Mock
+    ).mockResolvedValue(true);
+    (
+      courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId as jest.Mock
+    ).mockResolvedValue([
+      {
+        evaluationTypeId: 'pc-type',
+        evaluationType: { code: 'PC', name: 'Practica Calificada' },
+      },
+      {
+        evaluationTypeId: 'pd-type',
+        evaluationType: { code: 'PD', name: 'Practica Dirigida' },
+      },
+    ]);
+    (evaluationRepository.findByCourseCycle as jest.Mock).mockResolvedValue([
+      {
+        id: 'bank-0',
+        number: 0,
+        evaluationTypeId: 'bank-type',
+        evaluationType: {
+          code: 'BANCO_ENUNCIADOS',
+          name: 'BANCO ENUNCIADOS',
+        },
+      },
+    ]);
+    (
+      materialCatalogRepository.findFolderStatusByCode as jest.Mock
+    ).mockImplementation(async (code: string) => {
+      if (code === 'ACTIVE') {
+        return { id: 'folder-active' };
+      }
+      if (code === 'ARCHIVED') {
+        return { id: 'folder-archived' };
+      }
+      return null;
+    });
+    (
+      materialFolderRepository.findRootsByEvaluation as jest.Mock
+    ).mockResolvedValue([{ id: 'root-pd', name: 'Practicas Dirigidas' }]);
+    (
+      materialFolderRepository.findByParentFolderIds as jest.Mock
+    ).mockResolvedValue([
+      { id: 'leaf-pd1', parentFolderId: 'root-pd', name: 'PD1' },
+      { id: 'leaf-pd2', parentFolderId: 'root-pd', name: 'PD2' },
+    ]);
+    (materialRepository.findByFolderIds as jest.Mock).mockResolvedValue([]);
+    (materialFolderRepository.save as jest.Mock).mockImplementation(
+      async (folder) => folder,
+    );
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
+      return await cb({} as any);
+    });
+
+    await service.deleteBankFolder(
+      { id: 'prof-1' } as any,
+      '100',
+      'PD',
+      ROLE_CODES.PROFESSOR,
+    );
+
+    expect(materialFolderRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'leaf-pd1',
+        folderStatusId: 'folder-archived',
+      }),
+      expect.anything(),
+    );
+    expect(materialFolderRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'leaf-pd2',
+        folderStatusId: 'folder-archived',
+      }),
+      expect.anything(),
+    );
+    expect(materialFolderRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'root-pd',
+        folderStatusId: 'folder-archived',
+      }),
+      expect.anything(),
+    );
+    expect(
+      courseCycleAllowedEvaluationTypeRepository.replaceAllowedTypes,
+    ).toHaveBeenCalledWith('100', ['pc-type'], expect.anything());
+    expect(
+      courseCycleDriveProvisioningService.deleteBankFolder,
+    ).toHaveBeenCalledWith({
+      courseCycleId: '100',
+      courseCode: 'MAT101',
+      cycleCode: '2026-1',
+      groupName: 'Practicas Dirigidas',
+    });
+  });
+
   it('should store intro video url and extracted drive file id', async () => {
     (courseCycleRepository.findById as jest.Mock).mockResolvedValue({
       id: '100',
@@ -1290,6 +2105,59 @@ describe('CoursesService student views', () => {
     });
   });
 
+  it('should update administrative status of a course', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+      isActive: true,
+    });
+    (courseRepository.updateAndReturn as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+      isActive: false,
+    });
+
+    const result = await service.updateStatus('c1', { isActive: false });
+
+    expect(courseRepository.updateAndReturn).toHaveBeenCalledWith('c1', {
+      isActive: false,
+    });
+    expect(result).toEqual({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+      isActive: false,
+    });
+  });
+
+  it('should delete a course when it has no related rows', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+    });
+    (courseRepository.deleteById as jest.Mock).mockResolvedValue(undefined);
+
+    await service.delete('c1');
+
+    expect(courseRepository.deleteById).toHaveBeenCalledWith('c1');
+  });
+
+  it('should reject delete when course has related records', async () => {
+    (courseRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      code: 'MAT101',
+      name: 'Matematica',
+    });
+    (courseRepository.deleteById as jest.Mock).mockRejectedValue({
+      errno: 1451,
+    });
+
+    await expect(service.delete('c1')).rejects.toThrow(ConflictException);
+  });
+
   it('should return authorized intro video link for student with active enrollment', async () => {
     (courseCycleRepository.findById as jest.Mock).mockResolvedValue({
       id: '100',
@@ -1320,6 +2188,36 @@ describe('CoursesService student views', () => {
     (
       courseCycleProfessorRepository.findByProfessorUserId as jest.Mock
     ).mockResolvedValue([
+      {
+        assignedAt: new Date('2025-02-01T15:00:00.000Z'),
+        courseCycle: {
+          id: '99',
+          course: {
+            id: '9',
+            code: 'MAT',
+            name: 'Matematica',
+            courseType: { code: 'CIENCIAS', name: 'Ciencias' },
+            cycleLevel: { levelNumber: 1 },
+          },
+          academicCycle: {
+            id: '199',
+            code: '2025-2',
+            startDate: new Date('2025-07-01T00:00:00.000Z'),
+            endDate: new Date('2025-12-31T00:00:00.000Z'),
+          },
+          professors: [
+            {
+              professor: {
+                id: '77',
+                firstName: 'Ana',
+                lastName1: 'Perez',
+                lastName2: 'Lopez',
+                profilePhotoUrl: null,
+              },
+            },
+          ],
+        },
+      },
       {
         assignedAt: new Date('2026-02-01T15:00:00.000Z'),
         courseCycle: {

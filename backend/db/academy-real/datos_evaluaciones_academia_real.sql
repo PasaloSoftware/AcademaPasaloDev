@@ -2,6 +2,9 @@
 -- Fuente base: backend/cursos.txt + backend/cursos_evaluaciones.txt
 -- Regla: se respetan rangos existentes; faltantes estimados dentro del ciclo activo (2026-1).
 
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET collation_connection = 'utf8mb4_unicode_ci';
+
 SET @active_cycle_id = (
   SELECT CAST(ss.setting_value AS UNSIGNED)
   FROM system_setting ss
@@ -346,7 +349,7 @@ FROM (
       CONCAT('Clase ', s.session_number, ' - ', et.code, ev.number) AS title,
       CASE s.session_number
         WHEN 1 THEN 'Introduccion'
-        WHEN 2 THEN 'Ejercicios'
+        WHEN 2 THEN 'Desarrollo del taller'
         WHEN 3 THEN 'Resolucion guiada'
         ELSE 'Repaso final'
       END AS topic,
@@ -362,6 +365,7 @@ FROM (
       CASE
         WHEN et.code = 'LAB' THEN (1000 + (ev.number * 10) + s.session_number)
         WHEN et.code = 'PC' THEN (2000 + (ev.number * 10) + s.session_number)
+        WHEN et.code = 'TALLER_LIBRE' THEN (3000 + (ev.number * 10) + s.session_number)
         WHEN et.code = 'EX' AND ev.number = 1 THEN (5000 + s.session_number)
         WHEN et.code = 'EX' AND ev.number = 2 THEN (9000 + s.session_number)
         WHEN et.code = 'EX' THEN (9500 + (ev.number * 10) + s.session_number)
@@ -390,6 +394,7 @@ FROM (
       ON s.session_number <= CASE
         WHEN et.code = 'EX' THEN 4
         WHEN et.code IN ('PC', 'LAB') THEN 3
+        WHEN et.code = 'TALLER_LIBRE' THEN 2
         ELSE 0
       END
     INNER JOIN (
@@ -950,3 +955,161 @@ WHERE ce.id = @first_event_mat06
 
 SELECT @first_event_inf01 AS first_event_inf01_id, @new_start_inf01 AS new_start_inf01;
 SELECT @first_event_mat06 AS first_event_mat06_id, @new_start_mat06 AS new_start_mat06;
+
+-- ============================================================================
+-- TALLER_LIBRE (al final para no alterar orden/IDs previos de evaluaciones)
+-- Cursos: LIN126, HUM121, INT130
+-- ============================================================================
+SET @evaluation_type_taller_libre_id = (
+  SELECT et.id
+  FROM evaluation_type et
+  WHERE et.code = 'TALLER_LIBRE'
+  LIMIT 1
+);
+
+INSERT INTO course_cycle_allowed_evaluation_type (
+  course_cycle_id,
+  evaluation_type_id,
+  is_active,
+  created_at,
+  updated_at
+)
+SELECT
+  cc.id,
+  @evaluation_type_taller_libre_id,
+  TRUE,
+  NOW(),
+  NULL
+FROM course_cycle cc
+INNER JOIN course c ON c.id = cc.course_id
+WHERE cc.academic_cycle_id = @active_cycle_id
+  AND c.code IN ('LIN126', 'HUM121', 'INT130')
+  AND @evaluation_type_taller_libre_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM course_cycle_allowed_evaluation_type x
+    WHERE x.course_cycle_id = cc.id
+      AND x.evaluation_type_id = @evaluation_type_taller_libre_id
+  );
+
+INSERT INTO evaluation (course_cycle_id, evaluation_type_id, number, start_date, end_date)
+SELECT
+  cc.id,
+  @evaluation_type_taller_libre_id,
+  1 AS number,
+  CASE c.code
+    WHEN 'LIN126' THEN '2026-04-08 18:00:00'
+    WHEN 'HUM121' THEN '2026-04-09 18:00:00'
+    WHEN 'INT130' THEN '2026-04-10 18:00:00'
+    ELSE '2026-04-08 18:00:00'
+  END AS start_date,
+  '2026-07-10 20:00:00' AS end_date
+FROM course_cycle cc
+INNER JOIN course c ON c.id = cc.course_id
+WHERE cc.academic_cycle_id = @active_cycle_id
+  AND c.code IN ('LIN126', 'HUM121', 'INT130')
+  AND @evaluation_type_taller_libre_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM evaluation e
+    WHERE e.course_cycle_id = cc.id
+      AND e.evaluation_type_id = @evaluation_type_taller_libre_id
+      AND e.number = 1
+  );
+
+INSERT INTO class_event (
+  evaluation_id,
+  session_number,
+  title,
+  topic,
+  start_datetime,
+  end_datetime,
+  live_meeting_url,
+  recording_status_id,
+  created_by,
+  created_at
+)
+SELECT
+  ev.id AS evaluation_id,
+  s.session_number,
+  'Talleres Libres' AS title,
+  CASE s.session_number
+    WHEN 1 THEN 'Taller libre 1'
+    ELSE 'Taller libre 2'
+  END AS topic,
+  CASE s.session_number
+    WHEN 1 THEN DATE_ADD(ev.start_date, INTERVAL 7 DAY)
+    ELSE DATE_ADD(ev.start_date, INTERVAL 35 DAY)
+  END AS start_datetime,
+  CASE s.session_number
+    WHEN 1 THEN DATE_ADD(DATE_ADD(ev.start_date, INTERVAL 7 DAY), INTERVAL 2 HOUR)
+    ELSE DATE_ADD(DATE_ADD(ev.start_date, INTERVAL 35 DAY), INTERVAL 2 HOUR)
+  END AS end_datetime,
+  'https://meet.google.com/academy-real' AS live_meeting_url,
+  @rec_not_available AS recording_status_id,
+  ccp.professor_user_id AS created_by,
+  NOW() AS created_at
+FROM evaluation ev
+INNER JOIN evaluation_type et
+  ON et.id = ev.evaluation_type_id
+INNER JOIN course_cycle cc
+  ON cc.id = ev.course_cycle_id
+INNER JOIN course c
+  ON c.id = cc.course_id
+INNER JOIN (
+  SELECT 1 AS session_number
+  UNION ALL
+  SELECT 2
+) s
+INNER JOIN (
+  SELECT
+    course_cycle_id,
+    MIN(professor_user_id) AS professor_user_id
+  FROM course_cycle_professor
+  WHERE revoked_at IS NULL
+  GROUP BY course_cycle_id
+) ccp
+  ON ccp.course_cycle_id = cc.id
+WHERE cc.academic_cycle_id = @active_cycle_id
+  AND et.code = 'TALLER_LIBRE'
+  AND c.code IN ('LIN126', 'HUM121', 'INT130')
+  AND @rec_not_available IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM class_event ce
+    WHERE ce.evaluation_id = ev.id
+      AND ce.session_number = s.session_number
+  );
+
+INSERT INTO class_event_professor (
+  class_event_id,
+  professor_user_id,
+  assigned_at,
+  revoked_at
+)
+SELECT
+  ce.id,
+  ccp.professor_user_id,
+  NOW(),
+  NULL
+FROM class_event ce
+INNER JOIN evaluation ev
+  ON ev.id = ce.evaluation_id
+INNER JOIN evaluation_type et
+  ON et.id = ev.evaluation_type_id
+INNER JOIN (
+  SELECT
+    course_cycle_id,
+    MIN(professor_user_id) AS professor_user_id
+  FROM course_cycle_professor
+  WHERE revoked_at IS NULL
+  GROUP BY course_cycle_id
+) ccp
+  ON ccp.course_cycle_id = ev.course_cycle_id
+WHERE et.code = 'TALLER_LIBRE'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM class_event_professor x
+    WHERE x.class_event_id = ce.id
+      AND x.professor_user_id = ccp.professor_user_id
+  );

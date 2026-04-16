@@ -294,4 +294,16 @@ export const usersService = {
     const response = await apiClient.patch<ApiResponse<User>>(`/users/${userId}/ban`);
     return response.data.data;
   },
+
+  /**
+   * Activar o inactivar un usuario (ADMIN/SUPER_ADMIN)
+   * Endpoint: PATCH /users/:id/status
+   */
+  async updateStatus(userId: string, isActive: boolean): Promise<User> {
+    const response = await apiClient.patch<ApiResponse<User>>(
+      `/users/${userId}/status`,
+      { isActive },
+    );
+    return response.data.data;
+  },
 };

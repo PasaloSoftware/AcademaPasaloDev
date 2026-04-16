@@ -25,7 +25,16 @@ describe('MediaAccessMembershipProcessor', () => {
 
   beforeEach(() => {
     dataSource = {
-      query: jest.fn().mockResolvedValue([{ hasAccess: 0 }]),
+      query: jest.fn().mockImplementation((sql: string) => {
+        const statement = String(sql || '');
+        if (statement.includes('AS typeCode')) {
+          return Promise.resolve([{ typeCode: 'PC' }]);
+        }
+        if (statement.includes('AS hasAccess')) {
+          return Promise.resolve([{ hasAccess: 0 }]);
+        }
+        return Promise.resolve([]);
+      }),
     };
     userRepository = {
       findOne: jest.fn(),
@@ -66,7 +75,16 @@ describe('MediaAccessMembershipProcessor', () => {
   });
 
   it('otorga membresía y provisiona si no existe scope activo', async () => {
-    (dataSource.query as jest.Mock).mockResolvedValueOnce([{ hasAccess: 1 }]);
+    (dataSource.query as jest.Mock).mockImplementation((sql: string) => {
+      const statement = String(sql || '');
+      if (statement.includes('AS typeCode')) {
+        return Promise.resolve([{ typeCode: 'PC' }]);
+      }
+      if (statement.includes('AS hasAccess')) {
+        return Promise.resolve([{ hasAccess: 1 }]);
+      }
+      return Promise.resolve([]);
+    });
     (userRepository.findOne as jest.Mock).mockResolvedValue({
       id: '10',
       email: 'student@test.com',
@@ -121,6 +139,34 @@ describe('MediaAccessMembershipProcessor', () => {
     expect(provisioningService.provisionByEvaluationId).not.toHaveBeenCalled();
   });
 
+  it('omite sync de membresia para BANCO_ENUNCIADOS', async () => {
+    (dataSource.query as jest.Mock).mockImplementation((sql: string) => {
+      const statement = String(sql || '');
+      if (statement.includes('AS typeCode')) {
+        return Promise.resolve([{ typeCode: 'BANCO_ENUNCIADOS' }]);
+      }
+      if (statement.includes('AS hasAccess')) {
+        return Promise.resolve([{ hasAccess: 1 }]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await processor.process({
+      id: 'job-bank-skip',
+      name: MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP,
+      data: {
+        action: MEDIA_ACCESS_MEMBERSHIP_ACTIONS.GRANT,
+        userId: '10',
+        evaluationId: '900',
+        source: 'ENROLLMENT_CREATED',
+      },
+    } as unknown as Job);
+
+    expect(userRepository.findOne).not.toHaveBeenCalled();
+    expect(provisioningService.provisionByEvaluationId).not.toHaveBeenCalled();
+    expect(workspaceGroupsService.ensureMemberInGroup).not.toHaveBeenCalled();
+  });
+
   it('revoca membresía cuando existe scope activo', async () => {
     (userRepository.findOne as jest.Mock).mockResolvedValue({
       id: '10',
@@ -162,7 +208,16 @@ describe('MediaAccessMembershipProcessor', () => {
       viewerGroupEmail: 'ev-20-viewers@academiapasalo.com',
       isActive: true,
     } as never);
-    (dataSource.query as jest.Mock).mockResolvedValueOnce([{ hasAccess: 1 }]);
+    (dataSource.query as jest.Mock).mockImplementation((sql: string) => {
+      const statement = String(sql || '');
+      if (statement.includes('AS typeCode')) {
+        return Promise.resolve([{ typeCode: 'PC' }]);
+      }
+      if (statement.includes('AS hasAccess')) {
+        return Promise.resolve([{ hasAccess: 1 }]);
+      }
+      return Promise.resolve([]);
+    });
 
     await processor.process({
       id: 'job-2b',
@@ -236,10 +291,19 @@ describe('MediaAccessMembershipProcessor', () => {
       viewerGroupEmail: 'ev-20-viewers@academiapasalo.com',
       isActive: true,
     } as never);
-    (dataSource.query as jest.Mock).mockResolvedValueOnce([
-      { email: 'student@test.com' },
-      { email: 'other@test.com' },
-    ]);
+    (dataSource.query as jest.Mock).mockImplementation((sql: string) => {
+      const statement = String(sql || '');
+      if (statement.includes('AS typeCode')) {
+        return Promise.resolve([{ typeCode: 'PC' }]);
+      }
+      if (statement.includes('SELECT DISTINCT email')) {
+        return Promise.resolve([
+          { email: 'student@test.com' },
+          { email: 'other@test.com' },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
     (
       workspaceGroupsService.listGroupMembers as unknown as jest.Mock
     ).mockResolvedValueOnce([{ email: 'student@test.com' }]);
@@ -273,9 +337,16 @@ describe('MediaAccessMembershipProcessor', () => {
       viewerGroupEmail: 'ev-20-viewers@academiapasalo.com',
       isActive: true,
     } as never);
-    (dataSource.query as jest.Mock).mockResolvedValueOnce([
-      { email: 'student@test.com' },
-    ]);
+    (dataSource.query as jest.Mock).mockImplementation((sql: string) => {
+      const statement = String(sql || '');
+      if (statement.includes('AS typeCode')) {
+        return Promise.resolve([{ typeCode: 'PC' }]);
+      }
+      if (statement.includes('SELECT DISTINCT email')) {
+        return Promise.resolve([{ email: 'student@test.com' }]);
+      }
+      return Promise.resolve([]);
+    });
     (
       workspaceGroupsService.listGroupMembers as unknown as jest.Mock
     ).mockResolvedValueOnce([
@@ -303,6 +374,31 @@ describe('MediaAccessMembershipProcessor', () => {
       groupEmail: 'ev-20-viewers@academiapasalo.com',
       memberEmail: 'legacy@test.com',
     });
+  });
+
+  it('rechaza recover manual para BANCO_ENUNCIADOS', async () => {
+    (dataSource.query as jest.Mock).mockImplementation((sql: string) => {
+      const statement = String(sql || '');
+      if (statement.includes('AS typeCode')) {
+        return Promise.resolve([{ typeCode: 'BANCO_ENUNCIADOS' }]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await expect(
+      processor.process({
+        id: 'job-recover-bank',
+        name: MEDIA_ACCESS_JOB_NAMES.RECOVER_EVALUATION_SCOPE,
+        data: {
+          evaluationId: '900',
+          requestedByUserId: '1',
+          reconcileMembers: true,
+          pruneExtraMembers: false,
+          source: 'ADMIN_MANUAL_RECOVERY',
+        },
+      } as unknown as Job),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(provisioningService.provisionByEvaluationId).not.toHaveBeenCalled();
   });
 
   it('lanza error no recuperable para job desconocido', async () => {

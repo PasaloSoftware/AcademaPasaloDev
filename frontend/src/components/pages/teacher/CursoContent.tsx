@@ -1,82 +1,132 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { coursesService } from '@/services/courses.service';
-import type { Enrollment } from '@/types/enrollment';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { coursesService } from "@/services/courses.service";
+import type { Enrollment } from "@/types/enrollment";
 import type {
   CurrentCycleResponse,
   PreviousCyclesResponse,
   BankStructureResponse,
-} from '@/types/curso';
-import Icon from '@/components/ui/Icon';
+} from "@/types/curso";
+import Icon from "@/components/ui/Icon";
 import {
   EvaluationCard,
   PreviousCycleCard,
   BancoCategoryCard,
   sortEvaluations,
-} from '@/components/shared/evaluationHelpers';
+} from "@/components/shared/evaluationHelpers";
 
 interface CursoContentProps {
   cursoId: string;
+  previewData?: {
+    enrollment: Enrollment;
+    currentCycle: CurrentCycleResponse | null;
+    previousCycles?: PreviousCyclesResponse | null;
+    bankStructure?: BankStructureResponse | null;
+    introVideoUrl?: string | null;
+    teacherName?: string;
+    teacherInitials?: string;
+    manageBreadcrumb?: boolean;
+    buildEvaluationUrl?: (evaluationId: string) => string;
+    buildPreviousCycleUrl?: (cycleCode: string) => string;
+    buildBankUrl?: (typeCode: string) => string;
+  };
 }
 
-type TabOption = 'vigente' | 'anteriores' | 'banco';
+type TabOption = "vigente" | "anteriores" | "banco";
 
-export default function CursoContent({ cursoId }: CursoContentProps) {
+export default function CursoContent({
+  cursoId,
+  previewData,
+}: CursoContentProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
   const { user } = useAuth();
+  const isPreview = Boolean(previewData);
 
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
-  const [currentCycle, setCurrentCycle] = useState<CurrentCycleResponse | null>(null);
-  const [loadingCourse, setLoadingCourse] = useState(true);
-  const [loadingContent, setLoadingContent] = useState(true);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(
+    previewData?.enrollment ?? null,
+  );
+  const [currentCycle, setCurrentCycle] = useState<CurrentCycleResponse | null>(
+    previewData?.currentCycle ?? null,
+  );
+  const [loadingCourse, setLoadingCourse] = useState(!isPreview);
+  const [loadingContent, setLoadingContent] = useState(!isPreview);
   const [error, setError] = useState<string | null>(null);
   const [errorContent, setErrorContent] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<TabOption>('vigente');
+  const [activeTab, setActiveTab] = useState<TabOption>("vigente");
 
-  const [previousCycles, setPreviousCycles] = useState<PreviousCyclesResponse | null>(null);
+  const [previousCycles, setPreviousCycles] =
+    useState<PreviousCyclesResponse | null>(
+      previewData?.previousCycles ?? null,
+    );
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
-  const [bankStructure, setBankStructure] = useState<BankStructureResponse | null>(null);
+  const [bankStructure, setBankStructure] =
+    useState<BankStructureResponse | null>(previewData?.bankStructure ?? null);
   const [loadingBank, setLoadingBank] = useState(false);
 
-  const [introVideoUrl, setIntroVideoUrl] = useState<string | null>(null);
+  const [introVideoUrl, setIntroVideoUrl] = useState<string | null>(
+    previewData?.introVideoUrl ?? null,
+  );
 
   useEffect(() => {
+    if (!previewData) return;
+
+    setEnrollment(previewData.enrollment);
+    setCurrentCycle(previewData.currentCycle);
+    setPreviousCycles(previewData.previousCycles ?? null);
+    setBankStructure(previewData.bankStructure ?? null);
+    setIntroVideoUrl(previewData.introVideoUrl ?? null);
+    setLoadingCourse(false);
+    setLoadingContent(false);
+    setError(null);
+    setErrorContent(null);
+
+    if (previewData.manageBreadcrumb !== false) {
+      setBreadcrumbItems([
+        { label: "Cursos" },
+        { label: previewData.enrollment.courseCycle.course.name },
+      ]);
+    }
+  }, [previewData, setBreadcrumbItems]);
+
+  useEffect(() => {
+    if (previewData) return;
+
     async function loadEnrollment() {
       setLoadingCourse(true);
       setError(null);
       try {
         const data = await coursesService.getMyCourseCycles();
-        const found = data.find(
-          (e) => e.courseCycle.id === cursoId,
-        );
+        const found = data.find((e) => e.courseCycle.id === cursoId);
         if (found) {
           setEnrollment(found);
           setBreadcrumbItems([
-            { label: 'Cursos' },
+            { label: "Cursos" },
             { label: found.courseCycle.course.name },
           ]);
         } else {
-          setError('No se encontró el curso asignado');
+          setError("No se encontró el curso asignado");
         }
       } catch (err) {
-        console.error('Error al cargar curso:', err);
-        setError('Error al cargar los datos del curso');
+        console.error("Error al cargar curso:", err);
+        setError("Error al cargar los datos del curso");
       } finally {
         setLoadingCourse(false);
       }
     }
 
     if (cursoId) loadEnrollment();
-  }, [cursoId, setBreadcrumbItems]);
+  }, [cursoId, previewData, setBreadcrumbItems]);
 
   useEffect(() => {
+    if (previewData) return;
+
     async function loadContent() {
       setLoadingContent(true);
       setErrorContent(null);
@@ -84,49 +134,55 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         const data = await coursesService.getCourseContent(cursoId);
         setCurrentCycle(data);
       } catch (err) {
-        console.error('Error al cargar contenido del ciclo:', err);
-        setErrorContent('Error al cargar las evaluaciones');
+        console.error("Error al cargar contenido del ciclo:", err);
+        setErrorContent("Error al cargar las evaluaciones");
       } finally {
         setLoadingContent(false);
       }
     }
 
     if (cursoId) loadContent();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   useEffect(() => {
+    if (previewData) return;
+
     async function loadPreviousCycles() {
       setLoadingPrevious(true);
       try {
         const data = await coursesService.getPreviousCycles(cursoId);
         setPreviousCycles(data);
       } catch (err) {
-        console.error('Error al cargar ciclos anteriores:', err);
+        console.error("Error al cargar ciclos anteriores:", err);
       } finally {
         setLoadingPrevious(false);
       }
     }
 
     if (cursoId) loadPreviousCycles();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   useEffect(() => {
+    if (previewData) return;
+
     async function loadBankStructure() {
       setLoadingBank(true);
       try {
         const data = await coursesService.getBankStructure(cursoId);
         setBankStructure(data);
       } catch (err) {
-        console.error('Error al cargar banco de enunciados:', err);
+        console.error("Error al cargar banco de enunciados:", err);
       } finally {
         setLoadingBank(false);
       }
     }
 
     if (cursoId) loadBankStructure();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   useEffect(() => {
+    if (previewData) return;
+
     async function loadIntroVideo() {
       try {
         const data = await coursesService.getIntroVideoLink(cursoId);
@@ -139,16 +195,26 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
     }
 
     if (cursoId) loadIntroVideo();
-  }, [cursoId]);
+  }, [cursoId, previewData]);
 
   const getTeacherInitials = (): string => {
-    if (!user) return 'XX';
-    return `${user.firstName[0]}${(user.lastName1 || 'X')[0]}`.toUpperCase();
+    if (previewData?.teacherInitials) return previewData.teacherInitials;
+    if (previewData?.enrollment?.courseCycle.professors?.[0]) {
+      const professor = previewData.enrollment.courseCycle.professors[0];
+      return `${professor.firstName[0]}${(professor.lastName1 || "X")[0]}`.toUpperCase();
+    }
+    if (!user) return "XX";
+    return `${user.firstName[0]}${(user.lastName1 || "X")[0]}`.toUpperCase();
   };
 
   const getTeacherName = (): string => {
-    if (!user) return '';
-    return `${user.firstName} ${user.lastName1 || ''}`.trim();
+    if (previewData?.teacherName) return previewData.teacherName;
+    if (previewData?.enrollment?.courseCycle.professors?.[0]) {
+      const professor = previewData.enrollment.courseCycle.professors[0];
+      return `${professor.firstName} ${professor.lastName1 || ""}`.trim();
+    }
+    if (!user) return "";
+    return `${user.firstName} ${user.lastName1 || ""}`.trim();
   };
 
   if (loadingCourse || loadingContent) {
@@ -189,7 +255,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           className="text-error-solid mb-4 mx-auto"
         />
         <h1 className="text-2xl font-bold text-primary mb-2">
-          {error || errorContent || 'Curso no encontrado'}
+          {error || errorContent || "Curso no encontrado"}
         </h1>
         <p className="text-secondary mb-6">
           El curso solicitado no está disponible.
@@ -199,13 +265,14 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
   }
 
   const courseName = enrollment.courseCycle.course.name;
-  const courseTypeName = enrollment.courseCycle.course.courseType?.name || 'CIENCIAS';
+  const courseTypeName =
+    enrollment.courseCycle.course.courseType?.name || "CIENCIAS";
   const evaluations = currentCycle?.evaluations || [];
 
   const tabs: { key: TabOption; label: string }[] = [
-    { key: 'vigente', label: 'Ciclo Vigente' },
-    { key: 'anteriores', label: 'Ciclos Pasados' },
-    { key: 'banco', label: 'Banco de Enunciados' },
+    { key: "vigente", label: "Ciclo Vigente" },
+    { key: "anteriores", label: "Ciclos Pasados" },
+    { key: "banco", label: "Banco de Enunciados" },
   ];
 
   return (
@@ -289,16 +356,16 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 px-2 py-2.5 rounded-lg flex justify-start items-center gap-2 transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-bg-accent-primary-solid'
-                  : 'bg-bg-primary hover:bg-bg-secondary'
+                  ? "bg-bg-accent-primary-solid"
+                  : "bg-bg-primary hover:bg-bg-secondary"
               }`}
             >
               <div className="flex-1 flex justify-start items-center gap-2">
                 <span
                   className={`flex-1 text-center text-[15px] leading-4 whitespace-nowrap ${
                     activeTab === tab.key
-                      ? 'text-text-white'
-                      : 'text-text-secondary'
+                      ? "text-text-white"
+                      : "text-text-secondary"
                   }`}
                 >
                   {tab.label}
@@ -309,11 +376,11 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         </div>
 
         {/* TAB: Ciclo Vigente */}
-        {activeTab === 'vigente' && (
+        {activeTab === "vigente" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
-                Ciclo Vigente {currentCycle?.cycleCode || ''}
+                Ciclo Vigente {currentCycle?.cycleCode || ""}
               </span>
             </div>
 
@@ -326,7 +393,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     forceEnabled
                     onSelect={(eval_) =>
                       router.push(
-                        `/plataforma/curso/${cursoId}/evaluacion/${eval_.id}`,
+                        previewData?.buildEvaluationUrl?.(eval_.id) ||
+                          `/plataforma/curso/${cursoId}/evaluacion/${eval_.id}`,
                       )
                     }
                   />
@@ -353,7 +421,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         )}
 
         {/* TAB: Ciclos Pasados */}
-        {activeTab === 'anteriores' && (
+        {activeTab === "anteriores" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
@@ -373,7 +441,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     cycleCode={cycle.cycleCode}
                     onViewCycle={(code) =>
                       router.push(
-                        `/plataforma/curso/${cursoId}/ciclo-anterior/${code}`,
+                        previewData?.buildPreviousCycleUrl?.(code) ||
+                          `/plataforma/curso/${cursoId}/ciclo-anterior/${code}`,
                       )
                     }
                   />
@@ -381,11 +450,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </div>
             ) : (
               <div className="self-stretch p-12 bg-white rounded-2xl border border-stroke-primary flex flex-col items-center justify-center gap-4">
-                <Icon
-                  name="history"
-                  size={64}
-                  className="text-icon-tertiary"
-                />
+                <Icon name="history" size={64} className="text-icon-tertiary" />
                 <div className="text-center">
                   <p className="text-text-primary font-semibold mb-2">
                     No hay ciclos pasados disponibles
@@ -400,7 +465,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
         )}
 
         {/* TAB: Banco de Enunciados */}
-        {activeTab === 'banco' && (
+        {activeTab === "banco" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
               <span className="text-text-primary text-2xl font-semibold leading-7">
@@ -421,7 +486,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     typeName={item.evaluationTypeName}
                     onSelect={() =>
                       router.push(
-                        `/plataforma/curso/${cursoId}/banco/${item.evaluationTypeCode}`,
+                        previewData?.buildBankUrl?.(item.evaluationTypeCode) ||
+                          `/plataforma/curso/${cursoId}/banco/${item.evaluationTypeCode}`,
                       )
                     }
                   />

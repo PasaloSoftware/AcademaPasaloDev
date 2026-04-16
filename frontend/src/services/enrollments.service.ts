@@ -38,4 +38,13 @@ export const enrollmentsService = {
     );
     return response.data.data;
   },
+
+  /**
+   * Cancelar una matrícula puntual (ADMIN/SUPER_ADMIN)
+   *
+   * Endpoint: PATCH /enrollments/:id/cancel
+   */
+  async cancelEnrollment(enrollmentId: string): Promise<void> {
+    await apiClient.patch(`/enrollments/${enrollmentId}/cancel`);
+  },
 };

@@ -123,7 +123,7 @@ export default function EditEventModal({
     >
       <form id="edit-event-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
-          <div className="px-4 py-3 bg-bg-error-light text-text-error-primary text-sm rounded-lg">
+          <div className="px-4 py-3 bg-red-50 text-text-error-primary text-sm rounded-lg">
             {error}
           </div>
         )}
