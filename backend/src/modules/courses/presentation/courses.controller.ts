@@ -37,6 +37,8 @@ import { CreateCourseSetupDto } from '@modules/courses/dto/create-course-setup.d
 import {
   UploadBankDocumentDto,
   UploadBankDocumentResponseDto,
+  UpdateBankFolderDto,
+  UpdateBankFolderResponseDto,
 } from '@modules/courses/dto/bank-documents.dto';
 import {
   AdminCourseCycleListQueryDto,
@@ -200,6 +202,44 @@ export class CoursesController {
     return plainToInstance(UploadBankDocumentResponseDto, material, {
       excludeExtraneousValues: true,
     });
+  }
+
+  @Patch('cycle/:id/bank-folders/:evaluationTypeCode')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Carpeta del banco actualizada exitosamente')
+  async updateBankFolder(
+    @Param('id') courseCycleId: string,
+    @Param('evaluationTypeCode') evaluationTypeCode: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateBankFolderDto,
+  ) {
+    const result = await this.coursesService.updateBankFolder(
+      user,
+      courseCycleId,
+      evaluationTypeCode,
+      dto,
+      (user as UserWithSession).activeRole,
+    );
+    return plainToInstance(UpdateBankFolderResponseDto, result, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Delete('cycle/:id/bank-folders/:evaluationTypeCode')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Carpeta del banco eliminada exitosamente')
+  async deleteBankFolder(
+    @Param('id') courseCycleId: string,
+    @Param('evaluationTypeCode') evaluationTypeCode: string,
+    @CurrentUser() user: User,
+  ): Promise<void> {
+    await this.coursesService.deleteBankFolder(
+      user,
+      courseCycleId,
+      evaluationTypeCode,
+      (user as UserWithSession).activeRole,
+    );
   }
 
   @Get('cycle/:id/intro-video-link')

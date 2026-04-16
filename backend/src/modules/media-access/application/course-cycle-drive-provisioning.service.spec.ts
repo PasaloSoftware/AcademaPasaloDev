@@ -44,6 +44,11 @@ describe('CourseCycleDriveProvisioningService', () => {
             findOrCreateDriveFolderUnderParent: jest
               .fn()
               .mockImplementation(async (parentId, name) => `${parentId}/${name}`),
+            findDriveFolderUnderParent: jest
+              .fn()
+              .mockImplementation(async (parentId, name) => `${parentId}/${name}`),
+            renameDriveFolder: jest.fn().mockResolvedValue(undefined),
+            trashDriveFolder: jest.fn().mockResolvedValue(undefined),
             ensureGroupReaderPermission: jest.fn().mockResolvedValue(undefined),
             ensureGroupWriterPermission: jest.fn().mockResolvedValue(undefined),
           },
@@ -84,5 +89,52 @@ describe('CourseCycleDriveProvisioningService', () => {
     expect(result.bankLeafFoldersCreated).toBe(3);
     expect(workspaceGroupsService.findOrCreateGroup).toHaveBeenCalled();
     expect(dataSource.query).toHaveBeenCalled();
+  });
+
+  it('renames an existing bank group folder in Drive', async () => {
+    await service.renameBankGroupFolder({
+      courseCycleId: '17',
+      courseCode: 'QUI101',
+      cycleCode: '2026-0',
+      currentGroupName: 'Practicas Dirigidas',
+      nextGroupName: 'Practicas Dirigidas Actualizadas',
+    });
+
+    expect(
+      driveScopeProvisioningService.findDriveFolderUnderParent,
+    ).toHaveBeenCalledWith(
+      expect.stringContaining('/bank_documents'),
+      'Practicas Dirigidas',
+    );
+    expect(driveScopeProvisioningService.renameDriveFolder).toHaveBeenCalledWith(
+      expect.stringContaining('/bank_documents/Practicas Dirigidas'),
+      'Practicas Dirigidas Actualizadas',
+    );
+  });
+
+  it('deletes an existing bank leaf folder in Drive', async () => {
+    await service.deleteBankFolder({
+      courseCycleId: '17',
+      courseCode: 'QUI101',
+      cycleCode: '2026-0',
+      groupName: 'Practicas Dirigidas',
+      leafFolderName: 'PD1',
+    });
+
+    expect(
+      driveScopeProvisioningService.findDriveFolderUnderParent,
+    ).toHaveBeenCalledWith(
+      expect.stringContaining('/bank_documents'),
+      'Practicas Dirigidas',
+    );
+    expect(
+      driveScopeProvisioningService.findDriveFolderUnderParent,
+    ).toHaveBeenCalledWith(
+      expect.stringContaining('/bank_documents/Practicas Dirigidas'),
+      'PD1',
+    );
+    expect(driveScopeProvisioningService.trashDriveFolder).toHaveBeenCalledWith(
+      expect.stringContaining('/bank_documents/Practicas Dirigidas/PD1'),
+    );
   });
 });

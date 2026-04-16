@@ -654,6 +654,8 @@ Nota de despliegue:
 
 - `GET /courses/cycle/:id/bank-structure` (STUDENT, PROFESSOR, ADMIN, SUPER_ADMIN) - estructura del Banco por course-cycle.
 - `POST /courses/cycle/:id/bank-documents` (PROFESSOR, ADMIN, SUPER_ADMIN) - carga de documento al Banco (usa `BANCO_ENUNCIADOS` tecnico, no crea evaluacion academica nueva).
+- `PATCH /courses/cycle/:id/bank-folders/:evaluationTypeCode` (PROFESSOR, ADMIN, SUPER_ADMIN) - edita grupo del banco; para tipos sincronizados solo permite renombrar el grupo, para tipos solo-banco permite renombrar y reemplazar subcarpetas.
+- `DELETE /courses/cycle/:id/bank-folders/:evaluationTypeCode` (PROFESSOR, ADMIN, SUPER_ADMIN) - elimina grupo solo-banco del banco; si el tipo tiene evaluaciones academicas sincronizadas responde conflicto.
 - `GET /courses/cycle/:id/intro-video-link` (STUDENT, PROFESSOR, ADMIN, SUPER_ADMIN) - enlace autorizado para video introductorio.
 
 Notas del Banco:
@@ -663,7 +665,8 @@ Notas del Banco:
   - carpetas solo-banco existentes bajo `BANCO_ENUNCIADOS`
 - Cuando una entry del banco no tiene evaluacion academica real, `evaluationId` puede venir en `null`.
 - `bank-documents` acepta uploads tanto para entries con evaluacion real como para carpetas solo-banco ya existentes en el banco del `course_cycle`.
-- A la fecha, el backend expone listado y carga para Banco de Enunciados, pero **no** expone endpoints dedicados para renombrar o eliminar carpetas del banco.
+- `PATCH /bank-folders/:evaluationTypeCode` exige `groupName` y opcionalmente `items`. Si el tipo esta sincronizado con evaluaciones academicas, `items` no puede diferir de la estructura academica actual.
+- `DELETE /bank-folders/:evaluationTypeCode` solo elimina tipos solo-banco y rechaza carpetas que ya contienen archivos.
 
 ### 7.6 Endpoints retirados (no usar en frontend)
 

@@ -1,9 +1,14 @@
 import { Expose } from 'class-transformer';
 import {
+  ArrayNotEmpty,
+  ArrayUnique,
   IsNotEmpty,
   IsNumberString,
+  IsOptional,
   IsString,
+  Matches,
   MaxLength,
+  IsArray,
 } from 'class-validator';
 
 export class UploadBankDocumentDto {
@@ -88,4 +93,51 @@ export class UploadBankDocumentResponseDto {
 
   @Expose()
   lastModifiedAt: Date;
+}
+
+export class UpdateBankFolderDto {
+  @Expose()
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(255)
+  groupName: string;
+
+  @Expose()
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique((value: string) => String(value || '').trim().toUpperCase())
+  @IsString({ each: true })
+  @MaxLength(32, { each: true })
+  @Matches(/^[A-Za-z0-9_-]+\d+$/, {
+    each: true,
+    message: 'Cada item debe usar formato tipo codigo+numero, por ejemplo PD1',
+  })
+  items?: string[];
+}
+
+export class UpdateBankFolderResponseDto {
+  @Expose()
+  courseCycleId: string;
+
+  @Expose()
+  bankEvaluationId: string;
+
+  @Expose()
+  evaluationTypeId: string;
+
+  @Expose()
+  evaluationTypeCode: string;
+
+  @Expose()
+  evaluationTypeName: string;
+
+  @Expose()
+  groupName: string;
+
+  @Expose()
+  items: string[];
+
+  @Expose()
+  hasAcademicEvaluations: boolean;
 }

@@ -66,6 +66,7 @@ import {
 } from '@modules/media-access/domain/media-access-url.util';
 import {
   FOLDER_STATUS_CODES,
+  MATERIAL_CACHE_KEYS,
   MATERIAL_STATUS_CODES,
   STORAGE_PROVIDER_CODES,
 } from '@modules/materials/domain/material.constants';
@@ -94,6 +95,8 @@ import { MySqlErrorCode } from '@common/interfaces/database-error.interface';
 import {
   UploadBankDocumentDto,
   UploadBankDocumentResponseDto,
+  UpdateBankFolderDto,
+  UpdateBankFolderResponseDto,
 } from '@modules/courses/dto/bank-documents.dto';
 import { UpdateCourseStatusDto } from '@modules/courses/dto/update-course-status.dto';
 
@@ -125,6 +128,11 @@ type StudentBankFolderEntry = {
   label: string;
   folderId: string | null;
   folderName: string | null;
+};
+
+type LoadedBankFolderTree = {
+  roots: MaterialFolder[];
+  leafFolders: Array<{ root: MaterialFolder; folder: MaterialFolder }>;
 };
 
 @Injectable()
@@ -1114,7 +1122,8 @@ export class CoursesService {
         await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
           courseCycleId,
         );
-      const entriesByTypeCode = await this.resolveBankEntriesByTypeCode(
+      const { entriesByTypeCode, groupNamesByTypeCode } =
+        await this.resolveBankEntriesByTypeCode(
         bankEvaluation.id,
         bankCards,
         structure.map((item) => ({
@@ -1134,10 +1143,14 @@ export class CoursesService {
       items = structure.map((item) => ({
         evaluationTypeId: String(item.evaluationTypeId),
         evaluationTypeCode: item.evaluationType.code,
-        evaluationTypeName: this.getBankEvaluationTypePluralName(
-          item.evaluationType.code,
-          item.evaluationType.name,
-        ),
+        evaluationTypeName:
+          groupNamesByTypeCode[
+            String(item.evaluationType.code || '').trim().toUpperCase()
+          ] ||
+          this.getBankEvaluationTypePluralName(
+            item.evaluationType.code,
+            item.evaluationType.name,
+          ),
         entries: entriesByTypeCode[item.evaluationType.code] || [],
       }));
 
@@ -1164,29 +1177,18 @@ export class CoursesService {
       evaluationTypeCode: string;
       evaluationTypeName: string;
     }>,
-  ): Promise<Record<string, StudentBankFolderEntry[]>> {
-    const activeFolderStatus = await this.getActiveFolderStatus();
-    const rootFolders =
-      await this.materialFolderRepository.findRootsByEvaluation(
-        bankEvaluationId,
-        activeFolderStatus.id,
-      );
-
-    const leafFolders: Array<{ rootName: string; folder: MaterialFolder }> = [];
-    for (const root of rootFolders) {
-      const children = await this.materialFolderRepository.findSubFolders(
-        root.id,
-        activeFolderStatus.id,
-      );
-      for (const child of children) {
-        leafFolders.push({
-          rootName: String(root.name || '').trim(),
-          folder: child,
-        });
-      }
-    }
+  ): Promise<{
+    entriesByTypeCode: Record<string, StudentBankFolderEntry[]>;
+    groupNamesByTypeCode: Record<string, string>;
+  }> {
+    const bankFolderTree = await this.loadBankFolderTree(bankEvaluationId);
+    const leafFolders = bankFolderTree.leafFolders.map((item) => ({
+      rootName: String(item.root.name || '').trim(),
+      folder: item.folder,
+    }));
 
     const entriesByTypeCode: Record<string, StudentBankFolderEntry[]> = {};
+    const groupNamesByTypeCode: Record<string, string> = {};
     const entryKeysByTypeCode = new Map<string, Set<string>>();
     const registerEntry = (
       typeCode: string,
@@ -1209,6 +1211,7 @@ export class CoursesService {
     };
 
     for (const card of cards) {
+      groupNamesByTypeCode[card.evaluationTypeCode] = card.groupFolderName;
       const folder =
         leafFolders.find(
           (item) =>
@@ -1241,6 +1244,9 @@ export class CoursesService {
         this.tryParseBankLeafNumber(String(leaf.folder.name || ''), code) !== null,
       );
       for (const leaf of matchingLeafFolders) {
+        if (!groupNamesByTypeCode[code]) {
+          groupNamesByTypeCode[code] = String(leaf.rootName || '').trim();
+        }
         const evaluationNumber = this.tryParseBankLeafNumber(
           String(leaf.folder.name || ''),
           code,
@@ -1268,7 +1274,7 @@ export class CoursesService {
       );
     }
 
-    return entriesByTypeCode;
+    return { entriesByTypeCode, groupNamesByTypeCode };
   }
 
   private normalizeBankFolderName(name: string): string {
@@ -1278,6 +1284,45 @@ export class CoursesService {
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
+  }
+
+  private async loadBankFolderTree(
+    bankEvaluationId: string,
+  ): Promise<LoadedBankFolderTree> {
+    const activeFolderStatus = await this.getActiveFolderStatus();
+    const roots = await this.materialFolderRepository.findRootsByEvaluation(
+      bankEvaluationId,
+      activeFolderStatus.id,
+    );
+    const subFolders =
+      (await this.materialFolderRepository.findByParentFolderIds(
+        roots.map((root) => String(root.id)),
+        activeFolderStatus.id,
+      )) || [];
+    const rootsById = new Map(
+      roots.map((root) => [String(root.id), root] as const),
+    );
+
+    return {
+      roots,
+      leafFolders: subFolders
+        .map((folder) => {
+          const root =
+            rootsById.get(String(folder.parentFolderId || '')) || null;
+          if (!root) {
+            return null;
+          }
+          return { root, folder };
+        })
+        .filter(
+          (
+            item,
+          ): item is {
+            root: MaterialFolder;
+            folder: MaterialFolder;
+          } => !!item,
+        ),
+    };
   }
 
   private tryParseBankLeafNumber(label: string, evaluationTypeCode: string): number | null {
@@ -1404,7 +1449,16 @@ export class CoursesService {
           item.evaluationNumber === evaluationNumber,
       ) || null;
     if (directCard) {
-      return directCard;
+      const existingGroupName = await this.resolveExistingBankGroupName(
+        bankEvaluationId,
+        normalizedTypeCode,
+      );
+      return existingGroupName
+        ? {
+            ...directCard,
+            groupFolderName: existingGroupName,
+          }
+        : directCard;
     }
 
     const structure =
@@ -1455,6 +1509,262 @@ export class CoursesService {
     }
 
     return null;
+  }
+
+  private async resolveExistingBankGroupName(
+    bankEvaluationId: string,
+    evaluationTypeCode: string,
+  ): Promise<string | null> {
+    const bankFolderTree = await this.loadBankFolderTree(bankEvaluationId);
+    const matchedLeaf =
+      bankFolderTree.leafFolders.find(
+        (item) =>
+          this.tryParseBankLeafNumber(
+            String(item.folder.name || ''),
+            evaluationTypeCode,
+          ) !== null,
+      ) || null;
+    return matchedLeaf ? String(matchedLeaf.root.name || '').trim() : null;
+  }
+
+  private resolveDesiredBankItems(
+    evaluationTypeCode: string,
+    requestedItems: string[] | undefined,
+    academicItems: string[],
+    hasAcademicEvaluations: boolean,
+  ): string[] {
+    const normalizedRequestedItems = Array.from(
+      new Set(
+        (requestedItems || [])
+          .map((item) => String(item || '').trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    );
+
+    if (hasAcademicEvaluations) {
+      const normalizedAcademicItems = academicItems
+        .map((item) => String(item || '').trim().toUpperCase())
+        .sort((left, right) => left.localeCompare(right, 'es'));
+      const requestedComparable = [...normalizedRequestedItems].sort((left, right) =>
+        left.localeCompare(right, 'es'),
+      );
+
+      if (
+        normalizedRequestedItems.length > 0 &&
+        JSON.stringify(requestedComparable) !==
+          JSON.stringify(normalizedAcademicItems)
+      ) {
+        throw new ConflictException(
+          'No se puede alterar la lista de subcarpetas de un tipo sincronizado con evaluaciones academicas',
+        );
+      }
+
+      return academicItems
+        .map((item) => String(item || '').trim().toUpperCase())
+        .filter(Boolean);
+    }
+
+    if (normalizedRequestedItems.length === 0) {
+      throw new BadRequestException(
+        'items es requerido para tipos solo-banco',
+      );
+    }
+
+    for (const item of normalizedRequestedItems) {
+      if (this.tryParseBankLeafNumber(item, evaluationTypeCode) === null) {
+        throw new BadRequestException(
+          `El item "${item}" no corresponde al tipo ${evaluationTypeCode}`,
+        );
+      }
+    }
+
+    return normalizedRequestedItems;
+  }
+
+  private findBankRootForType(
+    bankFolderTree: LoadedBankFolderTree,
+    evaluationTypeCode: string,
+  ): MaterialFolder | null {
+    const matchedLeaf =
+      bankFolderTree.leafFolders.find(
+        (item) =>
+          this.tryParseBankLeafNumber(
+            String(item.folder.name || ''),
+            evaluationTypeCode,
+          ) !== null,
+      ) || null;
+
+    return matchedLeaf ? matchedLeaf.root : null;
+  }
+
+  private async assertNoConflictingBankGroupName(
+    bankFolderTree: LoadedBankFolderTree,
+    evaluationTypeCode: string,
+    groupName: string,
+  ): Promise<void> {
+    const normalizedTarget = this.normalizeBankFolderName(groupName);
+    const conflictingRoot =
+      bankFolderTree.roots.find((root) => {
+        const rootCode = this.detectBankRootTypeCode(
+          bankFolderTree,
+          String(root.id),
+        );
+        if (!rootCode || rootCode === evaluationTypeCode) {
+          return false;
+        }
+        return this.normalizeBankFolderName(String(root.name || '')) === normalizedTarget;
+      }) || null;
+    if (conflictingRoot) {
+      throw new ConflictException(
+        'Ya existe otra carpeta del banco con ese nombre',
+      );
+    }
+  }
+
+  private detectBankRootTypeCode(
+    bankFolderTree: LoadedBankFolderTree,
+    rootId: string,
+  ): string | null {
+    const matchedLeaf =
+      bankFolderTree.leafFolders.find(
+        (item) => String(item.root.id) === String(rootId),
+      ) || null;
+    if (!matchedLeaf) {
+      return null;
+    }
+    const label = String(matchedLeaf.folder.name || '').trim().toUpperCase();
+    const match = label.match(/^([A-Z0-9_-]+?)(\d+)$/);
+    return match ? match[1] : null;
+  }
+
+  private async assertFoldersHaveNoMaterials(
+    folders: MaterialFolder[],
+  ): Promise<void> {
+    const folderIds = folders.map((folder) => String(folder.id));
+    const materials = await this.materialRepository.findByFolderIds(folderIds);
+    if (materials.length > 0) {
+      throw new ConflictException(
+        'No se puede eliminar o reemplazar una carpeta del banco que ya contiene archivos',
+      );
+    }
+  }
+
+  private async getFolderStatusOrFail(code: string) {
+    const status = await this.materialCatalogRepository.findFolderStatusByCode(
+      code,
+    );
+    if (!status) {
+      throw new InternalServerErrorException(
+        `Error de configuracion: Estado ${code} de carpeta faltante`,
+      );
+    }
+    return status;
+  }
+
+  private async invalidateBankCaches(
+    courseCycleId: string,
+    bankEvaluationId: string,
+    folderIds: string[],
+  ): Promise<void> {
+    const keys = [
+      COURSE_CACHE_KEYS.BANK_STRUCTURE(courseCycleId),
+      MATERIAL_CACHE_KEYS.ROOTS(bankEvaluationId),
+      ...folderIds.map((folderId) => MATERIAL_CACHE_KEYS.CONTENTS(folderId)),
+    ];
+    await this.cacheService.delMany(Array.from(new Set(keys)));
+  }
+
+  private async syncBankFolderMutationsToDrive(input: {
+    cycle: CourseCycle;
+    currentGroupName: string;
+    nextGroupName: string;
+    removedLeafNames: string[];
+    createdLeafNames: string[];
+    hasGroupRename: boolean;
+  }): Promise<void> {
+    const {
+      cycle,
+      currentGroupName,
+      nextGroupName,
+      removedLeafNames,
+      createdLeafNames,
+      hasGroupRename,
+    } = input;
+    try {
+      for (const leafName of removedLeafNames) {
+        await this.courseCycleDriveProvisioningService.deleteBankFolder({
+          courseCycleId: String(cycle.id),
+          courseCode: String(cycle.course.code || ''),
+          cycleCode: String(cycle.academicCycle.code || ''),
+          groupName: currentGroupName,
+          leafFolderName: leafName,
+        });
+      }
+
+      if (hasGroupRename) {
+        await this.courseCycleDriveProvisioningService.renameBankGroupFolder({
+          courseCycleId: String(cycle.id),
+          courseCode: String(cycle.course.code || ''),
+          cycleCode: String(cycle.academicCycle.code || ''),
+          currentGroupName,
+          nextGroupName,
+        });
+      }
+
+      for (const leafName of createdLeafNames) {
+        const matchedTypeCode = String(leafName || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\d+$/, '');
+        const parsedNumber = this.tryParseBankLeafNumber(
+          leafName,
+          matchedTypeCode,
+        );
+        if (parsedNumber === null) {
+          continue;
+        }
+        await this.courseCycleDriveProvisioningService.ensureBankLeafFolder({
+          courseCycleId: String(cycle.id),
+          courseCode: String(cycle.course.code || ''),
+          cycleCode: String(cycle.academicCycle.code || ''),
+          bankCards: [],
+          bankFolders: [
+            {
+              groupName: nextGroupName,
+              items: [leafName],
+            },
+          ],
+          evaluationTypeCode: matchedTypeCode,
+          evaluationNumber: parsedNumber,
+          groupName: nextGroupName,
+          leafFolderName: leafName,
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `No se pudo sincronizar completamente la mutacion del banco en Drive para course_cycle ${cycle.id}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private async syncDeletedBankFolderToDrive(input: {
+    cycle: CourseCycle;
+    groupName: string;
+  }): Promise<void> {
+    try {
+      await this.courseCycleDriveProvisioningService.deleteBankFolder({
+        courseCycleId: String(input.cycle.id),
+        courseCode: String(input.cycle.course.code || ''),
+        cycleCode: String(input.cycle.academicCycle.code || ''),
+        groupName: input.groupName,
+      });
+    } catch (error) {
+      this.logger.error(
+        `No se pudo sincronizar la eliminacion del banco en Drive para course_cycle ${input.cycle.id}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   private async ensureBankMaterialFolders(
@@ -1509,15 +1819,7 @@ export class CoursesService {
   }
 
   private async getActiveFolderStatus() {
-    const status = await this.materialCatalogRepository.findFolderStatusByCode(
-      FOLDER_STATUS_CODES.ACTIVE,
-    );
-    if (!status) {
-      throw new InternalServerErrorException(
-        `Error de configuracion: Estado ${FOLDER_STATUS_CODES.ACTIVE} de carpeta faltante`,
-      );
-    }
-    return status;
+    return await this.getFolderStatusOrFail(FOLDER_STATUS_CODES.ACTIVE);
   }
 
   private async getActiveMaterialStatus() {
@@ -1807,6 +2109,303 @@ export class CoursesService {
       }
       throw error;
     }
+  }
+
+  async updateBankFolder(
+    user: User,
+    courseCycleId: string,
+    evaluationTypeCode: string,
+    dto: UpdateBankFolderDto,
+    activeRole?: string,
+  ): Promise<UpdateBankFolderResponseDto> {
+    await this.assertCanManageCourseCycleBank(
+      courseCycleId,
+      user.id,
+      activeRole,
+    );
+
+    const cycle = await this.courseCycleRepository.findFullById(courseCycleId);
+    if (!cycle) {
+      throw new NotFoundException('Ciclo del curso no encontrado');
+    }
+
+    const bankEvaluation =
+      await this.findBankEvaluationEntityForCourseCycle(courseCycleId);
+    const normalizedTypeCode = String(evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+    const normalizedGroupName = String(dto.groupName || '').trim();
+    if (!normalizedGroupName) {
+      throw new BadRequestException('groupName es requerido');
+    }
+
+    const structure =
+      await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
+        courseCycleId,
+      );
+    const matchedType =
+      structure.find(
+        (item) =>
+          String(item.evaluationType?.code || '').trim().toUpperCase() ===
+          normalizedTypeCode,
+      ) || null;
+    if (!matchedType) {
+      throw new NotFoundException(
+        'El tipo solicitado no existe en el banco de este curso/ciclo',
+      );
+    }
+
+    const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
+    const cardsForType = bankCards.filter(
+      (item) => item.evaluationTypeCode === normalizedTypeCode,
+    );
+    const hasAcademicEvaluations = cardsForType.length > 0;
+    const desiredItems = this.resolveDesiredBankItems(
+      normalizedTypeCode,
+      dto.items,
+      cardsForType.map((item) => item.leafFolderName),
+      hasAcademicEvaluations,
+    );
+
+    const bankFolderTree = await this.loadBankFolderTree(bankEvaluation.id);
+    const matchedRoot = this.findBankRootForType(
+      bankFolderTree,
+      normalizedTypeCode,
+    );
+    const currentGroupName =
+      String(matchedRoot?.name || '').trim() ||
+      this.getBankEvaluationTypePluralName(
+        normalizedTypeCode,
+        String(matchedType.evaluationType?.name || '').trim(),
+      );
+
+    await this.assertNoConflictingBankGroupName(
+      bankFolderTree,
+      normalizedTypeCode,
+      normalizedGroupName,
+    );
+
+    const currentLeafFolders = matchedRoot
+      ? bankFolderTree.leafFolders
+          .filter((item) => String(item.root.id) === String(matchedRoot.id))
+          .map((item) => item.folder)
+      : [];
+
+    const desiredItemsSet = new Set(
+      desiredItems.map((item) => item.trim().toUpperCase()),
+    );
+    const currentLeafByName = new Map(
+      currentLeafFolders.map((folder) => [
+        String(folder.name || '').trim().toUpperCase(),
+        folder,
+      ]),
+    );
+    const missingItems = desiredItems.filter(
+      (item) => !currentLeafByName.has(item.trim().toUpperCase()),
+    );
+    const removedLeafFolders = hasAcademicEvaluations
+      ? []
+      : currentLeafFolders.filter(
+          (folder) =>
+            !desiredItemsSet.has(String(folder.name || '').trim().toUpperCase()),
+        );
+
+    if (removedLeafFolders.length > 0) {
+      await this.assertFoldersHaveNoMaterials(removedLeafFolders);
+    }
+
+    const activeFolderStatus = await this.getActiveFolderStatus();
+    const archivedFolderStatus = await this.getFolderStatusOrFail(
+      FOLDER_STATUS_CODES.ARCHIVED,
+    );
+    const now = new Date();
+    let persistedRoot: MaterialFolder | null = matchedRoot;
+
+    await this.dataSource.transaction(async (manager) => {
+      if (!persistedRoot) {
+        persistedRoot = await this.materialFolderRepository.create({
+          evaluationId: bankEvaluation.id,
+          parentFolderId: null,
+          folderStatusId: activeFolderStatus.id,
+          name: normalizedGroupName,
+          visibleFrom: null,
+          visibleUntil: null,
+          createdById: String(user.id),
+          createdAt: now,
+          updatedAt: now,
+        }, manager);
+      } else if (String(persistedRoot.name || '').trim() !== normalizedGroupName) {
+        persistedRoot.name = normalizedGroupName;
+        persistedRoot.updatedAt = now;
+        persistedRoot = await this.materialFolderRepository.save(
+          persistedRoot,
+          manager,
+        );
+      }
+
+      for (const folder of removedLeafFolders) {
+        folder.folderStatusId = archivedFolderStatus.id;
+        folder.updatedAt = now;
+        await this.materialFolderRepository.save(folder, manager);
+      }
+
+      for (const itemName of missingItems) {
+        await this.materialFolderRepository.create({
+          evaluationId: bankEvaluation.id,
+          parentFolderId: persistedRoot!.id,
+          folderStatusId: activeFolderStatus.id,
+          name: itemName,
+          visibleFrom: null,
+          visibleUntil: null,
+          createdById: String(user.id),
+          createdAt: now,
+          updatedAt: now,
+        }, manager);
+      }
+    });
+
+    await this.invalidateBankCaches(
+      courseCycleId,
+      bankEvaluation.id,
+      persistedRoot ? [persistedRoot.id] : [],
+    );
+
+    await this.syncBankFolderMutationsToDrive({
+      cycle,
+      currentGroupName,
+      nextGroupName: normalizedGroupName,
+      removedLeafNames: removedLeafFolders.map((folder) =>
+        String(folder.name || '').trim(),
+      ),
+      createdLeafNames: missingItems,
+      hasGroupRename:
+        currentGroupName.localeCompare(normalizedGroupName, 'es', {
+          sensitivity: 'base',
+        }) !== 0,
+    });
+
+    return {
+      courseCycleId,
+      bankEvaluationId: bankEvaluation.id,
+      evaluationTypeId: String(matchedType.evaluationTypeId),
+      evaluationTypeCode: normalizedTypeCode,
+      evaluationTypeName: normalizedGroupName,
+      groupName: normalizedGroupName,
+      items: desiredItems,
+      hasAcademicEvaluations,
+    };
+  }
+
+  async deleteBankFolder(
+    user: User,
+    courseCycleId: string,
+    evaluationTypeCode: string,
+    activeRole?: string,
+  ): Promise<void> {
+    await this.assertCanManageCourseCycleBank(
+      courseCycleId,
+      user.id,
+      activeRole,
+    );
+
+    const cycle = await this.courseCycleRepository.findFullById(courseCycleId);
+    if (!cycle) {
+      throw new NotFoundException('Ciclo del curso no encontrado');
+    }
+
+    const bankEvaluation =
+      await this.findBankEvaluationEntityForCourseCycle(courseCycleId);
+    const normalizedTypeCode = String(evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+    const structure =
+      await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
+        courseCycleId,
+      );
+    const matchedType =
+      structure.find(
+        (item) =>
+          String(item.evaluationType?.code || '').trim().toUpperCase() ===
+          normalizedTypeCode,
+      ) || null;
+    if (!matchedType) {
+      throw new NotFoundException(
+        'El tipo solicitado no existe en el banco de este curso/ciclo',
+      );
+    }
+
+    const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
+    if (bankCards.some((item) => item.evaluationTypeCode === normalizedTypeCode)) {
+      throw new ConflictException(
+        'No se puede eliminar una carpeta del banco sincronizada con evaluaciones academicas. Modifica primero la estructura de evaluaciones.',
+      );
+    }
+
+    const bankFolderTree = await this.loadBankFolderTree(bankEvaluation.id);
+    const matchedRoot = this.findBankRootForType(
+      bankFolderTree,
+      normalizedTypeCode,
+    );
+    const currentGroupName =
+      String(matchedRoot?.name || '').trim() ||
+      this.getBankEvaluationTypePluralName(
+        normalizedTypeCode,
+        String(matchedType.evaluationType?.name || '').trim(),
+      );
+    const currentLeafFolders = matchedRoot
+      ? bankFolderTree.leafFolders
+          .filter((item) => String(item.root.id) === String(matchedRoot.id))
+          .map((item) => item.folder)
+      : [];
+
+    if (currentLeafFolders.length > 0) {
+      await this.assertFoldersHaveNoMaterials(currentLeafFolders);
+    }
+
+    const archivedFolderStatus = await this.getFolderStatusOrFail(
+      FOLDER_STATUS_CODES.ARCHIVED,
+    );
+    const now = new Date();
+
+    await this.dataSource.transaction(async (manager) => {
+      for (const folder of currentLeafFolders) {
+        folder.folderStatusId = archivedFolderStatus.id;
+        folder.updatedAt = now;
+        await this.materialFolderRepository.save(folder, manager);
+      }
+      if (matchedRoot) {
+        matchedRoot.folderStatusId = archivedFolderStatus.id;
+        matchedRoot.updatedAt = now;
+        await this.materialFolderRepository.save(matchedRoot, manager);
+      }
+
+      const remainingEvaluationTypeIds = structure
+        .filter(
+          (item) =>
+            String(item.evaluationType?.code || '').trim().toUpperCase() !==
+            normalizedTypeCode,
+        )
+        .map((item) => String(item.evaluationTypeId));
+
+      await this.courseCycleAllowedEvaluationTypeRepository.replaceAllowedTypes(
+        courseCycleId,
+        remainingEvaluationTypeIds,
+        manager,
+      );
+    });
+
+    await this.invalidateBankCaches(
+      courseCycleId,
+      bankEvaluation.id,
+      matchedRoot
+        ? [matchedRoot.id, ...currentLeafFolders.map((item) => String(item.id))]
+        : [],
+    );
+
+    await this.syncDeletedBankFolderToDrive({
+      cycle,
+      groupName: currentGroupName,
+    });
   }
 
   private async getStudentCourseAccessContext(
