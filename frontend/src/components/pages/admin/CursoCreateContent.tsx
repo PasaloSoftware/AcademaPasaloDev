@@ -53,7 +53,7 @@ export default function CursoCreateContent() {
     setBreadcrumbItems([
       {
         icon: "class",
-        label: "Gesti�n de Cursos",
+        label: "Gestión de Cursos",
         href: "/plataforma/admin/cursos",
       },
       { label: "Crear Curso" },
@@ -74,14 +74,14 @@ export default function CursoCreateContent() {
       const types = await coursesService.getCourseTypes();
       setCourseTypes(types);
     } catch (error) {
-      console.error("Error al cargar datos de creaci�n del curso:", error);
+      console.error("Error al cargar datos de creación del curso:", error);
       showToast({
         type: "error",
-        title: "No se pudo preparar la creaci�n",
+        title: "No se pudo preparar la creación",
         description:
           error instanceof Error
             ? error.message
-            : "Ocurri� un error inesperado.",
+            : "Ocurrió un error inesperado.",
       });
     } finally {
       setLoading(false);
@@ -149,7 +149,7 @@ export default function CursoCreateContent() {
         description:
           error instanceof Error
             ? error.message
-            : "Ocurri� un error inesperado.",
+            : "Ocurrió un error inesperado.",
       });
     } finally {
       setProfessorOptionsLoading(false);
@@ -188,16 +188,16 @@ export default function CursoCreateContent() {
     showToast({
       type: "info",
       title: `${action} pendiente`,
-      description: `La acci�n de ${action.toLowerCase()} se habilitar� en el siguiente paso.`,
+      description: `La acción de ${action.toLowerCase()} se habilitará en el siguiente paso.`,
     });
   };
 
   const handleSave = () => {
     showToast({
       type: "info",
-      title: "Creaci�n pendiente",
+      title: "Creación pendiente",
       description:
-        "La pantalla ya qued� preparada sobre la base compartida, pero el guardado completo se conectar� cuando terminemos el flujo de estructura inicial.",
+        "La pantalla ya quedó preparada sobre la base compartida, pero el guardado completo se conectará cuando terminemos el flujo de estructura inicial.",
     });
   };
 
@@ -206,7 +206,7 @@ export default function CursoCreateContent() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-accent-solid border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-secondary">Preparando creaci�n del curso...</p>
+          <p className="text-secondary">Preparando creación del curso...</p>
         </div>
       </div>
     );
@@ -216,7 +216,7 @@ export default function CursoCreateContent() {
     <div className="w-full inline-flex flex-col justify-start items-start gap-8 overflow-hidden">
       <CourseEditorHeader
         title="Crear Curso"
-        backLabel="Volver a Gesti�n de Cursos"
+        backLabel="Volver a Gestión de Cursos"
         onBack={() => router.push("/plataforma/admin/cursos")}
       />
 
@@ -237,36 +237,36 @@ export default function CursoCreateContent() {
       {activeTab === "structure" ? (
         <div className="self-stretch flex flex-col justify-start items-start gap-8">
           <CourseSectionCard
-            title="Configuraci�n de Evaluaciones"
+            title="Configuración de Evaluaciones"
             icon="assignment"
             actions={
               <button
-                onClick={() => handlePendingAction("A�adir evaluaci�n")}
+                onClick={() => handlePendingAction("Añadir evaluación")}
                 className="px-4 py-2 bg-bg-accent-primary-solid rounded flex justify-center items-center gap-1 hover:bg-bg-accent-solid-hover transition-colors"
               >
                 <Icon name="add" size={14} className="text-icon-white" />
                 <span className="text-text-white text-xs font-medium leading-4">
-                  A�adir evaluaci�n
+                  Añadir evaluación
                 </span>
               </button>
             }
             description={
               <>
-                Desde aqu� puedes definir la estructura del curso y administrar
-                el banco de enunciados. Las evaluaciones se mostrar�n en el
-                orden que establezcas. Arrastra cualquier evaluaci�n para
-                reordenarla f�cilmente.
+                Desde aquí puedes definir la estructura del curso y administrar
+                el banco de enunciados. Las evaluaciones se mostrarán en el
+                orden que establezcas. Arrastra cualquier evaluación para
+                reordenarla fácilmente.
               </>
             }
           >
             <CourseEmptyStatePanel
-              icon="assignment"
-              title="A�n no hay evaluaciones configuradas"
+              icon="sd_card_alert"
+              title="Aún no hay evaluaciones configuradas"
               description={
                 <>
-                  Comience por a�adir la primera evaluaci�n para
+                  Comience por añadir la primera evaluación para
                   <br />
-                  estructurar el plan acad�mico de este curso.
+                  estructurar el plan académico de este curso.
                 </>
               }
             />
@@ -282,18 +282,18 @@ export default function CursoCreateContent() {
               >
                 <Icon name="add" size={14} className="text-icon-disabled" />
                 <span className="text-text-disabled text-xs font-medium leading-4">
-                  A�adir carpeta adicional
+                  Añadir carpeta adicional
                 </span>
               </button>
             }
           >
             <CourseInfoBanner
-              title="Sincronizaci�n"
-              description="El banco de enunciados se generar� cuando se ingrese al menos una evaluaci�n. Toda evaluaci�n que se agregue, tambi�n se duplicar� en este."
+              title="Sincronización"
+              description="El banco de enunciados se generará cuando se ingrese al menos una evaluación. Toda evaluación que se agregue, también se duplicará en este."
             />
             <CourseEmptyStatePanel
-              icon="assignment"
-              title="A�n no hay evaluaciones configuradas"
+              icon="sd_card_alert"
+              title="Aún no hay evaluaciones configuradas"
               description={
                 <>
                   Primero configure las evaluaciones para generar el
@@ -309,7 +309,7 @@ export default function CursoCreateContent() {
             icon="article"
             actions={
               <button
-                onClick={() => handlePendingAction("A�adir carpeta adicional")}
+                onClick={() => handlePendingAction("Añadir carpeta adicional")}
                 className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
               >
                 <Icon
@@ -318,7 +318,7 @@ export default function CursoCreateContent() {
                   className="text-icon-accent-primary"
                 />
                 <span className="text-text-accent-primary text-xs font-medium leading-4">
-                  A�adir carpeta adicional
+                  Añadir carpeta adicional
                 </span>
               </button>
             }
@@ -326,7 +326,7 @@ export default function CursoCreateContent() {
             <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <CourseResourceCard
                 title="Enunciados"
-                description="Recopilaci�n de enunciados adicionales de una evaluaci�n."
+                description="Recopilación de enunciados adicionales de una evaluación."
                 actions={
                   <div className="inline-flex justify-end items-center gap-2">
                     <button
@@ -357,8 +357,8 @@ export default function CursoCreateContent() {
                 }
               />
               <CourseResourceCard
-                title="Res�menes"
-                description="Recopilaci�n de res�menes de temas de una evaluaci�n."
+                title="Resúmenes"
+                description="Recopilación de resúmenes de temas de una evaluación."
                 actions={
                   <div className="inline-flex justify-end items-center gap-2">
                     <button
@@ -392,11 +392,11 @@ export default function CursoCreateContent() {
           </CourseSectionCard>
         </div>
       ) : (
-        <CourseSectionCard title="Gesti�n de Alumnos" icon="groups">
+        <CourseSectionCard title="Gestión de Alumnos" icon="groups">
           <CourseEmptyStatePanel
             icon="groups"
-            title="Disponible despu�s de crear el curso"
-            description="Primero crea el curso y su ciclo inicial. Luego desde aqu� podr�s matricular alumnos y administrar la lista de inscritos."
+            title="Disponible después de crear el curso"
+            description="Primero crea el curso y su ciclo inicial. Luego desde aquí podrás matricular alumnos y administrar la lista de inscritos."
           />
         </CourseSectionCard>
       )}

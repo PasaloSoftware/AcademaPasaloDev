@@ -24,7 +24,6 @@ import {
   coursesService,
   type AdminCourseCycleItem,
   type AdminCourseCycleListResponse,
-  type AdminCourseCycleProfessor,
 } from "@/services/courses.service";
 import { evaluationsService } from "@/services/evaluations.service";
 import { usersService } from "@/services/users.service";
@@ -131,7 +130,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       setBreadcrumbItems([
         {
           icon: "class",
-          label: "Gesti�n de Cursos",
+          label: "Gestión de Cursos",
           href: "/plataforma/admin/cursos",
         },
         { label: "Curso", href: `/plataforma/curso/${cursoId}` },
@@ -188,12 +187,13 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     initialEvaluationOrder.some(
       (evaluationId, index) => evaluations[index]?.id !== evaluationId,
     );
-  const isDirty =
-    Boolean(courseCycle) &&
-    (courseName !== courseCycle.course.name ||
-      courseCode !== courseCycle.course.code ||
+  const currentCourse = courseCycle?.course;
+  const isDirty = currentCourse
+    ? courseName !== currentCourse.name ||
+      courseCode !== currentCourse.code ||
       selectedTypeName !== initialTypeName ||
-      evaluationOrderChanged);
+      evaluationOrderChanged
+    : false;
 
   const moveEvaluation = (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return;
@@ -452,12 +452,12 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
             icon="assignment"
             actions={
               <button
-                onClick={() => handlePendingAction("A�adir evaluacion")}
+                onClick={() => handlePendingAction("Añadir evaluación")}
                 className="px-4 py-2 bg-bg-accent-primary-solid rounded flex justify-center items-center gap-1 hover:bg-bg-accent-solid-hover transition-colors"
               >
                 <Icon name="add" size={14} className="text-icon-white" />
                 <span className="text-text-white text-xs font-medium leading-4">
-                  A�adir evaluacion
+                  Añadir evaluación
                 </span>
               </button>
             }
@@ -582,7 +582,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
             icon="chrome_reader_mode"
             actions={
               <button
-                onClick={() => handlePendingAction("A�adir carpeta al banco")}
+                onClick={() => handlePendingAction("Añadir carpeta al banco")}
                 className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
               >
                 <Icon
@@ -591,7 +591,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                   className="text-icon-accent-primary"
                 />
                 <span className="text-text-accent-primary text-xs font-medium leading-4">
-                  A�adir carpeta
+                  Añadir carpeta
                 </span>
               </button>
             }
@@ -656,7 +656,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
             actions={
               <button
                 onClick={() =>
-                  handlePendingAction("A�adir carpeta de material")
+                  handlePendingAction("Añadir carpeta de material")
                 }
                 className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
               >
@@ -666,7 +666,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                   className="text-icon-accent-primary"
                 />
                 <span className="text-text-accent-primary text-xs font-medium leading-4">
-                  A�adir carpeta
+                  Añadir carpeta
                 </span>
               </button>
             }
@@ -676,7 +676,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                 <CourseResourceCard
                   key={label}
                   title={label}
-                  description="Gesti�n de material adicional pendiente de integracion."
+                  description="Gestión de material adicional pendiente de integración."
                   actions={
                     <div className="inline-flex justify-end items-center gap-2">
                       <button

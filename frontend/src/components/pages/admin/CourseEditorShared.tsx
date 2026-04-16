@@ -194,7 +194,7 @@ export function CourseGeneralInfoSection({
                 type="button"
                 onClick={onOpenProfessorModal}
                 className="flex items-center"
-                title="A�adir asesor"
+                title="Añadir asesor"
               >
                 <Icon
                   name="person_add_alt"
@@ -235,7 +235,7 @@ export function CourseEditorTabs({
         <div
           className={`text-center text-base leading-4 ${activeTab === "structure" ? "text-text-white font-medium" : "text-text-secondary font-normal"}`}
         >
-          Gesti�n de Estructura
+          Gestión de Estructura
         </div>
       </button>
       <button
@@ -246,7 +246,7 @@ export function CourseEditorTabs({
         <div
           className={`text-center text-base leading-4 ${activeTab === "students" ? "text-text-white font-medium" : "text-text-secondary font-normal"}`}
         >
-          Gesti�n de Alumnos
+          Gestión de Alumnos
         </div>
       </button>
     </div>
@@ -301,19 +301,19 @@ export function CourseEmptyStatePanel({
   description,
 }: CourseEmptyStatePanelProps) {
   return (
-    <div className="self-stretch px-6 md:px-12 lg:px-28 py-6 relative bg-white rounded-xl outline outline-2 outline-offset-[-2px] outline-stroke-tertiary flex flex-col justify-center items-center gap-4 text-center">
-      <div className="self-stretch h-16 p-3 bg-bg-disabled rounded-full inline-flex justify-center items-center max-w-max">
+    <div className="self-stretch px-6 md:px-12 lg:px-28 py-6 relative bg-white rounded-xl border-2 border-dashed border-gray-200 flex flex-col justify-center items-center gap-4 text-center">
+      <div className="self-stretch h-16 p-3 bg-gray-200 rounded-full inline-flex justify-center items-center max-w-max mx-auto">
         <Icon
           name={icon}
           size={44}
-          className="text-icon-disabled"
+          className="text-gray-500"
           variant="outlined"
         />
       </div>
       <div className="text-text-secondary text-base font-medium leading-4">
         {title}
       </div>
-      <div className="max-w-xl text-text-quartiary text-sm font-normal leading-4">
+      <div className="max-w-xl text-gray-600 text-sm font-normal leading-4">
         {description}
       </div>
     </div>
@@ -359,7 +359,7 @@ export function CourseResourceCard({
   title,
   description,
   iconName = "folder",
-  iconToneClassName = "text-icon-disabled",
+  iconToneClassName = "text-gray-500",
   iconWrapperClassName = "bg-bg-disabled",
   actions,
 }: CourseResourceCardProps) {
@@ -367,7 +367,7 @@ export function CourseResourceCard({
     <div className="min-h-52 p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-between items-start gap-6">
       <div className="self-stretch flex flex-col justify-start items-start gap-4">
         <div
-          className={`w-12 h-12 p-2 rounded-xl inline-flex justify-center items-center ${iconWrapperClassName}`}
+          className={`w-12 h-12 p-2 bg-gray-200 rounded-xl inline-flex justify-center items-center ${iconWrapperClassName}`}
         >
           <Icon name={iconName} size={24} className={iconToneClassName} />
         </div>
@@ -512,7 +512,7 @@ export function CourseProfessorManagerModal({
 
         <div className="flex flex-col gap-2">
           <div className="text-text-primary text-sm font-semibold leading-4">
-            A�adir asesor
+            Añadir asesor
           </div>
           {canAddProfessor ? (
             <div className="flex flex-col gap-1">
@@ -536,7 +536,7 @@ export function CourseProfessorManagerModal({
             </div>
           ) : !canAddProfessor ? (
             <div className="text-text-tertiary text-sm leading-4">
-              Ya alcanzaste el m�ximo de {MAX_COURSE_PROFESSORS} asesores.
+              Ya alcanzaste el máximo de {MAX_COURSE_PROFESSORS} asesores.
             </div>
           ) : availableProfessors.length === 0 ? (
             <div className="text-text-tertiary text-sm leading-4">
