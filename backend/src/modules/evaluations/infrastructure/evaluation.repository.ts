@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In } from 'typeorm';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { EvaluationType } from '@modules/evaluations/domain/evaluation-type.entity';
+import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 
 @Injectable()
 export class EvaluationRepository {
@@ -38,6 +39,16 @@ export class EvaluationRepository {
     return await this.typeOrm.find({
       order: { code: 'ASC', name: 'ASC' },
     });
+  }
+  async findAcademicTypes(): Promise<EvaluationType[]> {
+    return await this.typeOrm
+      .createQueryBuilder('evaluationType')
+      .where('UPPER(TRIM(evaluationType.code)) <> :bankCode', {
+        bankCode: EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+      })
+      .orderBy('evaluationType.name', 'ASC')
+      .addOrderBy('evaluationType.id', 'ASC')
+      .getMany();
   }
 
   async findByCourseCycle(courseCycleId: string): Promise<Evaluation[]> {

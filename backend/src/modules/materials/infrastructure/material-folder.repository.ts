@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, EntityManager, In, IsNull } from 'typeorm';
 import { MaterialFolder } from '@modules/materials/domain/material-folder.entity';
 
 @Injectable()
@@ -10,9 +10,25 @@ export class MaterialFolderRepository {
     private readonly ormRepository: Repository<MaterialFolder>,
   ) {}
 
-  async create(folder: Partial<MaterialFolder>): Promise<MaterialFolder> {
-    const newFolder = this.ormRepository.create(folder);
-    return await this.ormRepository.save(newFolder);
+  async create(
+    folder: Partial<MaterialFolder>,
+    manager?: EntityManager,
+  ): Promise<MaterialFolder> {
+    const repo = manager
+      ? manager.getRepository(MaterialFolder)
+      : this.ormRepository;
+    const newFolder = repo.create(folder);
+    return await repo.save(newFolder);
+  }
+
+  async save(
+    folder: MaterialFolder,
+    manager?: EntityManager,
+  ): Promise<MaterialFolder> {
+    const repo = manager
+      ? manager.getRepository(MaterialFolder)
+      : this.ormRepository;
+    return await repo.save(folder);
   }
 
   async findById(id: string): Promise<MaterialFolder | null> {
@@ -46,6 +62,23 @@ export class MaterialFolderRepository {
     return await this.ormRepository.find({
       where: {
         parentFolderId,
+        folderStatusId: statusId,
+      },
+      order: { name: 'ASC' },
+    });
+  }
+
+  async findByParentFolderIds(
+    parentFolderIds: string[],
+    statusId: string,
+  ): Promise<MaterialFolder[]> {
+    if (parentFolderIds.length === 0) {
+      return [];
+    }
+
+    return await this.ormRepository.find({
+      where: {
+        parentFolderId: In(parentFolderIds),
         folderStatusId: statusId,
       },
       order: { name: 'ASC' },

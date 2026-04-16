@@ -11,6 +11,7 @@ import {
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
 import { CreateEvaluationDto } from '@modules/evaluations/dto/create-evaluation.dto';
 import { ReorderEvaluationsDto } from '@modules/evaluations/dto/reorder-evaluations.dto';
+import { EvaluationTypeResponseDto } from '@modules/evaluations/dto/evaluation-type-response.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -18,6 +19,7 @@ import { ResponseMessage } from '@common/decorators/response-message.decorator';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { User } from '@modules/users/domain/user.entity';
 import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
+import { plainToInstance } from 'class-transformer';
 
 @Controller('evaluations')
 @Auth()
@@ -28,7 +30,10 @@ export class EvaluationsController {
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @ResponseMessage('Tipos de evaluacion obtenidos exitosamente')
   async findAllTypes() {
-    return await this.evaluationsService.findAllTypes();
+    const types = await this.evaluationsService.findAllTypes();
+    return plainToInstance(EvaluationTypeResponseDto, types, {
+      excludeExtraneousValues: true,
+    });
   }
 
   @Post()

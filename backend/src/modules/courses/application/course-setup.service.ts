@@ -3,7 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { CoursesService } from '@modules/courses/application/courses.service';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
 import { CreateCourseSetupDto } from '@modules/courses/dto/create-course-setup.dto';
@@ -16,6 +16,7 @@ import { technicalSettings } from '@config/technical-settings';
 type EvaluationTypeRow = {
   id: string;
   code: string;
+  name?: string;
 };
 
 type CourseCycleMetaRow = {
@@ -32,6 +33,13 @@ type FolderIdRow = {
   id: string;
 };
 
+type BankFolderDefinition = {
+  evaluationTypeId: string;
+  evaluationTypeCode: string;
+  groupName: string;
+  items: string[];
+};
+
 @Injectable()
 export class CourseSetupService {
   constructor(
@@ -46,12 +54,44 @@ export class CourseSetupService {
     user: UserWithSession,
     dto: CreateCourseSetupDto,
   ): Promise<Record<string, unknown>> {
-    const allowedTypeIds = this.normalizeIds(dto.allowedEvaluationTypeIds);
+    const allowedTypeIds = this.normalizeIds(dto.allowedEvaluationTypeIds || []);
     const professorUserIds = this.normalizeIds(dto.professorUserIds || []);
-    const evaluationsToCreate = dto.evaluationsToCreate || [];
+    const bankFoldersToCreate = dto.bankFoldersToCreate || [];
+    this.validateBankFoldersPayload(bankFoldersToCreate);
+    const newEvaluationsToCreate = dto.newEvaluationsToCreate || [];
+    const newBankEvaluationTypeNames = bankFoldersToCreate
+      .map((item) => String(item.newEvaluationTypeName || '').trim())
+      .filter(Boolean);
+    const resolvedNewEvaluationTypes =
+      await this.resolveNewEvaluationTypes([
+        ...newEvaluationsToCreate.map((item) => ({ name: item.name })),
+        ...newBankEvaluationTypeNames.map((name) => ({ name })),
+      ]);
+    const explicitBankEvaluationTypeIds = this.normalizeIds(
+      bankFoldersToCreate
+        .map((item) => String(item.evaluationTypeId || '').trim())
+        .filter(Boolean),
+    );
+    const allAllowedTypeIds = this.normalizeIds([
+      ...allowedTypeIds,
+      ...explicitBankEvaluationTypeIds,
+      ...resolvedNewEvaluationTypes.map((item) => item.id),
+    ]);
+    const evaluationsToCreate = [
+      ...(dto.evaluationsToCreate || []),
+      ...newEvaluationsToCreate.map((item) => ({
+        evaluationTypeId: this.resolveNewEvaluationTypeIdByName(
+          resolvedNewEvaluationTypes,
+          item.name,
+        ),
+        number: item.number,
+        startDate: item.startDate,
+        endDate: item.endDate,
+      })),
+    ];
     if (evaluationsToCreate.length === 0) {
       throw new BadRequestException(
-        'evaluationsToCreate debe contener al menos una evaluacion',
+        'Debe enviar al menos una evaluacion a crear',
       );
     }
 
@@ -72,14 +112,25 @@ export class CourseSetupService {
 
     await this.coursesService.updateCourseCycleEvaluationStructure(
       createdCourseCycle.id,
-      allowedTypeIds,
+      allAllowedTypeIds,
     );
 
     const evaluationTypeRows =
-      await this.listEvaluationTypesByIds(allowedTypeIds);
-    if (evaluationTypeRows.length !== allowedTypeIds.length) {
+      await this.listEvaluationTypesByIds(allAllowedTypeIds);
+    if (evaluationTypeRows.length !== allAllowedTypeIds.length) {
       throw new BadRequestException(
         'Uno o mas evaluationTypeIds no existen en catalogo',
+      );
+    }
+    if (
+      evaluationTypeRows.some(
+        (row) =>
+          String(row.code || '').trim().toUpperCase() ===
+          EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+      )
+    ) {
+      throw new BadRequestException(
+        'BANCO_ENUNCIADOS es tecnico y no debe enviarse en el setup',
       );
     }
     const evaluationTypeCodeById = new Map(
@@ -89,6 +140,9 @@ export class CourseSetupService {
           .trim()
           .toUpperCase(),
       ]),
+    );
+    const evaluationTypeNameById = new Map(
+      evaluationTypeRows.map((row) => [String(row.id), String(row.name || '').trim()]),
     );
 
     const createdEvaluations: Array<{
@@ -122,15 +176,22 @@ export class CourseSetupService {
       });
     }
 
-    const bankEvaluation = await this.findBankEvaluationForCourseCycle(
+    const bankEvaluation = await this.findBankEvaluationForCourseCycleOrFail(
       createdCourseCycle.id,
     );
+    const bankFolderDefinitions = this.buildBankFolderDefinitions({
+      bankFoldersToCreate,
+      resolvedNewEvaluationTypes,
+      evaluationTypeCodeById,
+      evaluationTypeNameById,
+      createdEvaluations,
+    });
 
     const shouldApplyMaterialsTemplate =
       dto.materialsTemplate.applyToEachEvaluation !== false;
+    const folderStatusId = await this.getActiveFolderStatusId();
     const templateCreatedForEvaluations: string[] = [];
     if (shouldApplyMaterialsTemplate) {
-      const folderStatusId = await this.getActiveFolderStatusId();
       for (const createdEvaluation of createdEvaluations) {
         if (
           createdEvaluation.evaluationTypeCode ===
@@ -147,6 +208,13 @@ export class CourseSetupService {
         templateCreatedForEvaluations.push(createdEvaluation.id);
       }
     }
+
+    const bankFoldersCreated = await this.ensureBankFoldersForEvaluation(
+      bankEvaluation.id,
+      user.id,
+      folderStatusId,
+      bankFolderDefinitions,
+    );
 
     const provisionedEvaluationScopes: string[] = [];
     for (const createdEvaluation of createdEvaluations) {
@@ -182,6 +250,10 @@ export class CourseSetupService {
         courseCode: courseCycleMeta.courseCode,
         cycleCode: courseCycleMeta.cycleCode,
         bankCards,
+        bankFolders: bankFolderDefinitions.map((item) => ({
+          groupName: item.groupName,
+          items: item.items,
+        })),
       });
 
     return {
@@ -196,9 +268,12 @@ export class CourseSetupService {
         academicCycleId: createdCourseCycle.academicCycleId,
       },
       professorsAssigned: professorUserIds,
-      allowedEvaluationTypeIds: allowedTypeIds,
+      allowedEvaluationTypeIds: allAllowedTypeIds,
+      newEvaluationTypesCreated: resolvedNewEvaluationTypes,
       evaluationsCreated: createdEvaluations,
       bankEvaluationCreated: bankEvaluation,
+      bankFoldersConfigured: bankFolderDefinitions,
+      bankFoldersCreated,
       materialsTemplateApplied: {
         enabled: shouldApplyMaterialsTemplate,
         roots: dto.materialsTemplate.roots || [],
@@ -216,6 +291,90 @@ export class CourseSetupService {
       .map((value) => String(value || '').trim())
       .filter((value) => value.length > 0);
     return Array.from(new Set(normalized));
+  }
+
+  private normalizeEvaluationTypeName(name: string): string {
+    return String(name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  private resolveNewEvaluationTypeIdByName(
+    rows: EvaluationTypeRow[],
+    name: string,
+  ): string {
+    const normalizedName = this.normalizeEvaluationTypeName(name);
+    const row = rows.find(
+      (item) => this.normalizeEvaluationTypeName(String(item.name || '')) === normalizedName,
+    );
+    if (!row?.id) {
+      throw new InternalServerErrorException(
+        `No se pudo resolver el tipo de evaluacion nuevo "${name}"`,
+      );
+    }
+    return row.id;
+  }
+
+  private async resolveNewEvaluationTypes(
+    newEvaluationsToCreate: Array<{ name: string }>,
+  ): Promise<EvaluationTypeRow[]> {
+    const uniqueNames = Array.from(
+      new Map(
+        newEvaluationsToCreate
+          .map((item) => String(item.name || '').trim())
+          .filter(Boolean)
+          .map((name) => [this.normalizeEvaluationTypeName(name), name]),
+      ).values(),
+    );
+    if (uniqueNames.length === 0) {
+      return [];
+    }
+
+    return await this.dataSource.transaction(async (manager) => {
+      const resolved: EvaluationTypeRow[] = [];
+      for (const rawName of uniqueNames) {
+        const existing = await this.findEvaluationTypeByName(rawName, manager);
+        if (existing) {
+          if (
+            String(existing.code || '').trim().toUpperCase() ===
+            EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS
+          ) {
+            throw new BadRequestException(
+              'BANCO_ENUNCIADOS es tecnico y no puede registrarse como evaluacion academica',
+            );
+          }
+          resolved.push(existing);
+          continue;
+        }
+
+        const generatedCode = await this.generateUniqueEvaluationTypeCode(
+          rawName,
+          manager,
+        );
+        await manager.query(
+          `
+            INSERT INTO evaluation_type (code, name)
+            VALUES (?, ?)
+          `,
+          [generatedCode, rawName.trim()],
+        );
+
+        const created = await this.findEvaluationTypeByCode(
+          generatedCode,
+          manager,
+        );
+        if (!created) {
+          throw new InternalServerErrorException(
+            `No se pudo persistir el tipo de evaluacion "${rawName}"`,
+          );
+        }
+        resolved.push(created);
+      }
+      return resolved;
+    });
   }
 
   private ensureUniqueEvaluationKeys(
@@ -243,6 +402,171 @@ export class CourseSetupService {
     }
   }
 
+  private validateBankFoldersPayload(
+    bankFoldersToCreate: NonNullable<CreateCourseSetupDto['bankFoldersToCreate']>,
+  ): void {
+    const normalizedGroupNames = new Set<string>();
+    for (const [index, bankFolder] of bankFoldersToCreate.entries()) {
+      const explicitId = String(bankFolder.evaluationTypeId || '').trim();
+      const newName = String(bankFolder.newEvaluationTypeName || '').trim();
+      if (explicitId && newName) {
+        throw new BadRequestException(
+          `bankFoldersToCreate[${index}] no debe enviar evaluationTypeId y newEvaluationTypeName al mismo tiempo`,
+        );
+      }
+      if (!explicitId && !newName) {
+        throw new BadRequestException(
+          `bankFoldersToCreate[${index}] debe enviar evaluationTypeId o newEvaluationTypeName`,
+        );
+      }
+
+      const groupName = String(bankFolder.groupName || '').trim();
+      const normalizedGroupName = this.normalizeFolderToken(groupName);
+      if (!normalizedGroupName) {
+        throw new BadRequestException(
+          `bankFoldersToCreate[${index}] debe tener groupName valido`,
+        );
+      }
+      if (normalizedGroupNames.has(normalizedGroupName)) {
+        throw new BadRequestException(
+          `groupName duplicado en bankFoldersToCreate: "${groupName}"`,
+        );
+      }
+      normalizedGroupNames.add(normalizedGroupName);
+
+      const itemTokens = new Set<string>();
+      for (const itemName of bankFolder.items || []) {
+        const normalizedItem = this.normalizeFolderToken(itemName);
+        if (!normalizedItem) {
+          throw new BadRequestException(
+            `bankFoldersToCreate[${index}] contiene item invalido`,
+          );
+        }
+        if (itemTokens.has(normalizedItem)) {
+          throw new BadRequestException(
+            `items duplicados en bankFoldersToCreate para groupName "${groupName}"`,
+          );
+        }
+        itemTokens.add(normalizedItem);
+      }
+    }
+  }
+
+  private buildBankFolderDefinitions(input: {
+    bankFoldersToCreate: CreateCourseSetupDto['bankFoldersToCreate'];
+    resolvedNewEvaluationTypes: EvaluationTypeRow[];
+    evaluationTypeCodeById: Map<string, string>;
+    evaluationTypeNameById: Map<string, string>;
+    createdEvaluations: Array<{
+      id: string;
+      evaluationTypeId: string;
+      evaluationTypeCode: string;
+      number: number;
+    }>;
+  }): BankFolderDefinition[] {
+    const {
+      bankFoldersToCreate,
+      resolvedNewEvaluationTypes,
+      evaluationTypeCodeById,
+      evaluationTypeNameById,
+      createdEvaluations,
+    } = input;
+    const definitionsByTypeId = new Map<string, BankFolderDefinition>();
+
+    for (const evaluation of createdEvaluations) {
+      const key = String(evaluation.evaluationTypeId || '').trim();
+      if (!key || definitionsByTypeId.has(key)) {
+        continue;
+      }
+      definitionsByTypeId.set(key, {
+        evaluationTypeId: key,
+        evaluationTypeCode: String(evaluation.evaluationTypeCode || '')
+          .trim()
+          .toUpperCase(),
+        groupName: this.getDefaultBankGroupName(
+          String(evaluation.evaluationTypeCode || '').trim().toUpperCase(),
+          evaluationTypeNameById.get(key) || '',
+        ),
+        items: createdEvaluations
+          .filter(
+            (item) => String(item.evaluationTypeId || '').trim() === key,
+          )
+          .sort((left, right) => left.number - right.number)
+          .map(
+            (item) =>
+              `${String(item.evaluationTypeCode || '')
+                .trim()
+                .toUpperCase()}${item.number}`,
+          ),
+      });
+    }
+
+    for (const bankFolder of bankFoldersToCreate || []) {
+      const evaluationTypeId = this.resolveBankFolderEvaluationTypeId(
+        bankFolder,
+        resolvedNewEvaluationTypes,
+      );
+      if (!evaluationTypeId) {
+        throw new BadRequestException(
+          'Cada item de bankFoldersToCreate debe enviar evaluationTypeId o newEvaluationTypeName',
+        );
+      }
+      const evaluationTypeCode = evaluationTypeCodeById.get(evaluationTypeId);
+      if (!evaluationTypeCode) {
+        throw new BadRequestException(
+          `El tipo ${evaluationTypeId} usado en bankFoldersToCreate no existe o no esta habilitado`,
+        );
+      }
+      const groupName = String(bankFolder.groupName || '').trim();
+      const items = Array.from(
+        new Set(
+          (bankFolder.items || [])
+            .map((item) => String(item || '').trim())
+            .filter(Boolean),
+        ),
+      );
+      if (!groupName || items.length === 0) {
+        throw new BadRequestException(
+          'Cada item de bankFoldersToCreate debe tener groupName e items validos',
+        );
+      }
+      definitionsByTypeId.set(evaluationTypeId, {
+        evaluationTypeId,
+        evaluationTypeCode,
+        groupName,
+        items,
+      });
+    }
+
+    return Array.from(definitionsByTypeId.values()).sort((left, right) =>
+      left.groupName.localeCompare(right.groupName, 'es'),
+    );
+  }
+
+  private resolveBankFolderEvaluationTypeId(
+    bankFolder: NonNullable<CreateCourseSetupDto['bankFoldersToCreate']>[number],
+    resolvedNewEvaluationTypes: EvaluationTypeRow[],
+  ): string {
+    const explicitId = String(bankFolder.evaluationTypeId || '').trim();
+    if (explicitId) {
+      return explicitId;
+    }
+    const newName = String(bankFolder.newEvaluationTypeName || '').trim();
+    if (!newName) {
+      return '';
+    }
+    return this.resolveNewEvaluationTypeIdByName(resolvedNewEvaluationTypes, newName);
+  }
+
+  private normalizeFolderToken(value: string): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
   private async listEvaluationTypesByIds(
     evaluationTypeIds: string[],
   ): Promise<EvaluationTypeRow[]> {
@@ -252,12 +576,78 @@ export class CourseSetupService {
     const placeholders = evaluationTypeIds.map(() => '?').join(', ');
     return await this.dataSource.query(
       `
-        SELECT id, code
+        SELECT id, code, name
         FROM evaluation_type
         WHERE id IN (${placeholders})
       `,
       evaluationTypeIds,
     );
+  }
+
+  private async findEvaluationTypeByName(
+    name: string,
+    manager?: EntityManager,
+  ): Promise<EvaluationTypeRow | null> {
+    const rows = await (manager ?? this.dataSource).query<EvaluationTypeRow[]>(
+      `
+        SELECT id, code, name
+        FROM evaluation_type
+        WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
+        LIMIT 1
+      `,
+      [name],
+    );
+    return rows[0] || null;
+  }
+
+  private async findEvaluationTypeByCode(
+    code: string,
+    manager?: EntityManager,
+  ): Promise<EvaluationTypeRow | null> {
+    const rows = await (manager ?? this.dataSource).query<EvaluationTypeRow[]>(
+      `
+        SELECT id, code, name
+        FROM evaluation_type
+        WHERE code = ?
+        LIMIT 1
+      `,
+      [code],
+    );
+    return rows[0] || null;
+  }
+
+  private async generateUniqueEvaluationTypeCode(
+    name: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const baseToken = this.toEvaluationTypeCodeToken(name);
+    for (let attempt = 0; attempt < 1000; attempt += 1) {
+      const suffix = attempt === 0 ? '' : `_${attempt + 1}`;
+      const maxBaseLength = 50 - suffix.length;
+      const candidate = `${baseToken.slice(0, maxBaseLength)}${suffix}`;
+      if (!candidate) {
+        break;
+      }
+      const existing = await this.findEvaluationTypeByCode(candidate, manager);
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new InternalServerErrorException(
+      `No se pudo generar un code unico para el tipo de evaluacion "${name}"`,
+    );
+  }
+
+  private toEvaluationTypeCodeToken(name: string): string {
+    const normalized = String(name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const base = normalized || 'CUSTOM';
+    return `CUSTOM_${base}`.slice(0, 50);
   }
 
   private async findBankEvaluationForCourseCycle(
@@ -276,6 +666,18 @@ export class CourseSetupService {
       [courseCycleId, EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
     );
     return rows[0] || null;
+  }
+
+  private async findBankEvaluationForCourseCycleOrFail(
+    courseCycleId: string,
+  ): Promise<{ id: string; number: number }> {
+    const row = await this.findBankEvaluationForCourseCycle(courseCycleId);
+    if (!row?.id) {
+      throw new InternalServerErrorException(
+        'No se encontro la evaluacion tecnica BANCO_ENUNCIADOS para el course_cycle creado',
+      );
+    }
+    return row;
   }
 
   private async getCourseCycleMeta(
@@ -300,6 +702,44 @@ export class CourseSetupService {
       );
     }
     return rows[0];
+  }
+
+  private async ensureBankFoldersForEvaluation(
+    bankEvaluationId: string,
+    actorUserId: string,
+    folderStatusId: string,
+    definitions: BankFolderDefinition[],
+  ): Promise<Array<{ groupName: string; items: string[] }>> {
+    if (!bankEvaluationId || definitions.length === 0) {
+      return [];
+    }
+
+    const created: Array<{ groupName: string; items: string[] }> = [];
+    for (const definition of definitions) {
+      const groupFolderId = await this.findOrCreateFolder({
+        evaluationId: bankEvaluationId,
+        parentFolderId: null,
+        folderStatusId,
+        name: definition.groupName,
+        actorUserId,
+      });
+      const itemNames: string[] = [];
+      for (const itemName of definition.items) {
+        await this.findOrCreateFolder({
+          evaluationId: bankEvaluationId,
+          parentFolderId: groupFolderId,
+          folderStatusId,
+          name: itemName,
+          actorUserId,
+        });
+        itemNames.push(itemName);
+      }
+      created.push({
+        groupName: definition.groupName,
+        items: itemNames,
+      });
+    }
+    return created;
   }
 
   private async ensureMaterialTemplateForEvaluation(
@@ -351,6 +791,34 @@ export class CourseSetupService {
           name: childName,
           actorUserId,
         });
+      }
+    }
+  }
+
+  private getDefaultBankGroupName(
+    evaluationTypeCode: string,
+    evaluationTypeName: string,
+  ): string {
+    switch (String(evaluationTypeCode || '').trim().toUpperCase()) {
+      case 'PC':
+        return 'Practicas Calificadas';
+      case 'EX':
+        return 'Examenes';
+      case 'PD':
+        return 'Practicas Dirigidas';
+      case 'LAB':
+        return 'Laboratorios';
+      case 'TUTORING':
+        return 'Tutorias Especializadas';
+      default: {
+        const normalizedName = String(evaluationTypeName || '').trim();
+        if (!normalizedName) {
+          return normalizedName;
+        }
+        if (/[sS]$/.test(normalizedName)) {
+          return normalizedName;
+        }
+        return `${normalizedName}s`;
       }
     }
   }

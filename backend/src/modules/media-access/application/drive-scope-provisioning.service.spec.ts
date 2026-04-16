@@ -155,4 +155,43 @@ describe('DriveScopeProvisioningService', () => {
       service.findOrCreateDriveFolderUnderParent('parent-id', 'ambiguo'),
     ).rejects.toThrow('ambiguo');
   });
+
+  it('findDriveFolderUnderParent devuelve null cuando no existe', async () => {
+    jest.spyOn(internals, 'getDriveClient').mockResolvedValue(mockClient);
+    mockClient.request.mockResolvedValueOnce({
+      data: { files: [] },
+    });
+
+    await expect(
+      service.findDriveFolderUnderParent('parent-id', 'faltante'),
+    ).resolves.toBeNull();
+  });
+
+  it('renameDriveFolder envia PATCH con el nuevo nombre', async () => {
+    jest.spyOn(internals, 'getDriveClient').mockResolvedValue(mockClient);
+    mockClient.request.mockResolvedValueOnce({ data: {} });
+
+    await service.renameDriveFolder('folder-id', 'Nuevo Nombre');
+
+    expect(mockClient.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'PATCH',
+        data: { name: 'Nuevo Nombre' },
+      }),
+    );
+  });
+
+  it('trashDriveFolder envia PATCH para mover la carpeta a papelera', async () => {
+    jest.spyOn(internals, 'getDriveClient').mockResolvedValue(mockClient);
+    mockClient.request.mockResolvedValueOnce({ data: {} });
+
+    await service.trashDriveFolder('folder-id');
+
+    expect(mockClient.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'PATCH',
+        data: { trashed: true },
+      }),
+    );
+  });
 });

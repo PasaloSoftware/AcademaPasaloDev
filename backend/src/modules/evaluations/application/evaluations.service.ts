@@ -45,13 +45,7 @@ export class EvaluationsService {
   ) {}
 
   async findAllTypes(): Promise<EvaluationType[]> {
-    const types = await this.evaluationRepository.findAllTypes();
-    return types.filter(
-      (type) =>
-        String(type.code || '')
-          .trim()
-          .toUpperCase() !== EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
-    );
+    return await this.evaluationRepository.findAcademicTypes();
   }
 
   async create(dto: CreateEvaluationDto): Promise<Evaluation> {

@@ -73,7 +73,7 @@ export class StudentBankStructureItemDto {
 
 export class StudentBankStructureEntryDto {
   @Expose()
-  evaluationId: string;
+  evaluationId: string | null;
 
   @Expose()
   evaluationTypeCode: string;

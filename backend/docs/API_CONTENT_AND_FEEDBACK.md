@@ -657,6 +657,8 @@ Se documenta exclusivamente en:
 3. El orden llega desde backend (por code).
 4. Para navegar contenido de Banco, usar `entries[].folderId` y luego `GET /materials/folders/:folderId`.
 5. Si `folderId` es `null`, la carpeta logica aun no fue creada (no intentar abrir `evaluation/:id` para Banco).
+6. `evaluationId` puede venir en `null` para carpetas solo-banco sin evaluacion academica real.
+7. Si se edita o elimina una carpeta del Banco desde admin/profesor, frontend debe usar los endpoints `PATCH /courses/cycle/:courseCycleId/bank-folders/:evaluationTypeCode` y `DELETE /courses/cycle/:courseCycleId/bank-folders/:evaluationTypeCode`.
 
 ### 3) Admin - Crear evaluacion con validacion estricta de estructura
 
@@ -679,6 +681,7 @@ Se documenta exclusivamente en:
 3. La carpeta logica en BD se crea o reutiliza con la estructura `<tipo plural> -> <codigoNumero>`.
 4. Si ya existe un archivo identico en el banco de ese mismo curso, responde `409` y no guarda nada ni en BD ni en Drive.
 5. La deteccion de duplicado se hace por `hash + size` dentro del banco del mismo `course_cycle`.
+6. Tambien acepta carpetas solo-banco ya existentes (por ejemplo `PD1`) aunque no exista evaluacion academica real; en ese caso el response devuelve `evaluationId: null`.
 - Respuesta 201:
 ```json
 {
@@ -711,7 +714,42 @@ Se documenta exclusivamente en:
 3. `404` no existe la tarjeta objetivo (`evaluationTypeCode + evaluationNumber`) o falta la evaluacion tecnica del banco.
 4. `409` archivo duplicado dentro del banco de ese curso.
 
-### 5) Impacto esperado en frontend
+### 5) Banco - Editar carpeta de un tipo en el banco del course_cycle
+
+- Endpoint: `PATCH /courses/cycle/:courseCycleId/bank-folders/:evaluationTypeCode`
+- Roles: `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- Body JSON:
+  - `groupName`: string obligatorio
+  - `items`: string[] opcional
+- Reglas:
+1. Si el tipo tiene evaluaciones academicas reales (`PC`, `EX`, etc. ya creadas), solo se permite renombrar el grupo; `items` no puede alterar la lista sincronizada.
+2. Si el tipo es solo-banco, se puede renombrar el grupo y reemplazar la lista de subcarpetas.
+3. Si se intenta remover una subcarpeta que ya tiene archivos, responde `409`.
+- Respuesta 200:
+```json
+{
+  "courseCycleId": "4",
+  "bankEvaluationId": "88",
+  "evaluationTypeId": "3",
+  "evaluationTypeCode": "PD",
+  "evaluationTypeName": "Practicas Dirigidas Actualizadas",
+  "groupName": "Practicas Dirigidas Actualizadas",
+  "items": ["PD2", "PD3"],
+  "hasAcademicEvaluations": false
+}
+```
+
+### 6) Banco - Eliminar carpeta solo-banco del course_cycle
+
+- Endpoint: `DELETE /courses/cycle/:courseCycleId/bank-folders/:evaluationTypeCode`
+- Roles: `PROFESSOR`, `ADMIN`, `SUPER_ADMIN`
+- Reglas:
+1. Solo permite eliminar tipos solo-banco.
+2. Si el tipo todavia esta sincronizado con evaluaciones academicas reales, responde `409`.
+3. Si alguna subcarpeta del grupo ya tiene archivos, responde `409`.
+- Respuesta: `204 No Content`
+
+### 7) Impacto esperado en frontend
 
 1. En admin, configurar estructura por ciclo antes de crear evaluaciones nuevas.
 2. En alumno y profesor, usar `bank-structure` para render del tab Banco.
@@ -719,7 +757,7 @@ Se documenta exclusivamente en:
 4. En Banco, abrir contenido solo con `GET /materials/folders/:folderId` usando `entries[].folderId`.
 5. Seguir usando `hasAccess` para habilitar o deshabilitar acciones por evaluacion academica (fuera de Banco).
 
-### 6) Cache y consistencia
+### 8) Cache y consistencia
 
 1. Cuando admin actualiza `evaluation-structure`, backend invalida:
    - cache de contenido por ciclo
@@ -727,7 +765,7 @@ Se documenta exclusivamente en:
 2. Cuando admin crea evaluacion (`POST /evaluations`), backend invalida cache de contenido por ciclo.
 3. Con esto, frontend debe ver cambios sin esperar TTL largo.
 
-### 7) SQL de desarrollo actualizado
+### 9) SQL de desarrollo actualizado
 
 Se actualizo `db/datos_prueba_cursos_y_matriculas.sql` para poblar `course_cycle_allowed_evaluation_type` en ciclos actual e historicos para los cursos de prueba.
 
@@ -794,5 +832,3 @@ Se documenta exclusivamente en:
 2. Si el frontend envia solo fecha (`YYYY-MM-DD`), backend la interpreta como limite diario en `America/Lima`.
 3. El limite final con fecha-only se trata como exclusivo del dia siguiente en `America/Lima`.
 4. Con esto, pedir `start=2026-03-15&end=2026-03-21` significa todo el rango calendario de Lima desde el 15 hasta el cierre del 21.
-
-
