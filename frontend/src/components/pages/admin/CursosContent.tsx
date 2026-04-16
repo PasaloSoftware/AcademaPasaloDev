@@ -1,22 +1,22 @@
-﻿'use client';
+﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import Icon from '@/components/ui/Icon';
-import FloatingSelect from '@/components/ui/FloatingSelect';
-import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
-import { useToast } from '@/components/ui/ToastContainer';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Icon from "@/components/ui/Icon";
+import FloatingSelect from "@/components/ui/FloatingSelect";
+import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
+import { useToast } from "@/components/ui/ToastContainer";
 import {
   coursesService,
   type AdminCourseCycleItem,
   type AdminCourseCycleListResponse,
   type AdminCourseCycleProfessor,
-} from '@/services/courses.service';
-import type { Course } from '@/types/api';
+} from "@/services/courses.service";
+import type { Course } from "@/types/api";
 
-type CourseSortField = 'courseName' | 'courseType' | 'advisor' | 'status';
-type CourseSortOrder = 'ASC' | 'DESC';
-type CourseStatusFilter = 'ACTIVE' | 'INACTIVE' | '';
+type CourseSortField = "courseName" | "courseType" | "advisor" | "status";
+type CourseSortOrder = "ASC" | "DESC";
+type CourseStatusFilter = "ACTIVE" | "INACTIVE" | "";
 
 type CourseManagementRow = {
   courseId: string;
@@ -31,38 +31,61 @@ type CourseManagementRow = {
 };
 
 const PAGE_SIZE = 10;
-const COURSE_TYPE_FILTER_ORDER = ['Todos', 'Ciencias', 'Letras', 'Facultad'];
+const COURSE_TYPE_FILTER_ORDER = ["Todos", "Ciencias", "Letras", "Facultad"];
 
-const COURSE_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  Ciencias: { bg: 'bg-bg-success-light', text: 'text-text-success-primary', label: 'CIENCIAS' },
-  Letras: { bg: 'bg-bg-warning-light', text: 'text-text-warning-primary', label: 'LETRAS' },
-  Facultad: { bg: 'bg-bg-info-primary-light', text: 'text-text-info-primary', label: 'FACULTAD' },
+const COURSE_TYPE_STYLES: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
+  Ciencias: {
+    bg: "bg-bg-success-light",
+    text: "text-text-success-primary",
+    label: "CIENCIAS",
+  },
+  Letras: {
+    bg: "bg-warning-light",
+    text: "text-text-warning-primary",
+    label: "LETRAS",
+  },
+  Facultad: {
+    bg: "bg-bg-info-primary-light",
+    text: "text-text-info-primary",
+    label: "FACULTAD",
+  },
 };
 
-function getPageNumbers(current: number, total: number): (number | '...')[] {
+function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | '...')[] = [1];
-  if (current > 3) pages.push('...');
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+  const pages: (number | "...")[] = [1];
+  if (current > 3) pages.push("...");
+  for (
+    let i = Math.max(2, current - 1);
+    i <= Math.min(total - 1, current + 1);
+    i++
+  ) {
     pages.push(i);
   }
-  if (current < total - 2) pages.push('...');
+  if (current < total - 2) pages.push("...");
   pages.push(total);
   return pages;
 }
 
 function normalizeCourseTypeName(name?: string | null): string {
-  if (!name) return 'Sin unidad';
+  if (!name) return "Sin unidad";
   const normalized = name.trim().toLowerCase();
-  if (normalized === 'ciencias') return 'Ciencias';
-  if (normalized === 'letras') return 'Letras';
-  if (normalized === 'facultad') return 'Facultad';
+  if (normalized === "ciencias") return "Ciencias";
+  if (normalized === "letras") return "Letras";
+  if (normalized === "facultad") return "Facultad";
   return name.trim();
 }
 
-function pickPreferredCycle(courseCycles: AdminCourseCycleItem[]): AdminCourseCycleItem | null {
+function pickPreferredCycle(
+  courseCycles: AdminCourseCycleItem[],
+): AdminCourseCycleItem | null {
   if (courseCycles.length === 0) return null;
-  const currentCycle = courseCycles.find((cycle) => cycle.academicCycle.isCurrent);
+  const currentCycle = courseCycles.find(
+    (cycle) => cycle.academicCycle.isCurrent,
+  );
   if (currentCycle) return currentCycle;
 
   return [...courseCycles].sort((a, b) => {
@@ -73,26 +96,35 @@ function pickPreferredCycle(courseCycles: AdminCourseCycleItem[]): AdminCourseCy
 }
 
 function getAdvisorLabel(professors: AdminCourseCycleProfessor[]): string {
-  if (professors.length === 0) return 'Sin asignar';
+  if (professors.length === 0) return "Sin asignar";
   const names = professors
-    .map((professor) => [professor.firstName, professor.lastName1, professor.lastName2].filter(Boolean).join(' ').trim())
+    .map((professor) =>
+      [professor.firstName, professor.lastName1, professor.lastName2]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+    )
     .filter(Boolean);
 
-  if (names.length === 0) return 'Sin asignar';
+  if (names.length === 0) return "Sin asignar";
   if (names.length === 1) return names[0];
   return `${names[0]} +${names.length - 1}`;
 }
 
 function CourseTypeTag({ type }: { type: string }) {
   const style = COURSE_TYPE_STYLES[type] || {
-    bg: 'bg-bg-secondary',
-    text: 'text-text-secondary',
+    bg: "bg-bg-secondary",
+    text: "text-text-secondary",
     label: type.toUpperCase(),
   };
 
   return (
-    <span className={`px-2.5 py-1.5 ${style.bg} rounded-full inline-flex justify-center items-center whitespace-nowrap`}>
-      <span className={`${style.text} text-xs font-medium leading-3`}>{style.label}</span>
+    <span
+      className={`px-2.5 py-1.5 ${style.bg} rounded-full inline-flex justify-center items-center whitespace-nowrap`}
+    >
+      <span className={`${style.text} text-xs font-medium leading-3`}>
+        {style.label}
+      </span>
     </span>
   );
 }
@@ -104,25 +136,25 @@ export default function CursosContent() {
 
   const [rows, setRows] = useState<CourseManagementRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [typeFilter, setTypeFilter] = useState('Todos');
+  const [typeFilter, setTypeFilter] = useState("Todos");
   const [cycleFilter, setCycleFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<CourseStatusFilter>('');
-  const [sortBy, setSortBy] = useState<CourseSortField>('courseName');
-  const [sortOrder, setSortOrder] = useState<CourseSortOrder>('ASC');
+  const [statusFilter, setStatusFilter] = useState<CourseStatusFilter>("");
+  const [sortBy, setSortBy] = useState<CourseSortField>("courseName");
+  const [sortOrder, setSortOrder] = useState<CourseSortOrder>("ASC");
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarType, setSidebarType] = useState('Todos');
+  const [sidebarType, setSidebarType] = useState("Todos");
   const [sidebarCycle, setSidebarCycle] = useState<string | null>(null);
-  const [sidebarStatus, setSidebarStatus] = useState<CourseStatusFilter>('');
+  const [sidebarStatus, setSidebarStatus] = useState<CourseStatusFilter>("");
 
   const [menuCourseId, setMenuCourseId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setBreadcrumbItems([{ icon: 'class', label: 'Gestion de Cursos' }]);
+    setBreadcrumbItems([{ icon: "class", label: "Gestión de Cursos" }]);
   }, [setBreadcrumbItems]);
 
   useEffect(() => {
@@ -144,8 +176,8 @@ export default function CursosContent() {
         setMenuCourseId(null);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [menuCourseId]);
 
   const fetchCourses = useCallback(async () => {
@@ -159,7 +191,8 @@ export default function CursosContent() {
       const cycleItems = [...firstPage.items];
       let page = 2;
       while (page <= firstPage.totalPages) {
-        const response: AdminCourseCycleListResponse = await coursesService.getAdminCourseCycles({ page, pageSize: 100 });
+        const response: AdminCourseCycleListResponse =
+          await coursesService.getAdminCourseCycles({ page, pageSize: 100 });
         cycleItems.push(...response.items);
         page += 1;
       }
@@ -182,8 +215,10 @@ export default function CursosContent() {
           courseName: course.name,
           courseTypeName,
           academicCycleCode: preferredCycle?.academicCycle.code || null,
-          advisorLabel: preferredCycle ? getAdvisorLabel(preferredCycle.professors) : 'Sin asignar',
-          studentCountLabel: '-',
+          advisorLabel: preferredCycle
+            ? getAdvisorLabel(preferredCycle.professors)
+            : "Sin asignar",
+          studentCountLabel: "-",
           isActive: course.isActive,
           courseCycleId: preferredCycle?.courseCycleId || null,
         } satisfies CourseManagementRow;
@@ -191,11 +226,14 @@ export default function CursosContent() {
 
       setRows(mappedRows);
     } catch (error) {
-      console.error('Error al cargar cursos:', error);
+      console.error("Error al cargar cursos:", error);
       showToast({
-        type: 'error',
-        title: 'No se pudieron cargar los cursos',
-        description: error instanceof Error ? error.message : 'Ocurrio un error inesperado.',
+        type: "error",
+        title: "No se pudieron cargar los cursos",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ocurrio un error inesperado.",
       });
     } finally {
       setLoading(false);
@@ -207,18 +245,24 @@ export default function CursosContent() {
   }, [fetchCourses]);
 
   const availableTypeFilters = useMemo(() => {
-    const names = Array.from(new Set(rows.map((row) => row.courseTypeName).filter(Boolean)));
+    const names = Array.from(
+      new Set(rows.map((row) => row.courseTypeName).filter(Boolean)),
+    );
     const sorted = names.sort((a, b) => {
       const ia = COURSE_TYPE_FILTER_ORDER.indexOf(a);
       const ib = COURSE_TYPE_FILTER_ORDER.indexOf(b);
-      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.localeCompare(b);
+      return (
+        (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.localeCompare(b)
+      );
     });
-    return ['Todos', ...sorted.filter((name) => name !== 'Todos')];
+    return ["Todos", ...sorted.filter((name) => name !== "Todos")];
   }, [rows]);
 
   const availableCycleOptions = useMemo(
     () =>
-      Array.from(new Set(rows.map((row) => row.academicCycleCode).filter(Boolean)))
+      Array.from(
+        new Set(rows.map((row) => row.academicCycleCode).filter(Boolean)),
+      )
         .sort((a, b) => String(b).localeCompare(String(a)))
         .map((cycle) => ({ value: String(cycle), label: String(cycle) })),
     [rows],
@@ -231,33 +275,53 @@ export default function CursosContent() {
         !term ||
         row.courseName.toLowerCase().includes(term) ||
         row.courseCode.toLowerCase().includes(term);
-      const matchesType = typeFilter === 'Todos' || row.courseTypeName === typeFilter;
-      const matchesCycle = !cycleFilter || row.academicCycleCode === cycleFilter;
+      const matchesType =
+        typeFilter === "Todos" || row.courseTypeName === typeFilter;
+      const matchesCycle =
+        !cycleFilter || row.academicCycleCode === cycleFilter;
       const matchesStatus =
         !statusFilter ||
-        (statusFilter === 'ACTIVE' ? row.isActive : !row.isActive);
+        (statusFilter === "ACTIVE" ? row.isActive : !row.isActive);
       return matchesSearch && matchesType && matchesCycle && matchesStatus;
     });
 
     filtered.sort((a, b) => {
       let result = 0;
-      if (sortBy === 'courseName') result = a.courseName.localeCompare(b.courseName);
-      if (sortBy === 'courseType') result = a.courseTypeName.localeCompare(b.courseTypeName);
-      if (sortBy === 'advisor') result = a.advisorLabel.localeCompare(b.advisorLabel);
-      if (sortBy === 'status') result = Number(a.isActive) - Number(b.isActive);
-      return sortOrder === 'ASC' ? result : -result;
+      if (sortBy === "courseName")
+        result = a.courseName.localeCompare(b.courseName);
+      if (sortBy === "courseType")
+        result = a.courseTypeName.localeCompare(b.courseTypeName);
+      if (sortBy === "advisor")
+        result = a.advisorLabel.localeCompare(b.advisorLabel);
+      if (sortBy === "status") result = Number(a.isActive) - Number(b.isActive);
+      return sortOrder === "ASC" ? result : -result;
     });
 
     return filtered;
-  }, [rows, debouncedSearch, typeFilter, cycleFilter, statusFilter, sortBy, sortOrder]);
+  }, [
+    rows,
+    debouncedSearch,
+    typeFilter,
+    cycleFilter,
+    statusFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   const totalItems = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const paginatedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
   const rangeStart = totalItems === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, totalItems);
   const pageNumbers = getPageNumbers(currentPage, totalPages);
-  const activeFilterCount = [typeFilter !== 'Todos', Boolean(cycleFilter), Boolean(statusFilter)].filter(Boolean).length;
+  const activeFilterCount = [
+    typeFilter !== "Todos",
+    Boolean(cycleFilter),
+    Boolean(statusFilter),
+  ].filter(Boolean).length;
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -265,11 +329,11 @@ export default function CursosContent() {
 
   const handleSort = (field: CourseSortField) => {
     if (sortBy === field) {
-      setSortOrder((prev) => (prev === 'ASC' ? 'DESC' : 'ASC'));
+      setSortOrder((prev) => (prev === "ASC" ? "DESC" : "ASC"));
       return;
     }
     setSortBy(field);
-    setSortOrder('ASC');
+    setSortOrder("ASC");
   };
 
   const openSidebar = () => {
@@ -287,25 +351,22 @@ export default function CursosContent() {
   };
 
   const clearSidebarFilters = () => {
-    setSidebarType('Todos');
+    setSidebarType("Todos");
     setSidebarCycle(null);
-    setSidebarStatus('');
+    setSidebarStatus("");
   };
 
   const handleCreateCourse = () => {
-    showToast({
-      type: 'info',
-      title: 'Creacion pendiente',
-      description: 'La creacion de cursos se conectara en el siguiente paso con el flujo oficial del backend.',
-    });
+    router.push("/plataforma/admin/cursos/crear");
   };
 
   const goToCourse = (row: CourseManagementRow) => {
     if (!row.courseCycleId) {
       showToast({
-        type: 'info',
-        title: 'Curso sin ciclo disponible',
-        description: 'Este curso todavia no tiene un ciclo abierto para mostrar su detalle.',
+        type: "info",
+        title: "Curso sin ciclo disponible",
+        description:
+          "Este curso todavia no tiene un ciclo abierto para mostrar su detalle.",
       });
       return;
     }
@@ -315,13 +376,17 @@ export default function CursosContent() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-text-primary text-3xl font-semibold leading-10">Gestion de Cursos</h1>
+        <h1 className="text-text-primary text-3xl font-semibold leading-10">
+          Gestión de Cursos
+        </h1>
         <button
           onClick={handleCreateCourse}
           className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
         >
           <Icon name="add" size={16} className="text-icon-white" />
-          <span className="text-text-white text-sm font-medium leading-4">Crear Curso</span>
+          <span className="text-text-white text-sm font-medium leading-4">
+            Crear Curso
+          </span>
         </button>
       </div>
 
@@ -342,8 +407,14 @@ export default function CursosContent() {
             onClick={openSidebar}
             className="h-10 px-6 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex items-center justify-center gap-1.5 hover:bg-bg-accent-light transition-colors"
           >
-            <Icon name="filter_list" size={16} className="text-icon-accent-primary" />
-            <span className="text-text-accent-primary text-sm font-medium leading-4">Filtros</span>
+            <Icon
+              name="filter_list"
+              size={16}
+              className="text-icon-accent-primary"
+            />
+            <span className="text-text-accent-primary text-sm font-medium leading-4">
+              Filtros
+            </span>
             {activeFilterCount > 0 && (
               <span className="w-5 h-5 bg-bg-accent-primary-solid rounded-full flex items-center justify-center text-text-white text-[10px] font-medium">
                 {activeFilterCount}
@@ -361,8 +432,8 @@ export default function CursosContent() {
                 onClick={() => setTypeFilter(filter)}
                 className={`px-4 py-2 rounded-full text-sm font-medium leading-4 transition-colors ${
                   isActive
-                    ? 'bg-bg-accent-primary-solid text-text-white'
-                    : 'bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light'
+                    ? "bg-bg-accent-primary-solid text-text-white"
+                    : "bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light"
                 }`}
               >
                 {filter}
@@ -379,61 +450,113 @@ export default function CursosContent() {
               <tr>
                 <th
                   className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-left first:rounded-tl-xl cursor-pointer select-none"
-                  onClick={() => handleSort('courseName')}
+                  onClick={() => handleSort("courseName")}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary text-sm font-medium leading-4">Nombre del Curso</span>
+                    <span className="text-text-secondary text-sm font-medium leading-4">
+                      Nombre del Curso
+                    </span>
                     <Icon
-                      name={sortBy === 'courseName' ? (sortOrder === 'ASC' ? 'arrow_upward' : 'arrow_downward') : 'swap_vert'}
+                      name={
+                        sortBy === "courseName"
+                          ? sortOrder === "ASC"
+                            ? "arrow_upward"
+                            : "arrow_downward"
+                          : "swap_vert"
+                      }
                       size={16}
-                      className={sortBy === 'courseName' ? 'text-icon-accent-primary' : 'text-icon-secondary'}
+                      className={
+                        sortBy === "courseName"
+                          ? "text-icon-accent-primary"
+                          : "text-icon-secondary"
+                      }
                     />
                   </div>
                 </th>
                 <th
                   className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-left w-32 cursor-pointer select-none"
-                  onClick={() => handleSort('courseType')}
+                  onClick={() => handleSort("courseType")}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary text-sm font-medium leading-4">Unidad</span>
+                    <span className="text-text-secondary text-sm font-medium leading-4">
+                      Unidad
+                    </span>
                     <Icon
-                      name={sortBy === 'courseType' ? (sortOrder === 'ASC' ? 'arrow_upward' : 'arrow_downward') : 'swap_vert'}
+                      name={
+                        sortBy === "courseType"
+                          ? sortOrder === "ASC"
+                            ? "arrow_upward"
+                            : "arrow_downward"
+                          : "swap_vert"
+                      }
                       size={16}
-                      className={sortBy === 'courseType' ? 'text-icon-accent-primary' : 'text-icon-secondary'}
+                      className={
+                        sortBy === "courseType"
+                          ? "text-icon-accent-primary"
+                          : "text-icon-secondary"
+                      }
                     />
                   </div>
                 </th>
                 <th
                   className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-left w-56 cursor-pointer select-none"
-                  onClick={() => handleSort('advisor')}
+                  onClick={() => handleSort("advisor")}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary text-sm font-medium leading-4">Asesor</span>
+                    <span className="text-text-secondary text-sm font-medium leading-4">
+                      Asesor
+                    </span>
                     <Icon
-                      name={sortBy === 'advisor' ? (sortOrder === 'ASC' ? 'arrow_upward' : 'arrow_downward') : 'swap_vert'}
+                      name={
+                        sortBy === "advisor"
+                          ? sortOrder === "ASC"
+                            ? "arrow_upward"
+                            : "arrow_downward"
+                          : "swap_vert"
+                      }
                       size={16}
-                      className={sortBy === 'advisor' ? 'text-icon-accent-primary' : 'text-icon-secondary'}
+                      className={
+                        sortBy === "advisor"
+                          ? "text-icon-accent-primary"
+                          : "text-icon-secondary"
+                      }
                     />
                   </div>
                 </th>
                 <th className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-right w-24">
-                  <span className="text-text-secondary text-sm font-medium leading-4">Alumnos</span>
+                  <span className="text-text-secondary text-sm font-medium leading-4">
+                    Alumnos
+                  </span>
                 </th>
                 <th
-                  className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-left w-24 cursor-pointer select-none"
-                  onClick={() => handleSort('status')}
+                  className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-left w-20 cursor-pointer select-none"
+                  onClick={() => handleSort("status")}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary text-sm font-medium leading-4">Estado</span>
+                    <span className="text-text-secondary text-sm font-medium leading-4">
+                      Estado
+                    </span>
                     <Icon
-                      name={sortBy === 'status' ? (sortOrder === 'ASC' ? 'arrow_upward' : 'arrow_downward') : 'swap_vert'}
+                      name={
+                        sortBy === "status"
+                          ? sortOrder === "ASC"
+                            ? "arrow_upward"
+                            : "arrow_downward"
+                          : "swap_vert"
+                      }
                       size={16}
-                      className={sortBy === 'status' ? 'text-icon-accent-primary' : 'text-icon-secondary'}
+                      className={
+                        sortBy === "status"
+                          ? "text-icon-accent-primary"
+                          : "text-icon-secondary"
+                      }
                     />
                   </div>
                 </th>
                 <th className="h-12 px-4 bg-bg-tertiary border-b border-stroke-primary text-center w-20 last:rounded-tr-xl">
-                  <span className="text-text-secondary text-sm font-medium leading-4">Acciones</span>
+                  <span className="text-text-secondary text-sm font-medium leading-4">
+                    Acciones
+                  </span>
                 </th>
               </tr>
             </thead>
@@ -448,8 +571,15 @@ export default function CursosContent() {
                 <tr>
                   <td colSpan={6} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <Icon name="school" size={48} className="text-icon-tertiary" variant="rounded" />
-                      <span className="text-text-tertiary text-sm">No se encontraron cursos</span>
+                      <Icon
+                        name="school"
+                        size={48}
+                        className="text-icon-tertiary"
+                        variant="rounded"
+                      />
+                      <span className="text-text-tertiary text-sm">
+                        No se encontraron cursos
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -462,29 +592,41 @@ export default function CursosContent() {
                   >
                     <td className="h-14 px-4 py-2">
                       <div className="flex flex-col gap-1">
-                        <span className="text-text-tertiary text-sm font-normal leading-4 line-clamp-2">{row.courseName}</span>
-                        <span className="text-text-tertiary text-xs font-normal leading-3">{row.courseCode}</span>
+                        <span className="text-text-tertiary text-sm font-normal leading-4 line-clamp-2">
+                          {row.courseName}
+                        </span>
+                        <span className="text-text-tertiary text-xs font-normal leading-3">
+                          {row.courseCode}
+                        </span>
                       </div>
                     </td>
                     <td className="h-14 px-4 py-2 w-32">
                       <CourseTypeTag type={row.courseTypeName} />
                     </td>
                     <td className="h-14 px-4 py-2 w-56">
-                      <span className="text-text-secondary text-sm font-normal leading-4 line-clamp-2">{row.advisorLabel}</span>
+                      <span className="text-text-secondary text-sm font-normal leading-4 line-clamp-2">
+                        {row.advisorLabel}
+                      </span>
                     </td>
                     <td className="h-14 px-4 py-2 w-24 text-right">
-                      <span className="text-text-tertiary text-sm font-normal leading-4">{row.studentCountLabel}</span>
+                      <span className="text-text-tertiary text-sm font-normal leading-4">
+                        {row.studentCountLabel}
+                      </span>
                     </td>
                     <td className="h-14 px-4 py-2 w-24">
                       {row.isActive ? (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-icon-success-primary rounded-full" />
-                          <span className="text-text-success-primary text-xs font-medium leading-3">Activo</span>
+                          <span className="text-text-success-primary text-xs font-medium leading-3">
+                            Activo
+                          </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-icon-placeholder rounded-full" />
-                          <span className="text-text-disabled text-xs font-medium leading-3">Inactivo</span>
+                          <span className="text-text-disabled text-xs font-medium leading-3">
+                            Inactivo
+                          </span>
                         </div>
                       )}
                     </td>
@@ -492,11 +634,17 @@ export default function CursosContent() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setMenuCourseId(menuCourseId === row.courseId ? null : row.courseId);
+                          setMenuCourseId(
+                            menuCourseId === row.courseId ? null : row.courseId,
+                          );
                         }}
                         className="p-1 rounded-full hover:bg-bg-secondary transition-colors"
                       >
-                        <Icon name="more_vert" size={20} className="text-icon-tertiary" />
+                        <Icon
+                          name="more_vert"
+                          size={20}
+                          className="text-icon-tertiary"
+                        />
                       </button>
                       {menuCourseId === row.courseId && (
                         <div
@@ -511,8 +659,15 @@ export default function CursosContent() {
                             }}
                             className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
                           >
-                            <Icon name="visibility" size={20} className="text-icon-secondary" variant="rounded" />
-                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Ver</span>
+                            <Icon
+                              name="visibility"
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              Ver
+                            </span>
                           </button>
                         </div>
                       )}
@@ -527,10 +682,18 @@ export default function CursosContent() {
         {totalItems > 0 && (
           <div className="px-4 py-3 flex flex-col gap-3 border-t md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-text-tertiary text-sm font-normal leading-4">Mostrando</span>
-              <span className="text-text-tertiary text-sm font-medium leading-4">{rangeStart}-{rangeEnd}</span>
-              <span className="text-text-tertiary text-sm font-normal leading-4">de</span>
-              <span className="text-text-tertiary text-sm font-medium leading-4">{totalItems}</span>
+              <span className="text-text-tertiary text-sm font-normal leading-4">
+                Mostrando
+              </span>
+              <span className="text-text-tertiary text-sm font-medium leading-4">
+                {rangeStart}-{rangeEnd}
+              </span>
+              <span className="text-text-tertiary text-sm font-normal leading-4">
+                de
+              </span>
+              <span className="text-text-tertiary text-sm font-medium leading-4">
+                {totalItems}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -538,12 +701,19 @@ export default function CursosContent() {
                 disabled={currentPage === 1}
                 className="p-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex items-center disabled:opacity-40"
               >
-                <Icon name="chevron_left" size={16} className="text-icon-tertiary" />
+                <Icon
+                  name="chevron_left"
+                  size={16}
+                  className="text-icon-tertiary"
+                />
               </button>
               <div className="flex items-center gap-2">
                 {pageNumbers.map((page, index) =>
-                  page === '...' ? (
-                    <span key={`dots-${index}`} className="min-w-8 px-1 py-2 text-center text-text-tertiary text-sm font-normal leading-4">
+                  page === "..." ? (
+                    <span
+                      key={`dots-${index}`}
+                      className="min-w-8 px-1 py-2 text-center text-text-tertiary text-sm font-normal leading-4"
+                    >
                       ...
                     </span>
                   ) : (
@@ -552,8 +722,8 @@ export default function CursosContent() {
                       onClick={() => setCurrentPage(page)}
                       className={`min-w-8 px-1 py-2 rounded-lg text-sm font-medium leading-4 ${
                         page === currentPage
-                          ? 'bg-bg-accent-primary-solid text-text-white'
-                          : 'text-text-tertiary font-normal hover:bg-bg-secondary'
+                          ? "bg-bg-accent-primary-solid text-text-white"
+                          : "text-text-tertiary font-normal hover:bg-bg-secondary"
                       }`}
                     >
                       {page}
@@ -562,36 +732,60 @@ export default function CursosContent() {
                 )}
               </div>
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="p-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex items-center disabled:opacity-40"
               >
-                <Icon name="chevron_right" size={16} className="text-icon-tertiary" />
+                <Icon
+                  name="chevron_right"
+                  size={16}
+                  className="text-icon-tertiary"
+                />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      <div className={`fixed inset-0 z-50 flex justify-end transition-opacity duration-300 ${sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-        <div className="absolute inset-0 bg-black/20" onClick={() => setSidebarOpen(false)} />
+      <div
+        className={`fixed inset-0 z-50 flex justify-end transition-opacity duration-300 ${sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+      >
+        <div
+          className="absolute inset-0 bg-black/20"
+          onClick={() => setSidebarOpen(false)}
+        />
 
-        <div className={`relative w-[400px] h-full bg-bg-primary shadow-[0px_24px_48px_-12px_rgba(0,0,0,0.15)] border-l border-stroke-secondary flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div
+          className={`relative w-[400px] h-full bg-bg-primary shadow-[0px_24px_48px_-12px_rgba(0,0,0,0.15)] border-l border-stroke-secondary flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}
+        >
           <div className="pl-6 pr-3.5 py-6 border-b border-stroke-secondary flex items-center gap-4">
             <div className="flex-1 flex items-center gap-2">
               <div className="p-2 bg-bg-accent-light rounded-full flex items-center">
-                <Icon name="filter_list" size={20} className="text-icon-accent-primary" />
+                <Icon
+                  name="filter_list"
+                  size={20}
+                  className="text-icon-accent-primary"
+                />
               </div>
-              <span className="flex-1 text-text-primary text-xl font-semibold leading-6">Filtros Avanzados</span>
+              <span className="flex-1 text-text-primary text-xl font-semibold leading-6">
+                Filtros Avanzados
+              </span>
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-full hover:bg-bg-secondary transition-colors">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-1.5 rounded-full hover:bg-bg-secondary transition-colors"
+            >
               <Icon name="close" size={24} className="text-icon-tertiary" />
             </button>
           </div>
 
           <div className="flex-1 p-6 flex flex-col gap-8 overflow-y-auto">
             <div className="flex flex-col gap-4">
-              <span className="text-gray-600 text-base font-semibold leading-5">Unidad</span>
+              <span className="text-gray-600 text-base font-semibold leading-5">
+                Unidad
+              </span>
               <div className="flex flex-wrap items-center gap-2">
                 {availableTypeFilters.map((filter) => {
                   const isActive = sidebarType === filter;
@@ -601,8 +795,8 @@ export default function CursosContent() {
                       onClick={() => setSidebarType(filter)}
                       className={`px-4 py-2 rounded-full text-sm font-medium leading-4 transition-colors ${
                         isActive
-                          ? 'bg-bg-accent-primary-solid text-text-white'
-                          : 'bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light'
+                          ? "bg-bg-accent-primary-solid text-text-white"
+                          : "bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light"
                       }`}
                     >
                       {filter}
@@ -613,7 +807,9 @@ export default function CursosContent() {
             </div>
 
             <div className="flex flex-col gap-4">
-              <span className="text-gray-600 text-base font-semibold leading-5">Ciclo</span>
+              <span className="text-gray-600 text-base font-semibold leading-5">
+                Ciclo
+              </span>
               <FloatingSelect
                 label="Ciclo"
                 value={sidebarCycle}
@@ -627,20 +823,37 @@ export default function CursosContent() {
             </div>
 
             <div className="flex flex-col gap-4">
-              <span className="text-gray-600 text-base font-semibold leading-5">Estado</span>
+              <span className="text-gray-600 text-base font-semibold leading-5">
+                Estado
+              </span>
               <div className="flex flex-col gap-2">
-                {([['ACTIVE', 'Activo'], ['INACTIVE', 'Inactivo']] as const).map(([value, label]) => {
+                {(
+                  [
+                    ["ACTIVE", "Activo"],
+                    ["INACTIVE", "Inactivo"],
+                  ] as const
+                ).map(([value, label]) => {
                   const checked = sidebarStatus === value;
                   return (
                     <button
                       key={value}
-                      onClick={() => setSidebarStatus(checked ? '' : value)}
+                      onClick={() => setSidebarStatus(checked ? "" : value)}
                       className="flex items-center gap-1"
                     >
-                      <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${checked ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary bg-transparent'}`}>
-                        {checked && <Icon name="check" size={14} className="text-icon-white" />}
+                      <div
+                        className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${checked ? "bg-bg-accent-primary-solid border-bg-accent-primary-solid" : "border-icon-tertiary bg-transparent"}`}
+                      >
+                        {checked && (
+                          <Icon
+                            name="check"
+                            size={14}
+                            className="text-icon-white"
+                          />
+                        )}
                       </div>
-                      <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">{label}</span>
+                      <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">
+                        {label}
+                      </span>
                     </button>
                   );
                 })}
@@ -653,13 +866,17 @@ export default function CursosContent() {
               onClick={clearSidebarFilters}
               className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex items-center gap-1.5 hover:bg-bg-secondary transition-colors"
             >
-              <span className="text-text-tertiary text-sm font-medium leading-4">Limpiar Todo</span>
+              <span className="text-text-tertiary text-sm font-medium leading-4">
+                Limpiar Todo
+              </span>
             </button>
             <button
               onClick={applySidebarFilters}
               className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
             >
-              <span className="text-text-white text-sm font-medium leading-4">Aplicar Filtros</span>
+              <span className="text-text-white text-sm font-medium leading-4">
+                Aplicar Filtros
+              </span>
             </button>
           </div>
         </div>

@@ -36,6 +36,7 @@ describe('EvaluationsService create', () => {
           useValue: {
             create: jest.fn(),
             findByCourseCycle: jest.fn(),
+            findAcademicTypes: jest.fn(),
             findMaxDisplayOrderByCourseCycle: jest.fn(),
             updateDisplayOrder: jest.fn(),
             hasDisplayOrderColumn: jest.fn(),
@@ -277,6 +278,21 @@ describe('EvaluationsService create', () => {
     );
     expect(cacheService.invalidateIndex).toHaveBeenCalled();
     expect(result.map((item) => item.id)).toEqual(['11', '10']);
+  });
+
+  it('should list academic evaluation types excluding technical bank type', async () => {
+    (evaluationRepository.findAcademicTypes as jest.Mock).mockResolvedValue([
+      { id: '1', code: 'PC', name: 'Practica Calificada' },
+      { id: '2', code: 'EX', name: 'Examen' },
+    ]);
+
+    const result = await service.findAllTypes();
+
+    expect(evaluationRepository.findAcademicTypes).toHaveBeenCalled();
+    expect(result).toEqual([
+      { id: '1', code: 'PC', name: 'Practica Calificada' },
+      { id: '2', code: 'EX', name: 'Examen' },
+    ]);
   });
 
   it('should reject reorder when payload does not contain the full visible set', async () => {

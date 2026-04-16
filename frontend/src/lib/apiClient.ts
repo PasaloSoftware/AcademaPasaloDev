@@ -264,6 +264,21 @@ export class ApiClient {
   }
 
   /**
+   * PUT request
+   */
+  async put<T>(
+    endpoint: string,
+    body?: unknown,
+    options?: RequestInit,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  /**
    * DELETE request
    */
   async delete<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {

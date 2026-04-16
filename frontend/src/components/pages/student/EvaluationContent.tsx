@@ -12,11 +12,21 @@ import { EvaluationPageContent } from "./EvaluationShared";
 interface EvaluationContentProps {
   cursoId: string;
   evalId: string;
+  previewData?: {
+    courseName: string;
+    evalShortName?: string;
+    evalFullName?: string;
+    backHref?: string;
+    backLabel?: string;
+    getClassPageUrl?: (eventId: string) => string;
+    manageBreadcrumb?: boolean;
+  };
 }
 
 export default function EvaluationContent({
   cursoId,
   evalId,
+  previewData,
 }: EvaluationContentProps) {
   const { setBreadcrumbItems } = useBreadcrumb();
 
@@ -26,6 +36,13 @@ export default function EvaluationContent({
 
   // Cargar nombre del curso desde enrollment + evaluación desde ciclo vigente
   useEffect(() => {
+    if (previewData) {
+      setCourseName(previewData.courseName);
+      setEvalShortName(previewData.evalShortName || "");
+      setEvalFullName(previewData.evalFullName || "");
+      return;
+    }
+
     async function loadCourseData() {
       try {
         const response = await enrollmentService.getMyCourses();
@@ -58,18 +75,21 @@ export default function EvaluationContent({
 
     loadCourseData();
     loadEvalNames();
-  }, [cursoId, evalId]);
+  }, [cursoId, evalId, previewData]);
 
   // Breadcrumb
   useEffect(() => {
     if (!courseName) return;
+    if (previewData?.manageBreadcrumb === false) return;
+
+    const cycleHref = previewData?.backHref || `/plataforma/curso/${cursoId}`;
     setBreadcrumbItems([
       { label: "Cursos" },
-      { label: courseName, href: `/plataforma/curso/${cursoId}` },
-      { label: "Ciclo Vigente", href: `/plataforma/curso/${cursoId}` },
+      { label: courseName, href: cycleHref },
+      { label: "Ciclo Vigente", href: cycleHref },
       { label: evalShortName },
     ]);
-  }, [setBreadcrumbItems, courseName, evalShortName, cursoId]);
+  }, [setBreadcrumbItems, courseName, evalShortName, cursoId, previewData]);
 
   // Fallback: detectar nombre desde eventos si no se cargó desde ciclo vigente
   const handleEvalNameDetected = useCallback((name: string) => {
@@ -81,15 +101,16 @@ export default function EvaluationContent({
   // Generar URL de clase
   const getClassPageUrl = useCallback(
     (eventId: string) =>
+      previewData?.getClassPageUrl?.(eventId) ||
       `/plataforma/curso/${cursoId}/evaluacion/${evalId}/clase/${eventId}`,
-    [cursoId, evalId],
+    [cursoId, evalId, previewData],
   );
 
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* Back Link */}
       <Link
-        href={`/plataforma/curso/${cursoId}`}
+        href={previewData?.backHref || `/plataforma/curso/${cursoId}`}
         className="p-1 rounded-lg hover:bg-bg-secondary transition-colors inline-flex justify-center items-center gap-2 mb-6"
       >
         <Icon
@@ -98,7 +119,7 @@ export default function EvaluationContent({
           className="text-icon-accent-primary"
         />
         <span className="text-text-accent-primary text-base font-medium leading-4">
-          Volver al Ciclo Vigente
+          {previewData?.backLabel || "Volver al Ciclo Vigente"}
         </span>
       </Link>
 

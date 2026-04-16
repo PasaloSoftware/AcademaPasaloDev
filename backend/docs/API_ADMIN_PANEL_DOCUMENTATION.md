@@ -501,6 +501,61 @@ Notas criticas:
 
 - `BANCO_ENUNCIADOS` es global del `course_cycle` y **no** se provisiona como scope individual de evaluacion Drive.
 - `professorUserIds` puede venir vacio.
+- `materialsTemplate.roots` se replica en cada evaluacion creada; frontend no necesita enviar `applyToEachEvaluation`.
+- `bankFoldersToCreate` permite crear estructura explicita del Banco de Enunciados usando nombres finales enviados por frontend.
+- En `bankFoldersToCreate`, cada item debe enviar **exactamente uno** de:
+  - `evaluationTypeId`, o
+  - `newEvaluationTypeName`
+- `groupName` no puede repetirse dentro del mismo payload.
+
+Payload ejemplo resumido:
+
+```json
+{
+  "course": {
+    "code": "QUI101",
+    "name": "Quimica",
+    "courseTypeId": "1",
+    "cycleLevelId": "2"
+  },
+  "academicCycleId": "10",
+  "allowedEvaluationTypeIds": ["1", "2"],
+  "evaluationsToCreate": [
+    {
+      "evaluationTypeId": "1",
+      "number": 1,
+      "startDate": "2026-05-01T05:00:00.000Z",
+      "endDate": "2026-05-01T23:59:59.000Z"
+    }
+  ],
+  "newEvaluationsToCreate": [
+    {
+      "name": "Evaluacion Continua",
+      "number": 1,
+      "startDate": "2026-05-10T05:00:00.000Z",
+      "endDate": "2026-05-10T23:59:59.000Z"
+    }
+  ],
+  "bankFoldersToCreate": [
+    {
+      "evaluationTypeId": "1",
+      "groupName": "Practicas Calificadas",
+      "items": ["PC1"]
+    },
+    {
+      "newEvaluationTypeName": "Practica Dirigida",
+      "groupName": "Practicas Dirigidas",
+      "items": ["PD1", "PD2"]
+    }
+  ],
+  "materialsTemplate": {
+    "roots": [
+      { "name": "Enunciados" },
+      { "name": "Resumenes" }
+    ]
+  }
+}
+```
 
 ### 7.2 Endpoints administrativos vigentes de cursos
 
@@ -599,7 +654,19 @@ Nota de despliegue:
 
 - `GET /courses/cycle/:id/bank-structure` (STUDENT, PROFESSOR, ADMIN, SUPER_ADMIN) - estructura del Banco por course-cycle.
 - `POST /courses/cycle/:id/bank-documents` (PROFESSOR, ADMIN, SUPER_ADMIN) - carga de documento al Banco (usa `BANCO_ENUNCIADOS` tecnico, no crea evaluacion academica nueva).
+- `PATCH /courses/cycle/:id/bank-folders/:evaluationTypeCode` (PROFESSOR, ADMIN, SUPER_ADMIN) - edita grupo del banco; para tipos sincronizados solo permite renombrar el grupo, para tipos solo-banco permite renombrar y reemplazar subcarpetas.
+- `DELETE /courses/cycle/:id/bank-folders/:evaluationTypeCode` (PROFESSOR, ADMIN, SUPER_ADMIN) - elimina grupo solo-banco del banco; si el tipo tiene evaluaciones academicas sincronizadas responde conflicto.
 - `GET /courses/cycle/:id/intro-video-link` (STUDENT, PROFESSOR, ADMIN, SUPER_ADMIN) - enlace autorizado para video introductorio.
+
+Notas del Banco:
+
+- `bank-structure` puede devolver entradas provenientes de:
+  - evaluaciones academicas reales, o
+  - carpetas solo-banco existentes bajo `BANCO_ENUNCIADOS`
+- Cuando una entry del banco no tiene evaluacion academica real, `evaluationId` puede venir en `null`.
+- `bank-documents` acepta uploads tanto para entries con evaluacion real como para carpetas solo-banco ya existentes en el banco del `course_cycle`.
+- `PATCH /bank-folders/:evaluationTypeCode` exige `groupName` y opcionalmente `items`. Si el tipo esta sincronizado con evaluaciones academicas, `items` no puede diferir de la estructura academica actual.
+- `DELETE /bank-folders/:evaluationTypeCode` solo elimina tipos solo-banco y rechaza carpetas que ya contienen archivos.
 
 ### 7.6 Endpoints retirados (no usar en frontend)
 

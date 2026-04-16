@@ -10,10 +10,32 @@ interface VideoPageContentProps {
   cursoId: string;
   evalId: string;
   eventId: string;
+  cycleCode?: string;
+  previewData?: {
+    courseName: string;
+    evalShortName: string;
+    evaluationPath: string;
+    courseHref?: string;
+    cycleHref?: string;
+    cycleLabel?: string;
+  };
 }
 
-export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPageContentProps) {
+export default function VideoPageContent({
+  cursoId,
+  evalId,
+  eventId,
+  cycleCode,
+  previewData,
+}: VideoPageContentProps) {
   const resolveNames = useCallback(async (cId: string, eId: string) => {
+    if (previewData) {
+      return {
+        courseName: previewData.courseName,
+        evalShortName: previewData.evalShortName,
+      };
+    }
+
     let courseName = '';
     let evalShortName = '';
 
@@ -29,7 +51,9 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     }
 
     try {
-      const data = await coursesService.getCurrentCycleContent(cId);
+      const data = cycleCode
+        ? await coursesService.getPreviousCycleContent(cId, cycleCode)
+        : await coursesService.getCurrentCycleContent(cId);
       const eval_ = data.evaluations.find((e) => e.id === eId);
       if (eval_) evalShortName = eval_.shortName;
     } catch (err) {
@@ -37,7 +61,7 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
     }
 
     return { courseName, evalShortName };
-  }, []);
+  }, [cycleCode, previewData]);
 
   return (
     <VideoPageLayout
@@ -45,6 +69,10 @@ export default function VideoPageContent({ cursoId, evalId, eventId }: VideoPage
       evalId={evalId}
       eventId={eventId}
       resolveNames={resolveNames}
+      evaluationPathOverride={previewData?.evaluationPath}
+      courseHrefOverride={previewData?.courseHref}
+      cycleHrefOverride={previewData?.cycleHref}
+      cycleLabelOverride={previewData?.cycleLabel}
     />
   );
 }

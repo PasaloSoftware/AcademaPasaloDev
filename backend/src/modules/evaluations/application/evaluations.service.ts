@@ -142,6 +142,10 @@ export class EvaluationsService {
     return evaluation;
   }
 
+  async findAllTypes() {
+    return await this.evaluationRepository.findAcademicTypes();
+  }
+
   async findByCourseCycle(
     courseCycleId: string,
     requesterUserId?: string,
