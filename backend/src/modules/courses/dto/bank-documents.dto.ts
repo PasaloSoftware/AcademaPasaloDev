@@ -33,7 +33,7 @@ export class UploadBankDocumentResponseDto {
   bankEvaluationId: string;
 
   @Expose()
-  evaluationId: string;
+  evaluationId: string | null;
 
   @Expose()
   evaluationTypeId: string;

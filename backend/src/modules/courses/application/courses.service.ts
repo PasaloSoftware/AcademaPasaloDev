@@ -108,7 +108,7 @@ type StudentCourseAccessContext = {
 };
 
 type BankCardMeta = {
-  evaluationId: string;
+  evaluationId: string | null;
   evaluationTypeId: string;
   evaluationTypeCode: string;
   evaluationTypeName: string;
@@ -118,7 +118,7 @@ type BankCardMeta = {
 };
 
 type StudentBankFolderEntry = {
-  evaluationId: string;
+  evaluationId: string | null;
   evaluationTypeCode: string;
   evaluationTypeName: string;
   evaluationNumber: number;
@@ -1117,6 +1117,18 @@ export class CoursesService {
       const entriesByTypeCode = await this.resolveBankEntriesByTypeCode(
         bankEvaluation.id,
         bankCards,
+        structure.map((item) => ({
+          evaluationTypeId: String(item.evaluationTypeId),
+          evaluationTypeCode: String(item.evaluationType?.code || '')
+            .trim()
+            .toUpperCase(),
+          evaluationTypeName: this.getBankEvaluationTypePluralName(
+            String(item.evaluationType?.code || '')
+              .trim()
+              .toUpperCase(),
+            String(item.evaluationType?.name || '').trim(),
+          ),
+        })),
       );
 
       items = structure.map((item) => ({
@@ -1147,6 +1159,11 @@ export class CoursesService {
   private async resolveBankEntriesByTypeCode(
     bankEvaluationId: string,
     cards: BankCardMeta[],
+    structure: Array<{
+      evaluationTypeId: string;
+      evaluationTypeCode: string;
+      evaluationTypeName: string;
+    }>,
   ): Promise<Record<string, StudentBankFolderEntry[]>> {
     const activeFolderStatus = await this.getActiveFolderStatus();
     const rootFolders =
@@ -1155,26 +1172,51 @@ export class CoursesService {
         activeFolderStatus.id,
       );
 
-    const leafFolderByCompositeKey = new Map<string, MaterialFolder>();
+    const leafFolders: Array<{ rootName: string; folder: MaterialFolder }> = [];
     for (const root of rootFolders) {
       const children = await this.materialFolderRepository.findSubFolders(
         root.id,
         activeFolderStatus.id,
       );
       for (const child of children) {
-        const key = `${root.name}::${child.name}`;
-        leafFolderByCompositeKey.set(key, child);
+        leafFolders.push({
+          rootName: String(root.name || '').trim(),
+          folder: child,
+        });
       }
     }
 
     const entriesByTypeCode: Record<string, StudentBankFolderEntry[]> = {};
-    for (const card of cards) {
-      const key = `${card.groupFolderName}::${card.leafFolderName}`;
-      const folder = leafFolderByCompositeKey.get(key) || null;
-      if (!entriesByTypeCode[card.evaluationTypeCode]) {
-        entriesByTypeCode[card.evaluationTypeCode] = [];
+    const entryKeysByTypeCode = new Map<string, Set<string>>();
+    const registerEntry = (
+      typeCode: string,
+      entry: StudentBankFolderEntry,
+    ): void => {
+      const normalizedTypeCode = String(typeCode || '')
+        .trim()
+        .toUpperCase();
+      const perType = entryKeysByTypeCode.get(normalizedTypeCode) || new Set<string>();
+      const key = `${entry.label}::${entry.folderId || ''}`;
+      if (perType.has(key)) {
+        return;
       }
-      entriesByTypeCode[card.evaluationTypeCode].push({
+      if (!entriesByTypeCode[normalizedTypeCode]) {
+        entriesByTypeCode[normalizedTypeCode] = [];
+      }
+      entriesByTypeCode[normalizedTypeCode].push(entry);
+      perType.add(key);
+      entryKeysByTypeCode.set(normalizedTypeCode, perType);
+    };
+
+    for (const card of cards) {
+      const folder =
+        leafFolders.find(
+          (item) =>
+            String(item.folder.name || '').trim() === card.leafFolderName &&
+            this.normalizeBankFolderName(item.rootName) ===
+              this.normalizeBankFolderName(card.groupFolderName),
+        )?.folder || null;
+      registerEntry(card.evaluationTypeCode, {
         evaluationId: card.evaluationId,
         evaluationTypeCode: card.evaluationTypeCode,
         evaluationTypeName: card.evaluationTypeName,
@@ -1185,6 +1227,41 @@ export class CoursesService {
       });
     }
 
+    const cardByTypeAndNumber = new Map<string, BankCardMeta>();
+    for (const card of cards) {
+      cardByTypeAndNumber.set(
+        `${card.evaluationTypeCode}:${card.evaluationNumber}`,
+        card,
+      );
+    }
+
+    for (const item of structure) {
+      const code = String(item.evaluationTypeCode || '').trim().toUpperCase();
+      const matchingLeafFolders = leafFolders.filter((leaf) =>
+        this.tryParseBankLeafNumber(String(leaf.folder.name || ''), code) !== null,
+      );
+      for (const leaf of matchingLeafFolders) {
+        const evaluationNumber = this.tryParseBankLeafNumber(
+          String(leaf.folder.name || ''),
+          code,
+        );
+        if (evaluationNumber === null) {
+          continue;
+        }
+        const matchedCard =
+          cardByTypeAndNumber.get(`${code}:${evaluationNumber}`) || null;
+        registerEntry(code, {
+          evaluationId: matchedCard?.evaluationId || null,
+          evaluationTypeCode: code,
+          evaluationTypeName: item.evaluationTypeName,
+          evaluationNumber,
+          label: String(leaf.folder.name || '').trim(),
+          folderId: leaf.folder.id || null,
+          folderName: leaf.folder.name || null,
+        });
+      }
+    }
+
     for (const typeCode of Object.keys(entriesByTypeCode)) {
       entriesByTypeCode[typeCode].sort(
         (left, right) => left.evaluationNumber - right.evaluationNumber,
@@ -1192,6 +1269,30 @@ export class CoursesService {
     }
 
     return entriesByTypeCode;
+  }
+
+  private normalizeBankFolderName(name: string): string {
+    return String(name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  private tryParseBankLeafNumber(label: string, evaluationTypeCode: string): number | null {
+    const normalizedLabel = String(label || '').trim().toUpperCase();
+    const normalizedTypeCode = String(evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+    const match = normalizedLabel.match(
+      new RegExp(`^${normalizedTypeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`),
+    );
+    if (!match) {
+      return null;
+    }
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
   private async assertCanManageCourseCycleBank(
@@ -1280,6 +1381,80 @@ export class CoursesService {
         }
         return left.evaluationNumber - right.evaluationNumber;
       });
+  }
+
+  private async resolveBankTargetForUpload(
+    courseCycleId: string,
+    bankEvaluationId: string,
+    evaluationTypeCode: string,
+    evaluationNumber: number,
+  ): Promise<BankCardMeta | null> {
+    const normalizedTypeCode = String(evaluationTypeCode || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedTypeCode || !Number.isInteger(evaluationNumber) || evaluationNumber <= 0) {
+      return null;
+    }
+
+    const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
+    const directCard =
+      bankCards.find(
+        (item) =>
+          item.evaluationTypeCode === normalizedTypeCode &&
+          item.evaluationNumber === evaluationNumber,
+      ) || null;
+    if (directCard) {
+      return directCard;
+    }
+
+    const structure =
+      await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
+        courseCycleId,
+      );
+    const matchedType =
+      structure.find(
+        (item) =>
+          String(item.evaluationType?.code || '').trim().toUpperCase() ===
+          normalizedTypeCode,
+      ) || null;
+    if (!matchedType) {
+      return null;
+    }
+
+    const activeFolderStatus = await this.getActiveFolderStatus();
+    const roots = await this.materialFolderRepository.findRootsByEvaluation(
+      bankEvaluationId,
+      activeFolderStatus.id,
+    );
+    const targetLeafLabel = `${normalizedTypeCode}${evaluationNumber}`;
+    for (const root of roots) {
+      const children = await this.materialFolderRepository.findSubFolders(
+        root.id,
+        activeFolderStatus.id,
+      );
+      const matchedLeaf =
+        children.find(
+          (child) =>
+            String(child.name || '').trim().toUpperCase() === targetLeafLabel,
+        ) || null;
+      if (!matchedLeaf) {
+        continue;
+      }
+      return {
+        evaluationId: null,
+        evaluationTypeId: String(matchedType.evaluationTypeId),
+        evaluationTypeCode: normalizedTypeCode,
+        evaluationTypeName: this.getBankEvaluationTypePluralName(
+          normalizedTypeCode,
+          String(matchedType.evaluationType?.name || '').trim(),
+        ),
+        evaluationNumber,
+        groupFolderName: String(root.name || '').trim(),
+        leafFolderName: String(matchedLeaf.name || '').trim(),
+      };
+    }
+
+    return null;
   }
 
   private async ensureBankMaterialFolders(
@@ -1447,15 +1622,15 @@ export class CoursesService {
 
     const bankEvaluation =
       await this.findBankEvaluationEntityForCourseCycle(courseCycleId);
-    const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
     const normalizedTypeCode = String(dto.evaluationTypeCode || '')
       .trim()
       .toUpperCase();
     const evaluationNumber = Number.parseInt(dto.evaluationNumber, 10);
-    const targetCard = bankCards.find(
-      (item) =>
-        item.evaluationTypeCode === normalizedTypeCode &&
-        item.evaluationNumber === evaluationNumber,
+    const targetCard = await this.resolveBankTargetForUpload(
+      courseCycleId,
+      bankEvaluation.id,
+      normalizedTypeCode,
+      evaluationNumber,
     );
     if (!targetCard) {
       throw new NotFoundException(
@@ -1490,12 +1665,24 @@ export class CoursesService {
         courseCycleId,
         courseCode: cycle.course.code,
         cycleCode: cycle.academicCycle.code,
-        bankCards: bankCards.map((item) => ({
-          evaluationTypeCode: item.evaluationTypeCode,
-          number: item.evaluationNumber,
-        })),
+        bankCards: targetCard.evaluationId
+          ? [
+              {
+                evaluationTypeCode: targetCard.evaluationTypeCode,
+                number: targetCard.evaluationNumber,
+              },
+            ]
+          : [],
+        bankFolders: [
+          {
+            groupName: targetCard.groupFolderName,
+            items: [targetCard.leafFolderName],
+          },
+        ],
         evaluationTypeCode: targetCard.evaluationTypeCode,
         evaluationNumber: targetCard.evaluationNumber,
+        groupName: targetCard.groupFolderName,
+        leafFolderName: targetCard.leafFolderName,
       });
 
     let savedResource: {

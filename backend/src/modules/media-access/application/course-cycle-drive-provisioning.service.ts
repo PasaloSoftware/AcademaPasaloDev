@@ -19,6 +19,7 @@ type CourseCycleDriveProvisionInput = {
   cycleCode: string;
   courseCode: string;
   bankCards: Array<{ evaluationTypeCode: string; number: number }>;
+  bankFolders?: Array<{ groupName: string; items: string[] }>;
 };
 
 type CourseCycleDriveProvisionResult = {
@@ -32,6 +33,8 @@ type CourseCycleDriveProvisionResult = {
 type BankLeafFolderResolutionInput = CourseCycleDriveProvisionInput & {
   evaluationTypeCode: string;
   evaluationNumber: number;
+  groupName?: string;
+  leafFolderName?: string;
 };
 
 const BANK_TYPE_FOLDER_LABELS: Record<string, string> = {
@@ -132,20 +135,18 @@ export class CourseCycleDriveProvisioningService {
     }
 
     let bankLeafFoldersCreated = 0;
-    const grouped = this.groupBankCardsByType(input.bankCards);
-    for (const [evaluationTypeCode, numbers] of grouped.entries()) {
-      const typeFolderLabel =
-        BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode;
+    const bankGroups = this.resolveBankGroups(input);
+    for (const group of bankGroups) {
       const typeFolderId =
         await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
           bankFolderId,
-          typeFolderLabel,
+          group.groupName,
         );
 
-      for (const number of numbers) {
+      for (const itemName of group.items) {
         await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
           typeFolderId,
-          `${evaluationTypeCode}${number}`,
+          itemName,
         );
         bankLeafFoldersCreated += 1;
       }
@@ -181,17 +182,21 @@ export class CourseCycleDriveProvisioningService {
       input.evaluationNumber,
       'evaluationNumber',
     );
-    const typeFolderLabel =
-      BANK_TYPE_FOLDER_LABELS[normalizedTypeCode] || normalizedTypeCode;
+    const typeFolderLabel = this.normalizeOptionalFolderName(input.groupName)
+      ? this.normalizeOptionalFolderName(input.groupName)!
+      : BANK_TYPE_FOLDER_LABELS[normalizedTypeCode] || normalizedTypeCode;
     const typeFolderId =
       await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
         provisioned.bankFolderId,
         typeFolderLabel,
       );
+    const leafFolderName = this.normalizeOptionalFolderName(input.leafFolderName)
+      ? this.normalizeOptionalFolderName(input.leafFolderName)!
+      : `${normalizedTypeCode}${normalizedNumber}`;
     const leafFolderId =
       await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
         typeFolderId,
-        `${normalizedTypeCode}${normalizedNumber}`,
+        leafFolderName,
       );
 
     return {
@@ -295,6 +300,34 @@ export class CourseCycleDriveProvisioningService {
     return normalized;
   }
 
+  private resolveBankGroups(input: CourseCycleDriveProvisionInput): Array<{
+    groupName: string;
+    items: string[];
+  }> {
+    const explicitGroups = (input.bankFolders || [])
+      .map((group) => ({
+        groupName: String(group.groupName || '').trim(),
+        items: Array.from(
+          new Set(
+            (group.items || [])
+              .map((item) => String(item || '').trim())
+              .filter(Boolean),
+          ),
+        ),
+      }))
+      .filter((group) => group.groupName.length > 0 && group.items.length > 0);
+    if (explicitGroups.length > 0) {
+      return explicitGroups;
+    }
+
+    const grouped = this.groupBankCardsByType(input.bankCards);
+    return Array.from(grouped.entries()).map(([evaluationTypeCode, numbers]) => ({
+      groupName:
+        BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode,
+      items: numbers.map((number) => `${evaluationTypeCode}${number}`),
+    }));
+  }
+
   private normalizeToken(raw: string, fieldName: string): string {
     const normalized = String(raw || '').trim();
     if (!normalized) {
@@ -316,6 +349,11 @@ export class CourseCycleDriveProvisioningService {
       throw new InternalServerErrorException(`${fieldName} invalido`);
     }
     return value;
+  }
+
+  private normalizeOptionalFolderName(raw?: string): string | null {
+    const normalized = String(raw || '').trim();
+    return normalized ? normalized : null;
   }
 
   private getWorkspaceGroupDomain(): string {
