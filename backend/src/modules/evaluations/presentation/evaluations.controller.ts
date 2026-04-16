@@ -24,6 +24,13 @@ import type { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
 export class EvaluationsController {
   constructor(private readonly evaluationsService: EvaluationsService) {}
 
+  @Get('types')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Tipos de evaluacion obtenidos exitosamente')
+  async findAllTypes() {
+    return await this.evaluationsService.findAllTypes();
+  }
+
   @Post()
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @HttpCode(HttpStatus.CREATED)

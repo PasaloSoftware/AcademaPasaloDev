@@ -20,6 +20,7 @@ import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import { technicalSettings } from '@config/technical-settings';
 import { DataSource } from 'typeorm';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
+import { EvaluationType } from '@modules/evaluations/domain/evaluation-type.entity';
 import {
   parseBusinessWindowEndToUtc,
   parseBusinessWindowStartToUtc,
@@ -42,6 +43,16 @@ export class EvaluationsService {
     private readonly academicCycleRepository: AcademicCycleRepository,
     private readonly cacheService: RedisCacheService,
   ) {}
+
+  async findAllTypes(): Promise<EvaluationType[]> {
+    const types = await this.evaluationRepository.findAllTypes();
+    return types.filter(
+      (type) =>
+        String(type.code || '')
+          .trim()
+          .toUpperCase() !== EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+    );
+  }
 
   async create(dto: CreateEvaluationDto): Promise<Evaluation> {
     const evaluationTypeId = dto.evaluationTypeId.trim();
