@@ -35,11 +35,6 @@ export class EvaluationRepository {
     });
   }
 
-  async findAllTypes(): Promise<EvaluationType[]> {
-    return await this.typeOrm.find({
-      order: { code: 'ASC', name: 'ASC' },
-    });
-  }
   async findAcademicTypes(): Promise<EvaluationType[]> {
     return await this.typeOrm
       .createQueryBuilder('evaluationType')

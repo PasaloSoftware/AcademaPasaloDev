@@ -603,7 +603,6 @@ Nota de despliegue:
 
 ### 7.4 Endpoints administrativos vigentes de evaluaciones
 
-- `GET /evaluations/types` (ADMIN, SUPER_ADMIN) - listar catálogo de tipos de evaluación disponibles para configuración inicial de cursos.
 - `POST /evaluations` (ADMIN, SUPER_ADMIN) - crear evaluacion academica.
 - `GET /evaluations/course-cycle/:id` (PROFESSOR, ADMIN, SUPER_ADMIN) - listar evaluaciones del curso-ciclo.
 - `PUT /evaluations/course-cycle/:id/reorder` (ADMIN, SUPER_ADMIN) - persistir el orden visual de evaluaciones academicas del curso-ciclo.
