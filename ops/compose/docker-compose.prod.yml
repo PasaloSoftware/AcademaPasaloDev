@@ -118,7 +118,7 @@ services:
       retries: 5
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.2.1
     container_name: academia-pasalo-prometheus
     restart: unless-stopped
     volumes:
@@ -134,7 +134,7 @@ services:
       - academia-network
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.0.0
     container_name: academia-pasalo-grafana
     restart: unless-stopped
     expose:
@@ -154,7 +154,7 @@ services:
       - academia-network
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.9.1
     container_name: academia-pasalo-node-exporter
     restart: unless-stopped
     pid: host
@@ -173,7 +173,7 @@ services:
       - academia-network
 
   redis-exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.80.1
     container_name: academia-pasalo-redis-exporter
     restart: unless-stopped
     environment:
@@ -186,7 +186,7 @@ services:
       - academia-network
 
   mysql-exporter:
-    image: prom/mysqld-exporter:latest
+    image: prom/mysqld-exporter:v0.16.0
     container_name: academia-pasalo-mysql-exporter
     restart: unless-stopped
     command:
@@ -197,14 +197,8 @@ services:
       - "9104"
     networks:
       - academia-network
-
-  # ──────────────────────────────────────────────────────────────
-  # Certbot genera y renueva el certificado SSL de Let's Encrypt.
-  # El webroot challenge ocurre en /var/www/certbot — nginx sirve
-  # ese path en HTTP antes del redirect a HTTPS.
-  # ──────────────────────────────────────────────────────────────
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v3.3.0
     container_name: academia-pasalo-certbot
     volumes:
       - certbot_www:/var/www/certbot
