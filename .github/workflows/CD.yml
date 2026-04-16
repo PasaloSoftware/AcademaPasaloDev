@@ -92,6 +92,8 @@ jobs:
       # Valida que el EC2 esté en estado 'running' antes de continuar.
       # Solo aplica para deploy a develop. Si está stopped/pending/etc,
       # falla inmediato con mensaje claro en lugar de colgar en SSH.
+      # Requiere: AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en secrets
+      # (ya disponibles — los usa EC2.yml).
       # ──────────────────────────────────────────────────────────────
       - name: Check EC2 is running (dev only)
         if: steps.ctx.outputs.branch == 'develop'
@@ -237,6 +239,7 @@ jobs:
           DB_PORT=${{ env.DB_PORT }}
           DB_USER=${{ env.DB_USER }}
           DB_PASSWORD=${{ env.DB_PASSWORD }}
+          DB_ROOT_PASSWORD=${{ env.DB_ROOT_PASSWORD }}
           DB_NAME=${{ env.DB_NAME }}
           JWT_SECRET=${{ env.JWT_SECRET }}
           GOOGLE_CLIENT_ID=${{ env.GOOGLE_CLIENT_ID }}
@@ -268,7 +271,7 @@ jobs:
             set -Eeuo pipefail
             echo 'Esperando MySQL...'
             for i in \$(seq 1 30); do
-              if docker exec academia-pasalo-mysql mysqladmin ping -h localhost -u root -p'${{ env.DB_PASSWORD }}' --silent 2>/dev/null; then
+              if docker exec academia-pasalo-mysql mysqladmin ping -h localhost -u root -p'${{ env.DB_ROOT_PASSWORD }}' --silent 2>/dev/null; then
                 echo '✅ MySQL disponible'
                 break
               fi
@@ -320,6 +323,7 @@ jobs:
           DB_PORT=${{ env.DB_PORT }}
           DB_USER=${{ env.DB_USER }}
           DB_PASSWORD=${{ env.DB_PASSWORD }}
+          DB_ROOT_PASSWORD=${{ env.DB_ROOT_PASSWORD }}
           DB_NAME=${{ env.DB_NAME }}
           JWT_SECRET=${{ env.JWT_SECRET }}
           GOOGLE_CLIENT_ID=${{ env.GOOGLE_CLIENT_ID }}
@@ -342,7 +346,7 @@ jobs:
             else
               echo \"⚠️ No hay tag :previous — primer deploy fallido, sin estado anterior\"
               docker compose -p academia-pasalo down --remove-orphans || true
-              echo \"❌ Servidor detenido — intervencion manual requerida\"
+              echo \"❌ Servidor detenido — intervención manual requerida\"
             fi
             docker ps -a
           " || true
