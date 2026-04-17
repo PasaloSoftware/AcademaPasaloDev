@@ -102,7 +102,7 @@ export class EvaluationDriveAccessProvisioningService {
       folders.videosFolderId,
       folders.documentsFolderId,
     );
-    await this.ensureStaffGroupReaderPermission(folders.scopeFolderId);
+    await this.ensureStaffGroupWriterPermission(folders.scopeFolderId);
 
     const persisted =
       await this.evaluationDriveAccessRepository.upsertByEvaluationId({
@@ -120,7 +120,7 @@ export class EvaluationDriveAccessProvisioningService {
     return persisted;
   }
 
-  private async ensureStaffGroupReaderPermission(
+  private async ensureStaffGroupWriterPermission(
     folderId: string,
   ): Promise<void> {
     const configuredGroupEmail = this.getConfiguredStaffGroupEmail();
@@ -134,7 +134,7 @@ export class EvaluationDriveAccessProvisioningService {
       description: MEDIA_ACCESS_STAFF_GROUP_METADATA.DESCRIPTION,
     });
 
-    await this.driveScopeProvisioningService.ensureGroupReaderPermission(
+    await this.driveScopeProvisioningService.ensureGroupWriterPermission(
       folderId,
       staffGroup.email,
     );

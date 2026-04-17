@@ -124,7 +124,7 @@ export class CourseCycleDriveProvisioningService {
         name: MEDIA_ACCESS_STAFF_GROUP_METADATA.NAME,
         description: MEDIA_ACCESS_STAFF_GROUP_METADATA.DESCRIPTION,
       });
-      await this.driveScopeProvisioningService.ensureGroupReaderPermission(
+      await this.driveScopeProvisioningService.ensureGroupWriterPermission(
         scopeFolderId,
         staffGroup.email,
       );

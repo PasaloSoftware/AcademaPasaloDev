@@ -111,7 +111,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       }
 
       for (const scope of scopes) {
-        await this.ensureStaffGroupReaderPermissionForScope(
+        await this.ensureStaffGroupWriterPermissionForScope(
           scope.driveScopeFolderId,
         );
         const delta = await this.computeScopeDelta(
@@ -350,7 +350,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
     return expectedEmailSet;
   }
 
-  private async ensureStaffGroupReaderPermissionForScope(
+  private async ensureStaffGroupWriterPermissionForScope(
     driveScopeFolderId: string | null,
   ): Promise<void> {
     const configuredGroupEmail = this.getConfiguredStaffGroupEmail();
@@ -359,7 +359,7 @@ export class MediaAccessReconciliationService implements OnApplicationBootstrap 
       return;
     }
 
-    await this.driveScopeProvisioningService.ensureGroupReaderPermission(
+    await this.driveScopeProvisioningService.ensureGroupWriterPermission(
       normalizedFolderId,
       configuredGroupEmail,
     );
