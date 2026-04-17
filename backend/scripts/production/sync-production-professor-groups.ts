@@ -1,297 +1,193 @@
-import mysql from 'mysql2/promise';
-import { google, admin_directory_v1 } from 'googleapis';
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '@src/app.module';
+import { DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
 
-type DbConfig = {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  database: string;
-};
-
-type ProfessorRow = {
-  courseCycleId: string;
+type ProfessorAssignmentRow = {
+  courseCycleId: string | number;
   professorGroupEmail: string;
   professorEmail: string;
 };
 
-function env(name: string): string {
-  return String(process.env[name] || '').trim();
+type FailedMemberSync = {
+  groupEmail: string;
+  memberEmail: string;
+  reason: string;
+};
+
+function normalizeEmail(raw: unknown): string {
+  return String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^"+|"+$/g, '');
 }
 
-function toBool(value: string | undefined, fallback = false): boolean {
-  if (value == null || value === '') return fallback;
-  return ['1', 'true', 'yes', 'y', 'on'].includes(value.toLowerCase());
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function getDelegatedAdminEmail(): string {
-  const delegated =
-    env('GOOGLE_WORKSPACE_DELEGATED_ADMIN_EMAIL') ||
-    env('GOOGLE_WORKSPACE_ADMIN_EMAIL') ||
-    env('GOOGLE_ADMIN_EMAIL');
-  if (!delegated) {
-    throw new Error(
-      'Falta email de admin delegado. Configure GOOGLE_WORKSPACE_DELEGATED_ADMIN_EMAIL (o GOOGLE_WORKSPACE_ADMIN_EMAIL).',
-    );
+function requireWorkspaceDomain(configService: ConfigService): string {
+  const workspaceDomain = String(
+    configService.get<string>('GOOGLE_WORKSPACE_GROUP_DOMAIN', '') || '',
+  )
+    .trim()
+    .toLowerCase();
+  if (!workspaceDomain) {
+    throw new Error('Falta GOOGLE_WORKSPACE_GROUP_DOMAIN');
   }
-  return delegated;
-}
-
-function getDbConfigFromEnv(): DbConfig {
-  const host = env('DB_HOST');
-  const port = Number(env('DB_PORT') || '3306');
-  const user = env('DB_USER');
-  const password = String(process.env.DB_PASSWORD || '');
-  const database = env('DB_NAME');
-
-  if (!host) throw new Error('Falta DB_HOST');
-  if (!Number.isFinite(port) || port <= 0) throw new Error('DB_PORT invalido');
-  if (!user) throw new Error('Falta DB_USER');
-  if (!database) throw new Error('Falta DB_NAME');
-
-  return { host, port, user, password, database };
+  return workspaceDomain;
 }
 
 function getCycleFilter(): string[] {
-  const raw = env('SYNC_CYCLE_CODES');
+  const raw = String(process.env.SYNC_CYCLE_CODES || '').trim();
   if (!raw) return [];
   return raw
     .split(',')
-    .map((v) => v.trim())
+    .map((item) => item.trim())
     .filter(Boolean);
 }
 
-async function createDirectoryClient(
-  delegatedAdminEmail: string,
-): Promise<admin_directory_v1.Admin> {
-  const auth = new google.auth.GoogleAuth({
-    scopes: [
-      'https://www.googleapis.com/auth/admin.directory.group',
-      'https://www.googleapis.com/auth/admin.directory.group.member',
-    ],
-    clientOptions: { subject: delegatedAdminEmail },
+async function main(): Promise<void> {
+  process.env.DISABLE_REPEAT_SCHEDULERS = '1';
+
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn', 'log'],
   });
 
-  const authClient = await auth.getClient();
-  return google.admin({ version: 'directory_v1', auth: authClient });
-}
-
-async function ensureGroupExists(
-  directory: admin_directory_v1.Admin,
-  groupEmail: string,
-): Promise<void> {
   try {
-    await directory.groups.get({ groupKey: groupEmail });
-    return;
-  } catch (error: any) {
-    const status = Number(error?.code || error?.response?.status || 0);
-    if (status !== 404) throw error;
-  }
+    const dataSource = app.get(DataSource);
+    const configService = app.get(ConfigService);
+    const workspaceGroupsService = app.get(WorkspaceGroupsService);
+    const cycleFilter = getCycleFilter();
+    const workspaceDomain = requireWorkspaceDomain(configService);
 
-  const nameFromEmail = groupEmail.split('@')[0] || groupEmail;
-  await directory.groups.insert({
-    requestBody: {
-      email: groupEmail,
-      name: nameFromEmail,
-      description: `Grupo sincronizado para producción (${groupEmail})`,
-    },
-  });
-}
+    const cycleFilterSql =
+      cycleFilter.length > 0
+        ? `AND ac.code IN (${cycleFilter.map(() => '?').join(', ')})`
+        : '';
 
-async function listGroupMembersEmails(
-  directory: admin_directory_v1.Admin,
-  groupEmail: string,
-): Promise<Set<string>> {
-  const result = new Set<string>();
-  let pageToken: string | undefined = undefined;
-
-  do {
-    const response = await directory.members.list({
-      groupKey: groupEmail,
-      maxResults: 200,
-      pageToken,
-    });
-
-    for (const member of response.data.members || []) {
-      const email = String(member.email || '').trim().toLowerCase();
-      if (email) result.add(email);
-    }
-
-    pageToken = response.data.nextPageToken || undefined;
-  } while (pageToken);
-
-  return result;
-}
-
-async function addMemberIfMissing(
-  directory: admin_directory_v1.Admin,
-  groupEmail: string,
-  memberEmail: string,
-): Promise<'added' | 'exists'> {
-  try {
-    await directory.members.insert({
-      groupKey: groupEmail,
-      requestBody: {
-        email: memberEmail,
-        role: 'MEMBER',
-      },
-    });
-    return 'added';
-  } catch (error: any) {
-    const status = Number(error?.code || error?.response?.status || 0);
-    if (status === 409) return 'exists';
-    throw error;
-  }
-}
-
-async function removeMemberIfPresent(
-  directory: admin_directory_v1.Admin,
-  groupEmail: string,
-  memberEmail: string,
-): Promise<'removed' | 'missing'> {
-  try {
-    await directory.members.delete({
-      groupKey: groupEmail,
-      memberKey: memberEmail,
-    });
-    return 'removed';
-  } catch (error: any) {
-    const status = Number(error?.code || error?.response?.status || 0);
-    if (status === 404) return 'missing';
-    throw error;
-  }
-}
-
-async function fetchProfessorAssignments(
-  db: mysql.Connection,
-  cycleCodes: string[],
-): Promise<ProfessorRow[]> {
-  const cycleFilterSql =
-    cycleCodes.length > 0
-      ? `AND ac.code IN (${cycleCodes.map(() => '?').join(',')})`
-      : '';
-
-  const [rows] = await db.query(
-    `
+    const rows = await dataSource.query<ProfessorAssignmentRow[]>(
+      `
       SELECT
         cc.id AS courseCycleId,
-        TRIM(ccda.professor_group_email) AS professorGroupEmail,
+        LOWER(CONCAT('cc-', cc.id, '-professors@', ?)) AS professorGroupEmail,
         LOWER(TRIM(u.email)) AS professorEmail
-      FROM course_cycle_drive_access ccda
-      INNER JOIN course_cycle cc
-        ON cc.id = ccda.course_cycle_id
-      INNER JOIN academic_cycle ac
-        ON ac.id = cc.academic_cycle_id
-      INNER JOIN course_cycle_professor ccp
-        ON ccp.course_cycle_id = cc.id
-      INNER JOIN \`user\` u
-        ON u.id = ccp.professor_id
-      WHERE ccda.professor_group_email IS NOT NULL
-        AND TRIM(ccda.professor_group_email) <> ''
+      FROM course_cycle cc
+      INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+      INNER JOIN course_cycle_professor ccp ON ccp.course_cycle_id = cc.id
+      INNER JOIN \`user\` u ON u.id = ccp.professor_user_id
+      WHERE ccp.revoked_at IS NULL
+        AND u.is_active = 1
         AND u.email IS NOT NULL
         AND TRIM(u.email) <> ''
-        AND u.is_active = 1
         ${cycleFilterSql}
-      ORDER BY cc.id ASC
-    `,
-    cycleCodes,
-  );
+      ORDER BY cc.id ASC, professorEmail ASC
+      `,
+      [workspaceDomain, ...cycleFilter],
+    );
 
-  return (rows as any[]).map((row) => ({
-    courseCycleId: String(row.courseCycleId),
-    professorGroupEmail: String(row.professorGroupEmail).toLowerCase(),
-    professorEmail: String(row.professorEmail).toLowerCase(),
-  }));
-}
-
-async function run(): Promise<void> {
-  const dbConfig = getDbConfigFromEnv();
-  const delegatedAdminEmail = getDelegatedAdminEmail();
-  const pruneExtraMembers = toBool(process.env.SYNC_PRUNE_EXTRA_MEMBERS, false);
-  const cycleCodes = getCycleFilter();
-
-  console.log('[INFO] DB:', dbConfig.database);
-  console.log('[INFO] Delegated admin:', delegatedAdminEmail);
-  console.log('[INFO] Prune extra members:', pruneExtraMembers ? 'YES' : 'NO');
-  console.log(
-    '[INFO] Cycle filter:',
-    cycleCodes.length ? cycleCodes.join(', ') : '(sin filtro)',
-  );
-
-  const db = await mysql.createConnection({
-    host: dbConfig.host,
-    port: dbConfig.port,
-    user: dbConfig.user,
-    password: dbConfig.password,
-    database: dbConfig.database,
-    charset: 'utf8mb4',
-  });
-
-  try {
-    const rows = await fetchProfessorAssignments(db, cycleCodes);
     if (!rows.length) {
-      console.log('[INFO] No se encontraron asignaciones de profesores para sincronizar.');
+      console.log('[INFO] No se encontraron profesores para sincronizar.');
       return;
     }
 
-    const directory = await createDirectoryClient(delegatedAdminEmail);
-
     const expectedByGroup = new Map<string, Set<string>>();
+    let skippedInvalidEmails = 0;
     for (const row of rows) {
-      if (!expectedByGroup.has(row.professorGroupEmail)) {
-        expectedByGroup.set(row.professorGroupEmail, new Set<string>());
+      const groupEmail = normalizeEmail(row.professorGroupEmail);
+      const memberEmail = normalizeEmail(row.professorEmail);
+      if (!groupEmail || !memberEmail) continue;
+      if (!groupEmail.endsWith(`@${workspaceDomain}`)) {
+        throw new Error(
+          `Grupo fuera de dominio permitido: ${groupEmail} (dominio esperado: ${workspaceDomain})`,
+        );
       }
-      expectedByGroup.get(row.professorGroupEmail)!.add(row.professorEmail);
+      if (!isValidEmail(memberEmail)) {
+        skippedInvalidEmails += 1;
+        console.warn(
+          `[WARN] Email de profesor invalido, omitido: cc=${String(row.courseCycleId)} email="${memberEmail}"`,
+        );
+        continue;
+      }
+      if (!expectedByGroup.has(groupEmail)) {
+        expectedByGroup.set(groupEmail, new Set<string>());
+      }
+      expectedByGroup.get(groupEmail)?.add(memberEmail);
     }
 
-    let totalAdded = 0;
-    let totalRemoved = 0;
-    let totalGroups = 0;
+    let groupsProcessed = 0;
+    let membersAdded = 0;
+    let memberErrors = 0;
+    const failedMembers: FailedMemberSync[] = [];
 
-    for (const [groupEmail, expectedMembers] of expectedByGroup.entries()) {
-      totalGroups += 1;
-      await ensureGroupExists(directory, groupEmail);
-      const currentMembers = await listGroupMembersEmails(directory, groupEmail);
+    for (const [groupEmail, memberEmails] of expectedByGroup.entries()) {
+      groupsProcessed += 1;
+      await workspaceGroupsService.findOrCreateGroup({
+        email: groupEmail,
+        name: `CC ${groupEmail.split('@')[0]}`,
+        description: `Grupo de profesores sincronizado para producción (${groupEmail})`,
+      });
 
-      let added = 0;
-      let removed = 0;
-
-      for (const memberEmail of expectedMembers) {
-        const result = await addMemberIfMissing(directory, groupEmail, memberEmail);
-        if (result === 'added') added += 1;
-      }
-
-      if (pruneExtraMembers) {
-        for (const memberEmail of currentMembers) {
-          if (!expectedMembers.has(memberEmail)) {
-            const result = await removeMemberIfPresent(
-              directory,
-              groupEmail,
-              memberEmail,
-            );
-            if (result === 'removed') removed += 1;
-          }
+      let addedInGroup = 0;
+      for (const memberEmail of memberEmails) {
+        try {
+          await workspaceGroupsService.ensureMemberInGroup({
+            groupEmail,
+            memberEmail,
+          });
+          addedInGroup += 1;
+        } catch (error: unknown) {
+          memberErrors += 1;
+          const message = error instanceof Error ? error.message : String(error);
+          failedMembers.push({
+            groupEmail,
+            memberEmail,
+            reason: message,
+          });
+          console.error(
+            `[ERROR] Sync profesor fallo group=${groupEmail} member=${memberEmail} reason=${message}`,
+          );
         }
       }
-
-      totalAdded += added;
-      totalRemoved += removed;
+      membersAdded += addedInGroup;
       console.log(
-        `[OK ] ${groupEmail} expected=${expectedMembers.size} added=${added} removed=${removed}`,
+        `[OK ] ${groupEmail} profesoresEsperados=${memberEmails.size} miembrosProcesados=${addedInGroup}`,
       );
     }
 
+    if (skippedInvalidEmails > 0) {
+      console.warn(`[WARN] Emails invalidos omitidos=${skippedInvalidEmails}`);
+    }
     console.log(
-      `[DONE] Grupos sincronizados=${totalGroups} miembrosAgregados=${totalAdded} miembrosRemovidos=${totalRemoved}`,
+      `[DONE] groupsProcessed=${groupsProcessed} membersProcessed=${membersAdded}`,
     );
+
+    if (memberErrors > 0) {
+      console.error('[ERROR] Detalle de miembros no agregados:');
+      for (const failed of failedMembers) {
+        console.error(
+          `  - group=${failed.groupEmail} member=${failed.memberEmail} reason=${failed.reason}`,
+        );
+      }
+
+      const uniqueMembers = new Set(
+        failedMembers.map((failed) => failed.memberEmail),
+      );
+      console.error(
+        `[ERROR] Resumen fallos: total=${failedMembers.length} correosUnicos=${uniqueMembers.size}`,
+      );
+
+      throw new Error(`Sincronizacion finalizada con errores en miembros=${memberErrors}`);
+    }
   } finally {
-    await db.end();
+    await app.close();
   }
 }
 
-void run().catch((error: unknown) => {
+void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error('[ERROR]', message);
+  console.error(`[ERROR] ${message}`);
   process.exitCode = 1;
 });
-
