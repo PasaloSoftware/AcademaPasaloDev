@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AcademicCycle } from '@modules/cycles/domain/academic-cycle.entity';
 
+export const CYCLES_HISTORY_PAGE_SIZE = 4;
+
 @Injectable()
 export class AcademicCycleRepository {
   constructor(
@@ -26,5 +28,23 @@ export class AcademicCycleRepository {
     return await repo.findOne({
       where: { id },
     });
+  }
+
+  async findHistoryPaginated(
+    excludeId: string | null,
+    page: number,
+    pageSize: number,
+  ): Promise<[AcademicCycle[], number]> {
+    const qb = this.ormRepository
+      .createQueryBuilder('c')
+      .orderBy('c.startDate', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    if (excludeId) {
+      qb.where('c.id != :excludeId', { excludeId });
+    }
+
+    return qb.getManyAndCount();
   }
 }

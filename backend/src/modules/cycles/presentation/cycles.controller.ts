@@ -1,6 +1,7 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { CyclesService } from '@modules/cycles/application/cycles.service';
 import { AcademicCycleResponseDto } from '@modules/cycles/dto/academic-cycle-response.dto';
+import { CyclesHistoryQueryDto } from '@modules/cycles/dto/cycles-history.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
@@ -29,6 +30,13 @@ export class CyclesController {
     return plainToInstance(AcademicCycleResponseDto, cycle, {
       excludeExtraneousValues: true,
     });
+  }
+
+  @Get('history')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Historial de ciclos académicos obtenido exitosamente')
+  async getHistory(@Query() query: CyclesHistoryQueryDto) {
+    return this.cyclesService.getHistory(query.page ?? 1);
   }
 
   @Get(':id')

@@ -1,7 +1,15 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { AcademicCycleRepository } from '@modules/cycles/infrastructure/academic-cycle.repository';
+import {
+  AcademicCycleRepository,
+  CYCLES_HISTORY_PAGE_SIZE,
+} from '@modules/cycles/infrastructure/academic-cycle.repository';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
 import { AcademicCycle } from '@modules/cycles/domain/academic-cycle.entity';
+import { plainToInstance } from 'class-transformer';
+import {
+  CyclesHistoryItemDto,
+  CyclesHistoryResponseDto,
+} from '@modules/cycles/dto/cycles-history.dto';
 
 @Injectable()
 export class CyclesService {
@@ -43,5 +51,34 @@ export class CyclesService {
         'No se ha podido identificar el ciclo activo del sistema.',
       );
     }
+  }
+
+  async getHistory(page: number): Promise<CyclesHistoryResponseDto> {
+    let activeCycleId: string | null = null;
+    try {
+      activeCycleId = await this.authSettingsService.getActiveCycleId();
+    } catch {
+      this.logger.warn({
+        message: 'No se pudo obtener ACTIVE_CYCLE_ID; historial sin exclusión',
+      });
+    }
+
+    const pageSize = CYCLES_HISTORY_PAGE_SIZE;
+    const [rawItems, totalItems] =
+      await this.academicCycleRepository.findHistoryPaginated(
+        activeCycleId,
+        page,
+        pageSize,
+      );
+
+    return {
+      items: plainToInstance(CyclesHistoryItemDto, rawItems, {
+        excludeExtraneousValues: true,
+      }),
+      currentPage: page,
+      pageSize,
+      totalItems,
+      totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize),
+    };
   }
 }

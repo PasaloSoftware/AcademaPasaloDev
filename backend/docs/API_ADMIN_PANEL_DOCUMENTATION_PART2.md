@@ -221,3 +221,180 @@ Devuelve el testimonio actualizado completo:
 
 - Para marcar un testimonio como público, primero verificar si el límite de testimonios activos ya fue alcanzado consultando la tabla de 8.1 con `isActive=true` y revisando `stats.total`. Si `stats.total >= 3`, la acción fallará con `400`.
 - El flujo habitual en UI es: si se quiere activar uno nuevo y ya hay `3`, primero desactivar otro con `isActive: false`, luego activar el deseado.
+
+---
+
+## 9) Módulo de Configuración del Sistema — Panel Admin
+
+> Base path: `/api/v1/settings`
+
+### 9.1 `GET /settings/admin` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: obtener el bundle de configuración operativa del sistema en una sola llamada. Incluye el ciclo académico vigente (con progreso), los umbrales GPS de anomalía de sesión y la retención de logs de auditoría.
+- Esta llamada no requiere ningún parámetro.
+
+#### Response `data`
+
+```json
+{
+  "currentCycle": {
+    "id": "10",
+    "code": "CYCLE_2024_1",
+    "startDate": "2024-01-15",
+    "endDate": "2024-06-30",
+    "progressPercent": 45.32
+  },
+  "geoGpsThresholds": {
+    "timeWindowMinutes": 30,
+    "distanceKm": 10
+  },
+  "logRetention": {
+    "days": 30
+  }
+}
+```
+
+#### Tipos de cada campo
+
+**`currentCycle`:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `currentCycle` | object \| null | `null` si el sistema no tiene un ciclo vigente configurado |
+| `currentCycle.id` | string | ID del ciclo académico vigente |
+| `currentCycle.code` | string | Código del ciclo (ej. `CYCLE_2024_1`) |
+| `currentCycle.startDate` | string (date) | Fecha de inicio del ciclo (`YYYY-MM-DD`) |
+| `currentCycle.endDate` | string (date) | Fecha de fin del ciclo (`YYYY-MM-DD`) |
+| `currentCycle.progressPercent` | number | Porcentaje de avance del ciclo según la fecha actual. `0` si aún no ha iniciado. `100` si ya terminó. Rango `[0, 100]`, redondeado a 2 decimales. |
+
+**`geoGpsThresholds`:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `timeWindowMinutes` | number | Ventana de tiempo en minutos para detectar anomalías de ubicación GPS en sesiones de login. Rango editable: `1..1440`. |
+| `distanceKm` | number | Distancia en kilómetros para considerar un login como sospechoso por ubicación GPS. Rango editable: `1..1000`. |
+
+**`logRetention`:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `days` | number | Días que se conservan los logs de auditoría y eventos de seguridad antes de ser borrados. Rango editable: `7..730`. |
+
+#### Observaciones
+
+- `progressPercent` se calcula en el servidor usando la hora UTC actual, por lo que puede diferir levemente de la hora local Lima (UTC−5) en los bordes del día; es aceptable para una barra de progreso visual.
+- Si `currentCycle` es `null`, el panel debe indicar al admin que configure `ACTIVE_CYCLE_ID` en los ajustes internos del sistema.
+- Los umbrales GPS son de seguridad de sesión (anomalía de login), no de check-in de asistencia.
+
+---
+
+### 9.2 `PUT /settings/admin` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: actualizar uno o más valores de configuración operativa. Solo se modifican los campos enviados en el body (actualización parcial). Devuelve el bundle completo actualizado (mismo shape que `GET /settings/admin`).
+- Tras actualizar, el cambio es efectivo inmediatamente: el caché en memoria y Redis se invalida para las claves modificadas.
+
+#### Request body
+
+Todos los campos son opcionales. Si el body está vacío `{}`, no se modifica nada y se devuelve el estado actual.
+
+```json
+{
+  "geoGpsThresholds": {
+    "timeWindowMinutes": 20,
+    "distanceKm": 15
+  },
+  "logRetention": {
+    "days": 60
+  }
+}
+```
+
+| Campo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `geoGpsThresholds` | object | No | Bloque de umbrales GPS. Si se envía vacío `{}` no se modifica ningún umbral. |
+| `geoGpsThresholds.timeWindowMinutes` | number (int) | No | Ventana de tiempo en minutos. Rango `1..1440`. |
+| `geoGpsThresholds.distanceKm` | number (int) | No | Distancia en km. Rango `1..1000`. |
+| `logRetention` | object | No | Bloque de retención de logs. |
+| `logRetention.days` | number (int) | No | Días de retención. Rango `7..730`. El mínimo seguro es 7; valores menores son rechazados con `400`. |
+
+#### Response `data`
+
+Mismo shape que `GET /settings/admin` con los nuevos valores reflejados.
+
+#### Errores específicos
+
+| Código | Cuándo ocurre |
+|---|---|
+| `400 Bad Request` | Algún campo falla la validación: `timeWindowMinutes < 1`, `distanceKm > 1000`, `days < 7`, etc. |
+
+#### Observaciones
+
+- El cron de limpieza de logs corre el día 1 de cada mes a las 3am. El nuevo valor de `logRetention.days` aplicará en la próxima ejecución del cron sin necesidad de reiniciar la app.
+- Actualizar los umbrales GPS no interrumpe sesiones activas; aplica solo a los próximos logins evaluados por el detector de anomalías.
+
+---
+
+## 10) Módulo de Ciclos Académicos — Historial Admin
+
+> Base path: `/api/v1/cycles`
+
+### 10.1 `GET /cycles/history` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: listado paginado del historial de ciclos académicos excluyendo el ciclo vigente actual. Sirve para la tabla histórica del panel de configuración del sistema.
+- Orden: `start_date DESC` (ciclos más recientes primero).
+- Tamaño de página: **fijo en 4**. El cliente no puede modificarlo.
+
+#### Query params
+
+- `page` (number, opcional, default `1`, min `1`, max `100000`) → número de página solicitada.
+
+#### Response `data`
+
+```json
+{
+  "items": [
+    {
+      "id": "9",
+      "code": "CYCLE_2023_2",
+      "startDate": "2023-07-10",
+      "endDate": "2023-12-15"
+    },
+    {
+      "id": "8",
+      "code": "CYCLE_2023_1",
+      "startDate": "2023-01-09",
+      "endDate": "2023-06-30"
+    }
+  ],
+  "currentPage": 1,
+  "pageSize": 4,
+  "totalItems": 9,
+  "totalPages": 3
+}
+```
+
+#### Tipos de cada campo
+
+**Raíz:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `currentPage` | number | Página devuelta |
+| `pageSize` | number | Siempre `4` |
+| `totalItems` | number | Total de ciclos en el historial (excluye el vigente) |
+| `totalPages` | number | `Math.ceil(totalItems / 4)` — `0` si no hay ciclos históricos |
+
+**Cada item:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | string | ID del ciclo |
+| `code` | string | Código del ciclo (ej. `CYCLE_2023_2`) |
+| `startDate` | string (date) | Fecha de inicio (`YYYY-MM-DD`) |
+| `endDate` | string (date) | Fecha de fin (`YYYY-MM-DD`) |
+
+#### Observaciones
+
+- Si `page` supera el número real de páginas, `items` es array vacío y `currentPage` refleja la página solicitada.
+- Si el sistema no tiene configurado `ACTIVE_CYCLE_ID`, el historial devuelve **todos** los ciclos sin exclusión.
+- El ciclo vigente se identifica vía `system_setting.ACTIVE_CYCLE_ID`; es el mismo que aparece en `GET /settings/admin → currentCycle.id`.
