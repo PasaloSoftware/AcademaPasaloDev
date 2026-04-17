@@ -36,6 +36,7 @@ import { MediaAccessMembershipDispatchService } from './../src/modules/media-acc
 import { PhotoSource } from './../src/modules/users/domain/user.entity';
 import { User } from './../src/modules/users/domain/user.entity';
 import { SettingsService } from './../src/modules/settings/application/settings.service';
+import { CourseCycleRepository } from './../src/modules/courses/infrastructure/course-cycle.repository';
 
 const JWT_SECRET = 'test-jwt-secret';
 
@@ -272,6 +273,7 @@ describe('Enrollments E2E', () => {
           provide: EnrollmentTypeRepository,
           useValue: enrollmentTypeRepositoryMock,
         },
+        { provide: CourseCycleRepository, useValue: mockCourseCycleRepo },
         { provide: RedisCacheService, useValue: redisCacheServiceMock },
         { provide: UserSessionRepository, useValue: userSessionRepositoryMock },
         {

@@ -388,7 +388,7 @@ async function main(): Promise<void> {
         );
 
         if (staffGroupEmail) {
-          await driveScopeProvisioningService.ensureGroupReaderPermission(
+          await driveScopeProvisioningService.ensureGroupWriterPermission(
             scopeFolderId,
             staffGroupEmail,
           );
