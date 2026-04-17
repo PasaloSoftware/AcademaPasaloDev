@@ -297,6 +297,19 @@ jobs:
           echo "❌ Backend no responde después de 200s"
           exit 1
 
+      - name: Verify nginx is running
+        run: |
+          echo "Verificando nginx..."
+          if ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} \
+            "docker ps --filter name=academia-pasalo-nginx --filter status=running | grep nginx"; then
+            echo "✅ nginx corriendo"
+          else
+            echo "❌ nginx no está corriendo"
+            ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} \
+              "docker logs academia-pasalo-nginx --tail 20"
+            exit 1
+          fi
+
       # ──────────────────────────────────────────────────────────────
       # Rollback real: levanta las imágenes :previous si existen.
       # Lee el tag guardado en .previous-tag para reconstruir el .env
