@@ -135,6 +135,33 @@ export class DriveScopeProvisioningService {
         (permission.emailAddress || '').toLowerCase() === normalizedGroupEmail,
     );
     if (existingPermission) {
+      const existingRole = String(existingPermission.role || '')
+        .trim()
+        .toLowerCase();
+      if (role === 'writer' && existingRole !== 'writer') {
+        const permissionId = String(existingPermission.id || '').trim();
+        if (!permissionId) {
+          throw new InternalServerErrorException(
+            `No se pudo elevar permiso de grupo sin permissionId (${normalizedGroupEmail})`,
+          );
+        }
+        const client = await this.getDriveClient();
+        await client.request({
+          url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}/permissions/${encodeURIComponent(permissionId)}?supportsAllDrives=true`,
+          method: 'PATCH',
+          data: { role: 'writer' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        this.logger.log({
+          message: 'Permiso de grupo elevado en carpeta Drive',
+          folderId,
+          groupEmail: normalizedGroupEmail,
+          fromRole: existingRole || 'unknown',
+          toRole: 'writer',
+        });
+      }
       return;
     }
 
