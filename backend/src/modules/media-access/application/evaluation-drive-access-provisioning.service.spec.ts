@@ -264,9 +264,8 @@ describe('EvaluationDriveAccessProvisioningService', () => {
       },
     );
     expect(
-      driveScopeProvisioningService.ensureGroupReaderPermission,
-    ).toHaveBeenNthCalledWith(
-      2,
+      driveScopeProvisioningService.ensureGroupWriterPermission,
+    ).toHaveBeenCalledWith(
       'scope-folder-id',
       'staff-viewers@academiapasalo.com',
     );
