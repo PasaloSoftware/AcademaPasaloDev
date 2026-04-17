@@ -106,7 +106,11 @@ export class UpdateBankFolderDto {
   @IsOptional()
   @IsArray()
   @ArrayNotEmpty()
-  @ArrayUnique((value: string) => String(value || '').trim().toUpperCase())
+  @ArrayUnique((value: string) =>
+    String(value || '')
+      .trim()
+      .toUpperCase(),
+  )
   @IsString({ each: true })
   @MaxLength(32, { each: true })
   @Matches(/^[A-Za-z0-9_-]+\d+$/, {

@@ -10,6 +10,12 @@ type DbConfig = {
   database: string;
 };
 
+function assertSafeDatabaseName(database: string): void {
+  if (!/^[A-Za-z0-9_]+$/.test(database)) {
+    throw new Error('DB_NAME invalido: solo letras, numeros y guion bajo');
+  }
+}
+
 function getDbConfigFromEnv(): DbConfig {
   const host = String(process.env.DB_HOST || '').trim();
   const port = Number(process.env.DB_PORT || '3306');
@@ -57,6 +63,7 @@ async function run(): Promise<void> {
   const rootDir = path.resolve(__dirname, '..', '..');
   const sqlDir = path.join(rootDir, 'db', 'academy-real');
   const dbConfig = getDbConfigFromEnv();
+  assertSafeDatabaseName(dbConfig.database);
   const orderedFiles = await getSqlFilesOrdered(sqlDir);
 
   console.log('[INFO] Directorio SQL:', sqlDir);
@@ -68,10 +75,14 @@ async function run(): Promise<void> {
     port: dbConfig.port,
     user: dbConfig.user,
     password: dbConfig.password,
-    database: dbConfig.database,
     multipleStatements: true,
     charset: 'utf8mb4',
   });
+
+  await connection.query(
+    `CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  );
+  await connection.query(`USE \`${dbConfig.database}\``);
   await connection.query("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
   
   try {

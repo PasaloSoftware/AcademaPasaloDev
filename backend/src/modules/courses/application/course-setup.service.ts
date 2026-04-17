@@ -54,7 +54,9 @@ export class CourseSetupService {
     user: UserWithSession,
     dto: CreateCourseSetupDto,
   ): Promise<Record<string, unknown>> {
-    const allowedTypeIds = this.normalizeIds(dto.allowedEvaluationTypeIds || []);
+    const allowedTypeIds = this.normalizeIds(
+      dto.allowedEvaluationTypeIds || [],
+    );
     const professorUserIds = this.normalizeIds(dto.professorUserIds || []);
     const bankFoldersToCreate = dto.bankFoldersToCreate || [];
     this.validateBankFoldersPayload(bankFoldersToCreate);
@@ -62,11 +64,10 @@ export class CourseSetupService {
     const newBankEvaluationTypeNames = bankFoldersToCreate
       .map((item) => String(item.newEvaluationTypeName || '').trim())
       .filter(Boolean);
-    const resolvedNewEvaluationTypes =
-      await this.resolveNewEvaluationTypes([
-        ...newEvaluationsToCreate.map((item) => ({ name: item.name })),
-        ...newBankEvaluationTypeNames.map((name) => ({ name })),
-      ]);
+    const resolvedNewEvaluationTypes = await this.resolveNewEvaluationTypes([
+      ...newEvaluationsToCreate.map((item) => ({ name: item.name })),
+      ...newBankEvaluationTypeNames.map((name) => ({ name })),
+    ]);
     const explicitBankEvaluationTypeIds = this.normalizeIds(
       bankFoldersToCreate
         .map((item) => String(item.evaluationTypeId || '').trim())
@@ -125,8 +126,9 @@ export class CourseSetupService {
     if (
       evaluationTypeRows.some(
         (row) =>
-          String(row.code || '').trim().toUpperCase() ===
-          EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+          String(row.code || '')
+            .trim()
+            .toUpperCase() === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
       )
     ) {
       throw new BadRequestException(
@@ -142,7 +144,10 @@ export class CourseSetupService {
       ]),
     );
     const evaluationTypeNameById = new Map(
-      evaluationTypeRows.map((row) => [String(row.id), String(row.name || '').trim()]),
+      evaluationTypeRows.map((row) => [
+        String(row.id),
+        String(row.name || '').trim(),
+      ]),
     );
 
     const createdEvaluations: Array<{
@@ -308,7 +313,9 @@ export class CourseSetupService {
   ): string {
     const normalizedName = this.normalizeEvaluationTypeName(name);
     const row = rows.find(
-      (item) => this.normalizeEvaluationTypeName(String(item.name || '')) === normalizedName,
+      (item) =>
+        this.normalizeEvaluationTypeName(String(item.name || '')) ===
+        normalizedName,
     );
     if (!row?.id) {
       throw new InternalServerErrorException(
@@ -339,8 +346,9 @@ export class CourseSetupService {
         const existing = await this.findEvaluationTypeByName(rawName, manager);
         if (existing) {
           if (
-            String(existing.code || '').trim().toUpperCase() ===
-            EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS
+            String(existing.code || '')
+              .trim()
+              .toUpperCase() === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS
           ) {
             throw new BadRequestException(
               'BANCO_ENUNCIADOS es tecnico y no puede registrarse como evaluacion academica',
@@ -403,7 +411,9 @@ export class CourseSetupService {
   }
 
   private validateBankFoldersPayload(
-    bankFoldersToCreate: NonNullable<CreateCourseSetupDto['bankFoldersToCreate']>,
+    bankFoldersToCreate: NonNullable<
+      CreateCourseSetupDto['bankFoldersToCreate']
+    >,
   ): void {
     const normalizedGroupNames = new Set<string>();
     for (const [index, bankFolder] of bankFoldersToCreate.entries()) {
@@ -484,13 +494,13 @@ export class CourseSetupService {
           .trim()
           .toUpperCase(),
         groupName: this.getDefaultBankGroupName(
-          String(evaluation.evaluationTypeCode || '').trim().toUpperCase(),
+          String(evaluation.evaluationTypeCode || '')
+            .trim()
+            .toUpperCase(),
           evaluationTypeNameById.get(key) || '',
         ),
         items: createdEvaluations
-          .filter(
-            (item) => String(item.evaluationTypeId || '').trim() === key,
-          )
+          .filter((item) => String(item.evaluationTypeId || '').trim() === key)
           .sort((left, right) => left.number - right.number)
           .map(
             (item) =>
@@ -544,7 +554,9 @@ export class CourseSetupService {
   }
 
   private resolveBankFolderEvaluationTypeId(
-    bankFolder: NonNullable<CreateCourseSetupDto['bankFoldersToCreate']>[number],
+    bankFolder: NonNullable<
+      CreateCourseSetupDto['bankFoldersToCreate']
+    >[number],
     resolvedNewEvaluationTypes: EvaluationTypeRow[],
   ): string {
     const explicitId = String(bankFolder.evaluationTypeId || '').trim();
@@ -555,7 +567,10 @@ export class CourseSetupService {
     if (!newName) {
       return '';
     }
-    return this.resolveNewEvaluationTypeIdByName(resolvedNewEvaluationTypes, newName);
+    return this.resolveNewEvaluationTypeIdByName(
+      resolvedNewEvaluationTypes,
+      newName,
+    );
   }
 
   private normalizeFolderToken(value: string): string {
@@ -799,7 +814,11 @@ export class CourseSetupService {
     evaluationTypeCode: string,
     evaluationTypeName: string,
   ): string {
-    switch (String(evaluationTypeCode || '').trim().toUpperCase()) {
+    switch (
+      String(evaluationTypeCode || '')
+        .trim()
+        .toUpperCase()
+    ) {
       case 'PC':
         return 'Practicas Calificadas';
       case 'EX':

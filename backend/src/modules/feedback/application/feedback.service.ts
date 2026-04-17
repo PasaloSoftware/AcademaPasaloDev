@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import { CreateTestimonyDto } from '@modules/feedback/dto/create-testimony.dto';
 import { FeatureTestimonyDto } from '@modules/feedback/dto/feature-testimony.dto';
 import {
@@ -15,6 +16,14 @@ import { CourseTestimonyRepository } from '@modules/feedback/infrastructure/cour
 import { EnrollmentRepository } from '@modules/enrollments/infrastructure/enrollment.repository';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { technicalSettings } from '@config/technical-settings';
+import {
+  AdminFeedbackListItemDto,
+  AdminFeedbackListQueryDto,
+  AdminFeedbackListResponseDto,
+  AdminFeedbackStatsDto,
+} from '@modules/feedback/dto/admin-feedback-list.dto';
+
+const FEEDBACK_ADMIN_PAGE_SIZE = 6;
 
 @Injectable()
 export class FeedbackService {
@@ -119,10 +128,67 @@ export class FeedbackService {
     return items;
   }
 
-  async getAllTestimoniesAdmin(
-    courseCycleId: string,
-  ): Promise<CourseTestimony[]> {
-    return await this.testimonyRepo.findByCycleId(courseCycleId);
+  async getAdminTestimonies(
+    query: AdminFeedbackListQueryDto,
+  ): Promise<AdminFeedbackListResponseDto> {
+    const { page = 1, ...filters } = query;
+    const pageSize = FEEDBACK_ADMIN_PAGE_SIZE;
+
+    const [[items, totalItems], rawStats] = await Promise.all([
+      this.testimonyRepo.findAdminPaginated(filters, page, pageSize),
+      this.testimonyRepo.getAdminAggregates(filters),
+    ]);
+
+    const total = Number(rawStats?.total ?? 0);
+    const average =
+      total > 0 ? parseFloat(Number(rawStats?.average ?? 0).toFixed(2)) : 0;
+
+    const toPercent = (count: string | undefined): number =>
+      total > 0
+        ? parseFloat(((Number(count ?? 0) / total) * 100).toFixed(2))
+        : 0;
+
+    const stats: AdminFeedbackStatsDto = {
+      total,
+      average,
+      distribution: {
+        1: toPercent(rawStats?.r1),
+        2: toPercent(rawStats?.r2),
+        3: toPercent(rawStats?.r3),
+        4: toPercent(rawStats?.r4),
+        5: toPercent(rawStats?.r5),
+      },
+    };
+
+    const mappedItems = items.map((t) => ({
+      id: t.id,
+      rating: t.rating,
+      comment: t.comment,
+      isActive: t.isActive,
+      createdAt: t.createdAt,
+      courseCycleId: t.courseCycleId,
+      courseId: t.courseCycle?.courseId ?? '',
+      courseName: t.courseCycle?.course?.name ?? '',
+      user: {
+        id: t.user?.id ?? '',
+        firstName: t.user?.firstName ?? '',
+        lastName1: t.user?.lastName1 ?? null,
+        lastName2: t.user?.lastName2 ?? null,
+        profilePhotoUrl: t.user?.profilePhotoUrl ?? null,
+        careerName: t.user?.career?.name ?? null,
+      },
+    }));
+
+    return {
+      items: plainToInstance(AdminFeedbackListItemDto, mappedItems, {
+        excludeExtraneousValues: true,
+      }),
+      currentPage: page,
+      pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / pageSize),
+      stats,
+    };
   }
 
   private getPublicCacheKey(): string {

@@ -372,7 +372,6 @@ export class UsersService {
       dto.professorStateFinal?.courseCycleIds || [],
     );
 
-
     if (
       !finalRoleCodes.includes(ROLE_CODES.STUDENT) &&
       finalEnrollments.length > 0
@@ -498,10 +497,10 @@ export class UsersService {
         const removedProfessorCourseCycleIds = shouldKeepProfessorState
           ? []
           : currentProfessorCourseCycleIds;
-        const addedProfessorCourseCycleIds = desiredProfessorCourseCycleIds.filter(
-          (id) => !currentProfessorSet.has(id),
-        );
-
+        const addedProfessorCourseCycleIds =
+          desiredProfessorCourseCycleIds.filter(
+            (id) => !currentProfessorSet.has(id),
+          );
 
         if (removedProfessorCourseCycleIds.length > 0) {
           await manager
@@ -981,7 +980,6 @@ export class UsersService {
           .add(evaluationCourseCycleId);
       }
     }
-
 
     const orderedRoles = ROLE_DISPLAY_ORDER.filter((code) =>
       user.roles.some((role) => role.code === code),
@@ -1747,7 +1745,6 @@ export class UsersService {
       [input.userId],
     );
 
-
     const currentEnrollmentIds = currentEnrollmentRows
       .map((row) => String(row.id || '').trim())
       .filter((id) => id.length > 0);
@@ -1846,13 +1843,14 @@ export class UsersService {
       ).sort();
     }
 
-
     const cancelledEnrollmentIds: string[] = [];
     const createdEnrollmentIds: string[] = [];
 
     if (!shouldKeepStudentState) {
       for (const current of currentByCourseCycle.values()) {
-        const cancelResult = await input.manager.query<{ affectedRows?: number }>(
+        const cancelResult = await input.manager.query<{
+          affectedRows?: number;
+        }>(
           `
             UPDATE enrollment
             SET cancelled_at = NOW()
@@ -1862,8 +1860,8 @@ export class UsersService {
           [current.enrollmentId],
         );
         const cancelledRows = Number(
-          (cancelResult as unknown as { affectedRows?: number })?.affectedRows ||
-            0,
+          (cancelResult as unknown as { affectedRows?: number })
+            ?.affectedRows || 0,
         );
         cancelledEnrollmentIds.push(current.enrollmentId);
 
@@ -1887,7 +1885,6 @@ export class UsersService {
         payload,
         manager: input.manager,
       });
-
 
       if (!current) {
         const created = await this.createEnrollmentForOnboarding({
@@ -2338,7 +2335,6 @@ export class UsersService {
       await manager.getRepository(EnrollmentEvaluation).save(records);
     }
 
-
     return {
       enrollmentId: enrollment.id,
       grantedEvaluationIds,
@@ -2409,7 +2405,9 @@ export class UsersService {
     );
 
     const desiredSet = new Set(
-      input.desiredPlan.grantedEvaluationIds.map((id) => String(id || '').trim()),
+      input.desiredPlan.grantedEvaluationIds.map((id) =>
+        String(id || '').trim(),
+      ),
     );
     const allSet = new Set(
       rows
@@ -2463,12 +2461,7 @@ export class UsersService {
             AND revoked_at IS NOT NULL
             AND evaluation_id IN (${toReactivate.map(() => '?').join(',')})
         `,
-        [
-          accessStartDate,
-          accessEndDate,
-          input.enrollmentId,
-          ...toReactivate,
-        ],
+        [accessStartDate, accessEndDate, input.enrollmentId, ...toReactivate],
       );
     }
 
@@ -2486,7 +2479,6 @@ export class UsersService {
       );
       await input.manager.getRepository(EnrollmentEvaluation).save(records);
     }
-
   }
 
   private async assignProfessorCourseCyclesForOnboarding(input: {

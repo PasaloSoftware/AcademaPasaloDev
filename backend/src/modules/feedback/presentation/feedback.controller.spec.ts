@@ -5,12 +5,11 @@ import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { ROLE_CODES } from '@common/constants/role-codes.constants';
 
-// Mock simple
 const mockFeedbackService = {
   createTestimony: jest.fn(),
   featureTestimony: jest.fn(),
   getPublicTestimonies: jest.fn(),
-  getAllTestimoniesAdmin: jest.fn(),
+  getAdminTestimonies: jest.fn(),
 };
 
 describe('FeedbackController RBAC Security', () => {
@@ -35,8 +34,8 @@ describe('FeedbackController RBAC Security', () => {
     const roles = Reflect.getMetadata('roles', controller.create);
     expect(roles).toBeDefined();
     expect(roles).toContain(ROLE_CODES.STUDENT);
-    expect(roles).not.toContain(ROLE_CODES.ADMIN); // Admin no opina
-    expect(roles).not.toContain(ROLE_CODES.PROFESSOR); // Profesor no opina
+    expect(roles).not.toContain(ROLE_CODES.ADMIN);
+    expect(roles).not.toContain(ROLE_CODES.PROFESSOR);
   });
 
   it('endpoint "feature" should be restricted to ADMIN, SUPER_ADMIN', () => {
@@ -44,19 +43,18 @@ describe('FeedbackController RBAC Security', () => {
     expect(roles).toBeDefined();
     expect(roles).toContain(ROLE_CODES.ADMIN);
     expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
-    expect(roles).not.toContain(ROLE_CODES.STUDENT); // Alumno no modera
+    expect(roles).not.toContain(ROLE_CODES.STUDENT);
   });
 
   it('endpoint "getAdmin" should be restricted to ADMIN, SUPER_ADMIN', () => {
     const roles = Reflect.getMetadata('roles', controller.getAdmin);
     expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
     expect(roles).not.toContain(ROLE_CODES.STUDENT);
   });
 
   it('endpoint "getPublic" should NOT have Role restrictions (Public Access)', () => {
     const roles = Reflect.getMetadata('roles', controller.getPublic);
-    // Puede ser undefined (si es público total) o tener decorador Public()
-    // En este caso, al no tener @Roles ni @Auth, debería ser accesible
     expect(roles).toBeUndefined();
   });
 });
