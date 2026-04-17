@@ -32,6 +32,7 @@ describe('MediaAccessReconciliationService', () => {
     } as unknown as jest.Mocked<WorkspaceGroupsService>;
     driveScopeProvisioningService = {
       ensureGroupReaderPermission: jest.fn(),
+      ensureGroupWriterPermission: jest.fn(),
     } as unknown as jest.Mocked<DriveScopeProvisioningService>;
 
     service = new MediaAccessReconciliationService(
@@ -138,7 +139,7 @@ describe('MediaAccessReconciliationService', () => {
     expect(summary.staffRemovedMembersTotal).toBe(1);
   });
 
-  it('asegura permiso reader del grupo staff en scopes existentes cuando staff esta configurado', async () => {
+  it('asegura permiso writer del grupo staff en scopes existentes cuando staff esta configurado', async () => {
     (technicalSettings as any).mediaAccess.staffViewersGroupEmail =
       'staff-viewers@academiapasalo.com';
     evaluationDriveAccessRepository.findActiveByIdCursor
@@ -166,7 +167,7 @@ describe('MediaAccessReconciliationService', () => {
     await service.reconcileActiveScopes();
 
     expect(
-      driveScopeProvisioningService.ensureGroupReaderPermission,
+      driveScopeProvisioningService.ensureGroupWriterPermission,
     ).toHaveBeenCalledWith(
       'scope-folder-200',
       'staff-viewers@academiapasalo.com',
