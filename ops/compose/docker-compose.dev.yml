@@ -19,6 +19,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
   backend:
     image: ${DOCKER_USERNAME}/academia-pasalo-backend:${IMAGE_TAG}
     container_name: academia-pasalo-backend
@@ -59,6 +60,7 @@ services:
         condition: service_healthy
     networks:
       - academia-network
+
   frontend:
     image: ${DOCKER_USERNAME}/academia-pasalo-frontend:${IMAGE_TAG}
     container_name: academia-pasalo-frontend
@@ -74,6 +76,7 @@ services:
       - backend
     networks:
       - academia-network
+
   mysql:
     image: mysql:8.0
     container_name: academia-pasalo-mysql
@@ -95,13 +98,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
   redis:
     image: redis:8.0-alpine
     container_name: academia-pasalo-redis
     restart: unless-stopped
     expose:
       - "6379"
-    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy noeviction
     volumes:
       - redis_data:/data
     networks:
@@ -111,12 +115,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
 networks:
   academia-network:
     driver: bridge
     ipam:
       config:
         - subnet: 172.30.0.0/16
+
 volumes:
   redis_data:
     driver: local
