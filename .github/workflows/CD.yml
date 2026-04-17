@@ -9,12 +9,6 @@ on:
       - main
       - develop
 
-  # ──────────────────────────────────────────────────────────────────
-  # Deploy manual de emergencia — bypasea el flujo CI normal.
-  # Queda auditado en Actions: quién lo corrió, cuándo, y qué tag.
-  # image_tag es requerido y sin default para evitar deploys accidentales.
-  # Ejemplo de tag válido: main-a1b2c3d  (se ve en el CI anterior)
-  # ──────────────────────────────────────────────────────────────────
   workflow_dispatch:
     inputs:
       branch:
@@ -87,14 +81,7 @@ jobs:
           env-slug: ${{ steps.env.outputs.infisical_env }}
           project-slug: "academia-pasalo"
           export-type: env
-
-      # ──────────────────────────────────────────────────────────────
-      # Valida que el EC2 esté en estado 'running' antes de continuar.
-      # Solo aplica para deploy a develop. Si está stopped/pending/etc,
-      # falla inmediato con mensaje claro en lugar de colgar en SSH.
-      # Requiere: AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en secrets
-      # (ya disponibles — los usa EC2.yml).
-      # ──────────────────────────────────────────────────────────────
+          
       - name: Check EC2 is running (dev only)
         if: steps.ctx.outputs.branch == 'develop'
         env:
@@ -193,14 +180,6 @@ jobs:
           EOF
           "
 
-      # ──────────────────────────────────────────────────────────────
-      # Taggeamos las imágenes actualmente corriendo como :previous
-      # ANTES de hacer pull. Si el deploy falla, el rollback tiene
-      # algo concreto a lo que volver.
-      # Si no hay contenedores corriendo (primer deploy), es no-op.
-      # El tag anterior se persiste en .previous-tag para que el
-      # rollback lo pueda leer sin depender de variables del runner.
-      # ──────────────────────────────────────────────────────────────
       - name: Tag current images as previous
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
@@ -310,14 +289,6 @@ jobs:
             exit 1
           fi
 
-      # ──────────────────────────────────────────────────────────────
-      # Rollback real: levanta las imágenes :previous si existen.
-      # Lee el tag guardado en .previous-tag para reconstruir el .env
-      # con el IMAGE_TAG correcto — docker compose necesita la variable
-      # para resolver el nombre de imagen aunque ya esté en local.
-      # Si .previous-tag está vacío (primer deploy fallido), solo baja
-      # los contenedores y avisa — no hay estado anterior al que volver.
-      # ──────────────────────────────────────────────────────────────
       - name: Rollback on failure
         if: failure()
         run: |
