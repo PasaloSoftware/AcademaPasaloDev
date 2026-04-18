@@ -1,11 +1,15 @@
 import { AuditSource } from './audit.constants';
 
+export type AuditExportTemplate = 'events' | 'panel' | 'security';
+
 export type AuditHistoryFilters = {
   startDate?: string;
   endDate?: string;
   userId?: string;
   source?: AuditSource;
   actionCode?: string;
+  roleCode?: string;
+  userSearch?: string;
   limit?: number;
 };
 
@@ -15,6 +19,8 @@ export type ParsedAuditHistoryFilters = {
   userId?: string;
   source?: AuditSource;
   actionCode?: string;
+  roleCode?: string;
+  userSearch?: string;
 };
 
 export type AuditExportMode = 'sync' | 'async';

@@ -1,9 +1,13 @@
-import { AuditHistoryFilters } from './audit-export.interface';
+import {
+  AuditExportTemplate,
+  AuditHistoryFilters,
+} from './audit-export.interface';
 import { AuditExportStatus } from './audit.constants';
 
 export type AuditExportJobPayload = {
   requestedByUserId: string;
   filters: AuditHistoryFilters;
+  exportTemplate: AuditExportTemplate;
   requestedAtIso: string;
   totalRows: number;
   estimatedFileCount: number;

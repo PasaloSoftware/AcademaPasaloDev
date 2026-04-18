@@ -1,7 +1,7 @@
 # Documentación API — Panel Administrativo (Parte 2)
 
 > Estado: Activa  
-> Última actualización: 2026-04-17  
+> Última actualización: 2026-04-17 (sección 11 agregada: panel de auditoría)  
 > Base URL global: `/api/v1`  
 > Continuación de `API_ADMIN_PANEL_DOCUMENTATION.md`
 
@@ -398,3 +398,316 @@ Mismo shape que `GET /settings/admin` con los nuevos valores reflejados.
 - Si `page` supera el número real de páginas, `items` es array vacío y `currentPage` refleja la página solicitada.
 - Si el sistema no tiene configurado `ACTIVE_CYCLE_ID`, el historial devuelve **todos** los ciclos sin exclusión.
 - El ciclo vigente se identifica vía `system_setting.ACTIVE_CYCLE_ID`; es el mismo que aparece en `GET /settings/admin → currentCycle.id`.
+
+---
+
+## 11) Módulo de Auditoría — Panel Admin
+
+> Base path: `/api/v1/audit`
+
+Este módulo cubre la tabla del panel de auditoría, el detalle de cada registro y los exportadores Excel. Existen **dos tipos de registro** con contratos de respuesta distintos:
+
+| Tipo | Prefijo del `id` | Fuente | Descripción |
+|---|---|---|---|
+| **AUDITORÍA** | `aud-{n}` | `source = "AUDIT"` | Log de acción de negocio (subida de archivo, edición, etc.) |
+| **SEGURIDAD** | `sec-{n}` | `source = "SECURITY"` | Evento de sesión/autenticación (login, logout, anomalía, etc.) |
+
+> **Regla crítica para frontend**: el prefijo del campo `id` determina el tipo de detalle que retorna `GET /audit/panel/:id`. Los registros `aud-*` y `sec-*` tienen shapes de respuesta distintos en el endpoint de detalle. Leer la sección 11.2 antes de implementar el drawer/modal de detalle.
+
+---
+
+### 11.1 `GET /audit/panel` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: tabla paginada del historial unificado de auditoría y eventos de seguridad.
+- Orden: `datetime DESC` (los más recientes primero).
+- Tamaño de página: **fijo en 10**. El cliente no puede modificarlo.
+- Cada página mezcla registros de ambos tipos (`AUDIT` y `SECURITY`) ordenados cronológicamente.
+
+#### Query params
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `page` | number, opcional, default `1`, min `1` | Número de página solicitada |
+| `source` | `'AUDIT' \| 'SECURITY'`, opcional | Filtra solo por ese tipo de evento |
+| `roleCode` | `'STUDENT' \| 'PROFESSOR' \| 'ADMIN' \| 'SUPER_ADMIN'`, opcional | Filtra por el rol del usuario en el momento del evento |
+| `startDate` | string ISO-8601, opcional | Fecha/hora inicial inclusive (ej. `2026-03-01`) |
+| `endDate` | string ISO-8601, opcional | Fecha/hora final inclusive (ej. `2026-03-31`) |
+| `userSearch` | string, opcional | Búsqueda FULLTEXT por nombre y apellido del usuario (acepta múltiples palabras, prefijo automático) |
+
+#### Response `data`
+
+```json
+{
+  "items": [
+    {
+      "id": "sec-42",
+      "datetime": "2026-03-14T15:00:00.000Z",
+      "userName": "Ana Torres",
+      "userRole": "Estudiante",
+      "actionName": "Inicio de sesion exitoso",
+      "source": "SECURITY",
+      "sourceLabel": "SEGURIDAD"
+    },
+    {
+      "id": "aud-7",
+      "datetime": "2026-03-14T14:55:00.000Z",
+      "userName": "Carlos Ruiz",
+      "userRole": "Asesor",
+      "actionName": "Subida de archivo",
+      "source": "AUDIT",
+      "sourceLabel": "AUDITORIA"
+    }
+  ],
+  "totalItems": 48,
+  "totalPages": 5,
+  "currentPage": 1
+}
+```
+
+#### Tipos de cada campo
+
+**Raíz:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `totalItems` | number | Total de registros que cumplen los filtros |
+| `totalPages` | number | `Math.ceil(totalItems / 10)` — mínimo `1` aunque no haya resultados |
+| `currentPage` | number | Página devuelta (siempre ≥ 1) |
+
+**Cada item:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | string | ID compuesto: `"aud-{n}"` para auditoría, `"sec-{n}"` para seguridad. Usar como parámetro en `GET /audit/panel/:id` |
+| `datetime` | string ISO 8601 | Fecha y hora del evento en UTC |
+| `userName` | string | Nombre y primer apellido del usuario. Fallback: `"Usuario Desconocido"` si el usuario fue eliminado |
+| `userRole` | string | Nombre del rol activo del usuario. Fallback: `"Sin Rol"` |
+| `actionName` | string | Nombre legible de la acción. Fallback: `"Accion no definida"` |
+| `source` | `"AUDIT" \| "SECURITY"` | Tipo técnico del evento |
+| `sourceLabel` | `"AUDITORIA" \| "SEGURIDAD"` | Etiqueta en español para mostrar en UI |
+
+#### Observaciones
+
+- Si `totalItems = 0`, `totalPages` es `1` (nunca `0`).
+- Si `page` supera `totalPages`, `items` devuelve array vacío.
+- El filtro `userSearch` usa índice FULLTEXT sobre nombre completo. Búsquedas de múltiples palabras (ej. `"ana torres"`) aplican prefijo automático a cada palabra (`ana* torres*`).
+- Las fechas se almacenan en UTC internamente. Aplicar conversión a hora Perú (`America/Lima`, UTC−5) en frontend para mostrarlas al usuario.
+
+---
+
+### 11.2 `GET /audit/panel/:id` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: detalle completo de un registro de auditoría o evento de seguridad.
+- El tipo de respuesta depende del prefijo del `id`:
+  - `aud-{n}` → registros de **AUDITORÍA** (sin IP, sin metadata)
+  - `sec-{n}` → registros de **SEGURIDAD** (incluye IP, userAgent y metadata de sesión)
+
+> **Importante**: el frontend DEBE leer el prefijo del `id` antes de renderizar el detalle, porque el shape de respuesta es diferente. No asumir que todos los registros tendrán `ipAddress` o `metadata`.
+
+#### Path params
+
+- `id` (string) → ID compuesto del registro, obtenido del campo `id` de `GET /audit/panel`.
+
+---
+
+#### Response `data` — registros AUDITORÍA (`aud-{n}`)
+
+```json
+{
+  "id": "aud-7",
+  "datetime": "2026-03-14T14:55:00.000Z",
+  "userId": "1205",
+  "userName": "Carlos Ruiz",
+  "userEmail": "carlos.ruiz@academiapasalo.com",
+  "userRole": "Asesor",
+  "actionCode": "FILE_UPLOAD",
+  "actionName": "Subida de archivo",
+  "source": "AUDIT"
+}
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | string | ID compuesto (`aud-{n}`) |
+| `datetime` | string ISO 8601 | Fecha y hora del evento en UTC |
+| `userId` | string | ID numérico del usuario como string |
+| `userName` | string | Nombre y primer apellido |
+| `userEmail` | string | Correo electrónico |
+| `userRole` | string | Nombre del rol activo |
+| `actionCode` | string | Código técnico de la acción (ej. `FILE_UPLOAD`) |
+| `actionName` | string | Nombre legible de la acción |
+| `source` | `"AUDIT"` | Siempre `"AUDIT"` para registros `aud-*` |
+
+> Los registros de AUDITORÍA **no incluyen** `ipAddress`, `userAgent` ni `metadata`.
+
+---
+
+#### Response `data` — registros SEGURIDAD (`sec-{n}`)
+
+```json
+{
+  "id": "sec-42",
+  "datetime": "2026-03-14T15:00:00.000Z",
+  "userId": "1205",
+  "userName": "Ana Torres",
+  "userEmail": "ana.torres@academiapasalo.com",
+  "userRole": "Estudiante",
+  "actionCode": "LOGIN_SUCCESS",
+  "actionName": "Inicio de sesion exitoso",
+  "source": "SECURITY",
+  "ipAddress": "190.232.15.100",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  "metadata": {
+    "deviceId": "d3b4c2e1-...",
+    "locationSource": "geoip",
+    "city": "Lima",
+    "country": "PE",
+    "activeRoleCode": "STUDENT",
+    "sessionStatus": "new",
+    "newSessionId": "sess-abc123"
+  }
+}
+```
+
+**Campos comunes con AUDITORÍA:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | string | ID compuesto (`sec-{n}`) |
+| `datetime` | string ISO 8601 | Fecha y hora del evento en UTC |
+| `userId` | string | ID numérico del usuario como string |
+| `userName` | string | Nombre y primer apellido |
+| `userEmail` | string | Correo electrónico |
+| `userRole` | string | Nombre del rol activo |
+| `actionCode` | string | Código técnico del evento (ej. `LOGIN_SUCCESS`) |
+| `actionName` | string | Nombre legible del evento |
+| `source` | `"SECURITY"` | Siempre `"SECURITY"` para registros `sec-*` |
+
+**Campos exclusivos de SEGURIDAD:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `ipAddress` | string \| undefined | Dirección IP del cliente. Ausente si no fue registrada |
+| `userAgent` | string \| undefined | User-Agent del navegador/SO/dispositivo. Ausente si no fue registrado |
+| `metadata` | object \| undefined | Payload de contexto de sesión. Ausente si el evento no generó metadata |
+
+**Campos del objeto `metadata` (todos opcionales):**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `deviceId` | string \| undefined | Identificador del dispositivo |
+| `locationSource` | string \| undefined | Origen de la geolocalización (ej. `"geoip"`) |
+| `city` | string \| undefined | Ciudad detectada por geolocalización |
+| `country` | string \| undefined | Código de país (ej. `"PE"`) |
+| `activeRoleCode` | string \| undefined | Código del rol que el usuario tenía activo al momento del evento |
+| `sessionStatus` | string \| undefined | Estado de la sesión resultante (ej. `"new"`, `"ACTIVE"`, `"REVOKED"`) |
+| `newSessionId` | string \| undefined | ID de la nueva sesión creada (presente en logins y concurrencias) |
+| `existingSessionId` | string \| undefined | ID de la sesión preexistente (presente en eventos de sesión concurrente) |
+| `existingDeviceId` | string \| undefined | ID del dispositivo de la sesión preexistente (presente en eventos de sesión concurrente) |
+
+#### Errores específicos
+
+| Código | Cuándo ocurre |
+|---|---|
+| `404 Not Found` | El `id` no corresponde a ningún registro existente, el prefijo es inválido, o el número es cero/negativo |
+
+#### Observaciones
+
+- Un campo `metadata` con valor `undefined` (ausente en JSON) significa que ese evento no generó contexto adicional, no que sea un error.
+- Los campos de `metadata` con valor `null` en BD se omiten del objeto (vienen como `undefined` en JSON). El frontend debe manejar `undefined` para todos los campos del objeto `metadata`.
+- El campo `activeRoleCode` en metadata refleja el rol que el usuario tenía activo **en el momento del evento**, lo cual puede diferir del rol actual del usuario.
+- Los `actionCode` posibles para eventos de seguridad están documentados en `API_DOCUMENTATION.md` (sección ÉPICA 7).
+
+---
+
+### 11.3 `GET /audit/panel-export` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: exportar el historial de auditoría y seguridad unificado en formato Excel. Mismo universo de datos que el panel (11.1), sin paginación.
+- El backend decide automáticamente entre modo **sync** (`.xlsx` directo) y **async** (`.zip` en background) según el volumen de datos.
+- Umbral actual: `< 100 000` filas = sync, `≥ 100 000` filas = async.
+- Las columnas del Excel incluyen `userId` pero **no** el `id` compuesto (`aud-*` / `sec-*`), ya que no aporta valor en una hoja de cálculo.
+- El Excel **no incluye** columnas de IP, userAgent ni metadata (usar `GET /audit/security-export` para esos campos).
+
+#### Columnas del Excel (en orden)
+
+| Columna | Campo fuente | Descripción |
+|---|---|---|
+| `FECHA Y HORA` | `datetime` | Fecha y hora en horario Perú (`America/Lima`) |
+| `ID USUARIO` | `userId` | ID numérico del usuario |
+| `USUARIO` | `userName` | Nombre y primer apellido |
+| `CORREO` | `userEmail` | Correo electrónico |
+| `ROL` | `userRole` | Nombre del rol |
+| `CODIGO` | `actionCode` | Código técnico de la acción/evento |
+| `ACCION` | `actionName` | Nombre legible |
+| `FUENTE` | `source` | `"AUDITORIA"` o `"SEGURIDAD"` (español) |
+
+#### Query params
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `source` | `'AUDIT' \| 'SECURITY'`, opcional | Filtra solo por ese tipo |
+| `roleCode` | `'STUDENT' \| 'PROFESSOR' \| 'ADMIN' \| 'SUPER_ADMIN'`, opcional | Filtra por rol del usuario |
+| `startDate` | string ISO-8601, opcional | Fecha/hora inicial inclusive |
+| `endDate` | string ISO-8601, opcional | Fecha/hora final inclusive |
+| `userSearch` | string, opcional | Búsqueda FULLTEXT por nombre del usuario |
+
+#### Comportamiento y respuestas
+
+El flujo sync/async, los headers de respuesta, los códigos de error (`409 Conflict`, `403 Forbidden`, `404 Not Found`, `410 Gone`) y el mecanismo de notificaciones son idénticos al endpoint `GET /audit/export`. Ver `API_AUDIT_EXPORT_DOCUMENTATION.md` para el contrato completo del flujo async.
+
+---
+
+### 11.4 `GET /audit/security-export` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: exportar **exclusivamente eventos de seguridad** con todos sus campos, incluyendo IP, userAgent y los campos de metadata de sesión. Diseñado para análisis de seguridad y sesiones.
+- La fuente se fija en `SECURITY` por el backend; el cliente **no puede** sobrescribir el filtro de fuente.
+- El Excel **no incluye** el `id` compuesto (`sec-*`), pero sí incluye `userId` y todos los campos de metadata.
+- El backend decide automáticamente entre modo sync y async con los mismos umbrales que el resto de exportaciones.
+
+#### Columnas del Excel (en orden)
+
+| Columna | Campo fuente | Descripción |
+|---|---|---|
+| `FECHA Y HORA` | `datetime` | Fecha y hora en horario Perú (`America/Lima`) |
+| `ID USUARIO` | `userId` | ID numérico del usuario |
+| `USUARIO` | `userName` | Nombre y primer apellido |
+| `CORREO` | `userEmail` | Correo electrónico |
+| `ROL` | `userRole` | Nombre del rol |
+| `CODIGO` | `actionCode` | Código técnico del evento de seguridad |
+| `ACCION` | `actionName` | Nombre legible del evento |
+| `FUENTE` | — | Siempre `"SEGURIDAD"` (fijo) |
+| `IP` | `ipAddress` | Dirección IP. Celda vacía si no fue registrada |
+| `NAVEGADOR` | `userAgent` | User-Agent del cliente. Celda vacía si no fue registrado |
+| `ID DISPOSITIVO` | `metadata.deviceId` | Identificador del dispositivo. Vacío si ausente |
+| `FUENTE UBICACION` | `metadata.locationSource` | Origen de geolocalización. Vacío si ausente |
+| `CIUDAD` | `metadata.city` | Ciudad detectada. Vacío si ausente |
+| `PAIS` | `metadata.country` | Código de país. Vacío si ausente |
+| `ROL AL MOMENTO` | `metadata.activeRoleCode` | Código del rol activo en el momento del evento. Vacío si ausente |
+| `ESTADO SESION` | `metadata.sessionStatus` | Estado resultante de la sesión. Vacío si ausente |
+| `ID NUEVA SESION` | `metadata.newSessionId` | ID de la nueva sesión. Vacío si ausente |
+| `ID SESION EXISTENTE` | `metadata.existingSessionId` | ID de sesión preexistente (en concurrencias). Vacío si ausente |
+| `ID DISPOSITIVO EXISTENTE` | `metadata.existingDeviceId` | Dispositivo de sesión preexistente (en concurrencias). Vacío si ausente |
+
+#### Query params
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `roleCode` | `'STUDENT' \| 'PROFESSOR' \| 'ADMIN' \| 'SUPER_ADMIN'`, opcional | Filtra por rol del usuario |
+| `startDate` | string ISO-8601, opcional | Fecha/hora inicial inclusive |
+| `endDate` | string ISO-8601, opcional | Fecha/hora final inclusive |
+| `userSearch` | string, opcional | Búsqueda FULLTEXT por nombre del usuario |
+
+> Este endpoint exporta **solo eventos de seguridad**. No enviar `source` — el backend lo fija internamente en `SECURITY`.
+
+#### Comportamiento y respuestas
+
+Idéntico al flujo de `GET /audit/panel-export`. Ver `API_AUDIT_EXPORT_DOCUMENTATION.md` para el contrato completo del flujo async (headers, códigos de error, notificaciones).
+
+#### Observaciones
+
+- Las celdas de `metadata.*` y de `ipAddress`/`userAgent` llegan vacías (cadena vacía `""`) cuando el evento no registró ese campo. El Excel nunca contiene valores `null` ni `undefined` visibles.
+- El campo `ROL AL MOMENTO` (`metadata.activeRoleCode`) contiene el **código** del rol (ej. `STUDENT`, `ADMIN`), no el nombre legible. Esto es intencional para facilitar filtrado en hojas de cálculo.
+- Usar este exportador cuando se necesite análisis de:
+  - patrones de login/logout por dispositivo o IP
+  - eventos de sesión concurrente
+  - anomalías de autenticación por ubicación geográfica

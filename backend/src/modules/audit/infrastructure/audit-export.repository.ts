@@ -72,6 +72,116 @@ export class AuditExportRepository {
     return rows.map((row) => this.mapUnifiedRow(row, warningState));
   }
 
+  async findAuditLogById(
+    entityId: number,
+  ): Promise<UnifiedAuditHistoryDto | null> {
+    const params: unknown[] = [
+      AUDIT_LABELS.UNKNOWN_USER,
+      AUDIT_LABELS.NOT_AVAILABLE,
+      AUDIT_LABELS.UNKNOWN_ROLE,
+      AUDIT_LABELS.UNKNOWN_ACTION,
+      AUDIT_LABELS.UNKNOWN_ACTION,
+      AUDIT_SOURCES.AUDIT,
+      entityId,
+    ];
+
+    const sql = `
+      SELECT
+        CONCAT('aud-', l.id) AS id,
+        l.event_datetime AS datetime,
+        CAST(l.user_id AS CHAR) AS userId,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name_1, ''))), ''), ?) AS userName,
+        COALESCE(u.email, ?) AS userEmail,
+        COALESCE(lar.name, fr.name, ?) AS userRole,
+        COALESCE(a.code, ?) AS actionCode,
+        COALESCE(a.name, ?) AS actionName,
+        ? AS source,
+        NULL AS ipAddress,
+        NULL AS userAgent,
+        NULL AS metadata,
+        1 AS sortSourceRank,
+        l.id AS sortEntityId
+      FROM audit_log l
+      LEFT JOIN audit_action a ON a.id = l.audit_action_id
+      LEFT JOIN user u ON u.id = l.user_id
+      LEFT JOIN role lar ON lar.id = u.last_active_role_id
+      LEFT JOIN (
+        SELECT ur.user_id, MIN(ur.role_id) AS fallback_role_id
+        FROM user_role ur
+        GROUP BY ur.user_id
+      ) fur ON fur.user_id = u.id
+      LEFT JOIN role fr ON fr.id = fur.fallback_role_id
+      WHERE l.id = ?
+      LIMIT 1
+    `;
+
+    const rows = await this.dataSource.query<UnifiedAuditRow[]>(sql, params);
+    if (!rows.length) {
+      return null;
+    }
+
+    const warningState: InvalidMetadataWarningState = {
+      warningCount: 0,
+      warningsSuppressed: false,
+    };
+    return this.mapUnifiedRow(rows[0], warningState);
+  }
+
+  async findSecurityEventById(
+    entityId: number,
+  ): Promise<UnifiedAuditHistoryDto | null> {
+    const params: unknown[] = [
+      AUDIT_LABELS.UNKNOWN_USER,
+      AUDIT_LABELS.NOT_AVAILABLE,
+      AUDIT_LABELS.UNKNOWN_ROLE,
+      AUDIT_LABELS.UNKNOWN_ACTION,
+      AUDIT_LABELS.UNKNOWN_ACTION,
+      AUDIT_SOURCES.SECURITY,
+      entityId,
+    ];
+
+    const sql = `
+      SELECT
+        CONCAT('sec-', e.id) AS id,
+        e.event_datetime AS datetime,
+        CAST(e.user_id AS CHAR) AS userId,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name_1, ''))), ''), ?) AS userName,
+        COALESCE(u.email, ?) AS userEmail,
+        COALESCE(lar.name, fr.name, ?) AS userRole,
+        COALESCE(et.code, ?) AS actionCode,
+        COALESCE(et.name, ?) AS actionName,
+        ? AS source,
+        e.ip_address AS ipAddress,
+        e.user_agent AS userAgent,
+        e.metadata AS metadata,
+        2 AS sortSourceRank,
+        e.id AS sortEntityId
+      FROM security_event e
+      LEFT JOIN security_event_type et ON et.id = e.security_event_type_id
+      LEFT JOIN user u ON u.id = e.user_id
+      LEFT JOIN role lar ON lar.id = u.last_active_role_id
+      LEFT JOIN (
+        SELECT ur.user_id, MIN(ur.role_id) AS fallback_role_id
+        FROM user_role ur
+        GROUP BY ur.user_id
+      ) fur ON fur.user_id = u.id
+      LEFT JOIN role fr ON fr.id = fur.fallback_role_id
+      WHERE e.id = ?
+      LIMIT 1
+    `;
+
+    const rows = await this.dataSource.query<UnifiedAuditRow[]>(sql, params);
+    if (!rows.length) {
+      return null;
+    }
+
+    const warningState: InvalidMetadataWarningState = {
+      warningCount: 0,
+      warningsSuppressed: false,
+    };
+    return this.mapUnifiedRow(rows[0], warningState);
+  }
+
   async findUnifiedHistoryChunk(
     filters: ParsedAuditHistoryFilters,
     limit: number,
@@ -329,11 +439,14 @@ export class AuditExportRepository {
     const actionJoin = filters.actionCode
       ? 'INNER JOIN security_event_type et ON et.id = e.security_event_type_id'
       : '';
+    const userJoins =
+      filters.roleCode || filters.userSearch ? this.buildUserJoins('e') : '';
 
     return `
       SELECT COUNT(*) AS total
       FROM security_event e
       ${actionJoin}
+      ${userJoins}
       WHERE ${where}
     `;
   }
@@ -346,12 +459,28 @@ export class AuditExportRepository {
     const actionJoin = filters.actionCode
       ? 'INNER JOIN audit_action a ON a.id = l.audit_action_id'
       : '';
+    const userJoins =
+      filters.roleCode || filters.userSearch ? this.buildUserJoins('l') : '';
 
     return `
       SELECT COUNT(*) AS total
       FROM audit_log l
       ${actionJoin}
+      ${userJoins}
       WHERE ${where}
+    `;
+  }
+
+  private buildUserJoins(eventAlias: 'e' | 'l'): string {
+    return `
+      LEFT JOIN user u ON u.id = ${eventAlias}.user_id
+      LEFT JOIN role lar ON lar.id = u.last_active_role_id
+      LEFT JOIN (
+        SELECT ur.user_id, MIN(ur.role_id) AS fallback_role_id
+        FROM user_role ur
+        GROUP BY ur.user_id
+      ) fur ON fur.user_id = u.id
+      LEFT JOIN role fr ON fr.id = fur.fallback_role_id
     `;
   }
 
@@ -381,6 +510,24 @@ export class AuditExportRepository {
     if (filters.actionCode) {
       conditions.push(`${actionAlias}.code = ?`);
       params.push(filters.actionCode);
+    }
+
+    if (filters.roleCode) {
+      conditions.push(`(lar.code = ? OR (lar.code IS NULL AND fr.code = ?))`);
+      params.push(filters.roleCode, filters.roleCode);
+    }
+
+    if (filters.userSearch) {
+      const term = filters.userSearch.trim();
+      if (term.length > 0) {
+        const booleanTerm = term
+          .split(/\s+/)
+          .filter((w) => w.length > 0)
+          .map((w) => `${w}*`)
+          .join(' ');
+        conditions.push('MATCH(u.search_text) AGAINST (? IN BOOLEAN MODE)');
+        params.push(booleanTerm);
+      }
     }
 
     return conditions.join(' AND ');
