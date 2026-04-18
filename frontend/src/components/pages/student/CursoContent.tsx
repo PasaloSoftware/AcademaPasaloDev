@@ -226,12 +226,13 @@ export default function CursoContent({
   }, [cursoId, previewData]);
 
   const canViewPreviousCycles = Boolean(currentCycle?.canViewPreviousCycles);
+  const hasPreviousCycles = Boolean(previousCycles?.cycles?.length);
 
   useEffect(() => {
-    if (!canViewPreviousCycles && activeTab === "anteriores") {
+    if (!hasPreviousCycles && activeTab === "anteriores") {
       setActiveTab("vigente");
     }
-  }, [canViewPreviousCycles, activeTab]);
+  }, [hasPreviousCycles, activeTab]);
 
   // Helpers
   const getInitials = (firstName: string, lastName1: string) => {
@@ -330,7 +331,7 @@ export default function CursoContent({
   // Tab config
   const tabs: { key: TabOption; label: string; disabled?: boolean }[] = [
     { key: "vigente", label: "Ciclo Vigente" },
-    ...(canViewPreviousCycles
+    ...(hasPreviousCycles
       ? ([{ key: "anteriores", label: "Ciclos Pasados" }] as const)
       : []),
     { key: "banco", label: "Banco de Enunciados" },
@@ -368,7 +369,7 @@ export default function CursoContent({
           {/* Teacher */}
           <div className="self-stretch flex flex-col justify-start items-start gap-4">
             <div className="self-stretch inline-flex justify-start items-center gap-2">
-              <div className="w-6 h-6 p-1 bg-bg-success-solid rounded-full flex justify-center items-center gap-2">
+              <div className="w-8 h-8 p-1 bg-bg-success-solid rounded-full flex justify-center items-center gap-2">
                 <span className="text-center text-text-white text-[10px] font-medium leading-3">
                   {getProfessorInitials()}
                 </span>
@@ -435,13 +436,13 @@ export default function CursoContent({
           ======================================== */}
       <div className="self-stretch inline-flex flex-col justify-start items-start gap-6 sm:gap-8">
         {/* Horizontal Pill Tabs */}
-        <div className="w-full p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col sm:flex-row justify-start items-start gap-2">
+        <div className="max-w-full p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-wrap justify-start items-start gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               disabled={tab.disabled}
               onClick={() => !tab.disabled && setActiveTab(tab.key)}
-              className={`flex-1 px-2 py-2.5 rounded-lg flex justify-start items-center gap-2 transition-colors ${
+              className={`px-6 py-2.5 rounded-lg inline-flex justify-start items-center gap-2 transition-colors ${
                 tab.disabled
                   ? "bg-bg-primary cursor-not-allowed opacity-50"
                   : activeTab === tab.key
@@ -449,9 +450,9 @@ export default function CursoContent({
                     : "bg-bg-primary hover:bg-bg-secondary"
               }`}
             >
-              <div className="flex-1 flex justify-start items-center gap-2">
+              <div className="flex justify-start items-center gap-2">
                 <span
-                  className={`flex-1 text-center text-sm sm:text-[15px] leading-4 ${
+                  className={`text-left text-sm sm:text-[15px] leading-4 whitespace-nowrap ${
                     tab.disabled
                       ? "text-text-disabled"
                       : activeTab === tab.key

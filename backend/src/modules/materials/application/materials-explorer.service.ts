@@ -112,6 +112,10 @@ export class MaterialsExplorerService {
         user,
         visibleContents.materials,
       );
+    const decoratedVisibleMaterials = await this.attachPendingDeletionFlags(
+      user,
+      visibleMaterials,
+    );
 
     const materialStatus = await this.getActiveMaterialStatus();
     const isStudent = user.activeRole === ROLE_CODES.STUDENT;
@@ -137,8 +141,8 @@ export class MaterialsExplorerService {
 
     return {
       folders: visibleContents.folders,
-      materials: visibleMaterials,
-      totalMaterials: visibleMaterials.length,
+      materials: decoratedVisibleMaterials,
+      totalMaterials: decoratedVisibleMaterials.length,
       subfolderMaterialCount,
     };
   }

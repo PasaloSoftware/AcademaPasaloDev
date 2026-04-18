@@ -121,6 +121,22 @@ describe('WorkspaceGroupsService', () => {
     );
   });
 
+  it('should skip adding member when member email is invalid', async () => {
+    jest
+      .spyOn(internals, 'getWorkspaceJwtClient')
+      .mockResolvedValue(mockClient);
+    const requestMock = mockClient.request as unknown as jest.Mock;
+
+    await expect(
+      service.ensureMemberInGroup({
+        groupEmail: 'ev-2-viewers@academiapasalo.com',
+        memberEmail: '',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(requestMock).not.toHaveBeenCalled();
+  });
+
   it('should treat 404 as idempotent when removing missing member', async () => {
     jest
       .spyOn(internals, 'getWorkspaceJwtClient')
@@ -134,6 +150,22 @@ describe('WorkspaceGroupsService', () => {
         memberEmail: 'missing@academiapasalo.com',
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('should skip removing member when member email is invalid', async () => {
+    jest
+      .spyOn(internals, 'getWorkspaceJwtClient')
+      .mockResolvedValue(mockClient);
+    const requestMock = mockClient.request as unknown as jest.Mock;
+
+    await expect(
+      service.removeMemberFromGroup({
+        groupEmail: 'ev-2-viewers@academiapasalo.com',
+        memberEmail: '   ',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(requestMock).not.toHaveBeenCalled();
   });
 
   it('should list group members with pagination and normalized emails', async () => {

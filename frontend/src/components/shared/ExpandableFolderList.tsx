@@ -98,12 +98,32 @@ function MaterialFileItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
   const updateMenuPos = useCallback(() => {
     if (!menuBtnRef.current) return;
-    const r = menuBtnRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    const rect = menuBtnRef.current.getBoundingClientRect();
+    const menuWidth = 240;
+    const menuHeight = 224;
+    const viewportPadding = 8;
+    const verticalOffset = 4;
+
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const shouldOpenUpward = spaceBelow < menuHeight && rect.top > spaceBelow;
+
+    const top = shouldOpenUpward
+      ? Math.max(viewportPadding, rect.top - menuHeight - verticalOffset)
+      : Math.min(
+          rect.bottom + verticalOffset,
+          window.innerHeight - menuHeight - viewportPadding,
+        );
+
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding,
+    );
+
+    setMenuPos({ top, left });
   }, []);
 
   useEffect(() => {
@@ -111,12 +131,22 @@ function MaterialFileItem({
     updateMenuPos();
     const handleClick = (e: MouseEvent) => {
       if (
-        menuBtnRef.current && !menuBtnRef.current.contains(e.target as Node) &&
-        menuRef.current && !menuRef.current.contains(e.target as Node)
-      ) setMenuOpen(false);
+        menuBtnRef.current &&
+        !menuBtnRef.current.contains(e.target as Node) &&
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node)
+      )
+        setMenuOpen(false);
     };
+    const handleViewportChange = () => updateMenuPos();
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
   }, [menuOpen, updateMenuPos]);
 
   const handleMenuAction = (action: MaterialAction) => {
@@ -145,6 +175,14 @@ function MaterialFileItem({
             <span className="text-text-primary text-sm font-normal leading-4 flex-shrink-0">
               {matExt}
             </span>
+            {material.isPendingDeletion && (
+              <Icon
+                name="visibility_off"
+                size={14}
+                className="ml-1 flex-shrink-0 text-icon-tertiary"
+                variant="rounded"
+              />
+            )}
           </div>
           <span className="text-text-tertiary text-[10px] font-normal leading-3">
             Última modificación: {formatMaterialDate(material.createdAt)}
@@ -157,46 +195,109 @@ function MaterialFileItem({
           <button
             ref={menuBtnRef}
             type="button"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(!menuOpen);
+            }}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors flex-shrink-0"
           >
             <Icon name="more_vert" size={20} className="text-icon-tertiary" />
           </button>
-          {menuOpen && createPortal(
-            <div
-              ref={menuRef}
-              style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
-              className="w-60 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
-              <button onClick={() => handleMenuAction("open")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-                <Icon name="open_in_full" size={20} className="text-icon-secondary" variant="rounded" />
-                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Abrir</span>
-              </button>
-              <button onClick={() => handleMenuAction("rename")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-                <Icon name="edit" size={20} className="text-icon-secondary" variant="rounded" />
-                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Cambiar nombre</span>
-              </button>
-              <div className="h-px bg-stroke-secondary" />
-              <button onClick={() => handleMenuAction("download")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-                <Icon name="download" size={20} className="text-icon-secondary" variant="rounded" />
-                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Descargar</span>
-              </button>
-              <button onClick={() => handleMenuAction("info")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-                <Icon name="info" size={20} className="text-icon-secondary" variant="rounded" />
-                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Información del material</span>
-              </button>
-              <div className="h-px bg-stroke-secondary" />
-              <button onClick={() => handleMenuAction("delete")} className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors">
-                <Icon name="delete" size={20} className="text-icon-secondary" variant="rounded" />
-                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">Eliminar</span>
-              </button>
-            </div>,
-            document.body,
-          )}
+          {menuOpen &&
+            createPortal(
+              <div
+                ref={menuRef}
+                style={{
+                  position: "fixed",
+                  top: menuPos.top,
+                  left: menuPos.left,
+                  zIndex: 9999,
+                }}
+                className="w-60 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
+              >
+                <button
+                  onClick={() => handleMenuAction("open")}
+                  className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon
+                    name="open_in_full"
+                    size={20}
+                    className="text-icon-secondary"
+                    variant="rounded"
+                  />
+                  <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                    Abrir
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleMenuAction("rename")}
+                  className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon
+                    name="edit"
+                    size={20}
+                    className="text-icon-secondary"
+                    variant="rounded"
+                  />
+                  <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                    Cambiar nombre
+                  </span>
+                </button>
+                <div className="h-px bg-stroke-secondary" />
+                <button
+                  onClick={() => handleMenuAction("download")}
+                  className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon
+                    name="download"
+                    size={20}
+                    className="text-icon-secondary"
+                    variant="rounded"
+                  />
+                  <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                    Descargar
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleMenuAction("info")}
+                  className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon
+                    name="info"
+                    size={20}
+                    className="text-icon-secondary"
+                    variant="rounded"
+                  />
+                  <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                    Información del material
+                  </span>
+                </button>
+                <div className="h-px bg-stroke-secondary" />
+                <button
+                  onClick={() => handleMenuAction("delete")}
+                  className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                >
+                  <Icon
+                    name="delete"
+                    size={20}
+                    className="text-icon-secondary"
+                    variant="rounded"
+                  />
+                  <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                    Eliminar
+                  </span>
+                </button>
+              </div>,
+              document.body,
+            )}
         </div>
       ) : (
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onDownload(material); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDownload(material);
+          }}
           className="p-1 rounded-full flex justify-center items-center hover:bg-bg-primary transition-colors"
           title="Descargar"
         >
@@ -310,7 +411,11 @@ function ExpandableFolderRow({
                   key={mat.id}
                   material={mat}
                   onDownload={onDownloadMaterial}
-                  onPreview={onPreviewMaterial ? () => onPreviewMaterial(materials, idx) : undefined}
+                  onPreview={
+                    onPreviewMaterial
+                      ? () => onPreviewMaterial(materials, idx)
+                      : undefined
+                  }
                   onAction={onMaterialAction}
                 />
               ))}

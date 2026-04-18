@@ -14,6 +14,7 @@ export interface FolderMaterial {
   fileVersionId: string;
   createdAt: string;
   classEventId: string | null;
+  isPendingDeletion?: boolean;
 }
 
 export interface FolderContentsResponse {

@@ -91,7 +91,7 @@ export default function CourseCard({
 }: CourseCardProps) {
   const teacherNames =
     teachers.length > 0
-      ? `Docente: ${teachers.map((teacher) => teacher.name).join(" & ")}`
+      ? `${teachers.map((teacher) => teacher.name).join(" & ")}`
       : "Sin asignar";
 
   if (variant === "list") {

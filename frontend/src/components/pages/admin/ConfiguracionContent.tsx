@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/ToastContainer";
 import Icon from "@/components/ui/Icon";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
+import FloatingSelect from "@/components/ui/FloatingSelect";
 import {
   settingsService,
   type SystemSettingsBundle,
@@ -219,22 +220,16 @@ function ModalSelectField({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="self-stretch flex-1 inline-flex flex-col justify-start items-start gap-1">
-      <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="flex-1 bg-transparent text-text-primary text-base font-normal leading-4 outline-none appearance-none"
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <Icon name="arrow_drop_down" size={20} className="text-icon-tertiary" />
-      </div>
-    </div>
+    <FloatingSelect
+      label="Unidad"
+      value={value}
+      onChange={(nextValue) => onChange(nextValue ?? value)}
+      options={options}
+      includeAllOption={false}
+      className="self-stretch flex-1"
+      variant="filled"
+      size="large"
+    />
   );
 }
 

@@ -94,7 +94,7 @@ export default function InicioContent() {
   }, []);
 
   const handleAgendarTutoria = (curso: string, tema: string) => {
-    const mensaje = `�Hola! Quisiera agendar una tutoria de ${curso} para la evaluaci�n o tema ${tema}`;
+    const mensaje = `¡Hola! Quisiera agendar una tutoria de ${curso} para la evaluación o tema ${tema}`;
     const url = `https://wa.me/903006775?text=${encodeURIComponent(mensaje)}`;
     window.open(url, "_blank");
   };
@@ -103,7 +103,7 @@ export default function InicioContent() {
     try {
       classEventService.joinMeeting(event);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al abrir la reuni�n");
+      alert(err instanceof Error ? err.message : "Error al abrir la reunión");
     }
   };
 
@@ -131,7 +131,7 @@ export default function InicioContent() {
     const startTime = format(start, "h:mm a", { locale: es });
     const endTime = format(end, "h:mm a", { locale: es });
 
-    return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${day} ${month} � ${startTime} - ${endTime}`;
+    return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${day} ${month} - ${startTime} - ${endTime}`;
   };
 
   const eventsByCourse = upcomingEvents.reduce<Record<string, ClassEvent[]>>(
@@ -204,8 +204,8 @@ export default function InicioContent() {
           <div className="flex items-center gap-1 sm:gap-2">
             <Icon
               name="class"
-              size={24}
-              className="text-accent-secondary sm:h-8 sm:w-8"
+              size={32}
+              className="self-center text-accent-secondary sm:h-8 sm:w-8"
             />
             <h1 className="text-xl font-semibold text-primary sm:text-3xl">
               Mis Cursos
@@ -215,7 +215,7 @@ export default function InicioContent() {
           <div className="flex items-center gap-2 self-end sm:gap-3">
             <button
               onClick={() => setViewMode("grid")}
-              aria-label="Ver cursos en galer�a"
+              aria-label="Ver cursos en galería"
               className={`flex items-center gap-1 rounded px-2 py-1.5 transition-colors sm:px-2.5 sm:py-2 ${
                 viewMode === "grid"
                   ? "bg-accent-solid"

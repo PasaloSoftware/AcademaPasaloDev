@@ -99,7 +99,7 @@ export default function DaySchedule() {
       <div className="flex items-center justify-between gap-3 border-b border-stroke-primary p-3">
         <div className="flex items-center gap-1">
           <Icon name="event" size={20} className="text-magenta-violet-500" />
-          <h2 className="text-sm font-semibold text-primary">Agenda del D�a</h2>
+          <h2 className="text-sm font-semibold text-primary">Agenda del Día</h2>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
           <div className="flex items-center gap-0.5">

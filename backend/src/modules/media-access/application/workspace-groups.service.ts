@@ -101,18 +101,22 @@ export class WorkspaceGroupsService {
     groupEmail: string;
     memberEmail: string;
   }): Promise<void> {
-    const normalizedGroupEmail = input.groupEmail.trim().toLowerCase();
-    const normalizedMemberEmail = input.memberEmail.trim().toLowerCase();
-    const client = await this.getWorkspaceJwtClient();
-
-    const existingMember = await this.findGroupMemberByEmail(
-      client,
-      normalizedGroupEmail,
-      normalizedMemberEmail,
+    const normalizedGroupEmail = this.normalizeWorkspaceEmail(input.groupEmail);
+    const normalizedMemberEmail = this.normalizeWorkspaceEmail(
+      input.memberEmail,
     );
-    if (existingMember) {
+
+    if (!normalizedGroupEmail || !normalizedMemberEmail) {
+      this.logger.warn({
+        message:
+          'Se omitio la sincronizacion de miembro Workspace por email invalido o vacio',
+        groupEmail: normalizedGroupEmail || String(input.groupEmail || ''),
+        memberEmail: normalizedMemberEmail || String(input.memberEmail || ''),
+      });
       return;
     }
+
+    const client = await this.getWorkspaceJwtClient();
 
     try {
       await this.withRetry(() =>
@@ -145,8 +149,21 @@ export class WorkspaceGroupsService {
     groupEmail: string;
     memberEmail: string;
   }): Promise<void> {
-    const normalizedGroupEmail = input.groupEmail.trim().toLowerCase();
-    const normalizedMemberEmail = input.memberEmail.trim().toLowerCase();
+    const normalizedGroupEmail = this.normalizeWorkspaceEmail(input.groupEmail);
+    const normalizedMemberEmail = this.normalizeWorkspaceEmail(
+      input.memberEmail,
+    );
+
+    if (!normalizedGroupEmail || !normalizedMemberEmail) {
+      this.logger.warn({
+        message:
+          'Se omitio la eliminacion de miembro Workspace por email invalido o vacio',
+        groupEmail: normalizedGroupEmail || String(input.groupEmail || ''),
+        memberEmail: normalizedMemberEmail || String(input.memberEmail || ''),
+      });
+      return;
+    }
+
     const client = await this.getWorkspaceJwtClient();
 
     try {
@@ -271,10 +288,16 @@ export class WorkspaceGroupsService {
     groupEmail: string,
     memberEmail: string,
   ): Promise<WorkspaceGroupMember | null> {
+    const normalizedGroupEmail = this.normalizeWorkspaceEmail(groupEmail);
+    const normalizedMemberEmail = this.normalizeWorkspaceEmail(memberEmail);
+    if (!normalizedGroupEmail || !normalizedMemberEmail) {
+      return null;
+    }
+
     try {
       const response = await this.withRetry(() =>
         client.request<WorkspaceGroupMember>({
-          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(groupEmail)}/members/${encodeURIComponent(memberEmail)}`,
+          url: `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(normalizedGroupEmail)}/members/${encodeURIComponent(normalizedMemberEmail)}`,
           method: 'GET',
         }),
       );
@@ -389,5 +412,15 @@ export class WorkspaceGroupsService {
       response?: { status?: number };
     };
     return maybeError.response?.status ?? maybeError.code;
+  }
+
+  private normalizeWorkspaceEmail(raw: string): string | null {
+    const normalized = String(raw || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized || !normalized.includes('@')) {
+      return null;
+    }
+    return normalized;
   }
 }

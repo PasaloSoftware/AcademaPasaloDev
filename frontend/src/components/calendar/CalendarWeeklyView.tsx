@@ -21,6 +21,7 @@ interface CalendarWeeklyViewProps {
   isToday: (date: Date) => boolean;
   onEventClick: (event: ClassEvent, e: React.MouseEvent) => void;
   selectedEventId?: string | null;
+  disableScroll?: boolean;
 }
 
 export default function CalendarWeeklyView({
@@ -31,7 +32,9 @@ export default function CalendarWeeklyView({
   isToday,
   onEventClick,
   selectedEventId,
+  disableScroll = false,
 }: CalendarWeeklyViewProps) {
+  const EVENT_BOTTOM_GAP_PX = 4;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -93,7 +96,9 @@ export default function CalendarWeeklyView({
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        className={`flex-1 overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
+          disableScroll ? "overflow-y-hidden" : "overflow-y-auto"
+        }`}
       >
         <div className="flex min-w-full">
           <div className="w-16 flex flex-col flex-shrink-0 bg-bg-primary sticky left-0 z-10 border-r border-stroke-secondary">
@@ -163,7 +168,7 @@ export default function CalendarWeeklyView({
                         className={`absolute rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-all ${isSelected ? "shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10" : ""}`}
                         style={{
                           top: `${position.top}px`,
-                          height: `${position.height}px`,
+                          height: `${Math.max(position.height - EVENT_BOTTOM_GAP_PX, 36)}px`,
                           left: layout.left,
                           width: layout.width,
                           backgroundColor: colors.secondary,

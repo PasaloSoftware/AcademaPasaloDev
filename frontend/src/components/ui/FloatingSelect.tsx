@@ -15,6 +15,8 @@ interface FloatingSelectProps {
   options: FloatingSelectOption[];
   onChange: (value: string | null) => void;
   allLabel?: string;
+  includeAllOption?: boolean;
+  emptyValueIsPlaceholder?: boolean;
   disabled?: boolean;
   className?: string;
   variant?: "floating" | "filled";
@@ -27,6 +29,8 @@ export default function FloatingSelect({
   options,
   onChange,
   allLabel = "Todos",
+  includeAllOption = true,
+  emptyValueIsPlaceholder = false,
   disabled = false,
   className = "w-64",
   variant = "floating",
@@ -41,11 +45,14 @@ export default function FloatingSelect({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedLabel = value
+  const hasSelectedValue = Boolean(value);
+  const selectedLabel = hasSelectedValue
     ? (options.find((o) => o.value === value)?.label ?? allLabel)
     : allLabel;
 
   const isFloating = variant === "floating";
+  const showFloatingLabel =
+    isFloating && (hasSelectedValue || isOpen || !emptyValueIsPlaceholder);
   const triggerHeightClass =
     size === "large" ? "h-12 px-3 py-3.5" : "h-10 px-2.5 py-3";
   const triggerTextClass =
@@ -125,7 +132,11 @@ export default function FloatingSelect({
         } inline-flex justify-start items-center gap-2 transition-colors`}
       >
         <span
-          className={`flex-1 text-left text-text-primary font-normal line-clamp-1 ${triggerTextClass}`}
+          className={`flex-1 text-left font-normal line-clamp-1 ${triggerTextClass} ${
+            emptyValueIsPlaceholder && !hasSelectedValue
+              ? "text-text-tertiary"
+              : "text-text-primary"
+          }`}
         >
           {selectedLabel}
         </span>
@@ -139,7 +150,7 @@ export default function FloatingSelect({
       </button>
 
       {/* Floating label */}
-      {isFloating && (
+      {showFloatingLabel && (
         <div className="px-1 left-[6px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
           <span
             className={`text-xs font-normal leading-4 ${
@@ -165,26 +176,27 @@ export default function FloatingSelect({
               width: dropdownStyle.width,
             }}
           >
-            {/* "Todos" option */}
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setIsOpen(false);
-              }}
-              className={`self-stretch bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors ${dropdownItemClass}`}
-            >
-              <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
-                {allLabel}
-              </span>
-              {value === null && (
-                <Icon
-                  name="check"
-                  size={16}
-                  className="text-icon-accent-primary"
-                />
-              )}
-            </button>
+            {includeAllOption && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  setIsOpen(false);
+                }}
+                className={`self-stretch bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors ${dropdownItemClass}`}
+              >
+                <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
+                  {allLabel}
+                </span>
+                {value === null && (
+                  <Icon
+                    name="check"
+                    size={16}
+                    className="text-icon-accent-primary"
+                  />
+                )}
+              </button>
+            )}
 
             {/* Course options */}
             {options.map((option) => (

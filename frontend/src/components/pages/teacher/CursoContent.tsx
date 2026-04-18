@@ -299,7 +299,7 @@ export default function CursoContent({
           {/* Teacher (self) */}
           <div className="self-stretch flex flex-col justify-start items-start gap-4">
             <div className="self-stretch inline-flex justify-start items-center gap-2">
-              <div className="w-6 h-6 p-1 bg-bg-success-solid rounded-full flex justify-center items-center gap-2">
+              <div className="w-8 h-8 p-1 bg-bg-success-solid rounded-full flex justify-center items-center gap-2">
                 <span className="text-center text-text-white text-[10px] font-medium leading-3">
                   {getTeacherInitials()}
                 </span>
@@ -349,20 +349,20 @@ export default function CursoContent({
       {/* TABS + CONTENT SECTION */}
       <div className="self-stretch inline-flex flex-col justify-start items-start gap-6 sm:gap-8">
         {/* Horizontal Pill Tabs */}
-        <div className="w-full p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col sm:flex-row justify-start items-start gap-2">
+        <div className="max-w-full p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-wrap justify-start items-start gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 px-2 py-2.5 rounded-lg flex justify-start items-center gap-2 transition-colors ${
+              className={`px-6 py-2.5 rounded-lg inline-flex justify-start items-center gap-2 transition-colors ${
                 activeTab === tab.key
                   ? "bg-bg-accent-primary-solid"
                   : "bg-bg-primary hover:bg-bg-secondary"
               }`}
             >
-              <div className="flex-1 flex justify-start items-center gap-2">
+              <div className="flex justify-start items-center gap-2">
                 <span
-                  className={`flex-1 text-center text-sm sm:text-[15px] leading-4 ${
+                  className={`text-left text-sm sm:text-[15px] leading-4 whitespace-nowrap ${
                     activeTab === tab.key
                       ? "text-text-white"
                       : "text-text-secondary"
