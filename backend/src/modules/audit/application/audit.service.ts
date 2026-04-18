@@ -274,9 +274,13 @@ export class AuditService implements OnApplicationBootstrap {
             ? AUDIT_LABELS.SOURCE_SECURITY
             : AUDIT_LABELS.SOURCE_AUDIT,
         ipAddress:
-          row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+          !row.ipAddress || row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE
+            ? ''
+            : row.ipAddress,
         userAgent:
-          row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userAgent,
+          !row.userAgent || row.userAgent === AUDIT_LABELS.NOT_AVAILABLE
+            ? ''
+            : row.userAgent,
       }),
     },
     panel: {
@@ -457,9 +461,13 @@ export class AuditService implements OnApplicationBootstrap {
               : row.actionName,
           source: AUDIT_LABELS.SOURCE_SECURITY,
           ipAddress:
-            row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+            !row.ipAddress || row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE
+              ? ''
+              : row.ipAddress,
           userAgent:
-            row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userAgent,
+            !row.userAgent || row.userAgent === AUDIT_LABELS.NOT_AVAILABLE
+              ? ''
+              : row.userAgent,
           deviceId: str(meta.deviceId),
           locationSource: str(meta.locationSource),
           city: str(meta.city),
