@@ -4,8 +4,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import FloatingSelect from "@/components/ui/FloatingSelect";
+import Modal from "@/components/ui/Modal";
+import AdvancedFiltersSidebar from "@/components/pages/admin/AdvancedFiltersSidebar";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
+import { enrollmentService } from "@/services/enrollment.service";
 import {
   coursesService,
   type AdminCourseCycleItem,
@@ -151,6 +154,10 @@ export default function CursosContent() {
   const [sidebarStatus, setSidebarStatus] = useState<CourseStatusFilter>("");
 
   const [menuCourseId, setMenuCourseId] = useState<string | null>(null);
+  const [statusTarget, setStatusTarget] = useState<CourseManagementRow | null>(
+    null,
+  );
+  const [statusSaving, setStatusSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -204,6 +211,47 @@ export default function CursosContent() {
         cyclesByCourseId.set(item.course.id, current);
       }
 
+      const preferredCycleByCourseId = new Map<string, AdminCourseCycleItem>();
+      for (const course of catalog) {
+        const relatedCycles = cyclesByCourseId.get(course.id) || [];
+        const preferredCycle = pickPreferredCycle(relatedCycles);
+        if (preferredCycle) {
+          preferredCycleByCourseId.set(course.id, preferredCycle);
+        }
+      }
+
+      const uniquePreferredCycleIds = Array.from(
+        new Set(
+          Array.from(preferredCycleByCourseId.values()).map(
+            (cycle) => cycle.courseCycleId,
+          ),
+        ),
+      );
+
+      const studentCountEntries = await Promise.all(
+        uniquePreferredCycleIds.map(async (courseCycleId) => {
+          try {
+            const response =
+              await enrollmentService.getAdminStudentsByCourseCycle({
+                courseCycleId,
+                page: 1,
+                pageSize: 1,
+              });
+            return [courseCycleId, String(response.totalItems)] as const;
+          } catch (error) {
+            console.error(
+              `Error al cargar alumnos del curso-ciclo ${courseCycleId}:`,
+              error,
+            );
+            return [courseCycleId, "-"] as const;
+          }
+        }),
+      );
+
+      const studentCountByCycleId = new Map<string, string>(
+        studentCountEntries,
+      );
+
       const mappedRows = catalog.map((course: Course) => {
         const relatedCycles = cyclesByCourseId.get(course.id) || [];
         const preferredCycle = pickPreferredCycle(relatedCycles);
@@ -218,7 +266,9 @@ export default function CursosContent() {
           advisorLabel: preferredCycle
             ? getAdvisorLabel(preferredCycle.professors)
             : "Sin asignar",
-          studentCountLabel: "-",
+          studentCountLabel: preferredCycle
+            ? (studentCountByCycleId.get(preferredCycle.courseCycleId) ?? "0")
+            : "-",
           isActive: course.isActive,
           courseCycleId: preferredCycle?.courseCycleId || null,
         } satisfies CourseManagementRow;
@@ -373,8 +423,61 @@ export default function CursosContent() {
     router.push(`/plataforma/curso/${encodeURIComponent(row.courseCycleId)}`);
   };
 
+  const goToCourseEdit = (row: CourseManagementRow) => {
+    if (!row.courseCycleId) {
+      showToast({
+        type: "info",
+        title: "Curso sin ciclo disponible",
+        description:
+          "Este curso todavía no tiene un ciclo abierto para editar su configuración.",
+      });
+      return;
+    }
+    router.push(
+      `/plataforma/curso/${encodeURIComponent(row.courseCycleId)}/editar`,
+    );
+  };
+
+  const handleToggleCourseStatus = async () => {
+    if (!statusTarget) return;
+
+    setStatusSaving(true);
+    try {
+      const updated = await coursesService.updateStatus(
+        statusTarget.courseId,
+        !statusTarget.isActive,
+      );
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.courseId === statusTarget.courseId
+            ? { ...row, isActive: updated.isActive }
+            : row,
+        ),
+      );
+      setStatusTarget(null);
+      showToast({
+        type: "success",
+        title: updated.isActive ? "Curso activado" : "Curso inactivado",
+        description: updated.isActive
+          ? "La materia vuelve a estar disponible en gestión de cursos."
+          : "La materia fue desactivada correctamente.",
+      });
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "No se pudo actualizar el estado",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error inesperado.",
+      });
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-text-primary text-3xl font-semibold leading-10">
           Gestión de Cursos
@@ -669,6 +772,45 @@ export default function CursosContent() {
                               Ver
                             </span>
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuCourseId(null);
+                              goToCourseEdit(row);
+                            }}
+                            className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name="edit"
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              Editar
+                            </span>
+                          </button>
+                          <div className="self-stretch h-0 outline outline-1 outline-offset-[-0.50px] outline-stroke-secondary" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuCourseId(null);
+                              setStatusTarget(row);
+                            }}
+                            className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name={
+                                row.isActive ? "person_off" : "check_circle"
+                              }
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              {row.isActive ? "Inactivar" : "Activar"}
+                            </span>
+                          </button>
                         </div>
                       )}
                     </td>
@@ -749,138 +891,124 @@ export default function CursosContent() {
         )}
       </div>
 
-      <div
-        className={`fixed inset-0 z-50 flex justify-end transition-opacity duration-300 ${sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+      <AdvancedFiltersSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onClear={clearSidebarFilters}
+        onApply={applySidebarFilters}
       >
-        <div
-          className="absolute inset-0 bg-black/20"
-          onClick={() => setSidebarOpen(false)}
-        />
-
-        <div
-          className={`relative w-[400px] h-full bg-bg-primary shadow-[0px_24px_48px_-12px_rgba(0,0,0,0.15)] border-l border-stroke-secondary flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}
-        >
-          <div className="pl-6 pr-3.5 py-6 border-b border-stroke-secondary flex items-center gap-4">
-            <div className="flex-1 flex items-center gap-2">
-              <div className="p-2 bg-bg-accent-light rounded-full flex items-center">
-                <Icon
-                  name="filter_list"
-                  size={20}
-                  className="text-icon-accent-primary"
-                />
-              </div>
-              <span className="flex-1 text-text-primary text-xl font-semibold leading-6">
-                Filtros Avanzados
-              </span>
-            </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-1.5 rounded-full hover:bg-bg-secondary transition-colors"
-            >
-              <Icon name="close" size={24} className="text-icon-tertiary" />
-            </button>
-          </div>
-
-          <div className="flex-1 p-6 flex flex-col gap-8 overflow-y-auto">
-            <div className="flex flex-col gap-4">
-              <span className="text-gray-600 text-base font-semibold leading-5">
-                Unidad
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                {availableTypeFilters.map((filter) => {
-                  const isActive = sidebarType === filter;
-                  return (
-                    <button
-                      key={filter}
-                      onClick={() => setSidebarType(filter)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium leading-4 transition-colors ${
-                        isActive
-                          ? "bg-bg-accent-primary-solid text-text-white"
-                          : "bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light"
-                      }`}
-                    >
-                      {filter}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <span className="text-gray-600 text-base font-semibold leading-5">
-                Ciclo
-              </span>
-              <FloatingSelect
-                label="Ciclo"
-                value={sidebarCycle}
-                options={availableCycleOptions}
-                onChange={setSidebarCycle}
-                allLabel="Todos"
-                className="w-full"
-                variant="filled"
-                size="large"
-              />
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <span className="text-gray-600 text-base font-semibold leading-5">
-                Estado
-              </span>
-              <div className="flex flex-col gap-2">
-                {(
-                  [
-                    ["ACTIVE", "Activo"],
-                    ["INACTIVE", "Inactivo"],
-                  ] as const
-                ).map(([value, label]) => {
-                  const checked = sidebarStatus === value;
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => setSidebarStatus(checked ? "" : value)}
-                      className="flex items-center gap-1"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${checked ? "bg-bg-accent-primary-solid border-bg-accent-primary-solid" : "border-icon-tertiary bg-transparent"}`}
-                      >
-                        {checked && (
-                          <Icon
-                            name="check"
-                            size={14}
-                            className="text-icon-white"
-                          />
-                        )}
-                      </div>
-                      <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">
-                        {label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 border-t border-stroke-secondary flex justify-end items-center gap-4">
-            <button
-              onClick={clearSidebarFilters}
-              className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex items-center gap-1.5 hover:bg-bg-secondary transition-colors"
-            >
-              <span className="text-text-tertiary text-sm font-medium leading-4">
-                Limpiar Todo
-              </span>
-            </button>
-            <button
-              onClick={applySidebarFilters}
-              className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg flex items-center gap-1.5 hover:bg-bg-accent-solid-hover transition-colors"
-            >
-              <span className="text-text-white text-sm font-medium leading-4">
-                Aplicar Filtros
-              </span>
-            </button>
+        <div className="flex flex-col gap-4">
+          <span className="text-gray-600 text-base font-semibold leading-5">
+            Unidad
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {availableTypeFilters.map((filter) => {
+              const isActive = sidebarType === filter;
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setSidebarType(filter)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium leading-4 transition-colors ${
+                    isActive
+                      ? "bg-bg-accent-primary-solid text-text-white"
+                      : "bg-bg-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary text-text-accent-primary hover:bg-bg-accent-light"
+                  }`}
+                >
+                  {filter}
+                </button>
+              );
+            })}
           </div>
         </div>
-      </div>
+
+        <div className="flex flex-col gap-4">
+          <span className="text-gray-600 text-base font-semibold leading-5">
+            Ciclo
+          </span>
+          <FloatingSelect
+            label="Ciclo"
+            value={sidebarCycle}
+            options={availableCycleOptions}
+            onChange={setSidebarCycle}
+            allLabel="Todos"
+            className="w-full"
+            variant="filled"
+            size="large"
+          />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <span className="text-gray-600 text-base font-semibold leading-5">
+            Estado
+          </span>
+          <div className="flex flex-col gap-2">
+            {(
+              [
+                ["ACTIVE", "Activo"],
+                ["INACTIVE", "Inactivo"],
+              ] as const
+            ).map(([value, label]) => {
+              const checked = sidebarStatus === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => setSidebarStatus(checked ? "" : value)}
+                  className="flex items-center gap-1"
+                >
+                  <div
+                    className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${checked ? "bg-bg-accent-primary-solid border-bg-accent-primary-solid" : "border-icon-tertiary bg-transparent"}`}
+                  >
+                    {checked && (
+                      <Icon
+                        name="check"
+                        size={14}
+                        className="text-icon-white"
+                      />
+                    )}
+                  </div>
+                  <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </AdvancedFiltersSidebar>
+
+      <Modal
+        isOpen={Boolean(statusTarget)}
+        onClose={() => !statusSaving && setStatusTarget(null)}
+        title={statusTarget?.isActive ? "Inactivar curso" : "Activar curso"}
+        size="sm"
+        footer={
+          <>
+            <Modal.Button
+              variant="secondary"
+              onClick={() => setStatusTarget(null)}
+              disabled={statusSaving}
+            >
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              variant={statusTarget?.isActive ? "danger" : "primary"}
+              onClick={() => void handleToggleCourseStatus()}
+              loading={statusSaving}
+              loadingText={
+                statusTarget?.isActive ? "Inactivando..." : "Activando..."
+              }
+            >
+              {statusTarget?.isActive ? "Inactivar" : "Activar"}
+            </Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-secondary text-sm leading-5">
+          {statusTarget?.isActive
+            ? "Esta acción desactivará la materia en gestión de cursos. Podrás volver a activarla más adelante."
+            : "Esta acción volverá a activar la materia y la mostrará nuevamente como disponible."}
+        </p>
+      </Modal>
     </div>
   );
 }

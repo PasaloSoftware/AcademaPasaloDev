@@ -208,6 +208,11 @@ export class AuditService implements OnApplicationBootstrap {
     events: {
       columns: [
         {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+          key: 'id',
+          width: 20,
+        },
+        {
           header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
           key: 'datetime',
           width: 25,
@@ -251,23 +256,36 @@ export class AuditService implements OnApplicationBootstrap {
         },
       ],
       mapRow: (row, formattedDatetime) => ({
+        id: row.id,
         datetime: formattedDatetime,
-        userId: row.userId,
-        userName: row.userName,
-        userEmail: row.userEmail,
-        userRole: row.userRole,
-        actionCode: row.actionCode,
-        actionName: row.actionName,
+        userId: row.userId ?? '',
+        userName:
+          row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+        userEmail:
+          row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userEmail,
+        userRole:
+          row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+        actionCode:
+          row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionCode,
+        actionName:
+          row.actionName === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionName,
         source:
           row.source === AUDIT_SOURCES.SECURITY
             ? AUDIT_LABELS.SOURCE_SECURITY
             : AUDIT_LABELS.SOURCE_AUDIT,
-        ipAddress: row.ipAddress ?? '',
-        userAgent: row.userAgent ?? '',
+        ipAddress:
+          row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+        userAgent:
+          row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userAgent,
       }),
     },
     panel: {
       columns: [
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+          key: 'id',
+          width: 20,
+        },
         {
           header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
           key: 'datetime',
@@ -306,13 +324,19 @@ export class AuditService implements OnApplicationBootstrap {
         { header: AUDIT_EXCEL_CONFIG.COLUMNS.SOURCE, key: 'source', width: 15 },
       ],
       mapRow: (row, formattedDatetime) => ({
+        id: row.id,
         datetime: formattedDatetime,
-        userId: row.userId,
-        userName: row.userName,
-        userEmail: row.userEmail,
-        userRole: row.userRole,
-        actionCode: row.actionCode,
-        actionName: row.actionName,
+        userId: row.userId ?? '',
+        userName:
+          row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+        userEmail:
+          row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userEmail,
+        userRole:
+          row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+        actionCode:
+          row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionCode,
+        actionName:
+          row.actionName === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionName,
         source:
           row.source === AUDIT_SOURCES.SECURITY
             ? AUDIT_LABELS.SOURCE_SECURITY
@@ -321,6 +345,11 @@ export class AuditService implements OnApplicationBootstrap {
     },
     security: {
       columns: [
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+          key: 'id',
+          width: 20,
+        },
         {
           header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
           key: 'datetime',
@@ -409,16 +438,28 @@ export class AuditService implements OnApplicationBootstrap {
         const meta = row.metadata ?? {};
         const str = (v: unknown) => (typeof v === 'string' ? v : '');
         return {
+          id: row.id,
           datetime: formattedDatetime,
-          userId: row.userId,
-          userName: row.userName,
-          userEmail: row.userEmail,
-          userRole: row.userRole,
-          actionCode: row.actionCode,
-          actionName: row.actionName,
+          userId: row.userId ?? '',
+          userName:
+            row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+          userEmail:
+            row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userEmail,
+          userRole:
+            row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+          actionCode:
+            row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION
+              ? ''
+              : row.actionCode,
+          actionName:
+            row.actionName === AUDIT_LABELS.UNKNOWN_ACTION
+              ? ''
+              : row.actionName,
           source: AUDIT_LABELS.SOURCE_SECURITY,
-          ipAddress: row.ipAddress ?? '',
-          userAgent: row.userAgent ?? '',
+          ipAddress:
+            row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+          userAgent:
+            row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userAgent,
           deviceId: str(meta.deviceId),
           locationSource: str(meta.locationSource),
           city: str(meta.city),
@@ -737,7 +778,6 @@ export class AuditService implements OnApplicationBootstrap {
       useSharedStrings: false,
     });
     const worksheet = workbook.addWorksheet(AUDIT_EXCEL_CONFIG.SHEET_NAME);
-
     worksheet.columns = templateDef.columns;
 
     worksheet.getRow(1).font = {

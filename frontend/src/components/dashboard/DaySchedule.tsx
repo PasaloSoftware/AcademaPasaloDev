@@ -23,21 +23,17 @@ export default function DaySchedule() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  // Calcular inicio y fin de la semana
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Domingo
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 }); // Sábado
-
-  // Generar array de días de la semana
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Tick every 30s so join-button reactivity stays fresh
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    loadSchedule();
+    void loadSchedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
@@ -48,7 +44,6 @@ export default function DaySchedule() {
     try {
       const start = format(weekStart, "yyyy-MM-dd");
       const end = format(weekEnd, "yyyy-MM-dd");
-
       const eventsData = await classEventService.getMySchedule({ start, end });
       setEvents(eventsData);
     } catch {
@@ -66,11 +61,6 @@ export default function DaySchedule() {
     setCurrentDate((prev) => addDays(prev, 7));
   };
 
-  const goToToday = () => {
-    setCurrentDate(new Date());
-  };
-
-  // Filtrar eventos del día actual
   const todayEvents = events.filter((event) =>
     isSameDay(parseISO(event.startDatetime), currentDate),
   );
@@ -82,17 +72,15 @@ export default function DaySchedule() {
     const startMinutes = startDate.getMinutes();
     const endMinutes = endDate.getMinutes();
 
-    // Si ambos tienen minutos = 0, mostrar solo horas
     if (startMinutes === 0 && endMinutes === 0) {
       const startTime = format(startDate, "h", { locale: es });
       const endTime = format(endDate, "h a", { locale: es })
-        .replace(" ", "") // 👈 quita espacio
+        .replace(" ", "")
         .toLowerCase();
 
       return `${startTime} - ${endTime}`;
     }
 
-    // Si alguno tiene minutos, mostrar formato completo
     const startTime = format(startDate, startMinutes === 0 ? "h" : "h:mm", {
       locale: es,
     });
@@ -100,46 +88,44 @@ export default function DaySchedule() {
     const endTime = format(endDate, endMinutes === 0 ? "h a" : "h:mm a", {
       locale: es,
     })
-      .replace(" ", "") // 👈 quita espacio
+      .replace(" ", "")
       .toLowerCase();
 
     return `${startTime} - ${endTime}`;
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stroke-primary overflow-hidden">
-      {/* Header */}
-      <div className="p-3 border-b border-stroke-primary flex justify-between items-center">
+    <div className="overflow-hidden rounded-2xl border border-stroke-primary bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-stroke-primary p-3">
         <div className="flex items-center gap-1">
           <Icon name="event" size={20} className="text-magenta-violet-500" />
-          <h2 className="text-sm font-semibold text-primary">Agenda del Día</h2>
+          <h2 className="text-sm font-semibold text-primary">Agenda del D�a</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <div className="flex items-center gap-0.5">
-            {/* Mostrar rango de meses si la semana cruza meses */}
             {format(weekStart, "M") !== format(weekEnd, "M") ? (
               <>
-                <span className="text-sm text-primary capitalize">
+                <span className="text-xs capitalize text-primary sm:text-sm">
                   {format(weekStart, "MMM", { locale: es })}
                 </span>
-                <span className="text-sm text-primary">-</span>
-                <span className="text-sm text-primary capitalize">
+                <span className="text-xs text-primary sm:text-sm">-</span>
+                <span className="text-xs capitalize text-primary sm:text-sm">
                   {format(weekEnd, "MMM", { locale: es })}
                 </span>
               </>
             ) : (
-              <span className="text-sm text-primary capitalize">
+              <span className="text-xs capitalize text-primary sm:text-sm">
                 {format(currentDate, "MMM", { locale: es })}
               </span>
             )}
-            <span className="text-sm text-primary">
+            <span className="text-xs text-primary sm:text-sm">
               {format(currentDate, "yyyy")}
             </span>
           </div>
           <div className="flex items-center">
             <button
               onClick={goToPreviousWeek}
-              className="p-1 rounded-lg hover:bg-secondary-hover flex items-center justify-center"
+              className="flex items-center justify-center rounded-lg p-1 hover:bg-secondary-hover"
               aria-label="Semana anterior"
             >
               <Icon
@@ -150,7 +136,7 @@ export default function DaySchedule() {
             </button>
             <button
               onClick={goToNextWeek}
-              className="p-1 rounded-lg hover:bg-secondary-hover flex items-center justify-center"
+              className="flex items-center justify-center rounded-lg p-1 hover:bg-secondary-hover"
               aria-label="Semana siguiente"
             >
               <Icon
@@ -163,8 +149,7 @@ export default function DaySchedule() {
         </div>
       </div>
 
-      {/* Mini Calendario Semanal */}
-      <div className="p-3 flex items-center gap-1">
+      <div className="flex items-center gap-1 p-3">
         {weekDays.map((day, index) => {
           const isSelected = isSameDay(day, currentDate);
           const isToday = isSameDay(day, new Date());
@@ -173,7 +158,7 @@ export default function DaySchedule() {
             <button
               key={index}
               onClick={() => setCurrentDate(day)}
-              className={`flex-1 px-2 py-1.5 rounded-xl flex flex-col items-center gap-px transition-colors ${
+              className={`flex flex-1 flex-col items-center gap-px rounded-xl px-1.5 py-1.5 transition-colors sm:px-2 ${
                 isSelected
                   ? "bg-muted-indigo-50"
                   : "bg-white hover:bg-secondary-hover"
@@ -189,7 +174,7 @@ export default function DaySchedule() {
                 {format(day, "EEE", { locale: es }).substring(0, 3)}
               </span>
               <div
-                className={`w-5 h-5 p-0.5 rounded-full inline-flex justify-center items-center ${
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full p-0.5 ${
                   isToday ? "bg-info-primary-solid" : ""
                 }`}
               >
@@ -210,11 +195,10 @@ export default function DaySchedule() {
         })}
       </div>
 
-      {/* Eventos del Día */}
-      <div className="px-3 pb-3 space-y-3">
+      <div className="space-y-3 px-3 pb-3">
         {loading ? (
           <div className="p-6 text-center">
-            <div className="w-8 h-8 border-4 border-info-primary-solid border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+            <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-4 border-info-primary-solid border-t-transparent"></div>
             <p className="text-sm text-secondary">Cargando eventos...</p>
           </div>
         ) : error ? (
@@ -222,11 +206,11 @@ export default function DaySchedule() {
             <Icon
               name="error"
               size={32}
-              className="text-error-solid mx-auto mb-2"
+              className="mx-auto mb-2 text-error-solid"
             />
             <p className="text-sm text-error-solid">{error}</p>
             <button
-              onClick={loadSchedule}
+              onClick={() => void loadSchedule()}
               className="mt-2 text-sm text-accent-primary hover:underline"
             >
               Reintentar
@@ -237,7 +221,7 @@ export default function DaySchedule() {
             <Icon
               name="event_busy"
               size={32}
-              className="text-gray-600 mx-auto mb-2"
+              className="mx-auto mb-2 text-gray-600"
               variant="outlined"
             />
             <p className="text-sm text-gray-600">
@@ -247,7 +231,6 @@ export default function DaySchedule() {
         ) : (
           todayEvents.map((event) => {
             const colors = getCourseColor(event.courseCode);
-            const isNow = event.sessionStatus === "EN_CURSO";
 
             const startMs = new Date(event.startDatetime).getTime();
             const isLive = event.sessionStatus === "EN_CURSO";
@@ -263,26 +246,21 @@ export default function DaySchedule() {
             return (
               <div
                 key={event.id}
-                className="rounded-xl border-l-4 overflow-hidden"
+                className="overflow-hidden rounded-xl border-l-4"
                 style={{
                   backgroundColor: colors.secondary,
                   borderLeftColor: colors.primary,
                 }}
               >
-                <div className="px-3 py-2.5 flex items-center gap-3">
+                <div className="flex items-center gap-3 px-3 py-2.5">
                   <div className="flex-1 space-y-1">
                     <div className="flex items-start gap-1">
                       <span className="text-[10px] font-medium text-primary">
                         {event.title}
                       </span>
-                      {/*isNow && (
-                        <span className="px-1.5 py-0.5 bg-error-solid text-white text-[8px] font-bold rounded">
-                          EN VIVO
-                        </span>
-                      )*/}
                     </div>
                     <div className="flex items-center">
-                      <span className="text-xs font-medium text-primary truncate">
+                      <span className="truncate text-xs font-medium text-primary">
                         {event.courseName}
                       </span>
                     </div>
@@ -304,9 +282,9 @@ export default function DaySchedule() {
                           "noopener,noreferrer",
                         )
                       }
-                      className="px-3 py-1.5 rounded-lg hover:bg-white/70 transition-colors"
+                      className="rounded-lg px-2 py-1.5 transition-colors hover:bg-white/70 sm:px-3"
                     >
-                      <span className="text-sm font-medium text-accent-primary">
+                      <span className="text-xs font-medium text-accent-primary sm:text-sm">
                         Unirse
                       </span>
                     </button>
@@ -318,13 +296,12 @@ export default function DaySchedule() {
         )}
       </div>
 
-      {/* Footer - Ver Calendario Completo */}
-      <div className="w-full p-3 border-t border-stroke-secondary inline-flex flex-col justify-start items-center">
+      <div className="inline-flex w-full flex-col items-center justify-start border-t border-stroke-secondary p-3">
         <Link
           href="/plataforma/calendario"
-          className="p-1 rounded-lg inline-flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg p-1 transition-colors hover:bg-bg-secondary"
         >
-          <span className="text-text-accent-primary text-sm font-medium leading-4">
+          <span className="text-sm font-medium leading-4 text-text-accent-primary">
             Ver Calendario Completo
           </span>
         </Link>

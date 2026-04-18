@@ -30,6 +30,7 @@ import {
   AdminCourseCycleListQueryDto,
   AdminCourseCycleListResponseDto,
 } from '@modules/courses/dto/admin-course-cycle-list.dto';
+import { PublicCourseCatalogItemDto } from '@modules/courses/dto/public-course-catalog.dto';
 import { CourseContentResponseDto } from '@modules/courses/dto/course-content.dto';
 import {
   StudentCurrentCycleContentResponseDto,
@@ -169,6 +170,61 @@ export class CoursesService {
 
   async findAllCourses(): Promise<Course[]> {
     return await this.courseRepository.findAll();
+  }
+
+  async getPublicLandingCatalog(): Promise<PublicCourseCatalogItemDto[]> {
+    const activeCycle = await this.cyclesService.getActiveCycle();
+    const rows =
+      await this.courseCycleRepository.findPublicLandingCatalogByCycleId(
+        activeCycle.id,
+      );
+
+    const grouped = new Map<string, PublicCourseCatalogItemDto>();
+
+    rows.forEach((row) => {
+      const existing = grouped.get(row.courseCycleId);
+
+      if (!existing) {
+        grouped.set(row.courseCycleId, {
+          courseCycleId: row.courseCycleId,
+          courseId: row.courseId,
+          code: row.courseCode,
+          name: row.courseName,
+          categoryCode: row.courseTypeCode,
+          categoryName: row.courseTypeName,
+          cycleLabel: row.cycleLevelName,
+          headerColor: row.primaryColor,
+          freeClassUrl: row.introVideoUrl,
+          professors: row.professorId
+            ? [
+                {
+                  id: row.professorId,
+                  firstName: row.professorFirstName || '',
+                  lastName1: row.professorLastName1,
+                  profilePhotoUrl: row.professorProfilePhotoUrl,
+                },
+              ]
+            : [],
+        });
+        return;
+      }
+
+      if (
+        row.professorId &&
+        !existing.professors.some(
+          (professor) => professor.id === row.professorId,
+        )
+      ) {
+        existing.professors.push({
+          id: row.professorId,
+          firstName: row.professorFirstName || '',
+          lastName1: row.professorLastName1,
+          profilePhotoUrl: row.professorProfilePhotoUrl,
+        });
+      }
+    });
+
+    return Array.from(grouped.values());
   }
 
   async findAdminCourseCycles(

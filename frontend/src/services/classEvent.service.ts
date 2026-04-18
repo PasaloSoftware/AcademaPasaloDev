@@ -2,12 +2,42 @@
 // CLASS EVENT SERVICE - Gestión de Eventos del Calendario
 // ============================================
 
-import { apiClient } from '@/lib/apiClient';
-import type { ClassEvent } from '@/types/classEvent';
+import { apiClient } from "@/lib/apiClient";
+import type { ClassEvent } from "@/types/classEvent";
 
 export interface MyScheduleParams {
   start: string; // Fecha inicio del rango (ISO-8601, ej: 2026-02-01)
   end: string; // Fecha fin del rango (ISO-8601, ej: 2026-02-07)
+}
+
+export interface DiscoveryLayer {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  courseTypeCode: string;
+}
+
+export interface GlobalSessionItem {
+  eventId: string;
+  evaluationId: string;
+  sessionNumber: number;
+  title: string;
+  topic: string;
+  startDatetime: string;
+  endDatetime: string;
+}
+
+export interface GlobalSessionsGroup {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  sessions: GlobalSessionItem[];
 }
 
 export interface CreateClassEventPayload {
@@ -39,7 +69,7 @@ export interface RecordingUploadStatus {
   classEventId: string;
   recordingStatus: string;
   hasActiveRecordingUpload: boolean;
-  activeUploadMode: 'initial' | 'replacement' | null;
+  activeUploadMode: "initial" | "replacement" | null;
   uploadExpiresAt: string | null;
   resumableSessionUrl: string | null;
 }
@@ -69,7 +99,30 @@ export const classEventService = {
    */
   async getMySchedule(params: MyScheduleParams): Promise<ClassEvent[]> {
     const response = await apiClient.get<ClassEvent[]>(
-      `/class-events/my-schedule?start=${params.start}&end=${params.end}`
+      `/class-events/my-schedule?start=${params.start}&end=${params.end}`,
+    );
+    return response.data;
+  },
+
+  async getDiscoveryLayers(courseCycleId: string): Promise<DiscoveryLayer[]> {
+    const response = await apiClient.get<DiscoveryLayer[]>(
+      `/class-events/discovery/layers/${courseCycleId}`,
+    );
+    return response.data;
+  },
+
+  async getGlobalSessions(params: {
+    courseCycleIds: string[];
+    startDate: string;
+    endDate: string;
+  }): Promise<GlobalSessionsGroup[]> {
+    const query = new URLSearchParams({
+      courseCycleIds: params.courseCycleIds.join(","),
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    const response = await apiClient.get<GlobalSessionsGroup[]>(
+      `/class-events/global/sessions?${query.toString()}`,
     );
     return response.data;
   },
@@ -88,7 +141,9 @@ export const classEventService = {
    * @param evaluationId - ID de la evaluación
    */
   async getEvaluationEvents(evaluationId: string): Promise<ClassEvent[]> {
-    const response = await apiClient.get<ClassEvent[]>(`/class-events/evaluation/${evaluationId}`);
+    const response = await apiClient.get<ClassEvent[]>(
+      `/class-events/evaluation/${evaluationId}`,
+    );
     return response.data;
   },
 
@@ -98,13 +153,13 @@ export const classEventService = {
    */
   joinMeeting(event: ClassEvent): void {
     if (!event.canJoinLive) {
-      throw new Error('No tienes acceso a esta reunión en este momento');
+      throw new Error("No tienes acceso a esta reunión en este momento");
     }
 
     if (event.liveMeetingUrl) {
-      window.open(event.liveMeetingUrl, '_blank', 'noopener,noreferrer');
+      window.open(event.liveMeetingUrl, "_blank", "noopener,noreferrer");
     } else {
-      throw new Error('El link de la reunión no está disponible');
+      throw new Error("El link de la reunión no está disponible");
     }
   },
 
@@ -114,31 +169,31 @@ export const classEventService = {
    */
   async copyMeetingLink(event: ClassEvent): Promise<void> {
     if (!event.canCopyLiveLink) {
-      throw new Error('No tienes permiso para copiar el link de esta reunión');
+      throw new Error("No tienes permiso para copiar el link de esta reunión");
     }
 
     if (!event.liveMeetingUrl) {
-      throw new Error('El link de la reunión no está disponible');
+      throw new Error("El link de la reunión no está disponible");
     }
 
     try {
       await navigator.clipboard.writeText(event.liveMeetingUrl);
     } catch {
       // Fallback para navegadores que no soportan clipboard API
-      const textArea = document.createElement('textarea');
+      const textArea = document.createElement("textarea");
       textArea.value = event.liveMeetingUrl;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
 
       try {
-        document.execCommand('copy');
+        document.execCommand("copy");
         textArea.remove();
       } catch {
         textArea.remove();
-        throw new Error('No se pudo copiar el link');
+        throw new Error("No se pudo copiar el link");
       }
     }
   },
@@ -185,8 +240,8 @@ export const classEventService = {
     saturday.setHours(23, 59, 59, 999);
 
     return {
-      start: sunday.toISOString().split('T')[0], // YYYY-MM-DD
-      end: saturday.toISOString().split('T')[0]
+      start: sunday.toISOString().split("T")[0], // YYYY-MM-DD
+      end: saturday.toISOString().split("T")[0],
     };
   },
 
@@ -200,8 +255,8 @@ export const classEventService = {
     const lastDay = new Date(year, month + 1, 0);
 
     return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
+      start: firstDay.toISOString().split("T")[0],
+      end: lastDay.toISOString().split("T")[0],
     };
   },
 
@@ -216,18 +271,24 @@ export const classEventService = {
     endOfDay.setHours(23, 59, 59, 999);
 
     return {
-      start: today.toISOString().split('T')[0],
-      end: endOfDay.toISOString().split('T')[0]
+      start: today.toISOString().split("T")[0],
+      end: endOfDay.toISOString().split("T")[0],
     };
   },
 
   async createEvent(payload: CreateClassEventPayload): Promise<ClassEvent> {
-    const response = await apiClient.post<ClassEvent>('/class-events', payload);
+    const response = await apiClient.post<ClassEvent>("/class-events", payload);
     return response.data;
   },
 
-  async updateEvent(id: string, payload: UpdateClassEventPayload): Promise<ClassEvent> {
-    const response = await apiClient.patch<ClassEvent>(`/class-events/${id}`, payload);
+  async updateEvent(
+    id: string,
+    payload: UpdateClassEventPayload,
+  ): Promise<ClassEvent> {
+    const response = await apiClient.patch<ClassEvent>(
+      `/class-events/${id}`,
+      payload,
+    );
     return response.data;
   },
 
@@ -282,11 +343,21 @@ export const classEventService = {
     await apiClient.delete(`/class-events/${id}/cancel`);
   },
 
-  async assignProfessor(eventId: string, professorUserId: string): Promise<void> {
-    await apiClient.post(`/class-events/${eventId}/professors`, { professorUserId });
+  async assignProfessor(
+    eventId: string,
+    professorUserId: string,
+  ): Promise<void> {
+    await apiClient.post(`/class-events/${eventId}/professors`, {
+      professorUserId,
+    });
   },
 
-  async revokeProfessor(eventId: string, professorUserId: string): Promise<void> {
-    await apiClient.delete(`/class-events/${eventId}/professors/${professorUserId}`);
+  async revokeProfessor(
+    eventId: string,
+    professorUserId: string,
+  ): Promise<void> {
+    await apiClient.delete(
+      `/class-events/${eventId}/professors/${professorUserId}`,
+    );
   },
 };

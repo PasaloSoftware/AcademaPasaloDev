@@ -1,74 +1,139 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import CourseCard from "@/components/courses/CourseCard";
 import DaySchedule from "@/components/dashboard/DaySchedule";
+import EnrollmentRegistrationModal from "@/components/pages/admin/EnrollmentRegistrationModal";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { coursesService } from "@/services/courses.service";
-import type { AdminCourseCycleItem } from "@/services/courses.service";
-import { getCourseColor } from "@/lib/courseColors";
+import { usersService } from "@/services/users.service";
 
-const MAX_VISIBLE_COURSES = 4;
+interface AdminDashboardStats {
+  activeStudents: number;
+  teachers: number;
+  courses: number;
+}
+
+function StatCard({
+  icon,
+  iconWrapperClassName,
+  iconClassName,
+  label,
+  value,
+}: {
+  icon: string;
+  iconWrapperClassName: string;
+  iconClassName: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="inline-flex flex-1 flex-col items-start justify-start gap-4 rounded-xl bg-bg-primary p-4 outline outline-1 outline-offset-[-1px] outline-gray-100 sm:p-6">
+      <div
+        className={`inline-flex items-center justify-center rounded-xl p-2.5 sm:p-3 ${iconWrapperClassName}`}
+      >
+        <Icon name={icon} size={20} className={iconClassName} />
+      </div>
+      <div className="self-stretch">
+        <div className="self-stretch text-xs font-medium uppercase leading-4 text-gray-600 sm:text-sm">
+          {label}
+        </div>
+        <div className="self-stretch text-2xl font-extrabold leading-8 text-text-primary sm:text-3xl sm:leading-9">
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickAccessCard({
+  icon,
+  title,
+  onClick,
+}: {
+  icon: string;
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex flex-1 flex-col items-center justify-center gap-3 rounded-xl bg-bg-info-secondary-light p-4 transition-colors hover:bg-bg-info-secondary-light/80 sm:p-6"
+    >
+      <Icon
+        name={icon}
+        size={24}
+        className="text-icon-info-secondary sm:h-8 sm:w-8"
+      />
+      <div className="self-stretch whitespace-pre-line text-center text-xs font-medium leading-4 text-text-info-secondary sm:text-sm">
+        {title}
+      </div>
+    </button>
+  );
+}
 
 export default function InicioContent() {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [courseCycles, setCourseCycles] = useState<AdminCourseCycleItem[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
+  const [stats, setStats] = useState<AdminDashboardStats>({
+    activeStudents: 0,
+    teachers: 0,
+    courses: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
 
+  const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [studentsResponse, teachersResponse, courses] = await Promise.all([
+        usersService.getAdminUsers({
+          roles: "STUDENT",
+          status: "ACTIVE",
+        }),
+        usersService.getAdminUsers({
+          roles: "PROFESSOR",
+          status: "ACTIVE",
+        }),
+        coursesService.findAll(),
+      ]);
+
+      setStats({
+        activeStudents: studentsResponse.totalItems,
+        teachers: teachersResponse.totalItems,
+        courses: courses.length,
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al cargar los datos del inicio.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     setBreadcrumbItems([{ icon: "home", label: "Inicio" }]);
   }, [setBreadcrumbItems]);
 
   useEffect(() => {
-    async function loadCourseCycles() {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await coursesService.getAdminCourseCycles({
-          page: 1,
-          pageSize: MAX_VISIBLE_COURSES,
-        });
-        setCourseCycles(response.items);
-        setTotalItems(response.totalItems);
-      } catch (err) {
-        console.error("Error al cargar cursos:", err);
-        setError(
-          err instanceof Error ? err.message : "Error al cargar los cursos",
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadCourseCycles();
-  }, []);
-
-  const getProfessorInitials = (item: AdminCourseCycleItem): string => {
-    if (item.professors.length === 0) return "XX";
-    const prof = item.professors[0];
-    return `${prof.firstName[0]}${prof.lastName1[0]}`.toUpperCase();
-  };
-
-  const getProfessorName = (item: AdminCourseCycleItem): string => {
-    if (item.professors.length === 0) return "Sin asignar";
-    return item.professors
-      .map((p) => `${p.firstName} ${p.lastName1}`)
-      .join(" & ");
-  };
+    void loadDashboard();
+  }, [loadDashboard]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-accent-solid border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-secondary">Cargando cursos...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-accent-solid border-t-transparent" />
+          <p className="text-secondary">Cargando panel administrativo...</p>
         </div>
       </div>
     );
@@ -76,17 +141,17 @@ export default function InicioContent() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
           <Icon
             name="error"
             size={64}
-            className="text-error-solid mb-4 mx-auto"
+            className="mx-auto mb-4 text-error-solid"
           />
-          <p className="text-lg font-semibold text-primary mb-2">{error}</p>
+          <p className="mb-2 text-lg font-semibold text-primary">{error}</p>
           <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-accent-solid text-white rounded-lg hover:bg-accent-solid-hover transition-colors"
+            onClick={() => void loadDashboard()}
+            className="mt-4 rounded-lg bg-accent-solid px-4 py-2 text-white transition-colors hover:bg-accent-solid-hover"
           >
             Reintentar
           </button>
@@ -96,149 +161,92 @@ export default function InicioContent() {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[1fr_348px] gap-12">
-      {/* Columna Izquierda: Cursos */}
-      <div className="flex flex-col gap-5">
-        <div className="space-y-8">
-          {/* Header: Cursos con toggles */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Icon name="class" size={32} className="text-accent-secondary" />
-              <h1 className="text-3xl font-semibold text-primary">Cursos</h1>
-            </div>
-
-            {/* Toggle Galería/Lista */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`px-2.5 py-2 rounded flex items-center gap-1 transition-colors ${
-                  viewMode === "grid"
-                    ? "bg-accent-solid"
-                    : "bg-white border border-accent-primary hover:bg-accent-light"
-                }`}
-              >
-                <Icon
-                  name="grid_view"
-                  size={16}
-                  className={
-                    viewMode === "grid" ? "text-white" : "text-accent-primary"
-                  }
-                />
-                <span
-                  className={`text-sm font-medium ${viewMode === "grid" ? "text-white" : "text-accent-primary"}`}
-                >
-                  Galería
-                </span>
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`px-2.5 py-2 rounded flex items-center gap-1 transition-colors ${
-                  viewMode === "list"
-                    ? "bg-accent-solid"
-                    : "bg-white border border-accent-primary hover:bg-accent-light"
-                }`}
-              >
-                <Icon
-                  name="view_list"
-                  size={16}
-                  className={
-                    viewMode === "list" ? "text-white" : "text-accent-primary"
-                  }
-                />
-                <span
-                  className={`text-sm font-medium ${viewMode === "list" ? "text-white" : "text-accent-primary"}`}
-                >
-                  Lista
-                </span>
-              </button>
-            </div>
+    <>
+      <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[1fr_348px] xl:gap-12">
+        <div className="self-stretch">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-3">
+            <StatCard
+              icon="how_to_reg"
+              iconWrapperClassName="bg-bg-accent-light"
+              iconClassName="text-icon-accent-primary"
+              label="Alumnos Activos"
+              value={stats.activeStudents}
+            />
+            <StatCard
+              icon="work"
+              iconWrapperClassName="bg-bg-info-primary-light"
+              iconClassName="text-icon-info-primary"
+              label="Docentes"
+              value={stats.teachers}
+            />
+            <StatCard
+              icon="class"
+              iconWrapperClassName="bg-bg-tertiary"
+              iconClassName="text-icon-tertiary"
+              label="Cursos"
+              value={stats.courses}
+            />
           </div>
 
-          {/* Grid de Cursos */}
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 gap-6"
-                : "flex flex-col gap-6"
-            }
-            style={viewMode === "grid" ? { gridAutoRows: "1fr" } : undefined}
-          >
-            {courseCycles.length === 0 ? (
-              <div className="col-span-2 text-center py-12">
+          <div className="mt-6 flex flex-col gap-6 md:mt-8">
+            <div className="inline-flex items-center justify-start">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Icon
-                  name="school"
-                  size={64}
-                  className="text-secondary mx-auto mb-4"
+                  name="bolt"
+                  size={24}
+                  className="text-accent-secondary sm:h-8 sm:w-8"
                 />
-                <p className="text-lg font-semibold text-primary mb-2">
-                  No hay cursos registrados
-                </p>
-                <p className="text-secondary">
-                  Los cursos aparecerán aquí cuando se creen en el sistema
-                </p>
+                <div className="text-xl font-semibold leading-7 text-text-primary sm:text-3xl sm:leading-8">
+                  Accesos Rapidos
+                </div>
               </div>
-            ) : (
-              courseCycles.map((item) => {
-                const courseCode = item.course.code;
-                const courseColor = getCourseColor(courseCode);
+            </div>
 
-                const teachers =
-                  item.professors.length > 0
-                    ? item.professors.map((p) => ({
-                        initials:
-                          `${p.firstName[0]}${p.lastName1[0]}`.toUpperCase(),
-                        name: `${p.firstName} ${p.lastName1}`,
-                        avatarColor: courseColor.primary,
-                        photoUrl: p.profilePhotoUrl || undefined,
-                      }))
-                    : [
-                        {
-                          initials: "XX",
-                          name: "Sin asignar",
-                          avatarColor: courseColor.primary,
-                        },
-                      ];
-
-                return (
-                  <div
-                    key={item.courseCycleId}
-                    className="flex flex-col gap-3 h-full"
-                  >
-                    <CourseCard
-                      headerColor={courseColor.primary}
-                      category="CIENCIAS"
-                      cycle={item.academicCycle.code}
-                      title={item.course.name}
-                      teachers={teachers}
-                      onViewCourse={() =>
-                        router.push(`/plataforma/curso/${item.courseCycleId}`)
-                      }
-                      variant={viewMode}
-                    />
-                  </div>
-                );
-              })
-            )}
+            <div className="grid grid-cols-2 gap-4 md:gap-6 xl:grid-cols-4">
+              <QuickAccessCard
+                icon="person_add_alt"
+                title={"Registrar\nUsuario"}
+                onClick={() =>
+                  router.push("/plataforma/admin/usuarios/registrar")
+                }
+              />
+              <QuickAccessCard
+                icon="assignment_ind"
+                title={"Nueva\nMatricula"}
+                onClick={() => setIsEnrollmentModalOpen(true)}
+              />
+              <QuickAccessCard
+                icon="add_to_photos"
+                title={"Crear\nCurso"}
+                onClick={() => router.push("/plataforma/admin/cursos/crear")}
+              />
+              <QuickAccessCard
+                icon="grid_view"
+                title="Gestionar Cursos"
+                onClick={() => router.push("/plataforma/admin/cursos")}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Ver todos los cursos */}
-        {totalItems > MAX_VISIBLE_COURSES && (
-          <div className="flex justify-center p-1 rounded-lg">
-            <button
-              onClick={() => router.push("/plataforma/admin/cursos")}
-              className="text-text-accent-primary text-sm font-medium leading-4 hover:underline"
-            >
-              Ver todos los cursos
-            </button>
-          </div>
-        )}
+        <div className="space-y-6">
+          <DaySchedule />
+        </div>
       </div>
 
-      {/* Columna Derecha: Agenda */}
-      <div className="space-y-6">
-        <DaySchedule />
-      </div>
-    </div>
+      <EnrollmentRegistrationModal
+        isOpen={isEnrollmentModalOpen}
+        onClose={() => setIsEnrollmentModalOpen(false)}
+        onEnrollmentCreated={({ isNewStudent }) => {
+          if (isNewStudent) {
+            setStats((prev) => ({
+              ...prev,
+              activeStudents: prev.activeStudents + 1,
+            }));
+          }
+          setIsEnrollmentModalOpen(false);
+        }}
+      />
+    </>
   );
 }

@@ -54,6 +54,7 @@ export interface ClassEventMaterial {
   visibleFrom: string | null;
   visibleUntil: string | null;
   createdAt: string;
+  isPendingDeletion?: boolean;
   fileResource: FileResource;
   fileVersion: FileVersion;
 }

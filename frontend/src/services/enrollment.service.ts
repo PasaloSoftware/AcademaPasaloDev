@@ -20,6 +20,14 @@ export interface AdminCourseCycleStudentsResponse {
   totalPages: number;
 }
 
+export interface CreateEnrollmentInput {
+  userId: string;
+  courseCycleId: string;
+  enrollmentTypeCode: "FULL" | "PARTIAL";
+  evaluationIds?: string[];
+  historicalCourseCycleIds?: string[];
+}
+
 export const enrollmentService = {
   /**
    * Obtener los cursos matriculados del usuario actual
@@ -48,6 +56,10 @@ export const enrollmentService = {
       `/enrollments/course-cycle/${params.courseCycleId}/students${qs ? `?${qs}` : ""}`,
     );
     return response.data;
+  },
+
+  async create(data: CreateEnrollmentInput): Promise<void> {
+    await apiClient.post("/enrollments", data);
   },
 
   async cancel(id: string): Promise<void> {

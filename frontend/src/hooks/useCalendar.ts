@@ -2,45 +2,68 @@
 // USE CALENDAR HOOK - Gestión del Calendario de Clases
 // ============================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { classEventService } from '@/services/classEvent.service';
-import type { ClassEvent } from '@/types/classEvent';
-import { startOfWeek, endOfWeek, addWeeks, subWeeks, format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { classEventService } from "@/services/classEvent.service";
+import type { ClassEvent } from "@/types/classEvent";
+import {
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  subWeeks,
+  format,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  subMonths,
+} from "date-fns";
+import { es } from "date-fns/locale";
 
-export type CalendarView = 'weekly' | 'monthly';
+export type CalendarView = "weekly" | "monthly";
 
-export function useCalendar() {
+interface UseCalendarOptions {
+  enabled?: boolean;
+}
+
+export function useCalendar(options: UseCalendarOptions = {}) {
+  const { enabled = true } = options;
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<CalendarView>('weekly');
-  const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<CalendarView>("weekly");
+  const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const loadEvents = useCallback(async (start: Date, end: Date) => {
     setLoading(true);
     setError(null);
     try {
       const params = {
-        start: format(start, 'yyyy-MM-dd'),
-        end: format(end, 'yyyy-MM-dd'),
+        start: format(start, "yyyy-MM-dd"),
+        end: format(end, "yyyy-MM-dd"),
       };
       const events = await classEventService.getMySchedule(params);
       setEvents(events);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar eventos');
-      console.error('❌ [useCalendar] Error loading events:', err);
+      setError(err instanceof Error ? err.message : "Error al cargar eventos");
+      console.error("❌ [useCalendar] Error loading events:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
+
     let start: Date;
     let end: Date;
 
-    if (view === 'weekly') {
+    if (view === "weekly") {
       start = startOfWeek(currentDate, { weekStartsOn: 0 });
       end = endOfWeek(currentDate, { weekStartsOn: 0 });
     } else {
@@ -49,10 +72,10 @@ export function useCalendar() {
     }
 
     loadEvents(start, end);
-  }, [currentDate, view, loadEvents]);
+  }, [currentDate, enabled, view, loadEvents]);
 
   const goToNext = () => {
-    if (view === 'weekly') {
+    if (view === "weekly") {
       setCurrentDate(addWeeks(currentDate, 1));
     } else {
       setCurrentDate(addMonths(currentDate, 1));
@@ -60,7 +83,7 @@ export function useCalendar() {
   };
 
   const goToPrevious = () => {
-    if (view === 'weekly') {
+    if (view === "weekly") {
       setCurrentDate(subWeeks(currentDate, 1));
     } else {
       setCurrentDate(subMonths(currentDate, 1));
@@ -90,7 +113,7 @@ export function useCalendar() {
   }, [events, selectedCourseIds]);
 
   const getCurrentMonthYear = () => {
-    const str = format(currentDate, 'MMMM \'de\' yyyy', { locale: es });
+    const str = format(currentDate, "MMMM 'de' yyyy", { locale: es });
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
@@ -131,13 +154,16 @@ export function useCalendar() {
     getWeekDays,
     isToday,
     refreshEvents: () => {
-      const start = view === 'weekly'
-        ? startOfWeek(currentDate, { weekStartsOn: 0 })
-        : startOfMonth(currentDate);
-      const end = view === 'weekly'
-        ? endOfWeek(currentDate, { weekStartsOn: 0 })
-        : endOfMonth(currentDate);
+      if (!enabled) return;
+      const start =
+        view === "weekly"
+          ? startOfWeek(currentDate, { weekStartsOn: 0 })
+          : startOfMonth(currentDate);
+      const end =
+        view === "weekly"
+          ? endOfWeek(currentDate, { weekStartsOn: 0 })
+          : endOfMonth(currentDate);
       loadEvents(start, end);
-    }
+    },
   };
 }

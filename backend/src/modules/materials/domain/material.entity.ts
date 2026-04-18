@@ -97,4 +97,6 @@ export class Material {
 
   @Column({ name: 'updated_at', type: 'datetime', nullable: true })
   updatedAt: Date | null;
+
+  isPendingDeletion?: boolean;
 }

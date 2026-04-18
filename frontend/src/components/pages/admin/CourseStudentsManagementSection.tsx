@@ -1,13 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Icon from "@/components/ui/Icon";
 import Modal from "@/components/ui/Modal";
+import SearchableSelectField from "@/components/ui/SearchableSelectField";
+import EnrollmentRegistrationModal, {
+  type EnrollmentStudentOption,
+} from "@/components/pages/admin/EnrollmentRegistrationModal";
 import { useToast } from "@/components/ui/ToastContainer";
 import {
   enrollmentService,
   type AdminCourseCycleStudentItem,
 } from "@/services/enrollment.service";
+import { usersService, type AdminUserItem } from "@/services/users.service";
 
 interface CourseStudentsManagementSectionProps {
   courseCycleId: string;
@@ -18,6 +29,7 @@ interface CourseStudentsManagementSectionProps {
 }
 
 const STUDENTS_PAGE_SIZE = 10;
+const STUDENT_SEARCH_RESULTS_LIMIT = 5;
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
@@ -38,7 +50,7 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
 export default function CourseStudentsManagementSection({
   courseCycleId,
   enabled = true,
-  containerClassName = "self-stretch p-6 bg-bg-primary rounded-xl border border-stroke-secondary inline-flex flex-col justify-start items-start gap-6",
+  containerClassName = "self-stretch relative z-10 p-6 bg-bg-primary rounded-xl border border-stroke-secondary inline-flex flex-col justify-start items-start gap-6",
   headerTrailing,
   onTotalItemsChange,
 }: CourseStudentsManagementSectionProps) {
@@ -46,11 +58,18 @@ export default function CourseStudentsManagementSection({
 
   const [students, setStudents] = useState<AdminCourseCycleStudentItem[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
-  const [studentsSearch, setStudentsSearch] = useState("");
-  const [debouncedStudentsSearch, setDebouncedStudentsSearch] = useState("");
   const [studentsPage, setStudentsPage] = useState(1);
   const [studentsTotalItems, setStudentsTotalItems] = useState(0);
   const [studentsTotalPages, setStudentsTotalPages] = useState(0);
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [debouncedStudentSearchQuery, setDebouncedStudentSearchQuery] =
+    useState("");
+  const [studentSearchOptions, setStudentSearchOptions] = useState<
+    EnrollmentStudentOption[]
+  >([]);
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
+  const [selectedStudentForEnrollment, setSelectedStudentForEnrollment] =
+    useState<EnrollmentStudentOption | null>(null);
   const [cancelEnrollmentId, setCancelEnrollmentId] = useState<string | null>(
     null,
   );
@@ -61,11 +80,10 @@ export default function CourseStudentsManagementSection({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedStudentsSearch(studentsSearch);
-      setStudentsPage(1);
+      setDebouncedStudentSearchQuery(studentSearchQuery.trim());
     }, 350);
     return () => clearTimeout(timer);
-  }, [studentsSearch]);
+  }, [studentSearchQuery]);
 
   const loadStudents = useCallback(async () => {
     if (!enabled) {
@@ -79,7 +97,6 @@ export default function CourseStudentsManagementSection({
         courseCycleId,
         page: studentsPage,
         pageSize: STUDENTS_PAGE_SIZE,
-        search: debouncedStudentsSearch.trim() || undefined,
       });
 
       setStudents(response.items);
@@ -101,19 +118,79 @@ export default function CourseStudentsManagementSection({
     } finally {
       setStudentsLoading(false);
     }
-  }, [
-    enabled,
-    courseCycleId,
-    studentsPage,
-    debouncedStudentsSearch,
-    onTotalItemsChange,
-    showToast,
-  ]);
+  }, [enabled, courseCycleId, studentsPage, onTotalItemsChange, showToast]);
 
   useEffect(() => {
     if (!courseCycleId || !enabled) return;
     loadStudents();
   }, [courseCycleId, enabled, loadStudents]);
+
+  const enrolledStudentIds = useMemo(
+    () => new Set(students.map((student) => student.userId)),
+    [students],
+  );
+
+  useEffect(() => {
+    if (!enabled) {
+      setStudentSearchOptions([]);
+      setStudentSearchLoading(false);
+      return;
+    }
+
+    if (!debouncedStudentSearchQuery) {
+      setStudentSearchOptions([]);
+      setStudentSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadStudentOptions = async () => {
+      setStudentSearchLoading(true);
+      try {
+        const response = await usersService.getAdminUsers({
+          page: 1,
+          search: debouncedStudentSearchQuery,
+          roles: "STUDENT",
+          status: "ACTIVE",
+          sortBy: "fullName",
+          sortOrder: "ASC",
+        });
+
+        if (cancelled) return;
+
+        const options = response.items
+          .filter((user: AdminUserItem) => !enrolledStudentIds.has(user.id))
+          .slice(0, STUDENT_SEARCH_RESULTS_LIMIT)
+          .map((user: AdminUserItem) => ({
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email,
+          }));
+
+        setStudentSearchOptions(options);
+      } catch (err) {
+        if (cancelled) return;
+        setStudentSearchOptions([]);
+        showToast({
+          type: "error",
+          title: "No se pudieron buscar alumnos",
+          description:
+            err instanceof Error ? err.message : "Ocurrio un error inesperado.",
+        });
+      } finally {
+        if (!cancelled) {
+          setStudentSearchLoading(false);
+        }
+      }
+    };
+
+    void loadStudentOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedStudentSearchQuery, enabled, enrolledStudentIds, showToast]);
 
   const studentsRangeStart =
     studentsTotalItems === 0 ? 0 : (studentsPage - 1) * STUDENTS_PAGE_SIZE + 1;
@@ -170,16 +247,38 @@ export default function CourseStudentsManagementSection({
           {headerTrailing}
         </div>
 
-        <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2 focus-within:outline-stroke-accent-secondary transition-colors">
-          <Icon name="search" size={16} className="text-icon-tertiary" />
-          <input
-            type="text"
-            value={studentsSearch}
-            onChange={(event) => setStudentsSearch(event.target.value)}
-            placeholder="Buscar nombre o correo para matricular..."
-            className="flex-1 bg-transparent outline-none text-text-primary text-base font-normal leading-4 placeholder:text-text-tertiary"
-          />
-        </div>
+        <SearchableSelectField<EnrollmentStudentOption>
+          label="Alumno"
+          placeholder="Buscar nombre o correo para matricular..."
+          value=""
+          query={studentSearchQuery}
+          onQueryChange={setStudentSearchQuery}
+          options={studentSearchOptions}
+          onSelect={(student) => {
+            setSelectedStudentForEnrollment(student);
+            setStudentSearchQuery(`${student.fullName} - ${student.email}`);
+          }}
+          getOptionKey={(student) => student.id}
+          renderOption={(student) => (
+            <div className="flex-1 inline-flex flex-col justify-center items-start gap-1">
+              <div className="self-stretch justify-start text-text-secondary text-base font-normal leading-4">
+                {student.fullName}
+              </div>
+              <div className="self-stretch justify-start text-text-secondary text-[10px] font-normal leading-3">
+                {student.email}
+              </div>
+            </div>
+          )}
+          loading={studentSearchLoading}
+          disabled={!enabled}
+          emptyText={
+            debouncedStudentSearchQuery
+              ? "No se encontraron alumnos disponibles para matricular."
+              : "Escribe un nombre o correo para buscar alumnos."
+          }
+          className="self-stretch"
+          dropdownClassName="absolute top-full left-0 right-0 mt-1 z-20 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
+        />
 
         <div className="self-stretch inline-flex flex-col justify-start items-start gap-5">
           <div className="self-stretch text-text-quartiary text-sm font-semibold leading-4">
@@ -392,6 +491,26 @@ export default function CourseStudentsManagementSection({
             : "Se cancelará la matrícula del alumno en este curso."}
         </p>
       </Modal>
+
+      <EnrollmentRegistrationModal
+        isOpen={Boolean(selectedStudentForEnrollment)}
+        onClose={() => {
+          setSelectedStudentForEnrollment(null);
+          setStudentSearchQuery("");
+          setDebouncedStudentSearchQuery("");
+          setStudentSearchOptions([]);
+        }}
+        fixedCourseCycleId={courseCycleId}
+        fixedStudent={selectedStudentForEnrollment}
+        onEnrollmentCreated={() => {
+          setSelectedStudentForEnrollment(null);
+          setStudentSearchQuery("");
+          setDebouncedStudentSearchQuery("");
+          setStudentSearchOptions([]);
+          setStudentsPage(1);
+          void loadStudents();
+        }}
+      />
     </>
   );
 }

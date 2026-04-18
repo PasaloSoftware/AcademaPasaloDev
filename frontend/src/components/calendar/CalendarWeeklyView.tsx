@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import type { ClassEvent } from '@/types/classEvent';
-import { getCourseColor } from '@/lib/courseColors';
+import { useEffect, useRef, useState } from "react";
+import type { ClassEvent } from "@/types/classEvent";
+import { getCourseColor } from "@/lib/courseColors";
 import {
   HOURS,
   DAY_NAMES,
@@ -11,7 +11,7 @@ import {
   getCurrentTimePosition,
   formatTimeRange,
   getEventsByDay,
-} from './calendarUtils';
+} from "./calendarUtils";
 
 interface CalendarWeeklyViewProps {
   weekDays: Date[];
@@ -75,14 +75,14 @@ export default function CalendarWeeklyView({
         {weekDays.map((day, index) => (
           <div
             key={index}
-            className={`flex-1 p-4 flex flex-col items-center gap-px ${index < 6 ? 'border-r border-stroke-primary' : ''} ${isToday(day) ? 'bg-info-secondary-solid/10' : ''}`}
+            className={`flex-1 p-4 flex flex-col items-center gap-px ${index < 6 ? "border-r border-stroke-primary" : ""} ${isToday(day) ? "bg-info-secondary-solid/10" : ""}`}
           >
             <div className="text-xs font-medium text-text-tertiary">
               {DAY_NAMES[index]}
             </div>
             <div
               className={`w-9 h-9 flex items-center justify-center rounded-full ${
-                isToday(day) ? 'bg-info-primary-solid text-text-white' : ''
+                isToday(day) ? "bg-info-primary-solid text-text-white" : ""
               }`}
             >
               <span className="text-xl font-medium">{day.getDate()}</span>
@@ -98,7 +98,7 @@ export default function CalendarWeeklyView({
         <div className="flex min-w-full">
           <div className="w-16 flex flex-col flex-shrink-0 bg-bg-primary sticky left-0 z-10 border-r border-stroke-secondary">
             {HOURS.map((hour) => {
-              const period = hour >= 12 ? 'PM' : 'AM';
+              const period = hour >= 12 ? "PM" : "AM";
               const displayHour =
                 hour > 12 ? hour - 12 : hour === 12 ? 12 : hour;
               return (
@@ -125,13 +125,13 @@ export default function CalendarWeeklyView({
               return (
                 <div
                   key={dayIndex}
-                  className={`flex-1 relative ${dayIndex < 6 ? 'border-r border-stroke-secondary' : ''}`}
-                  style={{ minWidth: '140px' }}
+                  className={`flex-1 relative ${dayIndex < 6 ? "border-r border-stroke-secondary" : ""}`}
+                  style={{ minWidth: "140px" }}
                 >
                   {HOURS.map((hour, hourIndex) => (
                     <div
                       key={hour}
-                      className={`h-20 pr-4 ${hourIndex < HOURS.length - 1 ? 'border-b border-stroke-secondary' : ''}`}
+                      className={`h-20 pr-4 ${hourIndex < HOURS.length - 1 ? "border-b border-stroke-secondary" : ""}`}
                     />
                   ))}
 
@@ -149,13 +149,18 @@ export default function CalendarWeeklyView({
                     const position = getEventPosition(event);
                     const layout = getEventLayout(event, dayEvents);
                     const colors = getCourseColor(event.courseCode);
+                    const durationMinutes =
+                      (new Date(event.endDatetime).getTime() -
+                        new Date(event.startDatetime).getTime()) /
+                      60000;
+                    const isShortEvent = durationMinutes <= 30;
 
                     const isSelected = selectedEventId === event.id;
 
                     return (
                       <div
                         key={event.id}
-                        className={`absolute rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-all ${isSelected ? 'shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10' : ''}`}
+                        className={`absolute rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-all ${isSelected ? "shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10" : ""}`}
                         style={{
                           top: `${position.top}px`,
                           height: `${position.height}px`,
@@ -169,18 +174,26 @@ export default function CalendarWeeklyView({
                           className="h-full px-2.5 py-1.5 rounded-l-lg border-l-4 flex flex-col gap-0.5 overflow-hidden"
                           style={{ borderLeftColor: colors.primary }}
                         >
-                          <span className="text-[10px] font-medium text-text-primary truncate">
-                            {event.title}
-                          </span>
-                          <p className="text-xs font-medium text-text-primary line-clamp-2">
-                            {event.courseName}
-                          </p>
-                          <span className="text-[10px] text-text-secondary">
-                            {formatTimeRange(
-                              event.startDatetime,
-                              event.endDatetime,
-                            )}
-                          </span>
+                          {isShortEvent ? (
+                            <p className="text-xs font-medium text-text-primary truncate">
+                              {event.courseName}
+                            </p>
+                          ) : (
+                            <>
+                              <span className="text-[10px] font-medium text-text-primary truncate">
+                                {event.title}
+                              </span>
+                              <p className="text-xs font-medium text-text-primary line-clamp-2">
+                                {event.courseName}
+                              </p>
+                              <span className="text-[10px] text-text-secondary">
+                                {formatTimeRange(
+                                  event.startDatetime,
+                                  event.endDatetime,
+                                )}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     );
