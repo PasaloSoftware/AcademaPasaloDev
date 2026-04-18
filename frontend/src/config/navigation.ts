@@ -3,12 +3,12 @@
  * Permite configurar navegación por roles y personalizar según contexto
  */
 
-import { SidebarNavItem } from '@/components/dashboard/Sidebar';
+import { SidebarNavItem } from "@/components/dashboard/Sidebar";
 
-export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = "STUDENT" | "TEACHER" | "ADMIN" | "SUPER_ADMIN";
 
 // Códigos de rol que vienen del backend
-export type BackendRoleCode = 'STUDENT' | 'PROFESSOR' | 'ADMIN' | 'SUPER_ADMIN';
+export type BackendRoleCode = "STUDENT" | "PROFESSOR" | "ADMIN" | "SUPER_ADMIN";
 
 /**
  * Mapea códigos de rol del backend a códigos internos del frontend
@@ -16,13 +16,13 @@ export type BackendRoleCode = 'STUDENT' | 'PROFESSOR' | 'ADMIN' | 'SUPER_ADMIN';
  */
 export function mapBackendRoleToUserRole(backendCode: string): UserRole {
   const mapping: Record<string, UserRole> = {
-    'STUDENT': 'STUDENT',
-    'PROFESSOR': 'TEACHER',
-    'ADMIN': 'ADMIN',
-    'SUPER_ADMIN': 'SUPER_ADMIN'
+    STUDENT: "STUDENT",
+    PROFESSOR: "TEACHER",
+    ADMIN: "ADMIN",
+    SUPER_ADMIN: "SUPER_ADMIN",
   };
 
-  return mapping[backendCode] || 'STUDENT';
+  return mapping[backendCode] || "STUDENT";
 }
 
 /**
@@ -31,99 +31,109 @@ export function mapBackendRoleToUserRole(backendCode: string): UserRole {
 export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
   STUDENT: [
     {
-      icon: 'home',
-      label: 'Inicio',
-      href: '/plataforma/inicio'
+      icon: "home",
+      label: "Inicio",
+      href: "/plataforma/inicio",
     },
     {
-      icon: 'class',
-      label: 'Mis Cursos',
-      href: '#',
+      icon: "class",
+      label: "Mis Cursos",
+      href: "#",
       expandable: true,
-      subItems: []
+      subItems: [],
     },
     {
-      icon: 'event',
-      label: 'Calendario',
-      href: '/plataforma/calendario'
+      icon: "event",
+      label: "Calendario",
+      href: "/plataforma/calendario",
     },
     {
-      icon: 'notifications',
-      label: 'Notificaciones',
-      href: '/plataforma/notificaciones'
+      icon: "notifications",
+      label: "Notificaciones",
+      href: "/plataforma/notificaciones",
     },
   ],
 
   TEACHER: [
     {
-      icon: 'home',
-      label: 'Inicio',
-      href: '/plataforma/inicio'
+      icon: "home",
+      label: "Inicio",
+      href: "/plataforma/inicio",
     },
     {
-      icon: 'class',
-      label: 'Mis Cursos',
-      href: '#',
+      icon: "class",
+      label: "Mis Cursos",
+      href: "#",
       expandable: true,
-      subItems: []
+      subItems: [],
     },
     {
-      icon: 'event',
-      label: 'Calendario',
-      href: '/plataforma/calendario'
+      icon: "event",
+      label: "Calendario",
+      href: "/plataforma/calendario",
     },
     {
-      icon: 'notifications',
-      label: 'Notificaciones',
-      href: '/plataforma/notificaciones'
+      icon: "notifications",
+      label: "Notificaciones",
+      href: "/plataforma/notificaciones",
     },
   ],
 
   ADMIN: [
     {
-      icon: 'home',
-      label: 'Inicio',
-      href: '/plataforma/inicio'
+      icon: "home",
+      label: "Inicio",
+      href: "/plataforma/inicio",
     },
     {
-      icon: 'class',
-      label: 'Cursos',
-      href: '/plataforma/admin/cursos'
+      icon: "class",
+      label: "Cursos",
+      href: "/plataforma/admin/cursos",
     },
     {
-      icon: 'groups',
-      label: 'Usuarios',
-      href: '/plataforma/admin/usuarios'
+      icon: "groups",
+      label: "Usuarios",
+      href: "/plataforma/admin/usuarios",
     },
     {
-      icon: 'shield',
-      label: 'Auditoría',
-      href: '/plataforma/admin/auditoria'
+      icon: "shield",
+      label: "Auditoría",
+      href: "/plataforma/admin/auditoria",
+    },
+    {
+      icon: "star_rate",
+      label: "Valoraciones",
+      href: "/plataforma/admin/valoraciones",
     },
   ],
 
   SUPER_ADMIN: [
     {
-      icon: 'home',
-      label: 'Inicio',
-      href: '/plataforma/inicio'
+      icon: "home",
+      label: "Inicio",
+      href: "/plataforma/inicio",
     },
     {
-      icon: 'class',
-      label: 'Cursos',
-      href: '/plataforma/admin/cursos'
+      icon: "class",
+      label: "Cursos",
+      href: "/plataforma/admin/cursos",
     },
     {
-      icon: 'groups',
-      label: 'Usuarios',
-      href: '/plataforma/admin/usuarios'
+      icon: "groups",
+      label: "Usuarios",
+      href: "/plataforma/admin/usuarios",
     },
     {
-      icon: 'shield',
-      label: 'Auditoría',
-      href: '/plataforma/admin/auditoria'
+      icon: "star_rate",
+      label: "Valoraciones",
+      href: "/plataforma/admin/valoraciones",
     },
-  ]
+    {
+      icon: "shield",
+      label: "Auditoría",
+      href: "/plataforma/admin/auditoria",
+    },
+  ],
 };
 
 /**
@@ -137,21 +147,22 @@ export function getNavigationForRole(role: UserRole): SidebarNavItem[] {
  * Marcar item activo según ruta actual
  */
 export function setActiveNavItem(
-  items: SidebarNavItem[], 
-  currentPath: string
+  items: SidebarNavItem[],
+  currentPath: string,
 ): SidebarNavItem[] {
-  return items.map(item => {
+  return items.map((item) => {
     // Verificar si el item principal está activo
-    const isActive = currentPath === item.href || 
-                     (item.subItems?.some(sub => currentPath === sub.href) ?? false);
-    
+    const isActive =
+      currentPath === item.href ||
+      (item.subItems?.some((sub) => currentPath === sub.href) ?? false);
+
     return {
       ...item,
       active: isActive,
-      subItems: item.subItems?.map(sub => ({
+      subItems: item.subItems?.map((sub) => ({
         ...sub,
-        active: currentPath === sub.href
-      }))
+        active: currentPath === sub.href,
+      })),
     };
   });
 }
@@ -160,18 +171,18 @@ export function setActiveNavItem(
  * Colores de avatar según rol
  */
 export const roleAvatarColors: Record<UserRole, string> = {
-  STUDENT: 'bg-[#7C3AED]',     // Purple
-  TEACHER: 'bg-[#059669]',     // Green
-  ADMIN: 'bg-[#DC2626]',       // Red
-  SUPER_ADMIN: 'bg-[#EA580C]'  // Orange
+  STUDENT: "bg-[#7C3AED]", // Purple
+  TEACHER: "bg-[#059669]", // Green
+  ADMIN: "bg-[#DC2626]", // Red
+  SUPER_ADMIN: "bg-[#EA580C]", // Orange
 };
 
 /**
  * Etiquetas de rol en español
  */
 export const roleLabels: Record<UserRole, string> = {
-  STUDENT: 'Alumno',
-  TEACHER: 'Docente',
-  ADMIN: 'Administrador',
-  SUPER_ADMIN: 'Super Admin'
+  STUDENT: "Alumno",
+  TEACHER: "Docente",
+  ADMIN: "Administrador",
+  SUPER_ADMIN: "Super Admin",
 };
