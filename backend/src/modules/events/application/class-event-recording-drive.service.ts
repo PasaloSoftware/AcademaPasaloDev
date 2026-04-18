@@ -41,6 +41,7 @@ export type DriveUploadedFileMetadata = {
 type DriveContentRestrictionUpdateResponse = {
   id?: string;
   copyRequiresWriterPermission?: boolean;
+  writersCanShare?: boolean;
 };
 
 @Injectable()
@@ -256,13 +257,14 @@ export class ClassEventRecordingDriveService {
     try {
       const response =
         await client.request<DriveContentRestrictionUpdateResponse>({
-          url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&fields=id,copyRequiresWriterPermission`,
+          url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(normalizedFileId)}?supportsAllDrives=true&fields=id,copyRequiresWriterPermission,writersCanShare`,
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json; charset=UTF-8',
           },
           data: {
             copyRequiresWriterPermission: true,
+            writersCanShare: false,
           },
         });
 
@@ -272,11 +274,17 @@ export class ClassEventRecordingDriveService {
           'Google Drive no confirmo la restriccion de copia/descarga para viewers',
         );
       }
+      const writersCanShare =
+        response.data?.writersCanShare === undefined
+          ? null
+          : Boolean(response.data?.writersCanShare);
 
       this.logger.log({
         message:
-          'Restriccion copyRequiresWriterPermission aplicada a grabacion',
+          'Restricciones de viewers aplicadas a grabacion',
         fileId: normalizedFileId,
+        copyRequiresWriterPermission: true,
+        writersCanShare,
       });
     } catch (error) {
       const maybeError = error as {

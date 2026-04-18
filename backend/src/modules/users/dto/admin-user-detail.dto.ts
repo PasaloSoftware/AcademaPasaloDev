@@ -34,6 +34,9 @@ export class AdminCourseOptionDto {
   courseId: string;
 
   @Expose()
+  currentCourseCycleId: string;
+
+  @Expose()
   courseCode: string;
 
   @Expose()

@@ -170,7 +170,11 @@ describe('ClassEventRecordingDriveService', () => {
       request: jest
         .fn()
         .mockResolvedValue({
-          data: { id: 'drive-file-1', copyRequiresWriterPermission: true },
+          data: {
+            id: 'drive-file-1',
+            copyRequiresWriterPermission: true,
+            writersCanShare: false,
+          },
         }),
     };
     googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
@@ -183,7 +187,10 @@ describe('ClassEventRecordingDriveService', () => {
       expect.objectContaining({
         method: 'PATCH',
         url: expect.stringContaining('/drive-file-1?supportsAllDrives=true'),
-        data: { copyRequiresWriterPermission: true },
+        data: {
+          copyRequiresWriterPermission: true,
+          writersCanShare: false,
+        },
       }),
     );
   });
