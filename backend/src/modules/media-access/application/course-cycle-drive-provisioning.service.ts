@@ -93,7 +93,6 @@ export class CourseCycleDriveProvisioningService {
       viewerGroupEmail,
       professorGroupEmail,
     } = resolvedScope;
-    const workspaceDomain = this.getWorkspaceGroupDomain();
 
     const group = await this.workspaceGroupsService.findOrCreateGroup({
       email: viewerGroupEmail,

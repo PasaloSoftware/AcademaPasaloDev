@@ -405,6 +405,7 @@ describe('AuditController (e2e)', () => {
       120000,
       100000,
       jobId,
+      'panel',
     );
     const job = await auditQueue.add(
       AUDIT_JOB_NAMES.GENERATE_EXPORT,
@@ -448,6 +449,7 @@ describe('AuditController (e2e)', () => {
       120000,
       100000,
       jobId,
+      'panel',
     );
 
     const job = await auditQueue.add(
@@ -523,6 +525,7 @@ describe('AuditController (e2e)', () => {
       120000,
       100000,
       jobId,
+      'panel',
     );
 
     const job = await auditQueue.add(

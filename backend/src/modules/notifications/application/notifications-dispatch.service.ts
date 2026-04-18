@@ -143,6 +143,25 @@ export class NotificationsDispatchService {
     }
   }
 
+  async dispatchDeletionRequestCreated(requestId: string): Promise<void> {
+    try {
+      await this.enqueueDispatchJob(
+        {
+          type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+          requestId,
+        },
+        `deletion-created-${requestId}`,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: NotificationsDispatchService.name,
+        message: 'No se pudo encolar la notificacion DELETION_REQUEST_CREATED',
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   async dispatchDeletionRequestApproved(requestId: string): Promise<void> {
     try {
       await this.enqueueDispatchJob(

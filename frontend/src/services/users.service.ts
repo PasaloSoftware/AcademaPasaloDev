@@ -123,8 +123,8 @@ export const usersService = {
   /**
    * Obtener catálogo de cursos (para buscador admin)
    */
-  async getCourseCatalog(): Promise<Array<{ courseId: string; courseCode: string; courseName: string }>> {
-    const response = await apiClient.get<Array<{ courseId: string; courseCode: string; courseName: string }>>('/users/catalog/courses');
+  async getCourseCatalog(): Promise<Array<{ courseId: string; currentCourseCycleId: string; courseCode: string; courseName: string }>> {
+    const response = await apiClient.get<Array<{ courseId: string; currentCourseCycleId: string; courseCode: string; courseName: string }>>('/users/catalog/courses');
     return response.data;
   },
 

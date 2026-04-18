@@ -15,7 +15,10 @@ import {
   AUDIT_JOB_NAMES,
 } from '@modules/audit/interfaces/audit.constants';
 import { AuditService } from './audit.service';
-import { AuditHistoryFilters } from '@modules/audit/interfaces/audit-export.interface';
+import {
+  AuditExportTemplate,
+  AuditHistoryFilters,
+} from '@modules/audit/interfaces/audit-export.interface';
 import {
   AuditExportJobResponseDto,
   AuditExportJobStatusDto,
@@ -54,6 +57,7 @@ export class AuditExportJobsService {
   async requestExport(
     requestedByUserId: string,
     filters: AuditHistoryFilters,
+    exportTemplate: AuditExportTemplate,
   ): Promise<AuditPreparedDownload | AuditExportJobResponseDto> {
     const lockToken = randomUUID();
     await this.auditExportCoordinator.acquireExportLock(lockToken);
@@ -94,6 +98,7 @@ export class AuditExportJobsService {
         syncRefreshTimer.unref?.();
         const prepared = await this.auditService.prepareSyncExport(
           filters,
+          exportTemplate,
           refreshLock,
         );
         if (syncLockRefreshError) {
@@ -125,6 +130,7 @@ export class AuditExportJobsService {
       const payload: AuditExportJobPayload = {
         requestedByUserId,
         filters,
+        exportTemplate,
         requestedAtIso: new Date().toISOString(),
         totalRows: plan.totalRows,
         estimatedFileCount: plan.estimatedFileCount,

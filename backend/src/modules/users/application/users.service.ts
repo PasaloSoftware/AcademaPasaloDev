@@ -491,7 +491,6 @@ export class UsersService {
         const desiredProfessorCourseCycleIds = shouldKeepProfessorState
           ? finalProfessorCourseCycleIds
           : [];
-        const desiredProfessorSet = new Set(desiredProfessorCourseCycleIds);
         const currentProfessorSet = new Set(currentProfessorCourseCycleIds);
 
         const removedProfessorCourseCycleIds = shouldKeepProfessorState
@@ -787,6 +786,7 @@ export class UsersService {
     const rows = await this.dataSource.query<
       Array<{
         courseId: string;
+        currentCourseCycleId: string;
         courseCode: string;
         courseName: string;
       }>
@@ -794,15 +794,21 @@ export class UsersService {
       `
         SELECT
           c.id AS courseId,
+          cc.id AS currentCourseCycleId,
           c.code AS courseCode,
           c.name AS courseName
         FROM course c
+        INNER JOIN course_cycle cc ON cc.course_id = c.id
+        INNER JOIN system_setting ss
+          ON ss.setting_key = 'ACTIVE_CYCLE_ID'
+          AND cc.academic_cycle_id = CAST(ss.setting_value AS UNSIGNED)
         ORDER BY c.name ASC, c.code ASC, c.id ASC
       `,
     );
 
     const response = rows.map((row) => ({
       courseId: row.courseId,
+      currentCourseCycleId: row.currentCourseCycleId,
       courseCode: row.courseCode,
       courseName: row.courseName,
     }));

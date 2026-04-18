@@ -272,11 +272,10 @@ export class ClassEventRecordingDriveService {
           'Google Drive no confirmo la restriccion de copia/descarga para viewers',
         );
       }
-
       this.logger.log({
-        message:
-          'Restriccion copyRequiresWriterPermission aplicada a grabacion',
+        message: 'Restricciones de viewers aplicadas a grabacion',
         fileId: normalizedFileId,
+        copyRequiresWriterPermission: true,
       });
     } catch (error) {
       const maybeError = error as {

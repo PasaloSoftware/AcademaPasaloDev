@@ -18,12 +18,23 @@ import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import {
   AuditExportQueryDto,
   AuditHistoryQueryDto,
+  AuditPanelExportQueryDto,
+  AuditPanelQueryDto,
+  AuditSecurityExportQueryDto,
 } from '@modules/audit/dto/audit-query.dto';
 import { AuditExportJobsService } from '@modules/audit/application/audit-export-jobs.service';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { User } from '@modules/users/domain/user.entity';
 import { AuditExportJobStatusDto } from '@modules/audit/dto/audit-export-job-response.dto';
+import {
+  AuditLogDetailDto,
+  AuditPanelResponseDto,
+  SecurityEventDetailDto,
+} from '@modules/audit/dto/audit-panel.dto';
 import { AuditService } from '@modules/audit/application/audit.service';
+import { AUDIT_SOURCES } from '@modules/audit/interfaces/audit.constants';
+import { AuditPreparedDownload } from '@modules/audit/interfaces/audit-export-job.interface';
+import { AuditExportJobResponseDto } from '@modules/audit/dto/audit-export-job-response.dto';
 
 @Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,6 +56,25 @@ export class AuditController {
     private readonly auditExportJobsService: AuditExportJobsService,
   ) {}
 
+  @Get('panel')
+  @Roles(ROLE_CODES.SUPER_ADMIN, ROLE_CODES.ADMIN)
+  @ResponseMessage('Panel de auditoria recuperado exitosamente')
+  async getAuditPanel(
+    @Query() query: AuditPanelQueryDto,
+  ): Promise<AuditPanelResponseDto> {
+    const { page, ...filters } = query;
+    return await this.auditService.getAuditPanel(filters, page ?? 1);
+  }
+
+  @Get('panel/:id')
+  @Roles(ROLE_CODES.SUPER_ADMIN, ROLE_CODES.ADMIN)
+  @ResponseMessage('Detalle de log de auditoria recuperado exitosamente')
+  async getAuditLogDetail(
+    @Param('id') id: string,
+  ): Promise<AuditLogDetailDto | SecurityEventDetailDto> {
+    return await this.auditService.getPanelDetail(id);
+  }
+
   @Get('history')
   @Roles(ROLE_CODES.SUPER_ADMIN, ROLE_CODES.ADMIN)
   @ResponseMessage('Historial de auditoria recuperado exitosamente')
@@ -62,22 +92,40 @@ export class AuditController {
     const result = await this.auditExportJobsService.requestExport(
       user.id,
       query,
+      'events',
     );
+    this.sendExportResponse(res, user.id, result);
+  }
 
+  @Get('panel-export')
+  @Roles(ROLE_CODES.SUPER_ADMIN, ROLE_CODES.ADMIN)
+  async exportPanelHistory(
+    @Res() res: express.Response,
+    @CurrentUser() user: User,
+    @Query() query: AuditPanelExportQueryDto,
+  ): Promise<void> {
+    const result = await this.auditExportJobsService.requestExport(
+      user.id,
+      query,
+      'panel',
+    );
+    this.sendExportResponse(res, user.id, result);
+  }
+
+  private sendExportResponse(
+    res: express.Response,
+    requestedByUserId: string,
+    result: AuditPreparedDownload | AuditExportJobResponseDto,
+  ): void {
     if ('stream' in result) {
       res.set({
         'Content-Type': result.mimeType,
         'Content-Disposition': `attachment; filename="${result.fileName}"`,
       });
-
       this.attachResponseCleanup(
         res,
         result.stream,
-        {
-          downloadKind: 'sync',
-          requestedByUserId: user.id,
-          fileName: result.fileName,
-        },
+        { downloadKind: 'sync', requestedByUserId, fileName: result.fileName },
         result.onFinish,
         result.onAbort,
       );
@@ -91,6 +139,21 @@ export class AuditController {
       data: result,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  @Get('security-export')
+  @Roles(ROLE_CODES.SUPER_ADMIN, ROLE_CODES.ADMIN)
+  async exportSecurityHistory(
+    @Res() res: express.Response,
+    @CurrentUser() user: User,
+    @Query() query: AuditSecurityExportQueryDto,
+  ): Promise<void> {
+    const result = await this.auditExportJobsService.requestExport(
+      user.id,
+      { ...query, source: AUDIT_SOURCES.SECURITY },
+      'security',
+    );
+    this.sendExportResponse(res, user.id, result);
   }
 
   @Get('export-jobs/:id')

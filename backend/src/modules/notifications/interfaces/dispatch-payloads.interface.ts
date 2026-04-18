@@ -18,6 +18,11 @@ export interface DispatchMaterialPayload {
   folderId: string;
 }
 
+export interface DispatchDeletionRequestCreatedPayload {
+  type: (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['DELETION_REQUEST_CREATED'];
+  requestId: string;
+}
+
 export interface DispatchDeletionReviewPayload {
   type:
     | (typeof import('@modules/notifications/domain/notification.constants').NOTIFICATION_TYPE_CODES)['DELETION_REQUEST_APPROVED']
@@ -38,6 +43,7 @@ export interface DispatchAuditExportReadyPayload {
 export type DispatchPayload =
   | DispatchClassPayload
   | DispatchMaterialPayload
+  | DispatchDeletionRequestCreatedPayload
   | DispatchDeletionReviewPayload
   | DispatchAuditExportReadyPayload;
 

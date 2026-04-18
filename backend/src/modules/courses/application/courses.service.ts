@@ -1684,11 +1684,11 @@ export class CoursesService {
     return matchedLeaf ? matchedLeaf.root : null;
   }
 
-  private async assertNoConflictingBankGroupName(
+  private assertNoConflictingBankGroupName(
     bankFolderTree: LoadedBankFolderTree,
     evaluationTypeCode: string,
     groupName: string,
-  ): Promise<void> {
+  ): void {
     const normalizedTarget = this.normalizeBankFolderName(groupName);
     const conflictingRoot =
       bankFolderTree.roots.find((root) => {
@@ -2271,7 +2271,7 @@ export class CoursesService {
         String(matchedType.evaluationType?.name || '').trim(),
       );
 
-    await this.assertNoConflictingBankGroupName(
+    this.assertNoConflictingBankGroupName(
       bankFolderTree,
       normalizedTypeCode,
       normalizedGroupName,

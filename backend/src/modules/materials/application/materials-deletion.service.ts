@@ -16,6 +16,7 @@ import { DeletionRequestRepository } from '@modules/materials/infrastructure/del
 import { MaterialFolderRepository } from '@modules/materials/infrastructure/material-folder.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { DELETION_REQUEST_STATUS_CODES } from '@modules/materials/domain/material.constants';
+import { NotificationsDispatchService } from '@modules/notifications/application/notifications-dispatch.service';
 
 @Injectable()
 export class MaterialsDeletionService {
@@ -26,6 +27,7 @@ export class MaterialsDeletionService {
     private readonly materialRepository: MaterialRepository,
     private readonly folderRepository: MaterialFolderRepository,
     private readonly auditService: AuditService,
+    private readonly notificationsDispatchService: NotificationsDispatchService,
   ) {}
 
   async requestDeletion(
@@ -64,6 +66,8 @@ export class MaterialsDeletionService {
 
     const now = new Date();
 
+    let createdRequestId = '';
+
     await this.dataSource.transaction(async (manager) => {
       const lockRowsRaw: unknown = await manager.query(
         'SELECT id FROM material WHERE id = ? FOR UPDATE',
@@ -85,7 +89,7 @@ export class MaterialsDeletionService {
         );
       }
 
-      await this.deletionRequestRepository.create(
+      const created = await this.deletionRequestRepository.create(
         {
           requestedById,
           deletionRequestStatusId: pendingStatus.id,
@@ -97,6 +101,7 @@ export class MaterialsDeletionService {
         },
         manager,
       );
+      createdRequestId = created.id;
 
       await this.auditService.logAction(
         requestedById,
@@ -104,5 +109,11 @@ export class MaterialsDeletionService {
         manager,
       );
     });
+
+    if (createdRequestId) {
+      await this.notificationsDispatchService.dispatchDeletionRequestCreated(
+        createdRequestId,
+      );
+    }
   }
 }

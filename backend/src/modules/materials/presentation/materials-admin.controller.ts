@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { MaterialsAdminService } from '@modules/materials/application/materials-admin.service';
 import { ReviewDeletionRequestDto } from '@modules/materials/dto/review-deletion-request.dto';
+import { DirectDeleteMaterialDto } from '@modules/materials/dto/direct-delete-material.dto';
 import {
   AdminMaterialFileListQueryDto,
   AdminMaterialFileListResponseDto,
@@ -60,5 +61,20 @@ export class MaterialsAdminController {
   @ResponseMessage('Material eliminado permanentemente')
   async hardDelete(@CurrentUser() user: User, @Param('id') materialId: string) {
     await this.adminService.hardDeleteMaterial(user.id, materialId);
+  }
+
+  @Delete(':id/direct-delete')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Material eliminado permanentemente')
+  async directDelete(
+    @CurrentUser() user: User,
+    @Param('id') materialId: string,
+    @Body() dto: DirectDeleteMaterialDto,
+  ) {
+    await this.adminService.directDeleteMaterial(
+      user.id,
+      materialId,
+      dto.reason,
+    );
   }
 }

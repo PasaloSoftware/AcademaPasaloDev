@@ -228,6 +228,7 @@ export function PersonalInfoSection({
 
 interface CourseCatalogItem {
   courseId: string;
+  currentCourseCycleId: string;
   courseCode: string;
   courseName: string;
 }
@@ -385,19 +386,24 @@ function CourseSearchInput({
   const handleSelect = async (course: CourseCatalogItem) => {
     setLoading(true);
     try {
-      const cycleData = await usersService.getCourseCycleOptions(
-        course.courseId,
-      );
-      if (cycleData.currentCycle) {
-        if (
-          existingCourseCycleIds.includes(cycleData.currentCycle.courseCycleId)
-        ) {
-          setQuery("");
-          setShowDropdown(false);
-          return;
-        }
-        onSelect(course, cycleData.currentCycle.courseCycleId);
+      let selectedCourseCycleId = String(
+        course.currentCourseCycleId || "",
+      ).trim();
+      if (!selectedCourseCycleId) {
+        const cycleData = await usersService.getCourseCycleOptions(
+          course.courseId,
+        );
+        selectedCourseCycleId = String(
+          cycleData.currentCycle?.courseCycleId || "",
+        ).trim();
       }
+      if (!selectedCourseCycleId) return;
+      if (existingCourseCycleIds.includes(selectedCourseCycleId)) {
+        setQuery("");
+        setShowDropdown(false);
+        return;
+      }
+      onSelect(course, selectedCourseCycleId);
     } catch {
       // Could not get cycle info
     } finally {

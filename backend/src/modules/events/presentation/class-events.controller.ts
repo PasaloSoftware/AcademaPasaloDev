@@ -158,7 +158,11 @@ export class ClassEventsController {
     assertValidDateRange(startDate, endDate, 'startDate', 'endDate');
 
     return await this.classEventsQueryService.getGlobalSessions(
-      query.courseCycleIds,
+      {
+        courseCycleIds: query.courseCycleIds,
+        courseTypeCode: query.courseTypeCode,
+        cycleLevelId: query.cycleLevelId,
+      },
       startDate,
       endDate,
     );

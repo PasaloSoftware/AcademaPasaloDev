@@ -491,8 +491,16 @@ Permite navegar la jerarquia de una evaluacion. Requiere acceso a la evaluacion 
       - Endpoint de solo lectura para mostrar "Ultima actualizacion" en cards, tablas o panel de detalle.
       - No requiere payload en body.
       - Recomendado llamar bajo demanda al abrir detalle de material, o en batch solo si UI realmente lo necesita.
-- **POST /materials/request-deletion:** Flujo seguro de borrado.
-    * `body: { entityType: 'material', entityId: string, reason: string }`
+- **POST /materials/request-deletion:** Flujo seguro de solicitud de borrado por parte del profesor.
+    * **Roles:** `PROFESSOR`
+    * **Body:** `{ entityType: 'MATERIAL', entityId: string, reason: string }`
+    * **Reglas:**
+      - Solo se puede crear una solicitud PENDING por material; si ya existe una, el endpoint retorna `409`.
+      - Al crear la solicitud, el backend emite notificacion `DELETION_REQUEST_CREATED` a todos los administradores activos (`ADMIN`/`SUPER_ADMIN`).
+    * **Errores esperados:**
+      - `403`: profesor sin acceso al material
+      - `404`: material no encontrado
+      - `409`: ya existe una solicitud pendiente para ese material
 
 ### 4. Gestion Administrativa Avanzada (Moderacion)
 - **GET /admin/materials/requests/pending:** listar solicitudes pendientes de eliminacion con metadata del material para decision administrativa.
@@ -524,11 +532,31 @@ Permite navegar la jerarquia de una evaluacion. Requiere acceso a la evaluacion 
       - usar `material.originalName` como apoyo tecnico para distinguir archivos similares.
       - en UI de revision, priorizar `authorizedViewPath` para abrir contenido validado por backend.
       - `previewUrl/viewUrl/downloadUrl` son utilidades para inspeccion/operacion administrativa.
-- **POST /admin/materials/requests/:id/review:** Aprobar o rechazar solicitud.
+- **POST /admin/materials/requests/:id/review:** Aprobar o rechazar solicitud de eliminacion.
     * **Roles:** `ADMIN`, `SUPER_ADMIN`
-    * `body: { action: 'APPROVE' | 'REJECT', adminComment?: string }`
-- **DELETE /admin/materials/:id/hard-delete:** Eliminacion fisica permanente (irreversible).
+    * **Body:** `{ action: 'APPROVE' | 'REJECT', adminComment?: string }`
+    * **Reglas:**
+      - Solo se puede revisar una solicitud en estado `PENDING`; reintentos retornan `400`.
+      - Al aprobar: el material pasa a estado `ARCHIVED`, se notifica al profesor con `DELETION_REQUEST_APPROVED`, y el backend mueve el archivo fisico a la carpeta `archivado/` de la evaluacion en Drive (si falla el movimiento en Drive, la BD ya quedo actualizada y se emite solo un warning de log).
+      - Al rechazar: el material permanece activo y se notifica al profesor con `DELETION_REQUEST_REJECTED`.
+    * **Errores esperados:**
+      - `400`: solicitud ya revisada
+      - `404`: solicitud no encontrada
+- **DELETE /admin/materials/:id/direct-delete:** Eliminacion directa e inmediata de un material (sin pasar por el flujo de solicitud).
+    * **Roles:** `ADMIN`, `SUPER_ADMIN`
+    * **Body:** `{ reason?: string }` (opcional, max 500 caracteres)
+    * **Reglas:**
+      - Borra fisicamente el material de la BD y el archivo del proveedor de almacenamiento (Drive/Local/S3) en una sola operacion.
+      - Si existe una solicitud `PENDING` del profesor para ese material, la auto-aprueba con comentario `"Eliminacion directa por administrador"` y notifica al profesor con `DELETION_REQUEST_APPROVED`.
+      - Limpia todas las filas de `deletion_request` asociadas al material (excepto la auto-aprobada, que se conserva hasta que el processor de notificaciones la procese).
+      - La operacion es irreversible; registra entrada en `audit_log` con accion `FILE_DELETE`.
+    * **Errores esperados:**
+      - `404`: material no encontrado
+- **DELETE /admin/materials/:id/hard-delete:** Eliminacion fisica permanente del material ya archivado (irreversible).
     * **Roles:** `SUPER_ADMIN`
+    * **Reglas:**
+      - Solo se permite si el material esta en estado `ARCHIVED` (paso previo obligatorio: aprobacion de solicitud).
+      - Hace rollback de la version actual hacia la version anterior; si no hay version anterior, elimina el material completamente junto con sus filas de `deletion_request`.
 ---
 
 ## EPICA: FEEDBACK Y REPUTACION (`/feedback`)

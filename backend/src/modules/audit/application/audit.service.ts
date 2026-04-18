@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   InternalServerErrorException,
+  NotFoundException,
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { stream as ExcelStream } from 'exceljs';
@@ -22,8 +23,16 @@ import {
   AUDIT_JOB_NAMES,
 } from '@modules/audit/interfaces/audit.constants';
 import {
+  AuditLogDetailDto,
+  AuditPanelItemDto,
+  AuditPanelResponseDto,
+  SecurityEventDetailDto,
+  SecurityEventMetadataDto,
+} from '@modules/audit/dto/audit-panel.dto';
+import {
   AuditExportPlan,
   AuditExportCursor,
+  AuditExportTemplate,
   AuditHistoryFilters,
   ParsedAuditHistoryFilters,
 } from '@modules/audit/interfaces/audit-export.interface';
@@ -70,6 +79,8 @@ export class AuditService implements OnApplicationBootstrap {
       userId: filters.userId,
       source: filters.source,
       actionCode: filters.actionCode,
+      roleCode: filters.roleCode,
+      userSearch: filters.userSearch,
     };
   }
 
@@ -182,6 +193,427 @@ export class AuditService implements OnApplicationBootstrap {
     return await this.auditExportRepository.countUnifiedHistory(parsedFilters);
   }
 
+  private static readonly PANEL_PAGE_SIZE = 10;
+
+  private static readonly EXCEL_TEMPLATES: Record<
+    AuditExportTemplate,
+    {
+      columns: { header: string; key: string; width: number }[];
+      mapRow: (
+        row: UnifiedAuditHistoryDto,
+        formattedDatetime: string,
+      ) => Record<string, unknown>;
+    }
+  > = {
+    events: {
+      columns: [
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+          key: 'id',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
+          key: 'datetime',
+          width: 25,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ID,
+          key: 'userId',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_NAME,
+          key: 'userName',
+          width: 30,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_EMAIL,
+          key: 'userEmail',
+          width: 35,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ROLE,
+          key: 'userRole',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_CODE,
+          key: 'actionCode',
+          width: 25,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_NAME,
+          key: 'actionName',
+          width: 35,
+        },
+        { header: AUDIT_EXCEL_CONFIG.COLUMNS.SOURCE, key: 'source', width: 15 },
+        { header: AUDIT_EXCEL_CONFIG.COLUMNS.IP, key: 'ipAddress', width: 20 },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_AGENT,
+          key: 'userAgent',
+          width: 50,
+        },
+      ],
+      mapRow: (row, formattedDatetime) => ({
+        id: row.id,
+        datetime: formattedDatetime,
+        userId: row.userId ?? '',
+        userName:
+          row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+        userEmail:
+          row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userEmail,
+        userRole:
+          row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+        actionCode:
+          row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionCode,
+        actionName:
+          row.actionName === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionName,
+        source:
+          row.source === AUDIT_SOURCES.SECURITY
+            ? AUDIT_LABELS.SOURCE_SECURITY
+            : AUDIT_LABELS.SOURCE_AUDIT,
+        ipAddress:
+          row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+        userAgent:
+          row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userAgent,
+      }),
+    },
+    panel: {
+      columns: [
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+          key: 'id',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
+          key: 'datetime',
+          width: 25,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ID,
+          key: 'userId',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_NAME,
+          key: 'userName',
+          width: 30,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_EMAIL,
+          key: 'userEmail',
+          width: 35,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ROLE,
+          key: 'userRole',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_CODE,
+          key: 'actionCode',
+          width: 25,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_NAME,
+          key: 'actionName',
+          width: 35,
+        },
+        { header: AUDIT_EXCEL_CONFIG.COLUMNS.SOURCE, key: 'source', width: 15 },
+      ],
+      mapRow: (row, formattedDatetime) => ({
+        id: row.id,
+        datetime: formattedDatetime,
+        userId: row.userId ?? '',
+        userName:
+          row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+        userEmail:
+          row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userEmail,
+        userRole:
+          row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+        actionCode:
+          row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionCode,
+        actionName:
+          row.actionName === AUDIT_LABELS.UNKNOWN_ACTION ? '' : row.actionName,
+        source:
+          row.source === AUDIT_SOURCES.SECURITY
+            ? AUDIT_LABELS.SOURCE_SECURITY
+            : AUDIT_LABELS.SOURCE_AUDIT,
+      }),
+    },
+    security: {
+      columns: [
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+          key: 'id',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
+          key: 'datetime',
+          width: 25,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ID,
+          key: 'userId',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_NAME,
+          key: 'userName',
+          width: 30,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_EMAIL,
+          key: 'userEmail',
+          width: 35,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ROLE,
+          key: 'userRole',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_CODE,
+          key: 'actionCode',
+          width: 25,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_NAME,
+          key: 'actionName',
+          width: 35,
+        },
+        { header: AUDIT_EXCEL_CONFIG.COLUMNS.SOURCE, key: 'source', width: 15 },
+        { header: AUDIT_EXCEL_CONFIG.COLUMNS.IP, key: 'ipAddress', width: 20 },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_AGENT,
+          key: 'userAgent',
+          width: 50,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.DEVICE_ID,
+          key: 'deviceId',
+          width: 30,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.LOCATION_SOURCE,
+          key: 'locationSource',
+          width: 20,
+        },
+        { header: AUDIT_EXCEL_CONFIG.COLUMNS.CITY, key: 'city', width: 20 },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.COUNTRY,
+          key: 'country',
+          width: 15,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTIVE_ROLE_CODE,
+          key: 'activeRoleCode',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.SESSION_STATUS,
+          key: 'sessionStatus',
+          width: 20,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.NEW_SESSION_ID,
+          key: 'newSessionId',
+          width: 30,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.EXISTING_SESSION_ID,
+          key: 'existingSessionId',
+          width: 30,
+        },
+        {
+          header: AUDIT_EXCEL_CONFIG.COLUMNS.EXISTING_DEVICE_ID,
+          key: 'existingDeviceId',
+          width: 30,
+        },
+      ],
+      mapRow: (row, formattedDatetime) => {
+        const meta = row.metadata ?? {};
+        const str = (v: unknown) => (typeof v === 'string' ? v : '');
+        return {
+          id: row.id,
+          datetime: formattedDatetime,
+          userId: row.userId ?? '',
+          userName:
+            row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+          userEmail:
+            row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userEmail,
+          userRole:
+            row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+          actionCode:
+            row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION
+              ? ''
+              : row.actionCode,
+          actionName:
+            row.actionName === AUDIT_LABELS.UNKNOWN_ACTION
+              ? ''
+              : row.actionName,
+          source: AUDIT_LABELS.SOURCE_SECURITY,
+          ipAddress:
+            row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+          userAgent:
+            row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.userAgent,
+          deviceId: str(meta.deviceId),
+          locationSource: str(meta.locationSource),
+          city: str(meta.city),
+          country: str(meta.country),
+          activeRoleCode: str(meta.activeRoleCode),
+          sessionStatus: str(meta.sessionStatus),
+          newSessionId: str(meta.newSessionId),
+          existingSessionId: str(meta.existingSessionId),
+          existingDeviceId: str(meta.existingDeviceId),
+        };
+      },
+    },
+  };
+
+  async getAuditPanel(
+    filters: AuditHistoryFilters,
+    page: number,
+  ): Promise<AuditPanelResponseDto> {
+    const safePage = Math.max(1, page);
+    const offset = (safePage - 1) * AuditService.PANEL_PAGE_SIZE;
+    const parsedFilters = this.parseHistoryFilters(filters);
+
+    const [rows, totalItems] = await Promise.all([
+      this.auditExportRepository.findUnifiedHistory(
+        parsedFilters,
+        AuditService.PANEL_PAGE_SIZE,
+        offset,
+      ),
+      this.auditExportRepository.countUnifiedHistory(parsedFilters),
+    ]);
+
+    const totalPages =
+      totalItems === 0
+        ? 1
+        : Math.ceil(totalItems / AuditService.PANEL_PAGE_SIZE);
+
+    const items: AuditPanelItemDto[] = rows.map((row) => ({
+      id: row.id,
+      datetime: row.datetime,
+      userName: row.userName,
+      userRole: row.userRole,
+      actionName: row.actionName,
+      source: row.source,
+      sourceLabel:
+        row.source === AUDIT_SOURCES.SECURITY
+          ? AUDIT_LABELS.SOURCE_SECURITY
+          : AUDIT_LABELS.SOURCE_AUDIT,
+    }));
+
+    return { items, totalItems, totalPages, currentPage: safePage };
+  }
+
+  async getAuditLogDetail(compositeId: string): Promise<AuditLogDetailDto> {
+    const entityId = this.parseAuditCompositeId(compositeId);
+    if (entityId === null) {
+      throw new NotFoundException('El registro de auditoria no existe');
+    }
+
+    const record = await this.auditExportRepository.findAuditLogById(entityId);
+    if (!record) {
+      throw new NotFoundException('El registro de auditoria no existe');
+    }
+
+    return {
+      id: record.id,
+      datetime: record.datetime,
+      userId: record.userId,
+      userName: record.userName,
+      userEmail: record.userEmail,
+      userRole: record.userRole,
+      actionCode: record.actionCode,
+      actionName: record.actionName,
+      source: record.source,
+    };
+  }
+
+  private parseCompositeId(prefix: string, compositeId: string): number | null {
+    if (!compositeId.startsWith(prefix)) {
+      return null;
+    }
+    const entityId = Number(compositeId.slice(prefix.length));
+    return Number.isFinite(entityId) && entityId > 0 ? entityId : null;
+  }
+
+  private parseAuditCompositeId(compositeId: string): number | null {
+    return this.parseCompositeId('aud-', compositeId);
+  }
+
+  private parseSecurityCompositeId(compositeId: string): number | null {
+    return this.parseCompositeId('sec-', compositeId);
+  }
+
+  private extractSecurityMetadata(
+    raw: Record<string, unknown> | undefined,
+  ): SecurityEventMetadataDto | undefined {
+    if (!raw) {
+      return undefined;
+    }
+    const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+    return {
+      deviceId: str(raw.deviceId),
+      locationSource: str(raw.locationSource),
+      city: str(raw.city),
+      country: str(raw.country),
+      activeRoleCode: str(raw.activeRoleCode),
+      sessionStatus: str(raw.sessionStatus),
+      newSessionId: str(raw.newSessionId),
+      existingSessionId: str(raw.existingSessionId),
+      existingDeviceId: str(raw.existingDeviceId),
+    };
+  }
+
+  async getSecurityEventDetail(
+    compositeId: string,
+  ): Promise<SecurityEventDetailDto> {
+    const entityId = this.parseSecurityCompositeId(compositeId);
+    if (entityId === null) {
+      throw new NotFoundException('El registro de auditoria no existe');
+    }
+
+    const record =
+      await this.auditExportRepository.findSecurityEventById(entityId);
+    if (!record) {
+      throw new NotFoundException('El registro de auditoria no existe');
+    }
+
+    return {
+      id: record.id,
+      datetime: record.datetime,
+      userId: record.userId,
+      userName: record.userName,
+      userEmail: record.userEmail,
+      userRole: record.userRole,
+      actionCode: record.actionCode,
+      actionName: record.actionName,
+      source: record.source,
+      ipAddress: record.ipAddress,
+      userAgent: record.userAgent,
+      metadata: this.extractSecurityMetadata(record.metadata),
+    };
+  }
+
+  async getPanelDetail(
+    compositeId: string,
+  ): Promise<AuditLogDetailDto | SecurityEventDetailDto> {
+    if (compositeId.startsWith('aud-')) {
+      return this.getAuditLogDetail(compositeId);
+    }
+    if (compositeId.startsWith('sec-')) {
+      return this.getSecurityEventDetail(compositeId);
+    }
+    throw new NotFoundException('El registro de auditoria no existe');
+  }
+
   async getExportPlan(filters: AuditHistoryFilters): Promise<AuditExportPlan> {
     const totalRows = await this.countUnifiedHistory(filters);
     return this.auditExportCoordinator.buildExportPlan(totalRows);
@@ -189,6 +621,7 @@ export class AuditService implements OnApplicationBootstrap {
 
   async prepareSyncExport(
     filters: AuditHistoryFilters,
+    exportTemplate: AuditExportTemplate,
     onBatchProcessed?: () => Promise<void>,
   ): Promise<{
     fileName: string;
@@ -201,7 +634,7 @@ export class AuditService implements OnApplicationBootstrap {
       await this.auditExportArtifacts.createSyncTempFile(fileName);
 
     try {
-      await this.writeWorkbookToFile(filters, filePath, {
+      await this.writeWorkbookToFile(filters, filePath, exportTemplate, {
         onBatchProcessed,
       });
     } catch (error) {
@@ -222,6 +655,7 @@ export class AuditService implements OnApplicationBootstrap {
     totalRows: number,
     rowsPerFile: number,
     jobId: string,
+    exportTemplate: AuditExportTemplate,
     onProgress?: (
       progress: number,
       estimatedFileCount: number,
@@ -260,11 +694,12 @@ export class AuditService implements OnApplicationBootstrap {
         );
         const partPath = path.join(workspace, partName);
 
-        cursor = await this.writeWorkbookToFile(filters, partPath, {
-          cursor,
-          maxRows,
-          onBatchProcessed,
-        });
+        cursor = await this.writeWorkbookToFile(
+          filters,
+          partPath,
+          exportTemplate,
+          { cursor, maxRows, onBatchProcessed },
+        );
         generatedFiles.push({ filePath: partPath, entryName: partName });
 
         if (onProgress) {
@@ -319,6 +754,7 @@ export class AuditService implements OnApplicationBootstrap {
   private async writeWorkbookToFile(
     filters: AuditHistoryFilters,
     filePath: string,
+    exportTemplate: AuditExportTemplate,
     options?: {
       cursor?: AuditExportCursor;
       maxRows?: number;
@@ -334,62 +770,15 @@ export class AuditService implements OnApplicationBootstrap {
         : technicalSettings.audit.exportReadBatchSize,
     );
 
+    const templateDef = AuditService.EXCEL_TEMPLATES[exportTemplate];
+
     const workbook = new ExcelStream.xlsx.WorkbookWriter({
       filename: filePath,
       useStyles: true,
       useSharedStrings: false,
     });
     const worksheet = workbook.addWorksheet(AUDIT_EXCEL_CONFIG.SHEET_NAME);
-
-    worksheet.columns = [
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
-        key: 'id',
-        width: 20,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
-        key: 'datetime',
-        width: 25,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ID,
-        key: 'userId',
-        width: 18,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_NAME,
-        key: 'userName',
-        width: 30,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_EMAIL,
-        key: 'userEmail',
-        width: 35,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ROLE,
-        key: 'userRole',
-        width: 20,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_NAME,
-        key: 'actionName',
-        width: 35,
-      },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.ACTION_CODE,
-        key: 'actionCode',
-        width: 25,
-      },
-      { header: AUDIT_EXCEL_CONFIG.COLUMNS.SOURCE, key: 'source', width: 15 },
-      { header: AUDIT_EXCEL_CONFIG.COLUMNS.IP, key: 'ipAddress', width: 20 },
-      {
-        header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_AGENT,
-        key: 'userAgent',
-        width: 50,
-      },
-    ];
+    worksheet.columns = templateDef.columns;
 
     worksheet.getRow(1).font = {
       bold: true,
@@ -425,35 +814,9 @@ export class AuditService implements OnApplicationBootstrap {
 
       for (const row of batch) {
         worksheet
-          .addRow({
-            ...row,
-            userId: row.userId ?? '',
-            userName:
-              row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
-            userEmail:
-              row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? ''
-              : row.userEmail,
-            userRole:
-              row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
-            actionName:
-              row.actionName === AUDIT_LABELS.UNKNOWN_ACTION
-                ? ''
-                : row.actionName,
-            actionCode:
-              row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION
-                ? ''
-                : row.actionCode,
-            ipAddress:
-              row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
-            userAgent:
-              row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? ''
-              : row.userAgent,
-            source:
-              row.source === AUDIT_SOURCES.SECURITY
-                ? AUDIT_LABELS.SOURCE_SECURITY
-                : AUDIT_LABELS.SOURCE_AUDIT,
-            datetime: this.formatExcelDatetime(row.datetime),
-          })
+          .addRow(
+            templateDef.mapRow(row, this.formatExcelDatetime(row.datetime)),
+          )
           .commit();
 
         lastCursor = {

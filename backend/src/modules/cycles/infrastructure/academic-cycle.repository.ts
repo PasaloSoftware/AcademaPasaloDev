@@ -47,4 +47,47 @@ export class AcademicCycleRepository {
 
     return qb.getManyAndCount();
   }
+
+  async findByCode(
+    code: string,
+    excludeId?: string,
+  ): Promise<AcademicCycle | null> {
+    const qb = this.ormRepository
+      .createQueryBuilder('c')
+      .where('c.code = :code', { code });
+    if (excludeId) {
+      qb.andWhere('c.id != :excludeId', { excludeId });
+    }
+    return qb.getOne();
+  }
+
+  async findOverlapping(
+    startDate: string,
+    endDate: string,
+    excludeId?: string,
+  ): Promise<AcademicCycle | null> {
+    const qb = this.ormRepository
+      .createQueryBuilder('c')
+      .where('c.startDate <= :endDate AND c.endDate >= :startDate', {
+        startDate,
+        endDate,
+      });
+    if (excludeId) {
+      qb.andWhere('c.id != :excludeId', { excludeId });
+    }
+    return qb.getOne();
+  }
+
+  async createCycle(data: {
+    code: string;
+    startDate: Date;
+    endDate: Date;
+  }): Promise<AcademicCycle> {
+    const cycle = this.ormRepository.create(data);
+    return this.ormRepository.save(cycle);
+  }
+
+  async saveCycle(cycle: AcademicCycle): Promise<AcademicCycle> {
+    return this.ormRepository.save(cycle);
+  }
 }
