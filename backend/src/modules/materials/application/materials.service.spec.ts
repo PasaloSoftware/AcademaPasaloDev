@@ -200,7 +200,9 @@ describe('MaterialsService', () => {
           useValue: {
             dispatchNewMaterial: jest.fn().mockResolvedValue(undefined),
             dispatchMaterialUpdated: jest.fn().mockResolvedValue(undefined),
-            dispatchDeletionRequestCreated: jest.fn().mockResolvedValue(undefined),
+            dispatchDeletionRequestCreated: jest
+              .fn()
+              .mockResolvedValue(undefined),
           },
         },
         {
@@ -885,6 +887,38 @@ describe('MaterialsService', () => {
         'child-a': 2,
         'child-b': 0,
       });
+    });
+
+    it('should expose pending deletion flag in folder contents for professor', async () => {
+      folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      catalogRepo.findFolderStatusByCode.mockResolvedValue({
+        id: '1',
+      } as FolderStatus);
+      catalogRepo.findMaterialStatusByCode.mockResolvedValue({
+        id: '1',
+      } as MaterialStatus);
+      catalogRepo.findDeletionRequestStatusByCode.mockResolvedValue({
+        id: 'pending',
+      } as DeletionRequestStatus);
+      folderRepo.findSubFolders.mockResolvedValue([]);
+      materialRepo.findByFolderId.mockResolvedValue([
+        { id: 'mat-1', displayName: 'Guia 1' } as Material,
+        { id: 'mat-2', displayName: 'Guia 2' } as Material,
+      ]);
+      deletionRepo.findPendingMaterialIds.mockResolvedValue(['mat-1']);
+      (
+        courseCycleProfessorRepo.canProfessorReadEvaluation as jest.Mock
+      ).mockResolvedValue(true);
+
+      const result = await service.getFolderContents(mockProfessor, 'folder-1');
+
+      expect(result.materials).toHaveLength(2);
+      expect(result.materials).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'mat-1', isPendingDeletion: true }),
+          expect.objectContaining({ id: 'mat-2', isPendingDeletion: false }),
+        ]),
+      );
     });
   });
 

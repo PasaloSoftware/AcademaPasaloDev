@@ -104,7 +104,7 @@ export default function InicioContent() {
           <div className="flex items-center gap-2 self-end sm:gap-3">
             <button
               onClick={() => setViewMode("grid")}
-              aria-label="Ver cursos en galer�a"
+              aria-label="Ver cursos en galería"
               className={`flex items-center gap-1 rounded px-2 py-1.5 transition-colors sm:px-2.5 sm:py-2 ${
                 viewMode === "grid"
                   ? "bg-accent-solid"
@@ -172,7 +172,7 @@ export default function InicioContent() {
                 No tienes cursos asignados
               </p>
               <p className="text-secondary">
-                Los cursos aparecer�n aqu� cuando un administrador te asigne
+                Los cursos aparecerán aquí cuando un administrador te asigne
               </p>
             </div>
           ) : (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { classEventService } from "@/services/classEvent.service";
@@ -240,8 +241,8 @@ export default function VideoPageLayout({
   // Material context menu & modals
   const [contextMenuMat, setContextMenuMat] = useState<{
     mat: ClassEventMaterial;
-    x: number;
-    y: number;
+    top: number;
+    left: number;
   } | null>(null);
   const [infoMat, setInfoMat] = useState<ClassEventMaterial | null>(null);
   const [deleteMat, setDeleteMat] = useState<ClassEventMaterial | null>(null);
@@ -377,6 +378,58 @@ export default function VideoPageLayout({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [contextMenuMat]);
+
+  const computeMaterialMenuPosition = useCallback((trigger: HTMLElement) => {
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 240;
+    const menuHeight = 280;
+    const viewportPadding = 8;
+    const verticalOffset = 4;
+
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const shouldOpenUpward = spaceBelow < menuHeight && rect.top > spaceBelow;
+
+    const top = shouldOpenUpward
+      ? Math.max(viewportPadding, rect.top - menuHeight - verticalOffset)
+      : Math.min(
+          rect.bottom + verticalOffset,
+          window.innerHeight - menuHeight - viewportPadding,
+        );
+
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding,
+    );
+
+    return { top, left };
+  }, []);
+
+  useEffect(() => {
+    if (!contextMenuMat) return;
+
+    const handleViewportChange = () => {
+      const activeTrigger = document.querySelector<HTMLElement>(
+        `[data-material-menu-trigger="${contextMenuMat.mat.id}"]`,
+      );
+      if (!activeTrigger) return;
+
+      setContextMenuMat((prev) =>
+        prev
+          ? {
+              mat: prev.mat,
+              ...computeMaterialMenuPosition(activeTrigger),
+            }
+          : prev,
+      );
+    };
+
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [contextMenuMat, computeMaterialMenuPosition]);
 
   useEffect(() => {
     if (!event) return;
@@ -1379,7 +1432,7 @@ export default function VideoPageLayout({
           {nextEvent && (
             <button
               onClick={handleNextClass}
-              className="w-full px-5 py-4 bg-muted-indigo-700 rounded-xl flex items-center gap-4 hover:opacity-90 transition-opacity"
+              className="w-full px-5 py-4 bg-deep-blue-800 rounded-xl flex items-center gap-4 hover:opacity-90 transition-opacity"
             >
               <div className="flex-1 min-w-0 flex flex-col gap-1 text-left">
                 <span className="text-deep-blue-100 text-xs font-medium leading-4">
@@ -1393,7 +1446,7 @@ export default function VideoPageLayout({
                 <Icon
                   name="arrow_forward"
                   size={24}
-                  className="text-muted-indigo-700"
+                  className="text-deep-blue-800"
                 />
               </div>
             </button>
@@ -1476,15 +1529,14 @@ export default function VideoPageLayout({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const rect = (
-                              e.currentTarget as HTMLElement
-                            ).getBoundingClientRect();
                             setContextMenuMat({
                               mat,
-                              x: rect.right,
-                              y: rect.bottom,
+                              ...computeMaterialMenuPosition(
+                                e.currentTarget as HTMLElement,
+                              ),
                             });
                           }}
+                          data-material-menu-trigger={mat.id}
                           className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-tertiary transition-colors flex-shrink-0"
                           title="Opciones"
                         >
@@ -1513,197 +1565,208 @@ export default function VideoPageLayout({
                     </div>
 
                     {/* Context Menu */}
-                    {contextMenuMat?.mat.id === mat.id && (
-                      <div
-                        ref={contextMenuRef}
-                        className="absolute right-0 top-full z-50 w-60 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
-                      >
-                        <button
-                          onClick={() => {
-                            setContextMenuMat(null);
-                            setPreviewIndex(matIdx);
-                            setShowPreview(true);
+                    {contextMenuMat?.mat.id === mat.id &&
+                      createPortal(
+                        <div
+                          ref={contextMenuRef}
+                          style={{
+                            position: "fixed",
+                            top: contextMenuMat.top,
+                            left: contextMenuMat.left,
+                            zIndex: 9999,
                           }}
-                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          className="w-60 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
                         >
-                          <Icon
-                            name="open_in_full"
-                            size={20}
-                            className="text-icon-secondary"
-                            variant="rounded"
-                          />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                            Abrir
-                          </span>
-                        </button>
-
-                        {showAdminPendingActions ? (
-                          <div className="h-px bg-stroke-secondary" />
-                        ) : (
                           <button
                             onClick={() => {
                               setContextMenuMat(null);
-                              setRenameMat(mat);
-                              setRenameMatValue(
-                                getFileNameWithoutExt(
-                                  mat.displayName ||
-                                    mat.fileResource.originalName,
-                                ),
-                              );
+                              setPreviewIndex(matIdx);
+                              setShowPreview(true);
                             }}
                             className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
                           >
                             <Icon
-                              name="edit"
+                              name="open_in_full"
                               size={20}
                               className="text-icon-secondary"
                               variant="rounded"
                             />
                             <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                              Cambiar nombre
+                              Abrir
                             </span>
                           </button>
-                        )}
 
-                        <button
-                          onClick={() => {
-                            setContextMenuMat(null);
-                            materialsService.downloadMaterial(mat.id, fileName);
-                          }}
-                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
-                        >
-                          <Icon
-                            name="download"
-                            size={20}
-                            className="text-icon-secondary"
-                            variant="rounded"
-                          />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                            Descargar
-                          </span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setContextMenuMat(null);
-                            setInfoMat(mat);
-                          }}
-                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
-                        >
-                          <Icon
-                            name="info"
-                            size={20}
-                            className="text-icon-secondary"
-                            variant="rounded"
-                          />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                            Información del material
-                          </span>
-                        </button>
-
-                        <div className="h-px bg-stroke-secondary" />
-
-                        {showAdminPendingActions ? (
-                          <>
+                          {showAdminPendingActions ? (
+                            <div className="h-px bg-stroke-secondary" />
+                          ) : (
                             <button
                               onClick={() => {
                                 setContextMenuMat(null);
-                                if (!pendingRequest) return;
-                                void handleReviewDeletionRequest(
-                                  pendingRequest.id,
-                                  "REJECT",
-                                  mat.id,
+                                setRenameMat(mat);
+                                setRenameMatValue(
+                                  getFileNameWithoutExt(
+                                    mat.displayName ||
+                                      mat.fileResource.originalName,
+                                  ),
                                 );
                               }}
                               className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
                             >
                               <Icon
-                                name="history"
+                                name="edit"
                                 size={20}
                                 className="text-icon-secondary"
                                 variant="rounded"
                               />
                               <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                                Restaurar
+                                Cambiar nombre
                               </span>
                             </button>
+                          )}
 
-                            <button
-                              onClick={async () => {
-                                setContextMenuMat(null);
-                                if (!pendingRequest) return;
-
-                                try {
-                                  setDeleteLoading(true);
-                                  await materialsService.reviewDeletionRequest(
-                                    pendingRequest.id,
-                                    "APPROVE",
-                                  );
-                                  await materialsService.hardDelete(mat.id);
-                                  await Promise.all([
-                                    refreshMaterials(),
-                                    loadPendingDeletionRequests(),
-                                  ]);
-                                  if (infoMat?.id === mat.id) {
-                                    setInfoMat(null);
-                                  }
-                                  showToast({
-                                    type: "success",
-                                    title: "Material eliminado",
-                                    description:
-                                      "El material se eliminó definitivamente.",
-                                  });
-                                } catch (err) {
-                                  console.error(
-                                    "Error al eliminar material definitivamente:",
-                                    err,
-                                  );
-                                  showToast({
-                                    type: "error",
-                                    title: "No se pudo eliminar el material",
-                                    description:
-                                      err instanceof Error
-                                        ? err.message
-                                        : "Ocurrió un error inesperado.",
-                                  });
-                                } finally {
-                                  setDeleteLoading(false);
-                                }
-                              }}
-                              className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
-                            >
-                              <Icon
-                                name="delete_forever"
-                                size={20}
-                                className="text-text-error-primary"
-                                variant="rounded"
-                              />
-                              <span className="flex-1 text-text-error-primary text-sm font-normal leading-4 text-left">
-                                Eliminar definitivamente
-                              </span>
-                            </button>
-                          </>
-                        ) : (
                           <button
                             onClick={() => {
                               setContextMenuMat(null);
-                              setDeleteMat(mat);
+                              materialsService.downloadMaterial(
+                                mat.id,
+                                fileName,
+                              );
                             }}
                             className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
                           >
                             <Icon
-                              name="delete"
+                              name="download"
                               size={20}
                               className="text-icon-secondary"
                               variant="rounded"
                             />
                             <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                              Eliminar
+                              Descargar
                             </span>
                           </button>
-                        )}
-                      </div>
-                    )}
+
+                          <button
+                            onClick={() => {
+                              setContextMenuMat(null);
+                              setInfoMat(mat);
+                            }}
+                            className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name="info"
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              Información del material
+                            </span>
+                          </button>
+
+                          <div className="h-px bg-stroke-secondary" />
+
+                          {showAdminPendingActions ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setContextMenuMat(null);
+                                  if (!pendingRequest) return;
+                                  void handleReviewDeletionRequest(
+                                    pendingRequest.id,
+                                    "REJECT",
+                                    mat.id,
+                                  );
+                                }}
+                                className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                              >
+                                <Icon
+                                  name="history"
+                                  size={20}
+                                  className="text-icon-secondary"
+                                  variant="rounded"
+                                />
+                                <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                                  Restaurar
+                                </span>
+                              </button>
+
+                              <button
+                                onClick={async () => {
+                                  setContextMenuMat(null);
+                                  if (!pendingRequest) return;
+
+                                  try {
+                                    setDeleteLoading(true);
+                                    await materialsService.reviewDeletionRequest(
+                                      pendingRequest.id,
+                                      "APPROVE",
+                                    );
+                                    await materialsService.hardDelete(mat.id);
+                                    await Promise.all([
+                                      refreshMaterials(),
+                                      loadPendingDeletionRequests(),
+                                    ]);
+                                    if (infoMat?.id === mat.id) {
+                                      setInfoMat(null);
+                                    }
+                                    showToast({
+                                      type: "success",
+                                      title: "Material eliminado",
+                                      description:
+                                        "El material se eliminó definitivamente.",
+                                    });
+                                  } catch (err) {
+                                    console.error(
+                                      "Error al eliminar material definitivamente:",
+                                      err,
+                                    );
+                                    showToast({
+                                      type: "error",
+                                      title: "No se pudo eliminar el material",
+                                      description:
+                                        err instanceof Error
+                                          ? err.message
+                                          : "Ocurrió un error inesperado.",
+                                    });
+                                  } finally {
+                                    setDeleteLoading(false);
+                                  }
+                                }}
+                                className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                              >
+                                <Icon
+                                  name="delete_forever"
+                                  size={20}
+                                  className="text-text-error-primary"
+                                  variant="rounded"
+                                />
+                                <span className="flex-1 text-text-error-primary text-sm font-normal leading-4 text-left">
+                                  Eliminar definitivamente
+                                </span>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setContextMenuMat(null);
+                                setDeleteMat(mat);
+                              }}
+                              className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                            >
+                              <Icon
+                                name="delete"
+                                size={20}
+                                className="text-icon-secondary"
+                                variant="rounded"
+                              />
+                              <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                                Eliminar
+                              </span>
+                            </button>
+                          )}
+                        </div>,
+                        document.body,
+                      )}
                   </div>
                 );
               })}

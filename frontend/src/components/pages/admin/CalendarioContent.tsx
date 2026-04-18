@@ -577,7 +577,7 @@ export default function CalendarioContent() {
           >
             <Icon name="add" size={16} className="text-icon-white" />
             <span className="text-text-white text-sm font-medium leading-4">
-              Crear Evento
+              Crear Clase
             </span>
           </button>
         }

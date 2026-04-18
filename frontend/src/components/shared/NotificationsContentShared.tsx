@@ -31,8 +31,8 @@ const notificationTypeStyles: Record<string, NotificationTypeStyle> = {
   },
   MATERIAL_UPDATED: {
     icon: "update",
-    bgClass: "bg-warning-light",
-    iconClass: "text-icon-warning-primary",
+    bgClass: "bg-gray-200",
+    iconClass: "text-gray-700",
   },
   CLASS_SCHEDULED: {
     icon: "event",
@@ -41,8 +41,8 @@ const notificationTypeStyles: Record<string, NotificationTypeStyle> = {
   },
   CLASS_UPDATED: {
     icon: "update",
-    bgClass: "bg-warning-light",
-    iconClass: "text-icon-warning-primary",
+    bgClass: "bg-gray-200",
+    iconClass: "text-gray-700",
   },
   CLASS_CANCELLED: {
     icon: "event_busy",
@@ -60,14 +60,14 @@ const notificationTypeStyles: Record<string, NotificationTypeStyle> = {
     iconClass: "text-icon-info-primary",
   },
   DELETION_REQUEST_APPROVED: {
-    icon: "check_circle",
-    bgClass: "bg-bg-success-light",
-    iconClass: "text-icon-success-primary",
+    icon: "backspace",
+    bgClass: "bg-warning-light",
+    iconClass: "text-orange-600",
   },
   DELETION_REQUEST_REJECTED: {
-    icon: "cancel",
-    bgClass: "bg-red-50",
-    iconClass: "text-error-solid",
+    icon: "backspace",
+    bgClass: "bg-warning-light",
+    iconClass: "text-orange-600",
   },
   AUDIT_EXPORT_READY: {
     icon: "download",

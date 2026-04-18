@@ -32,6 +32,7 @@ export default function CalendarWeeklyView({
   onEventClick,
   selectedEventId,
 }: CalendarWeeklyViewProps) {
+  const EVENT_BOTTOM_GAP_PX = 4;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -163,7 +164,7 @@ export default function CalendarWeeklyView({
                         className={`absolute rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-all ${isSelected ? "shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10" : ""}`}
                         style={{
                           top: `${position.top}px`,
-                          height: `${position.height}px`,
+                          height: `${Math.max(position.height - EVENT_BOTTOM_GAP_PX, 36)}px`,
                           left: layout.left,
                           width: layout.width,
                           backgroundColor: colors.secondary,
