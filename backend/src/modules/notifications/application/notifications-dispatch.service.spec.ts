@@ -177,6 +177,32 @@ describe('NotificationsDispatchService', () => {
     });
   });
 
+  describe('dispatchDeletionRequestCreated', () => {
+    it('encola el job con jobId estable basado en requestId', async () => {
+      await service.dispatchDeletionRequestCreated('req-99');
+
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        NOTIFICATION_JOB_NAMES.DISPATCH,
+        {
+          type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+          requestId: 'req-99',
+        },
+        {
+          jobId: 'deletion-created-req-99',
+          removeOnComplete: true,
+        },
+      );
+    });
+
+    it('no propaga el error si la queue falla', async () => {
+      (mockQueue.add as jest.Mock).mockRejectedValue(new Error('Redis down'));
+
+      await expect(
+        service.dispatchDeletionRequestCreated('req-99'),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   describe('dispatchDeletionRequestApproved', () => {
     it('encola el job con jobId estable', async () => {
       await service.dispatchDeletionRequestApproved('req-1');

@@ -160,3 +160,26 @@ Se tiene previsto integrar los siguientes servicios en el contenedor de Docker p
 
 Por favor, revise los archivos `CONTRIBUTING.md` y `arquitectura_deseable.txt` antes de realizar cambios. Se aplican reglas estrictas de estilo, tipado y arquitectura.
 
+
+## Migraciones de Base de Datos (nuevo flujo incremental)
+
+Para cambios incrementales de esquema/datos (local, develop y produccion), usar migraciones TypeORM.
+
+Comandos:
+
+```bash
+# Crea archivo de migracion en src/database/migrations
+npm run migration:create -- nombre_del_cambio
+
+# Lista estado (ejecutadas / pendientes)
+npm run migration:show
+
+# Aplica migraciones pendientes
+npm run migration:run
+```
+
+Notas:
+
+- Se mantiene `synchronize: false`.
+- Los scripts SQL de `db/` quedan para bootstrap inicial de una BD nueva.
+- Se incluyo una baseline migration para marcar el estado inicial del esquema ya existente en produccion.

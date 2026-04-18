@@ -491,7 +491,6 @@ export class UsersService {
         const desiredProfessorCourseCycleIds = shouldKeepProfessorState
           ? finalProfessorCourseCycleIds
           : [];
-        const desiredProfessorSet = new Set(desiredProfessorCourseCycleIds);
         const currentProfessorSet = new Set(currentProfessorCourseCycleIds);
 
         const removedProfessorCourseCycleIds = shouldKeepProfessorState

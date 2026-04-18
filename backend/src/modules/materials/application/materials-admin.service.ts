@@ -5,7 +5,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { DeletionRequestRepository } from '@modules/materials/infrastructure/deletion-request.repository';
 import { MaterialRepository } from '@modules/materials/infrastructure/material.repository';
 import { MaterialCatalogRepository } from '@modules/materials/infrastructure/material-catalog.repository';
@@ -40,6 +40,7 @@ import {
   buildDrivePreviewUrl,
   buildDriveViewUrl,
 } from '@modules/media-access/domain/media-access-url.util';
+import { EvaluationDriveAccess } from '@modules/media-access/domain/evaluation-drive-access.entity';
 
 type PendingDeletionRequestWithMaterialRow = {
   requestId: string;
@@ -298,6 +299,19 @@ export class MaterialsAdminService {
       await this.invalidateMaterialCaches(materialToInvalidate);
     }
 
+    if (dto.action === DeletionReviewAction.APPROVE && materialToInvalidate) {
+      try {
+        await this.moveCurrentFileToEvaluationArchived(materialToInvalidate);
+      } catch (error) {
+        this.logger.warn({
+          message:
+            'No se pudo mover el archivo a la carpeta archivado en Drive; se continua sin mover',
+          requestId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     if (dto.action === DeletionReviewAction.APPROVE) {
       void this.notificationsDispatchService.dispatchDeletionRequestApproved(
         requestId,
@@ -366,6 +380,35 @@ export class MaterialsAdminService {
     return material;
   }
 
+  private async moveCurrentFileToEvaluationArchived(
+    material: Material,
+  ): Promise<void> {
+    if (!material.fileResource) return;
+
+    const evaluationId = material.materialFolder?.evaluationId;
+    if (!evaluationId) return;
+
+    const driveAccess = await this.dataSource
+      .getRepository(EvaluationDriveAccess)
+      .findOne({ where: { evaluationId } });
+
+    if (!driveAccess?.driveArchivedFolderId) {
+      this.logger.warn({
+        message:
+          'No se encontro carpeta archivado en Drive para la evaluacion; se omite el movimiento',
+        materialId: material.id,
+        evaluationId,
+      });
+      return;
+    }
+
+    await this.storageService.moveFileToEvaluationArchived(
+      material.fileResource.storageKey,
+      material.fileResource.storageProvider,
+      driveAccess.driveArchivedFolderId,
+    );
+  }
+
   private async handleRejection(
     requestId: string,
     adminId: string,
@@ -410,6 +453,87 @@ export class MaterialsAdminService {
       );
     }
 
+    await this.performPhysicalDeletion(adminId, materialId, material, {
+      deleteAllVersions: false,
+    });
+
+    this.logger.warn({
+      message: 'Material eliminado físicamente (Hard Delete)',
+      materialId,
+      adminId,
+    });
+  }
+
+  async directDeleteMaterial(
+    adminId: string,
+    materialId: string,
+    reason?: string,
+  ): Promise<void> {
+    const material = await this.materialRepository.findById(materialId);
+    if (!material) throw new NotFoundException('Material no encontrado');
+
+    const pendingStatus =
+      await this.catalogRepository.findDeletionRequestStatusByCode(
+        DELETION_REQUEST_STATUS_CODES.PENDING,
+      );
+    const approvedStatus =
+      await this.catalogRepository.findDeletionRequestStatusByCode(
+        DELETION_REQUEST_STATUS_CODES.APPROVED,
+      );
+
+    let pendingRequestId: string | null = null;
+
+    if (pendingStatus) {
+      const pendingRequest =
+        await this.requestRepository.findPendingByMaterialId(
+          materialId,
+          pendingStatus.id,
+        );
+      if (pendingRequest) {
+        pendingRequestId = pendingRequest.id;
+      }
+    }
+
+    if (pendingRequestId && !approvedStatus) {
+      throw new InternalServerErrorException(
+        `Error de configuración: Estado ${DELETION_REQUEST_STATUS_CODES.APPROVED} faltante`,
+      );
+    }
+
+    await this.performPhysicalDeletion(adminId, materialId, material, {
+      deleteAllVersions: true,
+      reason,
+      pendingRequestId,
+      pendingStatusId: pendingStatus?.id ?? null,
+      approvedStatusId: approvedStatus?.id ?? null,
+    });
+
+    if (pendingRequestId) {
+      void this.notificationsDispatchService.dispatchDeletionRequestApproved(
+        pendingRequestId,
+      );
+    }
+
+    this.logger.warn({
+      message: 'Material eliminado directamente (Direct Delete)',
+      materialId,
+      adminId,
+      reason,
+    });
+  }
+
+  private async performPhysicalDeletion(
+    adminId: string,
+    materialId: string,
+    material: Material,
+    opts: {
+      deleteAllVersions: boolean;
+      reason?: string;
+      pendingRequestId?: string | null;
+      pendingStatusId?: string | null;
+      approvedStatusId?: string | null;
+    },
+  ): Promise<void> {
     const filesToDelete: Array<{
       storageProvider: FileResource['storageProvider'];
       storageKey: string;
@@ -417,80 +541,202 @@ export class MaterialsAdminService {
     }> = [];
 
     await this.dataSource.transaction(async (manager) => {
-      const materialRecord = await manager.findOne(Material, {
-        where: { id: materialId },
-        relations: { fileVersion: true },
-      });
+      if (opts.deleteAllVersions) {
+        const allVersions = await manager.find(MaterialVersion, {
+          where: { materialId },
+        });
+        const allFileResourceIds = [
+          ...new Set([
+            ...allVersions.map((v) => v.fileResourceId),
+            ...(material.fileResourceId ? [material.fileResourceId] : []),
+          ]),
+        ];
 
-      if (!materialRecord) return;
-
-      const currentVersionId =
-        materialRecord.fileVersionId || materialRecord.fileVersion?.id || null;
-      if (!currentVersionId) {
-        throw new InternalServerErrorException(
-          'Integridad de datos corrupta: material sin version actual',
-        );
-      }
-
-      const currentVersion =
-        materialRecord.fileVersion ||
-        (await manager.findOne(MaterialVersion, {
-          where: { id: currentVersionId },
-        }));
-      if (!currentVersion) {
-        throw new InternalServerErrorException(
-          'Integridad de datos corrupta: version actual no encontrada',
-        );
-      }
-
-      await manager.update(Material, materialId, {
-        fileVersionId: null,
-        updatedAt: new Date(),
-      });
-
-      await manager.delete(MaterialVersion, currentVersionId);
-
-      const previousVersion = await manager.findOne(MaterialVersion, {
-        where: { materialId },
-        order: { versionNumber: 'DESC' },
-      });
-
-      if (previousVersion) {
         await manager.update(Material, materialId, {
-          fileVersionId: previousVersion.id,
-          fileResourceId: previousVersion.fileResourceId,
+          fileVersionId: null,
           updatedAt: new Date(),
         });
-      } else {
+
+        if (allVersions.length > 0) {
+          await manager.delete(MaterialVersion, { materialId });
+        }
+
         await manager.delete(Material, materialId);
-      }
 
-      await this.auditService.logAction(
-        adminId,
-        AUDIT_ACTION_CODES.FILE_DELETE,
-        manager,
-      );
-
-      const versionRefs = await manager.count(MaterialVersion, {
-        where: { fileResourceId: currentVersion.fileResourceId },
-      });
-
-      if (versionRefs === 0) {
-        const resource = await manager.findOne(FileResource, {
-          where: { id: currentVersion.fileResourceId },
-        });
         if (
-          resource &&
-          typeof resource.storageProvider === 'string' &&
-          typeof resource.storageKey === 'string' &&
-          resource.storageKey.trim()
+          opts.pendingRequestId &&
+          opts.approvedStatusId &&
+          opts.pendingStatusId
         ) {
-          filesToDelete.push({
-            storageProvider: resource.storageProvider,
-            storageKey: resource.storageKey,
-            storageUrl: resource.storageUrl,
+          await manager.update(
+            DeletionRequest,
+            {
+              id: opts.pendingRequestId,
+              deletionRequestStatusId: opts.pendingStatusId,
+            },
+            {
+              deletionRequestStatusId: opts.approvedStatusId,
+              reviewedById: adminId,
+              reviewedAt: new Date(),
+              reviewComment: 'Eliminación directa por administrador',
+              updatedAt: new Date(),
+            },
+          );
+        }
+
+        // Limpiar filas huérfanas de deletion_request para este material.
+        // Si hay una solicitud auto-aprobada, se conserva para que el processor
+        // de notificaciones pueda leerla; se borran el resto (rechazadas, etc.).
+        await manager.query(
+          `DELETE FROM deletion_request WHERE entity_type = ? AND entity_id = ?${opts.pendingRequestId ? ' AND id != ?' : ''}`,
+          opts.pendingRequestId
+            ? [AUDIT_ENTITY_TYPES.MATERIAL, materialId, opts.pendingRequestId]
+            : [AUDIT_ENTITY_TYPES.MATERIAL, materialId],
+        );
+
+        await this.auditService.logAction(
+          adminId,
+          AUDIT_ACTION_CODES.FILE_DELETE,
+          manager,
+        );
+
+        if (allFileResourceIds.length > 0) {
+          const placeholders = allFileResourceIds.map(() => '?').join(',');
+          const versionRefRows = await manager.query<
+            { fileResourceId: string; cnt: string }[]
+          >(
+            `SELECT file_resource_id AS fileResourceId, COUNT(*) AS cnt
+             FROM material_version
+             WHERE file_resource_id IN (${placeholders})
+             GROUP BY file_resource_id`,
+            allFileResourceIds,
+          );
+          const materialRefRows = await manager.query<
+            { fileResourceId: string; cnt: string }[]
+          >(
+            `SELECT file_resource_id AS fileResourceId, COUNT(*) AS cnt
+             FROM material
+             WHERE file_resource_id IN (${placeholders})
+             GROUP BY file_resource_id`,
+            allFileResourceIds,
+          );
+
+          const versionRefCount = new Map(
+            versionRefRows.map((r) => [r.fileResourceId, Number(r.cnt)]),
+          );
+          const materialRefCount = new Map(
+            materialRefRows.map((r) => [r.fileResourceId, Number(r.cnt)]),
+          );
+
+          const orphanIds = allFileResourceIds.filter(
+            (id) =>
+              (versionRefCount.get(id) ?? 0) === 0 &&
+              (materialRefCount.get(id) ?? 0) === 0,
+          );
+
+          if (orphanIds.length > 0) {
+            const resources = await manager.find(FileResource, {
+              where: { id: In(orphanIds) },
+            });
+            for (const resource of resources) {
+              if (
+                typeof resource.storageProvider === 'string' &&
+                typeof resource.storageKey === 'string' &&
+                resource.storageKey.trim()
+              ) {
+                filesToDelete.push({
+                  storageProvider: resource.storageProvider,
+                  storageKey: resource.storageKey,
+                  storageUrl: resource.storageUrl,
+                });
+              }
+            }
+            await manager.delete(FileResource, { id: In(orphanIds) });
+          }
+        }
+      } else {
+        const materialRecord = await manager.findOne(Material, {
+          where: { id: materialId },
+          relations: { fileVersion: true },
+        });
+
+        if (!materialRecord) return;
+
+        const currentVersionId =
+          materialRecord.fileVersionId ||
+          materialRecord.fileVersion?.id ||
+          null;
+        if (!currentVersionId) {
+          throw new InternalServerErrorException(
+            'Integridad de datos corrupta: material sin version actual',
+          );
+        }
+
+        const currentVersion =
+          materialRecord.fileVersion ||
+          (await manager.findOne(MaterialVersion, {
+            where: { id: currentVersionId },
+          }));
+        if (!currentVersion) {
+          throw new InternalServerErrorException(
+            'Integridad de datos corrupta: version actual no encontrada',
+          );
+        }
+
+        await manager.update(Material, materialId, {
+          fileVersionId: null,
+          updatedAt: new Date(),
+        });
+
+        await manager.delete(MaterialVersion, { id: currentVersionId });
+
+        const previousVersion = await manager.findOne(MaterialVersion, {
+          where: { materialId },
+          order: { versionNumber: 'DESC' },
+        });
+
+        if (previousVersion) {
+          await manager.update(Material, materialId, {
+            fileVersionId: previousVersion.id,
+            fileResourceId: previousVersion.fileResourceId,
+            updatedAt: new Date(),
           });
-          await manager.delete(FileResource, currentVersion.fileResourceId);
+        } else {
+          await manager.delete(Material, materialId);
+          // Limpiar filas de deletion_request asociadas (incluye la que motivó el ARCHIVED)
+          await manager.query(
+            `DELETE FROM deletion_request WHERE entity_type = ? AND entity_id = ?`,
+            [AUDIT_ENTITY_TYPES.MATERIAL, materialId],
+          );
+        }
+
+        await this.auditService.logAction(
+          adminId,
+          AUDIT_ACTION_CODES.FILE_DELETE,
+          manager,
+        );
+
+        const versionRefs = await manager.count(MaterialVersion, {
+          where: { fileResourceId: currentVersion.fileResourceId },
+        });
+        const materialRefs = await manager.count(Material, {
+          where: { fileResourceId: currentVersion.fileResourceId },
+        });
+
+        if (versionRefs === 0 && materialRefs === 0) {
+          const resource = await manager.findOne(FileResource, {
+            where: { id: currentVersion.fileResourceId },
+          });
+          if (resource) {
+            filesToDelete.push({
+              storageProvider: resource.storageProvider,
+              storageKey: resource.storageKey,
+              storageUrl: resource.storageUrl,
+            });
+            await manager.delete(FileResource, {
+              id: currentVersion.fileResourceId,
+            });
+          }
         }
       }
     });
@@ -508,12 +754,6 @@ export class MaterialsAdminService {
     }
 
     await this.invalidateMaterialCaches(material);
-
-    this.logger.warn({
-      message: 'Material eliminado físicamente (Hard Delete)',
-      materialId,
-      adminId,
-    });
   }
 
   private async invalidateMaterialCaches(material: Material): Promise<void> {

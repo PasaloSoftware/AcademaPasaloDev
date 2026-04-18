@@ -509,6 +509,61 @@ export class StorageService implements OnModuleInit {
     return response.data;
   }
 
+  async moveFileToEvaluationArchived(
+    storageKey: string,
+    storageProvider: StorageProviderCode,
+    destinationFolderId: string,
+  ): Promise<void> {
+    if (storageProvider !== STORAGE_PROVIDER_CODES.GDRIVE) {
+      return;
+    }
+
+    const fileId = String(storageKey || '').trim();
+    const normalizedDestination = String(destinationFolderId || '').trim();
+    if (!fileId || !normalizedDestination) {
+      this.logger.warn({
+        message:
+          'moveFileToEvaluationArchived: storageKey o destinationFolderId vacío; se omite el movimiento',
+        storageKey,
+        destinationFolderId,
+      });
+      return;
+    }
+    const client = await this.getGoogleAuth().getClient();
+    try {
+      const getRes = await client.request<{ parents?: string[] }>({
+        url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=parents&supportsAllDrives=true`,
+        method: 'GET',
+      });
+      const currentParents = getRes.data.parents ?? [];
+      const removeParents = currentParents
+        .map((p) => encodeURIComponent(p))
+        .join(',');
+
+      await client.request({
+        url: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?addParents=${encodeURIComponent(normalizedDestination)}${removeParents ? `&removeParents=${removeParents}` : ''}&supportsAllDrives=true&fields=id`,
+        method: 'PATCH',
+      });
+    } catch (error) {
+      const maybeError = error as {
+        code?: number | string;
+        response?: { status?: number; data?: unknown };
+        message?: string;
+      };
+      const status = maybeError.response?.status ?? maybeError.code;
+      if (status === 404) {
+        this.logger.warn({
+          message:
+            'Archivo en Drive no encontrado al mover a archivado; se omite el movimiento',
+          fileId,
+          destinationFolderId: normalizedDestination,
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
   private async deleteFileFromGoogleDrive(fileId: string): Promise<void> {
     const client = await this.getGoogleAuth().getClient();
     try {

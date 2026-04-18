@@ -61,6 +61,7 @@ const mockManager = {
 const mockDataSource = {
   transaction: jest.fn(),
   getRepository: jest.fn(),
+  query: jest.fn(),
 };
 
 const mockClassEventEntityRepo = {
@@ -583,6 +584,313 @@ describe('NotificationDispatchProcessor', () => {
       );
 
       expect(mockNotificationRepo.deleteOlderThan).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── handleDispatch - DELETION_REQUEST_CREATED ──────────────────────────
+
+  describe('handleDispatch - DELETION_REQUEST_CREATED', () => {
+    const mockRequest = {
+      id: 'req-1',
+      entityId: 'mat-1',
+      entityType: 'MATERIAL',
+      requestedById: 'prof-1',
+    };
+    const mockMaterial = { displayName: 'Guia de Algebra' };
+    const mockRequesterRows = [{ firstName: 'Juan', lastName1: 'Perez' }];
+    const mockAdminRows = [{ id: 'admin-1' }, { id: 'admin-2' }];
+
+    const deletionRequestRepo = { findOne: jest.fn() };
+    const materialRepo = { findOne: jest.fn() };
+
+    beforeEach(() => {
+      deletionRequestRepo.findOne.mockResolvedValue(mockRequest);
+      materialRepo.findOne.mockResolvedValue(mockMaterial);
+      mockDataSource.query
+        .mockResolvedValueOnce(mockRequesterRows) // requester name
+        .mockResolvedValueOnce(mockAdminRows); // admin users
+      mockDataSource.getRepository.mockImplementation((entity: unknown) => {
+        const name = (entity as { name?: string }).name ?? String(entity);
+        if (name === 'DeletionRequest') return deletionRequestRepo;
+        if (name === 'Material') return materialRepo;
+        return mockClassEventEntityRepo;
+      });
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        id: '20',
+        code: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+      });
+    });
+
+    it('crea notificacion y la distribuye a todos los admins activos', async () => {
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          notificationTypeId: '20',
+          entityType: NOTIFICATION_ENTITY_TYPES.DELETION_REQUEST,
+          entityId: 'req-1',
+          message: expect.stringContaining('Juan Perez'),
+        }),
+      );
+      expect(mockManager.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.arrayContaining([
+          expect.objectContaining({ userId: 'admin-1', notificationId: savedNotif.id }),
+          expect.objectContaining({ userId: 'admin-2', notificationId: savedNotif.id }),
+        ]),
+      );
+      expect(mockUserNotifRepo.invalidateUnreadCountForUsers).toHaveBeenCalledWith(
+        ['admin-1', 'admin-2'],
+      );
+    });
+
+    it('usa displayName del material en el mensaje', async () => {
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining('Guia de Algebra'),
+        }),
+      );
+    });
+
+    it('usa fallback "ID <entityId>" cuando el material no existe', async () => {
+      materialRepo.findOne.mockResolvedValue(null);
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining('ID mat-1'),
+        }),
+      );
+    });
+
+    it('usa "Profesor" como nombre cuando los campos de nombre del solicitante son nulos', async () => {
+      mockDataSource.query
+        .mockReset()
+        .mockResolvedValueOnce([{ firstName: null, lastName1: null }])
+        .mockResolvedValueOnce(mockAdminRows);
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining('Profesor'),
+        }),
+      );
+    });
+
+    it('no crea notificacion cuando no hay administradores activos', async () => {
+      mockDataSource.query
+        .mockReset()
+        .mockResolvedValueOnce(mockRequesterRows)
+        .mockResolvedValueOnce([]); // sin admins
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('lanza UnrecoverableError cuando la solicitud no existe en BD', async () => {
+      deletionRequestRepo.findOne.mockResolvedValue(null);
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-inexistente',
+      });
+
+      await expect(processor.process(job)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+    });
+
+    it('lanza UnrecoverableError cuando el usuario solicitante no existe en BD', async () => {
+      mockDataSource.query
+        .mockReset()
+        .mockResolvedValueOnce([]); // requester not found
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await expect(processor.process(job)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+    });
+
+    it('la query de admins usa EXISTS en lugar de DISTINCT JOIN', async () => {
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      const adminQueryCall = mockDataSource.query.mock.calls.find(
+        (call: unknown[]) =>
+          typeof call[0] === 'string' &&
+          (call[0] as string).includes('EXISTS'),
+      );
+      expect(adminQueryCall).toBeDefined();
+      expect((adminQueryCall![0] as string).toUpperCase()).not.toContain('DISTINCT');
+    });
+  });
+
+  // ─── handleDispatch - DELETION_REQUEST_APPROVED / REJECTED ──────────────
+
+  describe('handleDispatch - DELETION_REQUEST_APPROVED / REJECTED', () => {
+    const mockRequest = {
+      id: 'req-1',
+      entityId: 'mat-1',
+      entityType: 'MATERIAL',
+      requestedById: 'prof-1',
+    };
+    const mockMaterial = { displayName: 'Guia de Algebra' };
+
+    const deletionRequestRepo = { findOne: jest.fn() };
+    const materialRepo = { findOne: jest.fn() };
+
+    beforeEach(() => {
+      deletionRequestRepo.findOne.mockResolvedValue(mockRequest);
+      materialRepo.findOne.mockResolvedValue(mockMaterial);
+      mockDataSource.getRepository.mockImplementation((entity: unknown) => {
+        const name = (entity as { name?: string }).name ?? String(entity);
+        if (name === 'DeletionRequest') return deletionRequestRepo;
+        if (name === 'Material') return materialRepo;
+        return mockClassEventEntityRepo;
+      });
+    });
+
+    it('crea notificacion APPROVED y la dirige al profesor solicitante', async () => {
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        id: '21',
+        code: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          notificationTypeId: '21',
+          entityType: NOTIFICATION_ENTITY_TYPES.DELETION_REQUEST,
+          entityId: 'req-1',
+          message: expect.stringContaining('Guia de Algebra'),
+        }),
+      );
+      expect(mockManager.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.arrayContaining([
+          expect.objectContaining({
+            userId: 'prof-1',
+            notificationId: savedNotif.id,
+          }),
+        ]),
+      );
+      expect(mockUserNotifRepo.invalidateUnreadCountForUsers).toHaveBeenCalledWith(
+        ['prof-1'],
+      );
+    });
+
+    it('crea notificacion REJECTED con comentario del admin en el mensaje', async () => {
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        id: '22',
+        code: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_REJECTED,
+        requestId: 'req-1',
+        adminComment: 'El material esta vigente',
+      });
+
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining('El material esta vigente'),
+        }),
+      );
+      expect(mockManager.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.arrayContaining([
+          expect.objectContaining({ userId: 'prof-1' }),
+        ]),
+      );
+    });
+
+    it('lanza UnrecoverableError cuando la solicitud no existe en BD', async () => {
+      deletionRequestRepo.findOne.mockResolvedValue(null);
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
+        requestId: 'req-inexistente',
+      });
+
+      await expect(processor.process(job)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+    });
+
+    it('usa fallback "ID <entityId>" en el mensaje cuando el material ya fue borrado', async () => {
+      materialRepo.findOne.mockResolvedValue(null);
+      mockNotificationTypeRepo.findByCode.mockResolvedValue({
+        id: '21',
+        code: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
+      });
+
+      const job = makeJob(NOTIFICATION_JOB_NAMES.DISPATCH, {
+        type: NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED,
+        requestId: 'req-1',
+      });
+
+      await processor.process(job);
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Notification,
+        expect.objectContaining({
+          message: expect.stringContaining('ID mat-1'),
+        }),
+      );
     });
   });
 

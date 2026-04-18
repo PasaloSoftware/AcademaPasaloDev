@@ -28,6 +28,7 @@ import {
   DispatchPayload,
   DispatchClassPayload,
   DispatchMaterialPayload,
+  DispatchDeletionRequestCreatedPayload,
   DispatchDeletionReviewPayload,
   DispatchAuditExportReadyPayload,
   ClassReminderPayload,
@@ -115,6 +116,11 @@ export class NotificationDispatchProcessor extends WorkerHost {
       type === NOTIFICATION_TYPE_CODES.CLASS_RECORDING_AVAILABLE
     ) {
       await this.handleClassEvent(job.data);
+      return;
+    }
+
+    if (type === NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED) {
+      await this.handleDeletionRequestCreated(job.data);
       return;
     }
 
@@ -398,6 +404,115 @@ export class NotificationDispatchProcessor extends WorkerHost {
     await this.auditExportReadyNotificationService.createReadyNotification(
       payload,
     );
+  }
+
+  private async handleDeletionRequestCreated(
+    payload: DispatchDeletionRequestCreatedPayload,
+  ): Promise<void> {
+    const request = await this.dataSource
+      .getRepository(DeletionRequest)
+      .findOne({ where: { id: payload.requestId } });
+
+    if (!request) {
+      const msg = `No existe la solicitud de eliminación ${payload.requestId} para notificación DELETION_REQUEST_CREATED`;
+      this.logger.error({
+        context: NotificationDispatchProcessor.name,
+        message: msg,
+        requestId: payload.requestId,
+      });
+      throw new UnrecoverableError(msg);
+    }
+
+    const material = await this.dataSource.getRepository(Material).findOne({
+      where: { id: request.entityId },
+      select: { displayName: true },
+    });
+    const materialLabel = material?.displayName || `ID ${request.entityId}`;
+
+    const requestedByUser = await this.dataSource.query<
+      { firstName: string | null; lastName1: string | null }[]
+    >(
+      'SELECT first_name AS firstName, last_name_1 AS lastName1 FROM user WHERE id = ?',
+      [request.requestedById],
+    );
+    if (!Array.isArray(requestedByUser) || requestedByUser.length === 0) {
+      const msg = `No existe el usuario solicitante ${request.requestedById} para notificación DELETION_REQUEST_CREATED`;
+      this.logger.error({
+        context: NotificationDispatchProcessor.name,
+        message: msg,
+      });
+      throw new UnrecoverableError(msg);
+    }
+    const user = requestedByUser[0];
+    const requesterName =
+      [user.firstName, user.lastName1].filter(Boolean).join(' ') || 'Profesor';
+
+    const adminUserRows = await this.dataSource.query<{ id: string }[]>(
+      `SELECT u.id FROM user u
+       WHERE u.is_active = 1
+         AND EXISTS (
+           SELECT 1 FROM user_role ur
+           JOIN role r ON r.id = ur.role_id
+           WHERE ur.user_id = u.id AND r.code IN ('ADMIN', 'SUPER_ADMIN')
+         )`,
+    );
+    const adminUserIds = adminUserRows.map((row) => row.id);
+
+    if (adminUserIds.length === 0) {
+      this.logger.log({
+        context: NotificationDispatchProcessor.name,
+        message:
+          'DELETION_REQUEST_CREATED: sin administradores activos, job completado sin insertar notificacion',
+        requestId: request.id,
+      });
+      return;
+    }
+
+    const notificationType = await this.resolveNotificationTypeOrFail(
+      NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED,
+    );
+    const template =
+      NOTIFICATION_MESSAGES[NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED];
+    const message = template.message(materialLabel, requesterName);
+
+    const notificationData: Partial<Notification> = {
+      notificationTypeId: notificationType.id,
+      title: template.title,
+      message,
+      entityType: NOTIFICATION_ENTITY_TYPES.DELETION_REQUEST,
+      entityId: request.id,
+      createdAt: new Date(),
+    };
+
+    const notificationId = await this.dataSource.transaction(
+      async (manager) => {
+        const entity = manager.create(Notification, notificationData);
+        const saved = await manager.save(entity);
+
+        await manager.insert(
+          UserNotification,
+          adminUserIds.map((userId) => ({
+            userId,
+            notificationId: saved.id,
+            isRead: false,
+            readAt: null as Date | null,
+          })),
+        );
+
+        return saved.id;
+      },
+    );
+
+    await this.invalidateUnreadCountSafely(adminUserIds);
+
+    this.logger.log({
+      context: NotificationDispatchProcessor.name,
+      message:
+        'DELETION_REQUEST_CREATED: notificación creada y distribuida a admins',
+      notificationId,
+      requestId: request.id,
+      recipientCount: adminUserIds.length,
+    });
   }
 
   private async handleDeletionReview(

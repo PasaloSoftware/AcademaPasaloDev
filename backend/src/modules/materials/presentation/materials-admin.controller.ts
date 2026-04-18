@@ -8,9 +8,11 @@ import {
   HttpCode,
   HttpStatus,
   Delete,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { MaterialsAdminService } from '@modules/materials/application/materials-admin.service';
 import { ReviewDeletionRequestDto } from '@modules/materials/dto/review-deletion-request.dto';
+import { DirectDeleteMaterialDto } from '@modules/materials/dto/direct-delete-material.dto';
 import {
   AdminMaterialFileListQueryDto,
   AdminMaterialFileListResponseDto,
@@ -48,7 +50,7 @@ export class MaterialsAdminController {
   @ResponseMessage('Solicitud procesada exitosamente')
   async reviewRequest(
     @CurrentUser() user: User,
-    @Param('id') requestId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) requestId: string,
     @Body() dto: ReviewDeletionRequestDto,
   ) {
     await this.adminService.reviewRequest(user.id, requestId, dto);
@@ -58,7 +60,25 @@ export class MaterialsAdminController {
   @Roles(ROLE_CODES.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Material eliminado permanentemente')
-  async hardDelete(@CurrentUser() user: User, @Param('id') materialId: string) {
+  async hardDelete(
+    @CurrentUser() user: User,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) materialId: string,
+  ) {
     await this.adminService.hardDeleteMaterial(user.id, materialId);
+  }
+
+  @Delete(':id/direct-delete')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Material eliminado permanentemente')
+  async directDelete(
+    @CurrentUser() user: User,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) materialId: string,
+    @Body() dto: DirectDeleteMaterialDto,
+  ) {
+    await this.adminService.directDeleteMaterial(
+      user.id,
+      materialId,
+      dto.reason,
+    );
   }
 }

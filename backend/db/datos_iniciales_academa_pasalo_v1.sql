@@ -212,6 +212,7 @@ INSERT INTO notification_type (code, name) VALUES
 ('CLASS_CANCELLED', 'Clase Cancelada'),
 ('CLASS_REMINDER', 'Recordatorio de Clase'),
 ('CLASS_RECORDING_AVAILABLE', 'Grabacion Disponible'),
+('DELETION_REQUEST_CREATED', 'Nueva Solicitud de Eliminacion'),
 ('DELETION_REQUEST_APPROVED', 'Solicitud de Eliminacion Aprobada'),
 ('DELETION_REQUEST_REJECTED', 'Solicitud de Eliminacion Rechazada');
 
