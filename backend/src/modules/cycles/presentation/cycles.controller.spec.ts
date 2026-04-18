@@ -10,6 +10,9 @@ const mockCyclesService = {
   findOne: jest.fn(),
   getActiveCycle: jest.fn(),
   getHistory: jest.fn(),
+  updateActiveCycle: jest.fn(),
+  createHistoricalCycle: jest.fn(),
+  updateHistoricalCycle: jest.fn(),
 };
 
 describe('CyclesController RBAC Security', () => {
@@ -44,6 +47,30 @@ describe('CyclesController RBAC Security', () => {
 
   it('endpoint "getHistory" debe estar restringido a ADMIN y SUPER_ADMIN', () => {
     const roles = Reflect.getMetadata('roles', controller.getHistory);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+    expect(roles).not.toContain(ROLE_CODES.STUDENT);
+    expect(roles).not.toContain(ROLE_CODES.PROFESSOR);
+  });
+
+  it('endpoint "updateActive" debe estar restringido a ADMIN y SUPER_ADMIN', () => {
+    const roles = Reflect.getMetadata('roles', controller.updateActive);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+    expect(roles).not.toContain(ROLE_CODES.STUDENT);
+    expect(roles).not.toContain(ROLE_CODES.PROFESSOR);
+  });
+
+  it('endpoint "createHistorical" debe estar restringido a ADMIN y SUPER_ADMIN', () => {
+    const roles = Reflect.getMetadata('roles', controller.createHistorical);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+    expect(roles).not.toContain(ROLE_CODES.STUDENT);
+    expect(roles).not.toContain(ROLE_CODES.PROFESSOR);
+  });
+
+  it('endpoint "updateHistorical" debe estar restringido a ADMIN y SUPER_ADMIN', () => {
+    const roles = Reflect.getMetadata('roles', controller.updateHistorical);
     expect(roles).toContain(ROLE_CODES.ADMIN);
     expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
     expect(roles).not.toContain(ROLE_CODES.STUDENT);

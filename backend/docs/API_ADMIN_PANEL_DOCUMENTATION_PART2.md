@@ -401,6 +401,95 @@ Mismo shape que `GET /settings/admin` con los nuevos valores reflejados.
 
 ---
 
+### 10.2 `POST /cycles/history` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: registrar un ciclo histórico nuevo en el sistema. El ciclo creado **no se convierte en ciclo vigente** — para eso existe la configuración de `ACTIVE_CYCLE_ID` en settings.
+
+#### Request body
+
+```json
+{
+  "code": "2024-2",
+  "startDate": "2024-07-08",
+  "endDate": "2024-12-15"
+}
+```
+
+| Campo | Tipo | Requerido | Restricciones |
+|---|---|---|---|
+| `code` | string | Sí | Máx. 50 caracteres. Debe ser único en el sistema |
+| `startDate` | string (date) | Sí | Formato `YYYY-MM-DD`. Debe ser anterior a `endDate` |
+| `endDate` | string (date) | Sí | Formato `YYYY-MM-DD`. Debe ser posterior a `startDate` |
+
+#### Response `data`
+
+```json
+{
+  "id": "12",
+  "code": "2024-2",
+  "startDate": "2024-07-08",
+  "endDate": "2024-12-15",
+  "createdAt": "2026-04-18T14:00:00.000Z"
+}
+```
+
+#### Validaciones de negocio
+
+| Condición | Error |
+|---|---|
+| `startDate >= endDate` | `400 Bad Request` — "La fecha de inicio debe ser anterior a la fecha de fin." |
+| `code` ya existe en otro ciclo | `409 Conflict` — "Ya existe un ciclo con ese código." |
+| Las fechas se solapan con otro ciclo | `409 Conflict` — "Las fechas se solapan con el ciclo \"{code del conflicto}\"." |
+
+#### Observaciones
+
+- El solapamiento de fechas se detecta con la regla clásica: `startDate <= otroEndDate AND endDate >= otroStartDate`. Aplica contra **todos** los ciclos existentes incluyendo el vigente.
+- Crear un ciclo histórico no afecta el ciclo activo ni invalida cachés.
+
+---
+
+### 10.3 `PUT /cycles/history/:id` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: editar los datos de un ciclo **histórico** (no vigente). Permite corregir el código identificador, la fecha de inicio y la fecha de fin.
+
+#### Path params
+
+- `id` (string numérica) → ID del ciclo a editar.
+
+#### Request body
+
+Mismos campos y restricciones que `POST /cycles/history`:
+
+```json
+{
+  "code": "2024-1",
+  "startDate": "2024-01-08",
+  "endDate": "2024-06-30"
+}
+```
+
+#### Response `data`
+
+Igual que el POST: objeto `AcademicCycleResponseDto` con los datos actualizados.
+
+#### Validaciones de negocio
+
+| Condición | Error |
+|---|---|
+| El `id` no corresponde a ningún ciclo | `404 Not Found` — "El ciclo académico solicitado no existe." |
+| El ciclo es el **vigente** (`ACTIVE_CYCLE_ID`) | `400 Bad Request` — "No se puede editar el ciclo activo desde esta sección." |
+| `startDate >= endDate` | `400 Bad Request` — "La fecha de inicio debe ser anterior a la fecha de fin." |
+| `code` ya existe en **otro** ciclo | `409 Conflict` — "Ya existe un ciclo con ese código." |
+| Las fechas se solapan con **otro** ciclo | `409 Conflict` — "Las fechas se solapan con el ciclo \"{code del conflicto}\"." |
+
+#### Observaciones
+
+- La validación de código único y solapamiento excluye el propio ciclo editado (self-exclusion).
+- Editar fechas de un ciclo histórico **no afecta cachés de runtime** (los cachés de dashboard y eventos solo dependen del ciclo vigente).
+- La única consecuencia funcional de cambiar `startDate` de un histórico es el orden y visibilidad en `GET /courses/cycle/:id/previous-cycles`, que filtra por `startDate < activeCycleStartDate`. Por eso el solapamiento con el ciclo activo está bloqueado por la validación de fechas.
+
+---
+
 ## 11) Módulo de Auditoría — Panel Admin
 
 > Base path: `/api/v1/audit`
