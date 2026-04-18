@@ -98,7 +98,8 @@ export const feedbackService = {
   },
 
   async getPublicFeedback(): Promise<PublicFeedbackItem[]> {
-    const response = await apiClient.get<PublicFeedbackItem[]>("/feedback/public");
+    const response =
+      await apiClient.get<PublicFeedbackItem[]>("/feedback/public");
     return response.data ?? [];
   },
 

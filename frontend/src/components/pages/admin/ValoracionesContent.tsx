@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
 import Icon from "@/components/ui/Icon";
@@ -18,7 +19,7 @@ const MAX_FEATURED = 3;
 const DISTRIBUTION_COLORS = {
   5: "bg-bg-accent-primary-solid",
   4: "bg-bg-info-primary-solid",
-  3: "bg-bg-info-secondary-solid",
+  3: "bg-info-secondary-solid",
   2: "bg-bg-warning-solid",
   1: "bg-bg-error-solid",
 } as const;
@@ -69,7 +70,7 @@ function getAvatarTone(index: number): string {
     "bg-bg-info-primary-solid",
     "bg-bg-accent-primary-solid",
     "bg-bg-warning-solid",
-    "bg-info-secondary-solid",
+    "bg-bg-info-secondary-solid",
   ];
   return tones[index % tones.length];
 }
@@ -84,7 +85,7 @@ function formatRelativeDate(iso: string): string {
 
   if (months >= 1) return `Hace ${months} mes${months === 1 ? "" : "es"}`;
   if (weeks >= 1) return `Hace ${weeks} semana${weeks === 1 ? "" : "s"}`;
-  if (days >= 1) return `Hace ${days} día${days === 1 ? "" : "s"}`;
+  if (days >= 1) return `Hace ${days} dia${days === 1 ? "" : "s"}`;
   return "Hoy";
 }
 
@@ -147,19 +148,41 @@ function FeedbackCard({
   featuredCount,
   onToggleFeatured,
   saving,
+  menuOpen,
+  onToggleMenu,
+  onViewStudent,
+  onViewCourse,
 }: {
   item: AdminFeedbackItem;
   index: number;
   featuredCount: number;
   onToggleFeatured: (item: AdminFeedbackItem) => void;
   saving: boolean;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onViewStudent: () => void;
+  onViewCourse: () => void;
 }) {
   const fullName = getFullName(item.user);
   const initials = getInitials(item.user);
   const canFeature = item.isActive || featuredCount < MAX_FEATURED;
 
   return (
-    <div className="self-stretch p-5 relative bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col gap-4">
+    <div
+      className={`self-stretch min-h-72 p-5 relative bg-bg-primary rounded-lg flex flex-col gap-4 ${
+        item.isActive
+          ? "outline outline-2 outline-offset-[-2px] outline-stroke-accent-secondary"
+          : "outline outline-1 outline-offset-[-1px] outline-stroke-secondary"
+      }`}
+    >
+      {item.isActive && (
+        <div className="px-4 py-1 absolute right-0 top-0 bg-deep-blue-700 rounded-tr-lg rounded-bl-xl flex flex-col justify-start items-start z-10">
+          <div className="justify-center text-text-white text-[10px] font-semibold leading-3">
+            DESTACADO
+          </div>
+        </div>
+      )}
+
       <div className="w-12 h-12 absolute right-5 top-5 overflow-hidden pointer-events-none">
         <Icon
           name="format_quote"
@@ -168,6 +191,7 @@ function FeedbackCard({
           variant="outlined"
         />
       </div>
+
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-4">
           <div
@@ -222,24 +246,61 @@ function FeedbackCard({
             }
           />
           <span className="text-sm font-medium leading-4">
-            {item.isActive ? "Destacado" : "Destacar"}
+            {item.isActive ? "Quitar destacado" : "Destacar"}
           </span>
         </button>
 
-        <button
-          type="button"
-          className="p-1 rounded-full flex justify-center items-center gap-1"
-          disabled
-          aria-label="Más opciones"
-        >
-          <Icon name="more_vert" size={20} className="text-icon-tertiary" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={onToggleMenu}
+            className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
+            aria-label="Mas opciones"
+          >
+            <Icon name="more_vert" size={20} className="text-icon-tertiary" />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 bottom-10 z-30 w-48 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start">
+              <button
+                type="button"
+                onClick={onViewStudent}
+                className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+              >
+                <Icon
+                  name="visibility"
+                  size={20}
+                  className="text-icon-secondary"
+                  variant="rounded"
+                />
+                <span className="flex-1 justify-start text-text-secondary text-sm font-normal leading-4 text-left">
+                  Ver Alumno
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={onViewCourse}
+                className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+              >
+                <Icon
+                  name="library_books"
+                  size={20}
+                  className="text-icon-secondary"
+                  variant="rounded"
+                />
+                <span className="flex-1 justify-start text-text-secondary text-sm font-normal leading-4 text-left">
+                  Ver Curso
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 export default function ValoracionesContent() {
+  const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
   const { showToast } = useToast();
 
@@ -273,12 +334,24 @@ export default function ValoracionesContent() {
     null,
   );
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [menuFeedbackId, setMenuFeedbackId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setBreadcrumbItems([
-      { icon: "star_rate", label: "Gestión de valoraciones" },
+      { icon: "star_rate", label: "Gestion de valoraciones" },
     ]);
   }, [setBreadcrumbItems]);
+
+  useEffect(() => {
+    if (!menuFeedbackId) return;
+    const handler = (event: MouseEvent) => {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setMenuFeedbackId(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuFeedbackId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -308,7 +381,7 @@ export default function ValoracionesContent() {
         );
       })
       .catch((err) => {
-        console.error("Error al cargar catálogos de filtros:", err);
+        console.error("Error al cargar catalogos de filtros:", err);
       });
   }, []);
 
@@ -342,7 +415,7 @@ export default function ValoracionesContent() {
         type: "error",
         title: "No se pudieron cargar las valoraciones",
         description:
-          err instanceof Error ? err.message : "Ocurrió un error inesperado.",
+          err instanceof Error ? err.message : "Ocurrio un error inesperado.",
       });
     } finally {
       setLoading(false);
@@ -368,19 +441,19 @@ export default function ValoracionesContent() {
         await feedbackService.featureTestimony(item.id, !item.isActive);
         showToast({
           type: "success",
-          title: item.isActive ? "Valoración oculta" : "Valoración destacada",
+          title: item.isActive ? "Valoracion oculta" : "Valoracion destacada",
           description: item.isActive
-            ? "La valoración dejó de mostrarse en la página pública."
-            : "La valoración ahora aparece en la página pública.",
+            ? "La valoracion dejo de mostrarse en la pagina publica."
+            : "La valoracion ahora aparece en la pagina publica.",
         });
         await loadFeedback();
       } catch (err) {
-        console.error("Error al actualizar valoración destacada:", err);
+        console.error("Error al actualizar valoracion destacada:", err);
         showToast({
           type: "error",
-          title: "No se pudo actualizar la valoración",
+          title: "No se pudo actualizar la valoracion",
           description:
-            err instanceof Error ? err.message : "Ocurrió un error inesperado.",
+            err instanceof Error ? err.message : "Ocurrio un error inesperado.",
         });
       } finally {
         setTogglingId(null);
@@ -432,7 +505,7 @@ export default function ValoracionesContent() {
     <div className="w-full max-w-[1200px] flex flex-col justify-start items-start gap-6 overflow-hidden">
       <div className="self-stretch inline-flex justify-start items-center">
         <div className="justify-start text-text-primary text-3xl font-semibold leading-10">
-          Gestión de Valoraciones
+          Gestion de Valoraciones
         </div>
       </div>
 
@@ -476,7 +549,7 @@ export default function ValoracionesContent() {
                   {featuredCount} de {MAX_FEATURED} destacados
                 </div>
                 <div className="text-text-tertiary text-xs font-light leading-3">
-                  Los comentarios destacados se mostrarán en la página de la
+                  Los comentarios destacados se mostraran en la pagina de la
                   academia.
                 </div>
               </div>
@@ -486,7 +559,7 @@ export default function ValoracionesContent() {
 
         <div className="flex-1 self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-gray-100 flex flex-col gap-6">
           <div className="text-gray-600 text-sm font-medium leading-4 uppercase">
-            Distribución de estrellas
+            Distribucion de estrellas
           </div>
           <div className="flex flex-col gap-5">
             {distributionRows.map(({ rating, percentage }) => (
@@ -588,16 +661,42 @@ export default function ValoracionesContent() {
           </div>
         ) : (
           <div className="self-stretch grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {data.items.map((item, index) => (
-              <FeedbackCard
-                key={item.id}
-                item={item}
-                index={index}
-                featuredCount={featuredCount}
-                onToggleFeatured={handleToggleFeatured}
-                saving={togglingId === item.id}
-              />
-            ))}
+            {data.items.map((item, index) => {
+              const isMenuOpen = menuFeedbackId === item.id;
+              return (
+                <div
+                  key={item.id}
+                  ref={isMenuOpen ? menuRef : undefined}
+                  className="relative"
+                >
+                  <FeedbackCard
+                    item={item}
+                    index={index}
+                    featuredCount={featuredCount}
+                    onToggleFeatured={handleToggleFeatured}
+                    saving={togglingId === item.id}
+                    menuOpen={isMenuOpen}
+                    onToggleMenu={() =>
+                      setMenuFeedbackId((current) =>
+                        current === item.id ? null : item.id,
+                      )
+                    }
+                    onViewStudent={() => {
+                      setMenuFeedbackId(null);
+                      router.push(
+                        `/plataforma/admin/usuarios/${encodeURIComponent(item.user.id)}`,
+                      );
+                    }}
+                    onViewCourse={() => {
+                      setMenuFeedbackId(null);
+                      router.push(
+                        `/plataforma/curso/${encodeURIComponent(item.courseCycleId)}`,
+                      );
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -761,7 +860,7 @@ export default function ValoracionesContent() {
 
         <div className="self-stretch flex flex-col justify-center items-start gap-4">
           <div className="self-stretch justify-start text-text-quartiary text-base font-semibold leading-5">
-            Calificación
+            Calificacion
           </div>
           <RatingFilterStars
             value={sidebarRatingFilter}
