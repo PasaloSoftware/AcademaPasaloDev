@@ -259,6 +259,27 @@ export class CourseCycleRepository {
       .getRawMany<CourseCycleCategoryMetaRow>();
   }
 
+  async findIdsByCourseTypeCodeAndCycleLevelId(
+    courseTypeCode: string,
+    cycleLevelId: string,
+  ): Promise<{ courseCycleIds: string[]; courseTypeId: string | null }> {
+    const rows = await this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .innerJoin('course.courseType', 'ct')
+      .innerJoin('course.cycleLevel', 'cl')
+      .where('ct.code = :courseTypeCode', { courseTypeCode })
+      .andWhere('cl.id = :cycleLevelId', { cycleLevelId })
+      .select(['cc.id AS courseCycleId', 'ct.id AS courseTypeId'])
+      .getRawMany<{ courseCycleId: string; courseTypeId: string }>();
+
+    if (rows.length === 0) return { courseCycleIds: [], courseTypeId: null };
+    return {
+      courseCycleIds: rows.map((r) => r.courseCycleId),
+      courseTypeId: rows[0].courseTypeId,
+    };
+  }
+
   async findAdminCourseCyclesPage(
     params: AdminCourseCycleListParams,
   ): Promise<{ rows: AdminCourseCycleListRow[]; totalItems: number }> {

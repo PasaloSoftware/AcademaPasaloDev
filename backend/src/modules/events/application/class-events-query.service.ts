@@ -127,29 +127,50 @@ export class ClassEventsQueryService {
   }
 
   async getGlobalSessions(
-    courseCycleIds: string[],
+    params: {
+      courseCycleIds?: string[];
+      courseTypeCode?: string;
+      cycleLevelId?: string;
+    },
     startDate: Date,
     endDate: Date,
   ): Promise<GlobalSessionGroup[]> {
-    const uniqueCourseCycleIds = [...new Set(courseCycleIds)];
-    if (uniqueCourseCycleIds.length === 0) {
-      return [];
-    }
+    let uniqueCourseCycleIds: string[];
+    let courseTypeId: string;
+    let groupKey: string;
 
-    const metadataRows =
-      await this.courseCycleRepository.findCategoryMetadataByIds(
-        uniqueCourseCycleIds,
-      );
-    const { courseTypeId, academicCycleId } =
-      this.validateAndResolveGlobalSessionsGroup(
+    if (params.courseCycleIds && params.courseCycleIds.length > 0) {
+      uniqueCourseCycleIds = [...new Set(params.courseCycleIds)];
+      const metadataRows =
+        await this.courseCycleRepository.findCategoryMetadataByIds(
+          uniqueCourseCycleIds,
+        );
+      const resolved = this.validateAndResolveGlobalSessionsGroup(
         metadataRows,
         uniqueCourseCycleIds,
       );
+      courseTypeId = resolved.courseTypeId;
+      groupKey = resolved.academicCycleId;
+    } else if (params.courseTypeCode && params.cycleLevelId) {
+      const { courseCycleIds: resolvedIds, courseTypeId: resolvedTypeId } =
+        await this.courseCycleRepository.findIdsByCourseTypeCodeAndCycleLevelId(
+          params.courseTypeCode,
+          params.cycleLevelId,
+        );
+      if (resolvedIds.length === 0) return [];
+      uniqueCourseCycleIds = resolvedIds;
+      courseTypeId = resolvedTypeId!;
+      groupKey = params.cycleLevelId;
+    } else {
+      throw new BadRequestException(
+        'Debe proporcionar courseCycleIds o la combinación courseTypeCode + cycleLevelId',
+      );
+    }
 
     const orderedCourseCycleIds = [...uniqueCourseCycleIds].sort();
     const cacheKey = CLASS_EVENT_CACHE_KEYS.GLOBAL_SESSIONS(
       courseTypeId,
-      academicCycleId,
+      groupKey,
       startDate.toISOString(),
       endDate.toISOString(),
       orderedCourseCycleIds.join(','),
@@ -207,10 +228,7 @@ export class ClassEventsQueryService {
     await Promise.all([
       this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL),
       this.cacheService.addToIndex(
-        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(
-          courseTypeId,
-          academicCycleId,
-        ),
+        CLASS_EVENT_CACHE_KEYS.CATEGORY_CYCLE_INDEX(courseTypeId, groupKey),
         cacheKey,
         this.EVENT_CACHE_TTL,
       ),

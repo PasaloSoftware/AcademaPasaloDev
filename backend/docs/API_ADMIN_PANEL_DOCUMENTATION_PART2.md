@@ -1,7 +1,7 @@
 # Documentación API — Panel Administrativo (Parte 2)
 
 > Estado: Activa  
-> Última actualización: 2026-04-17 (sección 11 agregada: panel de auditoría)  
+> Última actualización: 2026-04-17 (sección 12 agregada: calendario de sesiones — panel admin)  
 > Base URL global: `/api/v1`  
 > Continuación de `API_ADMIN_PANEL_DOCUMENTATION.md`
 
@@ -711,3 +711,243 @@ Idéntico al flujo de `GET /audit/panel-export`. Ver `API_AUDIT_EXPORT_DOCUMENTA
   - patrones de login/logout por dispositivo o IP
   - eventos de sesión concurrente
   - anomalías de autenticación por ubicación geográfica
+
+---
+
+## 12) Módulo de Calendario de Sesiones — Panel Admin
+
+> Base path: `/api/v1`
+
+Permite al administrador y superadministrador visualizar el calendario de sesiones programadas de todos los cursos de la plataforma. El frontend controla la vista semanal o mensual enviando el rango de fechas correspondiente. El panel incluye filtros por **unidad** (CIENCIAS, LETRAS, FACULTAD) y por **ciclo académico**.
+
+**Flujo de carga del panel:**
+
+1. Llamar a `GET /cycles` (12.1) para poblar el selector de ciclo.
+2. Llamar a `GET /courses/types` (12.2) para poblar el selector de unidad.
+3. Llamar a `GET /class-events/global/sessions` (12.3) con el ciclo y unidad seleccionados.
+
+---
+
+### 12.1 `GET /courses/levels` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: lista completa de ciclos de curso (1° al 10°) para poblar el selector de ciclo en el panel de calendario.
+- Devuelve todos los niveles de ciclo registrados. No tiene paginación.
+
+#### Response `data`
+
+Array de objetos:
+
+```json
+[
+  {
+    "id": "1",
+    "levelNumber": 1,
+    "name": "Primer Ciclo"
+  },
+  {
+    "id": "2",
+    "levelNumber": 2,
+    "name": "Segundo Ciclo"
+  },
+  {
+    "id": "10",
+    "levelNumber": 10,
+    "name": "Décimo Ciclo"
+  }
+]
+```
+
+#### Tipos de cada campo
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | string | ID del ciclo → usar como `cycleLevelId` en el filtro del calendario (12.3) |
+| `levelNumber` | number | Número de ciclo (1 al 10) → usar para mostrar `"1° Ciclo"`, `"2° Ciclo"`, etc. en el selector |
+| `name` | string | Nombre completo (ej. `"Primer Ciclo"`, `"Segundo Ciclo"`) → alternativa de display |
+
+#### Observaciones
+
+- El campo `id` es el que se envía como `cycleLevelId` al endpoint de calendario.
+- Para mostrar `"1° Ciclo"`, `"2° Ciclo"`, etc. el frontend puede concatenar `levelNumber` + `"° Ciclo"`.
+- Los 10 ciclos siempre están disponibles (son datos semilla del sistema).
+
+---
+
+### 12.2 `GET /courses/types` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: lista de tipos de unidad disponibles para poblar el selector de unidad en el panel de calendario.
+- Devuelve todos los tipos registrados (CIENCIAS, LETRAS, FACULTAD y cualquier otro que se cree en el futuro).
+
+#### Response `data`
+
+Array de objetos:
+
+```json
+[
+  {
+    "id": "1",
+    "code": "CIENCIAS",
+    "name": "Ciencias"
+  },
+  {
+    "id": "2",
+    "code": "LETRAS",
+    "name": "Letras"
+  },
+  {
+    "id": "3",
+    "code": "FACULTAD",
+    "name": "Facultad"
+  }
+]
+```
+
+#### Tipos de cada campo
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | string | ID del tipo de unidad (no se usa como filtro en el calendario) |
+| `code` | string | Código técnico (`CIENCIAS`, `LETRAS`, `FACULTAD`) → usar como `courseTypeCode` en el filtro del calendario (12.3) |
+| `name` | string | Nombre legible → mostrar al usuario en el selector |
+
+#### Observaciones
+
+- El campo a mostrar en el dropdown es `name`. El campo a enviar como filtro al calendario es `code`.
+- El `id` de esta respuesta **no** se usa en el endpoint de calendario; el filtro usa `code` directamente.
+
+---
+
+### 12.3 `GET /class-events/global/sessions` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: obtener todas las sesiones de clase programadas dentro de un rango de fechas, agrupadas por `courseCycleId`. Es el endpoint principal del calendario del panel administrativo.
+- El frontend determina la vista semanal o mensual enviando el rango `[startDate, endDate)` correspondiente.
+- Las sesiones canceladas (`is_cancelled = true`) **no** se incluyen en la respuesta.
+- La respuesta está cacheada en Redis. El caché se invalida automáticamente cuando cambian sesiones del mismo ciclo y tipo de unidad.
+
+#### Modos de filtrado
+
+El endpoint soporta dos modos de consulta mutuamente excluyentes. Si se envían `courseCycleIds` junto con `courseTypeCode`/`academicCycleId`, el modo A tiene prioridad.
+
+**Modo A — por IDs de course-cycle explícitos** (uso avanzado / selector de cursos individuales):
+- Enviar `courseCycleIds` con uno o más IDs.
+- Todos los IDs deben pertenecer al mismo tipo de unidad y al mismo ciclo académico.
+
+**Modo B — por tipo de unidad + ciclo académico** (uso habitual del panel de calendario):
+- Enviar `courseTypeCode` + `academicCycleId`.
+- El backend resuelve internamente todos los cursos activos de esa combinación.
+- Si no existe ningún curso para ese tipo y ciclo, la respuesta es un array vacío (no es error).
+
+#### Query params
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `startDate` | string ISO-8601 | **Sí** | Inicio del rango (inclusive). Ej: `"2026-04-14"` |
+| `endDate` | string ISO-8601 | **Sí** | Fin del rango (exclusivo). Ej: `"2026-04-21"` para vista semanal |
+| `courseCycleIds` | string (CSV o array), opcional | No | IDs de course-cycle. Puede enviarse como `courseCycleIds=1,2,3` o `courseCycleIds[]=1&courseCycleIds[]=2`. Máximo 100. (Modo A) |
+| `courseTypeCode` | `'CIENCIAS' \| 'LETRAS' \| 'FACULTAD'` | No | Código del tipo de unidad. Obtenido de `code` en 12.2. (Modo B) |
+| `cycleLevelId` | string numérica (1–10) | No | ID del ciclo de curso (1° al 10°). Obtenido de `id` en 12.1. (Modo B) |
+
+> Al menos una de las dos combinaciones debe estar presente: `courseCycleIds` o (`courseTypeCode` + `cycleLevelId`). Si no se envía ninguna, el backend responde `400 Bad Request`.
+
+#### Response `data`
+
+Array de grupos, uno por `courseCycleId` con sesiones en el rango:
+
+```json
+[
+  {
+    "courseCycleId": "101",
+    "courseId": "11",
+    "courseCode": "MAT101",
+    "courseName": "Matemática Básica",
+    "primaryColor": "#3B82F6",
+    "secondaryColor": "#BFDBFE",
+    "sessions": [
+      {
+        "eventId": "501",
+        "evaluationId": "201",
+        "sessionNumber": 5,
+        "title": "Sesión 5",
+        "topic": "Derivadas e integrales",
+        "startDatetime": "2026-04-14T13:00:00.000Z",
+        "endDatetime": "2026-04-14T15:00:00.000Z"
+      },
+      {
+        "eventId": "502",
+        "evaluationId": "201",
+        "sessionNumber": 6,
+        "title": "Sesión 6",
+        "topic": "Aplicaciones de derivadas",
+        "startDatetime": "2026-04-17T13:00:00.000Z",
+        "endDatetime": "2026-04-17T15:00:00.000Z"
+      }
+    ]
+  }
+]
+```
+
+Si no hay sesiones en el rango para los filtros aplicados, la respuesta es `data: []`.
+
+#### Tipos de cada campo
+
+**Cada grupo (por curso):**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `courseCycleId` | string | ID del course-cycle |
+| `courseId` | string | ID del curso base |
+| `courseCode` | string | Código del curso (ej. `"MAT101"`) |
+| `courseName` | string | Nombre del curso |
+| `primaryColor` | string \| null | Color primario del curso en formato hex (ej. `"#3B82F6"`). `null` si no está configurado |
+| `secondaryColor` | string \| null | Color secundario del curso en formato hex. `null` si no está configurado |
+| `sessions` | array | Sesiones del curso dentro del rango solicitado, ordenadas por `startDatetime ASC` |
+
+**Cada sesión (`sessions[n]`):**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `eventId` | string | ID del evento de clase |
+| `evaluationId` | string | ID de la evaluación a la que pertenece la sesión |
+| `sessionNumber` | number | Número de sesión dentro de la evaluación |
+| `title` | string | Título de la sesión (ej. `"Sesión 5"`) |
+| `topic` | string | Tema de la sesión |
+| `startDatetime` | string ISO 8601 | Fecha y hora de inicio en UTC |
+| `endDatetime` | string ISO 8601 | Fecha y hora de fin en UTC |
+
+#### Errores específicos
+
+| Código | Cuándo ocurre |
+|---|---|
+| `400 Bad Request` | No se envió ninguna combinación válida de filtros (`courseCycleIds` ni `courseTypeCode+cycleLevelId`) |
+| `400 Bad Request` | Los `courseCycleIds` enviados pertenecen a distintas unidades o ciclos académicos (solo Modo A) |
+| `400 Bad Request` | `courseTypeCode` tiene un valor distinto a `CIENCIAS`, `LETRAS` o `FACULTAD` |
+| `400 Bad Request` | `cycleLevelId` no es una cadena numérica |
+| `404 Not Found` | Uno o más `courseCycleIds` no existen en la base de datos (solo Modo A) |
+
+#### Ejemplo de uso — vista semanal: CIENCIAS, 3° Ciclo
+
+```
+GET /api/v1/class-events/global/sessions
+  ?courseTypeCode=CIENCIAS
+  &cycleLevelId=3
+  &startDate=2026-04-14
+  &endDate=2026-04-21
+```
+
+#### Ejemplo de uso — vista mensual: LETRAS, 5° Ciclo
+
+```
+GET /api/v1/class-events/global/sessions
+  ?courseTypeCode=LETRAS
+  &cycleLevelId=5
+  &startDate=2026-04-01
+  &endDate=2026-05-01
+```
+
+#### Observaciones
+
+- Las fechas `startDatetime` / `endDatetime` vienen en UTC. Aplicar conversión a hora Perú (`America/Lima`, UTC−5) en el frontend para mostrarlas al usuario.
+- Los colores `primaryColor` / `secondaryColor` son opcionales por curso. El frontend debe tener un color de fallback para los cursos sin color configurado.
+- Los grupos cuyo `sessions` esté vacío **no aparecen** en la respuesta (el endpoint solo retorna grupos con al menos una sesión en el rango).
+- El orden de los grupos en la respuesta no está garantizado. Ordenar en frontend si se requiere presentación específica (ej. por `courseCode` o `courseName`).
+- Para la vista mensual, usar `startDate=YYYY-MM-01` y `endDate=YYYY-MM-01` del mes siguiente (rango exclusivo en el extremo derecho).
