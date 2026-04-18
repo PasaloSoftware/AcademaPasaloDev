@@ -1134,7 +1134,7 @@ export default function CursoCreateContent() {
             )}
           </CourseSectionCard>
 
-          <CourseSectionCard
+          {/*<CourseSectionCard
             title="Material Adicional"
             icon="article"
             actions={
@@ -1192,7 +1192,7 @@ export default function CursoCreateContent() {
                 />
               ))}
             </div>
-          </CourseSectionCard>
+          </CourseSectionCard>*/}
         </div>
       ) : (
         <CourseSectionCard title="Gestión de Alumnos" icon="groups">

@@ -883,7 +883,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
             </div>
           </CourseSectionCard>
 
-          <CourseSectionCard
+          {/*<CourseSectionCard
             title="Material Adicional"
             icon="article"
             actions={
@@ -944,7 +944,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                 />
               ))}
             </div>
-          </CourseSectionCard>
+          </CourseSectionCard>*/}
         </div>
       ) : (
         <CourseStudentsManagementSection

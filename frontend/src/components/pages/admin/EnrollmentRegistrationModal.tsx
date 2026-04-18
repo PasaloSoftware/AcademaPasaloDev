@@ -823,7 +823,7 @@ export default function EnrollmentRegistrationModal({
 
         <div className="self-stretch flex flex-col justify-start items-start gap-2">
           <div className="self-stretch justify-center text-text-quartiary text-sm font-medium leading-4">
-            Modalidad de Inscripci??n
+            Modalidad de Inscripción
           </div>
 
           <EnrollmentModeCard
@@ -866,7 +866,7 @@ export default function EnrollmentRegistrationModal({
           )}
           <EnrollmentModeCard
             title="Solo ciclos pasados"
-            description="Acceso solo a evaluaciones de ciclos hist??ricos"
+            description="Acceso solo a evaluaciones de ciclos históricos"
             selected={enrollmentMode === "HISTORICAL_ONLY"}
             onClick={() => {
               setEnrollmentMode("HISTORICAL_ONLY");
