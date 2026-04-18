@@ -159,10 +159,12 @@ export class MaterialsExplorerService {
     const cached = await this.cacheService.get<Material[]>(cacheKey);
     if (cached) {
       const visibleCached = this.applyVisibilityFilter(user, [], cached);
-      return await this.filterPendingDeletionForStudentMaterials(
-        user,
-        visibleCached.materials,
-      );
+      const filteredCached =
+        await this.filterPendingDeletionForStudentMaterials(
+          user,
+          visibleCached.materials,
+        );
+      return await this.attachPendingDeletionFlags(user, filteredCached);
     }
 
     const materialStatus = await this.getActiveMaterialStatus();
@@ -173,10 +175,12 @@ export class MaterialsExplorerService {
     await this.cacheService.set(cacheKey, materials, this.cacheTtl);
 
     const visibleMaterials = this.applyVisibilityFilter(user, [], materials);
-    return await this.filterPendingDeletionForStudentMaterials(
-      user,
-      visibleMaterials.materials,
-    );
+    const filteredMaterials =
+      await this.filterPendingDeletionForStudentMaterials(
+        user,
+        visibleMaterials.materials,
+      );
+    return await this.attachPendingDeletionFlags(user, filteredMaterials);
   }
 
   private applyVisibilityFilter(
@@ -365,6 +369,37 @@ export class MaterialsExplorerService {
     }
 
     return materials.filter((material) => !pendingMaterialIds.has(material.id));
+  }
+
+  private async attachPendingDeletionFlags(
+    user: User | UserWithSession,
+    materials: Material[],
+  ): Promise<Material[]> {
+    if (materials.length === 0) {
+      return materials;
+    }
+
+    const activeRole = (user as UserWithSession).activeRole;
+    if (this.normalizeRole(activeRole) === ROLE_CODES.STUDENT) {
+      materials.forEach((material) => {
+        material.isPendingDeletion = false;
+      });
+      return materials;
+    }
+
+    const pendingStatus = await this.getPendingDeletionRequestStatus();
+    const pendingMaterialIds = new Set(
+      await this.deletionRequestRepository.findPendingMaterialIds(
+        materials.map((material) => material.id),
+        pendingStatus.id,
+      ),
+    );
+
+    materials.forEach((material) => {
+      material.isPendingDeletion = pendingMaterialIds.has(material.id);
+    });
+
+    return materials;
   }
 
   private normalizeRole(activeRole?: string): string {

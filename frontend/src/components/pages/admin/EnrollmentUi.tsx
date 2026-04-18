@@ -64,7 +64,11 @@ export function CheckboxChip({
     <button
       type="button"
       onClick={onClick}
-      className="self-stretch p-2 bg-bg-primary rounded-lg inline-flex justify-start items-start gap-2 overflow-hidden"
+      className={`self-stretch p-2 bg-bg-primary rounded-lg outline outline-1 inline-flex justify-start items-start gap-2 overflow-hidden ${
+        checked
+          ? "outline-stroke-accent-primary"
+          : "outline-offset-[-1px] outline-stroke-disabled"
+      }`}
     >
       <div className="flex-1 flex justify-start items-center gap-1">
         <div className="w-5 h-5 flex justify-center items-center overflow-hidden">
@@ -85,6 +89,28 @@ export function CheckboxChip({
         </div>
       </div>
     </button>
+  );
+}
+
+export function EnrollmentSelectionList({
+  children,
+  layout = "stack",
+}: {
+  children: React.ReactNode;
+  layout?: "stack" | "grid";
+}) {
+  return (
+    <div className="self-stretch pl-3 border-l-2 border-stroke-secondary inline-flex flex-col justify-start items-start gap-2">
+      <div
+        className={`self-stretch ${
+          layout === "grid"
+            ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
+            : "inline-flex flex-col justify-start items-start gap-2"
+        }`}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 

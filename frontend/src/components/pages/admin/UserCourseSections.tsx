@@ -9,6 +9,7 @@ import { usersService } from "@/services/users.service";
 import type { AdminUserDetailCourse } from "@/services/users.service";
 import {
   CheckboxChip,
+  EnrollmentSelectionList,
   ToggleSwitch,
 } from "@/components/pages/admin/EnrollmentUi";
 
@@ -683,34 +684,26 @@ function EnrollmentModal({
             </button>
 
             {/* Evaluation checkboxes */}
-            {enrollmentType === "PARTIAL" && evaluations.length > 0 && (
-              <div className="pl-4 pt-4 border-l-2 border-stroke-secondary grid grid-cols-3 gap-3">
-                {evaluations.map((ev) => {
-                  const checked = selectedEvalIds.has(ev.id);
-                  return (
-                    <button
-                      key={ev.id}
-                      onClick={() => toggleEval(ev.id)}
-                      className={`p-2 rounded-lg flex items-center gap-1 ${checked ? "outline outline-1 outline-stroke-accent-primary" : "outline outline-1 outline-offset-[-1px] outline-stroke-disabled"}`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded flex items-center justify-center border-2 ${checked ? "bg-bg-accent-primary-solid border-bg-accent-primary-solid" : "border-icon-tertiary"}`}
-                      >
-                        {checked && (
-                          <Icon
-                            name="check"
-                            size={14}
-                            className="text-icon-white"
-                          />
-                        )}
-                      </div>
-                      <span className="flex-1 text-text-secondary text-base font-normal leading-4 text-left">
-                        {ev.shortName}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            {enrollmentType === "PARTIAL" && (
+              <EnrollmentSelectionList layout="grid">
+                {evaluations.length === 0 ? (
+                  <div className="text-text-tertiary text-sm">
+                    Este curso no tiene evaluaciones configuradas.
+                  </div>
+                ) : (
+                  evaluations.map((ev) => {
+                    const checked = selectedEvalIds.has(ev.id);
+                    return (
+                      <CheckboxChip
+                        key={ev.id}
+                        label={ev.shortName}
+                        checked={checked}
+                        onClick={() => toggleEval(ev.id)}
+                      />
+                    );
+                  })
+                )}
+              </EnrollmentSelectionList>
             )}
           </div>
         </div>
@@ -1105,6 +1098,11 @@ export function RoleAssignmentSection({
     return user.roles[0]?.code || null;
   })();
   const canManageAdminRole = activeRoleCode === "SUPER_ADMIN";
+  const visibleRoleOptions = ROLE_OPTIONS.filter(({ code }) => {
+    if (code === "SUPER_ADMIN") return false;
+    if (code === "ADMIN") return canManageAdminRole;
+    return true;
+  });
 
   return (
     <div className="flex flex-col">
@@ -1121,7 +1119,7 @@ export function RoleAssignmentSection({
           </span>
         </div>
         <div className="flex flex-col gap-4">
-          {ROLE_OPTIONS.map(
+          {visibleRoleOptions.map(
             ({ code, label, requiresSuperAdmin, alwaysDisabled }) => {
               const checked = selectedRoles.has(code);
               const disabled =

@@ -10,6 +10,7 @@ import { enrollmentService } from "@/services/enrollment.service";
 import {
   CheckboxChip,
   EnrollmentModeCard,
+  EnrollmentSelectionList,
   ToggleSwitch,
 } from "@/components/pages/admin/EnrollmentUi";
 import Icon from "@/components/ui/Icon";
@@ -142,6 +143,9 @@ export default function EnrollmentRegistrationModal({
       .filter((career) => career.name.toLowerCase().includes(normalizedQuery))
       .slice(0, 8);
   }, [careerQuery, careers]);
+
+  const hasHistoricalCycles =
+    (selectedCourse?.historicalCycles.length || 0) > 0;
 
   const availableEvaluations = useMemo(() => {
     if (!selectedCourse) return [];
@@ -819,7 +823,7 @@ export default function EnrollmentRegistrationModal({
 
         <div className="self-stretch flex flex-col justify-start items-start gap-2">
           <div className="self-stretch justify-center text-text-quartiary text-sm font-medium leading-4">
-            Modalidad de Inscripción
+            Modalidad de Inscripci??n
           </div>
 
           <EnrollmentModeCard
@@ -833,13 +837,36 @@ export default function EnrollmentRegistrationModal({
           />
           <EnrollmentModeCard
             title="Evaluaciones una a una"
-            description="Acceso a evaluaciones específicas"
+            description="Acceso a evaluaciones espec??ficas"
             selected={enrollmentMode === "PARTIAL"}
             onClick={() => setEnrollmentMode("PARTIAL")}
           />
+          {enrollmentMode === "PARTIAL" && selectedCourse && (
+            <EnrollmentSelectionList layout="grid">
+              {availableEvaluations.length === 0 ? (
+                <div className="text-text-tertiary text-sm">
+                  Este curso no tiene evaluaciones configuradas.
+                </div>
+              ) : (
+                availableEvaluations.map((evaluation) => (
+                  <CheckboxChip
+                    key={evaluation.id}
+                    label={
+                      evaluation.sourceCourseCycleId !==
+                      selectedCourse.courseCycleId
+                        ? `${evaluation.shortName} ?? ${evaluation.sourceAcademicCycleCode}`
+                        : evaluation.shortName
+                    }
+                    checked={selectedEvaluationIds.has(evaluation.id)}
+                    onClick={() => handleToggleEvaluation(evaluation.id)}
+                  />
+                ))
+              )}
+            </EnrollmentSelectionList>
+          )}
           <EnrollmentModeCard
             title="Solo ciclos pasados"
-            description="Acceso solo a evaluaciones de ciclos históricos"
+            description="Acceso solo a evaluaciones de ciclos hist??ricos"
             selected={enrollmentMode === "HISTORICAL_ONLY"}
             onClick={() => {
               setEnrollmentMode("HISTORICAL_ONLY");
@@ -847,85 +874,67 @@ export default function EnrollmentRegistrationModal({
               setSelectedEvaluationIds(new Set());
             }}
           />
+          {enrollmentMode === "HISTORICAL_ONLY" && selectedCourse && (
+            <EnrollmentSelectionList layout="grid">
+              {availableEvaluations.length === 0 ? (
+                <div className="text-text-tertiary text-sm">
+                  Selecciona al menos un ciclo pasado para ver sus evaluaciones.
+                </div>
+              ) : (
+                availableEvaluations.map((evaluation) => (
+                  <CheckboxChip
+                    key={evaluation.id}
+                    label={`${evaluation.shortName} ?? ${evaluation.sourceAcademicCycleCode}`}
+                    checked={selectedEvaluationIds.has(evaluation.id)}
+                    onClick={() => handleToggleEvaluation(evaluation.id)}
+                  />
+                ))
+              )}
+            </EnrollmentSelectionList>
+          )}
         </div>
 
-        {enrollmentMode !== "FULL" && selectedCourse && (
-          <div className="self-stretch grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {availableEvaluations.length === 0 ? (
-              <div className="text-text-tertiary text-sm">
-                {enrollmentMode === "HISTORICAL_ONLY"
-                  ? "Selecciona al menos un ciclo pasado para ver sus evaluaciones."
-                  : "Este curso no tiene evaluaciones configuradas."}
+        {hasHistoricalCycles && (
+          <div className="self-stretch p-6 bg-bg-info-primary-light rounded-xl flex flex-col justify-start items-start gap-4">
+            <div className="self-stretch inline-flex justify-start items-center gap-4">
+              <div className="flex-1 flex justify-start items-center gap-3">
+                <div className="p-2 bg-bg-info-primary-light-hover rounded-lg flex justify-center items-center">
+                  <Icon
+                    name="inventory_2"
+                    size={24}
+                    className="text-icon-info-primary"
+                  />
+                </div>
+                <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
+                  <div className="self-stretch justify-center text-text-primary text-base font-semibold leading-5">
+                    Ciclos Pasados
+                  </div>
+                  <div className="self-stretch justify-center text-text-quartiary text-xs font-normal leading-4">
+                    Habilitar material hist??rico
+                  </div>
+                </div>
               </div>
-            ) : (
-              availableEvaluations.map((evaluation) => (
-                <CheckboxChip
-                  key={evaluation.id}
-                  label={
-                    enrollmentMode === "HISTORICAL_ONLY" ||
-                    evaluation.sourceCourseCycleId !==
-                      selectedCourse.courseCycleId
-                      ? `${evaluation.shortName} · ${evaluation.sourceAcademicCycleCode}`
-                      : evaluation.shortName
-                  }
-                  checked={selectedEvaluationIds.has(evaluation.id)}
-                  onClick={() => handleToggleEvaluation(evaluation.id)}
-                />
-              ))
-            )}
+              <ToggleSwitch
+                checked={historicalEnabled}
+                onChange={setHistoricalEnabled}
+                variant="info"
+              />
+            </div>
+
+            {historicalEnabled ? (
+              <div className="self-stretch inline-flex flex-col justify-start items-start">
+                {selectedCourse?.historicalCycles.map((cycle) => (
+                  <CheckboxChip
+                    key={cycle.courseCycleId}
+                    label={cycle.academicCycleCode}
+                    checked={selectedHistoricalIds.has(cycle.courseCycleId)}
+                    onClick={() => handleToggleHistorical(cycle.courseCycleId)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
-
-        <div className="self-stretch p-6 bg-bg-info-primary-light rounded-xl flex flex-col justify-start items-start gap-4">
-          <div className="self-stretch inline-flex justify-start items-center gap-4">
-            <div className="flex-1 flex justify-start items-center gap-3">
-              <div className="p-2 bg-bg-info-primary-light-hover rounded-lg flex justify-center items-center">
-                <Icon
-                  name="inventory_2"
-                  size={24}
-                  className="text-icon-info-primary"
-                />
-              </div>
-              <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
-                <div className="self-stretch justify-center text-text-primary text-base font-semibold leading-5">
-                  Ciclos Pasados
-                </div>
-                <div className="self-stretch justify-center text-text-quartiary text-xs font-normal leading-4">
-                  Habilitar material histórico
-                </div>
-              </div>
-            </div>
-            <ToggleSwitch
-              checked={historicalEnabled}
-              onChange={setHistoricalEnabled}
-              disabled={
-                !selectedCourse || selectedCourse.historicalCycles.length === 0
-              }
-              variant="info"
-            />
-          </div>
-
-          {!selectedCourse ? (
-            <div className="text-text-tertiary text-sm">
-              Selecciona un curso para ver sus ciclos históricos.
-            </div>
-          ) : selectedCourse.historicalCycles.length === 0 ? (
-            <div className="text-text-tertiary text-sm">
-              Este curso no tiene ciclos pasados disponibles.
-            </div>
-          ) : historicalEnabled ? (
-            <div className="self-stretch inline-flex flex-col justify-start items-start">
-              {selectedCourse.historicalCycles.map((cycle) => (
-                <CheckboxChip
-                  key={cycle.courseCycleId}
-                  label={cycle.academicCycleCode}
-                  checked={selectedHistoricalIds.has(cycle.courseCycleId)}
-                  onClick={() => handleToggleHistorical(cycle.courseCycleId)}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
       </div>
     </Modal>
   );

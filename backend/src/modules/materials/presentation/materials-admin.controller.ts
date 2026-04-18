@@ -55,7 +55,7 @@ export class MaterialsAdminController {
   }
 
   @Delete(':id/hard-delete')
-  @Roles(ROLE_CODES.SUPER_ADMIN)
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Material eliminado permanentemente')
   async hardDelete(@CurrentUser() user: User, @Param('id') materialId: string) {
