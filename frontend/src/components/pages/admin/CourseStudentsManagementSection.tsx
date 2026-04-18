@@ -20,12 +20,22 @@ import {
 } from "@/services/enrollment.service";
 import { usersService, type AdminUserItem } from "@/services/users.service";
 
+export interface DraftCourseStudentItem {
+  userId: string;
+  fullName: string;
+  email: string;
+}
+
 interface CourseStudentsManagementSectionProps {
-  courseCycleId: string;
+  courseCycleId?: string;
   enabled?: boolean;
   containerClassName?: string;
   headerTrailing?: ReactNode;
   onTotalItemsChange?: (totalItems: number) => void;
+  draftStudents?: DraftCourseStudentItem[];
+  onAddDraftStudent?: (student: EnrollmentStudentOption) => void;
+  onRemoveDraftStudent?: (userId: string) => void;
+  draftInfoText?: string;
 }
 
 const STUDENTS_PAGE_SIZE = 10;
@@ -53,8 +63,16 @@ export default function CourseStudentsManagementSection({
   containerClassName = "self-stretch relative z-10 p-6 bg-bg-primary rounded-xl border border-stroke-secondary inline-flex flex-col justify-start items-start gap-6",
   headerTrailing,
   onTotalItemsChange,
+  draftStudents,
+  onAddDraftStudent,
+  onRemoveDraftStudent,
+  draftInfoText,
 }: CourseStudentsManagementSectionProps) {
   const { showToast } = useToast();
+  const isDraftMode =
+    !courseCycleId &&
+    Array.isArray(draftStudents) &&
+    typeof onAddDraftStudent === "function";
 
   const [students, setStudents] = useState<AdminCourseCycleStudentItem[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
@@ -86,6 +104,24 @@ export default function CourseStudentsManagementSection({
   }, [studentSearchQuery]);
 
   const loadStudents = useCallback(async () => {
+    if (isDraftMode) {
+      const mappedDraftStudents: AdminCourseCycleStudentItem[] = (
+        draftStudents || []
+      ).map((student) => ({
+        enrollmentId: `draft-${student.userId}`,
+        userId: student.userId,
+        fullName: student.fullName,
+        email: student.email,
+      }));
+
+      setStudents(mappedDraftStudents);
+      setStudentsTotalItems(mappedDraftStudents.length);
+      setStudentsTotalPages(mappedDraftStudents.length > 0 ? 1 : 0);
+      onTotalItemsChange?.(mappedDraftStudents.length);
+      setStudentsLoading(false);
+      return;
+    }
+
     if (!enabled) {
       setStudentsLoading(false);
       return;
@@ -94,7 +130,7 @@ export default function CourseStudentsManagementSection({
     setStudentsLoading(true);
     try {
       const response = await enrollmentService.getAdminStudentsByCourseCycle({
-        courseCycleId,
+        courseCycleId: courseCycleId!,
         page: studentsPage,
         pageSize: STUDENTS_PAGE_SIZE,
       });
@@ -118,12 +154,20 @@ export default function CourseStudentsManagementSection({
     } finally {
       setStudentsLoading(false);
     }
-  }, [enabled, courseCycleId, studentsPage, onTotalItemsChange, showToast]);
+  }, [
+    isDraftMode,
+    draftStudents,
+    enabled,
+    courseCycleId,
+    studentsPage,
+    onTotalItemsChange,
+    showToast,
+  ]);
 
   useEffect(() => {
-    if (!courseCycleId || !enabled) return;
+    if ((!courseCycleId && !isDraftMode) || !enabled) return;
     loadStudents();
-  }, [courseCycleId, enabled, loadStudents]);
+  }, [courseCycleId, isDraftMode, enabled, loadStudents]);
 
   const enrolledStudentIds = useMemo(
     () => new Set(students.map((student) => student.userId)),
@@ -206,6 +250,19 @@ export default function CourseStudentsManagementSection({
   const handleCancelEnrollment = async () => {
     if (!cancelEnrollmentId) return;
 
+    if (isDraftMode && onRemoveDraftStudent) {
+      onRemoveDraftStudent(cancelEnrollmentId);
+      setCancelEnrollmentId(null);
+      setCancelEnrollmentName(null);
+      showToast({
+        type: "success",
+        title: "Alumno retirado",
+        description:
+          "El alumno fue retirado de la lista del curso en creación.",
+      });
+      return;
+    }
+
     setCancelEnrollmentLoading(true);
     try {
       await enrollmentService.cancel(cancelEnrollmentId);
@@ -255,6 +312,14 @@ export default function CourseStudentsManagementSection({
           onQueryChange={setStudentSearchQuery}
           options={studentSearchOptions}
           onSelect={(student) => {
+            if (isDraftMode && onAddDraftStudent) {
+              onAddDraftStudent(student);
+              setStudentSearchQuery("");
+              setDebouncedStudentSearchQuery("");
+              setStudentSearchOptions([]);
+              return;
+            }
+
             setSelectedStudentForEnrollment(student);
             setStudentSearchQuery(`${student.fullName} - ${student.email}`);
           }}
@@ -271,6 +336,8 @@ export default function CourseStudentsManagementSection({
           )}
           loading={studentSearchLoading}
           disabled={!enabled}
+          leadingIconName="search"
+          showTrailingIcon={false}
           emptyText={
             debouncedStudentSearchQuery
               ? "No se encontraron alumnos disponibles para matricular."
@@ -280,8 +347,16 @@ export default function CourseStudentsManagementSection({
           dropdownClassName="absolute top-full left-0 right-0 mt-1 z-20 p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col"
         />
 
+        {isDraftMode && draftInfoText ? (
+          <div className="self-stretch rounded-lg bg-bg-info-primary-light px-3 py-2">
+            <span className="text-text-info-primary text-xs font-normal leading-4">
+              {draftInfoText}
+            </span>
+          </div>
+        ) : null}
+
         <div className="self-stretch inline-flex flex-col justify-start items-start gap-5">
-          <div className="self-stretch text-text-quartiary text-sm font-semibold leading-4">
+          <div className="self-stretch text-gray-600 text-sm font-semibold leading-4">
             Alumnos Matriculados
           </div>
           <div className="self-stretch bg-bg-primary rounded-xl outline outline-1 outline-stroke-primary flex flex-col justify-start items-start overflow-hidden">
@@ -348,7 +423,11 @@ export default function CourseStudentsManagementSection({
                           <div className="flex h-full items-center justify-center">
                             <button
                               onClick={() => {
-                                setCancelEnrollmentId(student.enrollmentId);
+                                setCancelEnrollmentId(
+                                  isDraftMode
+                                    ? student.userId
+                                    : student.enrollmentId,
+                                );
                                 setCancelEnrollmentName(student.fullName);
                               }}
                               className="inline-flex items-center justify-center p-1 rounded-full leading-none hover:bg-bg-secondary transition-colors"
@@ -493,14 +572,14 @@ export default function CourseStudentsManagementSection({
       </Modal>
 
       <EnrollmentRegistrationModal
-        isOpen={Boolean(selectedStudentForEnrollment)}
+        isOpen={Boolean(selectedStudentForEnrollment) && !isDraftMode}
         onClose={() => {
           setSelectedStudentForEnrollment(null);
           setStudentSearchQuery("");
           setDebouncedStudentSearchQuery("");
           setStudentSearchOptions([]);
         }}
-        fixedCourseCycleId={courseCycleId}
+        fixedCourseCycleId={courseCycleId || ""}
         fixedStudent={selectedStudentForEnrollment}
         onEnrollmentCreated={() => {
           setSelectedStudentForEnrollment(null);

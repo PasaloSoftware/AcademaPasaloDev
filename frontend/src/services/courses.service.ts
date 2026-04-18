@@ -69,6 +69,52 @@ export interface PublicCourseCatalogItem {
   professors: PublicCourseCatalogProfessor[];
 }
 
+export interface CreateCourseSetupPayload {
+  course: {
+    code: string;
+    name: string;
+    courseTypeId: string;
+    cycleLevelId: string;
+  };
+  academicCycleId: string;
+  allowedEvaluationTypeIds?: string[];
+  evaluationsToCreate?: Array<{
+    evaluationTypeId: string;
+    number: number;
+    startDate: string;
+    endDate: string;
+  }>;
+  professorUserIds?: string[];
+  materialsTemplate: {
+    applyToEachEvaluation?: boolean;
+    roots: Array<{
+      name: string;
+      subfolderNames?: string[];
+    }>;
+  };
+}
+
+export interface CreateCourseSetupResponse {
+  course: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  courseCycle: {
+    id: string;
+    courseId: string;
+    academicCycleId: string;
+  };
+  professorsAssigned: string[];
+  allowedEvaluationTypeIds: string[];
+  evaluationsCreated: Array<{
+    id: string;
+    evaluationTypeId: string;
+    evaluationTypeCode: string;
+    number: number;
+  }>;
+}
+
 function unwrapPayload<T>(response: unknown): T {
   if (response && typeof response === "object" && "data" in response) {
     return (response as { data: T }).data;
@@ -91,6 +137,15 @@ export const coursesService = {
       "/courses",
       data,
     );
+    return response.data.data;
+  },
+
+  async createSetup(
+    data: CreateCourseSetupPayload,
+  ): Promise<CreateCourseSetupResponse> {
+    const response = await apiClient.post<
+      ApiResponse<CreateCourseSetupResponse>
+    >("/courses/setup", data);
     return response.data.data;
   },
 

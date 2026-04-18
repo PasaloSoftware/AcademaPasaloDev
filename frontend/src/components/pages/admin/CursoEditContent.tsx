@@ -95,6 +95,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   >(null);
   const [activeTab, setActiveTab] = useState<CourseEditorTab>("structure");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [professorModalOpen, setProfessorModalOpen] = useState(false);
   const [availableProfessors, setAvailableProfessors] = useState<
@@ -385,16 +386,6 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   const handleSave = async () => {
     if (!courseCycle) return;
 
-    if (activeTab === "students") {
-      showToast({
-        type: "info",
-        title: "Matrículas guardadas automáticamente",
-        description:
-          "Los cambios de Gestión de Alumnos se aplican en el momento en que agregas o retiras un alumno.",
-      });
-      return;
-    }
-
     if (!evaluationOrderChanged) {
       showToast({
         type: "info",
@@ -405,6 +396,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       return;
     }
 
+    setSaving(true);
     try {
       const nextIds = evaluations.map((evaluation) => evaluation.id);
       await evaluationsService.reorderByCourseCycle(cursoId, nextIds);
@@ -429,6 +421,8 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
             ? err.message
             : "Ocurrio un error al guardar el orden de evaluaciones.",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -958,7 +952,9 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       <CourseEditorFooter
         onCancel={() => router.push(`/plataforma/curso/${cursoId}`)}
         onSave={handleSave}
-        saveDisabled={activeTab === "students" ? false : !isDirty}
+        saveDisabled={!isDirty || saving}
+        saveLoading={saving}
+        saveLoadingLabel="Guardando cambios..."
       />
 
       <CourseProfessorManagerModal

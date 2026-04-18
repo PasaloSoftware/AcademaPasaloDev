@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Icon from "@/components/ui/Icon";
+import FloatingSelect from "@/components/ui/FloatingSelect";
 
 export default function ContactSection() {
   const [formData, setFormData] = useState({
@@ -16,7 +17,10 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contacto" className="scroll-mt-20 px-4 py-10 md:px-16 lg:px-28 md:py-20 flex flex-col lg:flex-row gap-6">
+    <section
+      id="contacto"
+      className="scroll-mt-20 px-4 py-10 md:px-16 lg:px-28 md:py-20 flex flex-col lg:flex-row gap-6"
+    >
       {/* Left column - Contact info */}
       <div className="flex-1 flex flex-col lg:items-start gap-6 md:gap-8">
         <div className="flex flex-col items-center lg:items-start gap-1 md:gap-4">
@@ -34,10 +38,20 @@ export default function ContactSection() {
           <div className="flex items-center gap-2 md:gap-3">
             <div className="p-2 md:p-3 bg-bg-info-primary-light rounded-full flex items-center">
               <div className="md:hidden">
-                <Icon name="mail" size={16} variant="outlined" className="text-icon-info-primary" />
+                <Icon
+                  name="mail"
+                  size={16}
+                  variant="outlined"
+                  className="text-icon-info-primary"
+                />
               </div>
               <div className="hidden md:block">
-                <Icon name="mail" size={36} variant="outlined" className="text-icon-info-primary" />
+                <Icon
+                  name="mail"
+                  size={36}
+                  variant="outlined"
+                  className="text-icon-info-primary"
+                />
               </div>
             </div>
             <span className="text-text-secondary text-base md:text-2xl font-normal leading-5 md:leading-7">
@@ -160,17 +174,12 @@ export default function ContactSection() {
           Déjanos tus datos
         </h3>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-3 md:gap-4"
-        >
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 md:gap-4">
           <input
             type="text"
             placeholder="Nombre Completo"
             value={formData.name}
-            onChange={(e) =>
-              setFormData({ ...formData, name: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-base font-normal leading-4 placeholder:text-text-tertiary focus:outline-stroke-accent-primary focus:outline-2"
           />
           <input
@@ -182,38 +191,37 @@ export default function ContactSection() {
             }
             className="h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-base font-normal leading-4 placeholder:text-text-tertiary focus:outline-stroke-accent-primary focus:outline-2"
           />
-          <div className="relative">
-            <select
-              value={formData.course}
-              onChange={(e) =>
-                setFormData({ ...formData, course: e.target.value })
-              }
-              className="w-full h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary text-text-primary text-base font-normal leading-4 appearance-none cursor-pointer focus:outline-stroke-accent-primary focus:outline-2"
-            >
-              <option value="" disabled className="text-text-tertiary">
-                Curso de Interés
-              </option>
-              <option value="fucal">Fundamentos de Cálculo</option>
-              <option value="amga">Álgebra Matricial y Geometría Analítica</option>
-              <option value="fufis">Fundamentos de Física</option>
-              <option value="quim1">Química 1</option>
-              <option value="caldif">Cálculo Diferencial</option>
-              <option value="fa1">Física 1</option>
-              <option value="fa2">Física 2</option>
-              <option value="funpro">Fundamentos de Programación</option>
-            </select>
-            <Icon
-              name="keyboard_arrow_down"
-              size={20}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-icon-tertiary pointer-events-none"
-            />
-          </div>
+          <FloatingSelect
+            label="Curso de Interes"
+            value={formData.course || null}
+            onChange={(value) =>
+              setFormData({ ...formData, course: value ?? "" })
+            }
+            options={[
+              { value: "fucal", label: "Fundamentos de Calculo" },
+              {
+                value: "amga",
+                label: "Algebra Matricial y Geometria Analitica",
+              },
+              { value: "fufis", label: "Fundamentos de Fisica" },
+              { value: "quim1", label: "Quimica 1" },
+              { value: "caldif", label: "Calculo Diferencial" },
+              { value: "fa1", label: "Fisica 1" },
+              { value: "fa2", label: "Fisica 2" },
+              { value: "funpro", label: "Fundamentos de Programacion" },
+            ]}
+            allLabel="Curso de Interes"
+            includeAllOption={false}
+            className="w-full"
+            variant="filled"
+            size="large"
+          />
         </form>
 
         <p className="text-text-tertiary text-xs md:text-sm font-normal leading-4">
           Al enviar este formulario, usted acepta recibir comunicaciones de
-          nuestra parte y comprende que su información de contacto se
-          almacenará con nosotros.
+          nuestra parte y comprende que su información de contacto se almacenará
+          con nosotros.
         </p>
 
         <button

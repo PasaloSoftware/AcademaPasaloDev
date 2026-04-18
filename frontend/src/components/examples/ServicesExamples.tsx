@@ -4,15 +4,20 @@
 // Este archivo muestra ejemplos de cómo usar los servicios implementados
 // Puedes copiar estos ejemplos a tus componentes reales
 
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
-import { useActiveCycle } from '@/hooks/useCycles';
-import { useCourses, useCourseTypes, useCourseLevels } from '@/hooks/useCourses';
-import { useCurrentUser } from '@/hooks/useUser';
-import { useAuth } from '@/contexts/AuthContext';
-import { evaluationsService } from '@/services';
-import type { Evaluation } from '@/types/api';
+import React, { useEffect, useState } from "react";
+import { useActiveCycle } from "@/hooks/useCycles";
+import {
+  useCourses,
+  useCourseTypes,
+  useCourseLevels,
+} from "@/hooks/useCourses";
+import { useCurrentUser } from "@/hooks/useUser";
+import { useAuth } from "@/contexts/AuthContext";
+import { evaluationsService } from "@/services";
+import type { Evaluation } from "@/types/api";
+import FloatingSelect from "@/components/ui/FloatingSelect";
 
 /**
  * EJEMPLO 1: Obtener el ciclo académico activo
@@ -28,8 +33,8 @@ export function ActiveCycleExample() {
     <div>
       <h2>Ciclo Activo</h2>
       <p>Código: {cycle?.code}</p>
-      <p>Inicio: {new Date(cycle?.startDate || '').toLocaleDateString()}</p>
-      <p>Fin: {new Date(cycle?.endDate || '').toLocaleDateString()}</p>
+      <p>Inicio: {new Date(cycle?.startDate || "").toLocaleDateString()}</p>
+      <p>Fin: {new Date(cycle?.endDate || "").toLocaleDateString()}</p>
     </div>
   );
 }
@@ -70,6 +75,8 @@ export function CreateCourseExample() {
   const { createCourse } = useCourses();
   const { types, loading: typesLoading } = useCourseTypes();
   const { levels, loading: levelsLoading } = useCourseLevels();
+  const [typeId, setTypeId] = useState("");
+  const [levelId, setLevelId] = useState("");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -77,14 +84,14 @@ export function CreateCourseExample() {
 
     try {
       await createCourse({
-        code: formData.get('code') as string,
-        name: formData.get('name') as string,
-        courseTypeId: formData.get('typeId') as string,
-        cycleLevelId: formData.get('levelId') as string,
+        code: formData.get("code") as string,
+        name: formData.get("name") as string,
+        courseTypeId: formData.get("typeId") as string,
+        cycleLevelId: formData.get("levelId") as string,
       });
-      alert('Curso creado exitosamente');
+      alert("Curso creado exitosamente");
     } catch {
-      alert('Error al crear curso');
+      alert("Error al crear curso");
     }
   };
 
@@ -93,28 +100,41 @@ export function CreateCourseExample() {
   return (
     <form onSubmit={handleSubmit}>
       <h2>Crear Nuevo Curso</h2>
-      
+
       <input name="code" placeholder="Código (ej: FUFIS)" required />
       <input name="name" placeholder="Nombre del curso" required />
-      
-      <select name="typeId" required>
-        <option value="">Selecciona tipo</option>
-        {types.map((type) => (
-          <option key={type.id} value={type.id}>
-            {type.name}
-          </option>
-        ))}
-      </select>
-      
-      <select name="levelId" required>
-        <option value="">Selecciona nivel</option>
-        {levels.map((level) => (
-          <option key={level.id} value={level.id}>
-            {level.name}
-          </option>
-        ))}
-      </select>
-      
+      <input type="hidden" name="typeId" value={typeId} />
+      <FloatingSelect
+        label="Tipo"
+        value={typeId || null}
+        onChange={(value) => setTypeId(value ?? "")}
+        options={types.map((type) => ({
+          value: type.id,
+          label: type.name,
+        }))}
+        allLabel="Selecciona tipo"
+        includeAllOption={false}
+        className="w-full"
+        variant="filled"
+        size="large"
+      />
+
+      <input type="hidden" name="levelId" value={levelId} />
+      <FloatingSelect
+        label="Nivel"
+        value={levelId || null}
+        onChange={(value) => setLevelId(value ?? "")}
+        options={levels.map((level) => ({
+          value: level.id,
+          label: level.name,
+        }))}
+        allLabel="Selecciona nivel"
+        includeAllOption={false}
+        className="w-full"
+        variant="filled"
+        size="large"
+      />
+
       <button type="submit">Crear Curso</button>
     </form>
   );
@@ -130,12 +150,12 @@ export function UserProfileExample() {
   const handleUpdate = async () => {
     try {
       await updateProfile({
-        firstName: 'Juan',
-        phone: '+51999999999',
+        firstName: "Juan",
+        phone: "+51999999999",
       });
-      alert('Perfil actualizado');
+      alert("Perfil actualizado");
     } catch {
-      alert('Error al actualizar perfil');
+      alert("Error al actualizar perfil");
     }
   };
 
@@ -145,11 +165,13 @@ export function UserProfileExample() {
   return (
     <div>
       <h2>Mi Perfil</h2>
-      <p>Nombre: {user?.firstName} {user?.lastName1}</p>
+      <p>
+        Nombre: {user?.firstName} {user?.lastName1}
+      </p>
       <p>Email: {user?.email}</p>
-      <p>Teléfono: {user?.phone || 'No registrado'}</p>
-      <p>Carrera: {user?.career || 'No registrada'}</p>
-      <p>Roles: {user?.roles.map(r => r.name).join(', ')}</p>
+      <p>Teléfono: {user?.phone || "No registrado"}</p>
+      <p>Carrera: {user?.career || "No registrada"}</p>
+      <p>Roles: {user?.roles.map((r) => r.name).join(", ")}</p>
       <button onClick={handleUpdate}>Actualizar Perfil</button>
     </div>
   );
@@ -166,23 +188,23 @@ export function RoleBasedContentExample() {
     return <div>Debes iniciar sesión</div>;
   }
 
-  const isAdmin = user?.roles.some(r => 
-    ['ADMIN', 'SUPER_ADMIN'].includes(r.code)
+  const isAdmin = user?.roles.some((r) =>
+    ["ADMIN", "SUPER_ADMIN"].includes(r.code),
   );
 
-  const isStudent = user?.roles.some(r => r.code === 'STUDENT');
+  const isStudent = user?.roles.some((r) => r.code === "STUDENT");
 
   return (
     <div>
       <h2>Panel de Usuario</h2>
-      
+
       {isStudent && (
         <div>
           <h3>Contenido de Alumno</h3>
           <p>Mis cursos, evaluaciones, etc.</p>
         </div>
       )}
-      
+
       {isAdmin && (
         <div>
           <h3>Panel de Administración</h3>
@@ -197,7 +219,11 @@ export function RoleBasedContentExample() {
  * EJEMPLO 6: Cargar evaluaciones de un curso
  * Llamada directa a un servicio sin hook
  */
-export function CourseEvaluationsExample({ courseCycleId }: { courseCycleId: string }) {
+export function CourseEvaluationsExample({
+  courseCycleId,
+}: {
+  courseCycleId: string;
+}) {
   const [evaluations, setEvaluations] = React.useState<Evaluation[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -207,7 +233,7 @@ export function CourseEvaluationsExample({ courseCycleId }: { courseCycleId: str
         const data = await evaluationsService.findByCourseCycle(courseCycleId);
         setEvaluations(data);
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error:", error);
       } finally {
         setLoading(false);
       }
@@ -224,8 +250,9 @@ export function CourseEvaluationsExample({ courseCycleId }: { courseCycleId: str
       <ul>
         {evaluations.map((evaluation) => (
           <li key={evaluation.id}>
-            Evaluación #{evaluation.number} - 
-            {new Date(evaluation.startDate).toLocaleDateString()} a {new Date(evaluation.endDate).toLocaleDateString()}
+            Evaluación #{evaluation.number} -
+            {new Date(evaluation.startDate).toLocaleDateString()} a{" "}
+            {new Date(evaluation.endDate).toLocaleDateString()}
           </li>
         ))}
       </ul>
@@ -237,7 +264,11 @@ export function CourseEvaluationsExample({ courseCycleId }: { courseCycleId: str
  * EJEMPLO 7: Integración completa en una página de curso
  * Combina ciclo activo + evaluaciones
  */
-export function CoursePageIntegrationExample({ courseId }: { courseId: string }) {
+export function CoursePageIntegrationExample({
+  courseId,
+}: {
+  courseId: string;
+}) {
   const { cycle } = useActiveCycle();
   const [evaluations, setEvaluations] = React.useState<Evaluation[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -249,11 +280,11 @@ export function CoursePageIntegrationExample({ courseId }: { courseId: string })
       try {
         // Aquí necesitarías obtener el courseCycleId basado en courseId + cycle.id
         // Por ahora es un ejemplo simplificado
-        const courseCycleId = 'some-id'; // Obtener del backend
+        const courseCycleId = "some-id"; // Obtener del backend
         const data = await evaluationsService.findByCourseCycle(courseCycleId);
         setEvaluations(data);
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error:", error);
       } finally {
         setLoading(false);
       }
@@ -268,7 +299,7 @@ export function CoursePageIntegrationExample({ courseId }: { courseId: string })
     <div>
       <h1>Curso: {courseId}</h1>
       <p>Ciclo: {cycle?.code}</p>
-      
+
       <h2>Evaluaciones</h2>
       <div className="grid grid-cols-3 gap-4">
         {evaluations.map((evaluation: any) => (

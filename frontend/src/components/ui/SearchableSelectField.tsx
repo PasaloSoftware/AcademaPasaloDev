@@ -19,6 +19,8 @@ interface SearchableSelectFieldProps<T> {
   emptyText: string;
   className?: string;
   dropdownClassName?: string;
+  leadingIconName?: string;
+  showTrailingIcon?: boolean;
 }
 
 export default function SearchableSelectField<T>({
@@ -37,6 +39,8 @@ export default function SearchableSelectField<T>({
   emptyText,
   className = "self-stretch",
   dropdownClassName = "absolute top-full left-0 right-0 mt-1 z-40 max-h-64 overflow-y-auto p-1 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col",
+  leadingIconName,
+  showTrailingIcon = true,
 }: SearchableSelectFieldProps<T>) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -66,6 +70,13 @@ export default function SearchableSelectField<T>({
       <div
         className={`self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? "outline-stroke-accent-secondary" : "outline-stroke-primary"} inline-flex justify-start items-center gap-2 transition-colors ${disabled ? "opacity-60" : ""}`}
       >
+        {leadingIconName ? (
+          <Icon
+            name={leadingIconName}
+            size={16}
+            className="text-icon-tertiary"
+          />
+        ) : null}
         <input
           type="text"
           value={displayValue}
@@ -84,9 +95,9 @@ export default function SearchableSelectField<T>({
         />
         {loading ? (
           <div className="w-4 h-4 border-2 border-accent-solid border-t-transparent rounded-full animate-spin" />
-        ) : (
+        ) : showTrailingIcon ? (
           <Icon name="expand_more" size={20} className="text-icon-tertiary" />
-        )}
+        ) : null}
       </div>
       {isFilled && (
         <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">

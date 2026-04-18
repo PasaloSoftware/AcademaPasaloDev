@@ -64,7 +64,7 @@ function QuickAccessCard({
     >
       <Icon
         name={icon}
-        size={24}
+        size={32}
         className="text-icon-info-secondary sm:h-8 sm:w-8"
       />
       <div className="self-stretch whitespace-pre-line text-center text-xs font-medium leading-4 text-text-info-secondary sm:text-sm">
@@ -193,8 +193,8 @@ export default function InicioContent() {
               <div className="flex items-center gap-1 sm:gap-2">
                 <Icon
                   name="bolt"
-                  size={24}
-                  className="text-accent-secondary sm:h-8 sm:w-8"
+                  size={32}
+                  className="self-center text-accent-secondary sm:h-8 sm:w-8"
                 />
                 <div className="text-xl font-semibold leading-7 text-text-primary sm:text-3xl sm:leading-8">
                   Accesos Rapidos

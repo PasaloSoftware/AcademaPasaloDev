@@ -33,6 +33,7 @@ import {
   CalendarLoading,
 } from "@/components/calendar";
 import Icon from "@/components/ui/Icon";
+import FloatingSelect from "@/components/ui/FloatingSelect";
 
 type TeacherCalendarScope = "mine" | "all";
 type TeacherCalendarUnit = "ALL" | "CIENCIAS" | "LETRAS" | "FACULTAD";
@@ -626,7 +627,7 @@ export default function CalendarioContent() {
         onPrevious={goToPrevious}
         onToday={goToToday}
         onCourseChange={filterByCourse}
-        courseBaseLabel="Todos los cursos del filtro"
+        courseBaseLabel="Todos"
         emptyCourseStateLabel="No hay cursos para los filtros aplicados"
         emptyCourseSearchLabel="No se encontraron cursos con esa búsqueda"
         leftActions={
@@ -652,7 +653,7 @@ export default function CalendarioContent() {
           >
             <Icon name="add" size={16} className="text-icon-white" />
             <span className="text-text-white text-sm font-medium leading-4">
-              Crear Evento
+              Crear Clase
             </span>
           </button>
         }
@@ -669,6 +670,7 @@ export default function CalendarioContent() {
           isToday={isToday}
           onEventClick={handleEventClick}
           selectedEventId={isDetailOpen ? selectedEvent?.id : null}
+          disableScroll={isDetailOpen}
         />
       ) : (
         <CalendarMonthlyView
@@ -677,6 +679,7 @@ export default function CalendarioContent() {
           isToday={isToday}
           onEventClick={handleEventClick}
           selectedEventId={isDetailOpen ? selectedEvent?.id : null}
+          disableScroll={isDetailOpen}
         />
       )}
 
@@ -732,32 +735,24 @@ export default function CalendarioContent() {
           <div className="self-stretch text-text-quartiary text-base font-semibold leading-5">
             Ciclo
           </div>
-          <div className="self-stretch flex flex-col gap-1">
-            <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
-              <select
-                value={draftFilters.cycleId}
-                onChange={(e) =>
-                  setDraftFilters((current) => ({
-                    ...current,
-                    cycleId: e.target.value,
-                  }))
-                }
-                className="flex-1 bg-transparent text-text-primary text-base font-normal leading-4 outline-none"
-              >
-                <option value="ALL">Todos</option>
-                {cycleOptions.map((cycle) => (
-                  <option key={cycle.id} value={cycle.id}>
-                    {cycle.code}
-                  </option>
-                ))}
-              </select>
-              <Icon
-                name="expand_more"
-                size={20}
-                className="text-icon-tertiary"
-              />
-            </div>
-          </div>
+          <FloatingSelect
+            label="Ciclo"
+            value={draftFilters.cycleId === "ALL" ? null : draftFilters.cycleId}
+            options={cycleOptions.map((cycle) => ({
+              value: cycle.id,
+              label: cycle.code,
+            }))}
+            onChange={(value) =>
+              setDraftFilters((current) => ({
+                ...current,
+                cycleId: value ?? "ALL",
+              }))
+            }
+            allLabel="Todos"
+            className="w-full"
+            variant="filled"
+            size="large"
+          />
         </div>
       </AdvancedFiltersSidebar>
 
