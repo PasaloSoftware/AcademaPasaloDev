@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
+import CourseStudentsManagementSection, {
+  type DraftCourseStudentItem,
+} from "@/components/pages/admin/CourseStudentsManagementSection";
 import {
   CourseDeleteConfirmModal,
   CourseEditorFooter,
@@ -24,11 +27,14 @@ import {
 } from "@/components/pages/admin/CourseEditorShared";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
+import { enrollmentService } from "@/services/enrollment.service";
+import { settingsService } from "@/services/settings.service";
 import { usersService } from "@/services/users.service";
 import type { AdminCourseCycleProfessor } from "@/services/courses.service";
 import { coursesService } from "@/services/courses.service";
 import { evaluationsService } from "@/services/evaluations.service";
-import type { CourseType, EvaluationType } from "@/types/api";
+import type { CourseType, CycleLevel, EvaluationType } from "@/types/api";
+import type { EnrollmentStudentOption } from "@/components/pages/admin/EnrollmentRegistrationModal";
 
 const EVALUATION_NAME_META: Record<
   string,
@@ -201,14 +207,25 @@ export default function CursoCreateContent() {
 
   const [courseTypes, setCourseTypes] = useState<CourseType[]>([]);
   const [evaluationTypes, setEvaluationTypes] = useState<EvaluationType[]>([]);
+  const [courseLevels, setCourseLevels] = useState<CycleLevel[]>([]);
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedProfessors, setSelectedProfessors] = useState<
     AdminCourseCycleProfessor[]
   >([]);
+  const [draftStudents, setDraftStudents] = useState<DraftCourseStudentItem[]>(
+    [],
+  );
   const [activeTab, setActiveTab] = useState<CourseEditorTab>("structure");
+  const [currentAcademicCycle, setCurrentAcademicCycle] = useState<{
+    id: string;
+    startDate: string;
+    endDate: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [professorModalOpen, setProfessorModalOpen] = useState(false);
   const [availableProfessors, setAvailableProfessors] = useState<
     ProfessorModalOption[]
@@ -287,12 +304,25 @@ export default function CursoCreateContent() {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [types, evaluationTypeCatalog] = await Promise.all([
-        coursesService.getCourseTypes(),
-        evaluationsService.getTypes(),
-      ]);
+      const [types, evaluationTypeCatalog, levels, settings] =
+        await Promise.all([
+          coursesService.getCourseTypes(),
+          evaluationsService.getTypes(),
+          coursesService.getCourseLevels(),
+          settingsService.getAdminSettings(),
+        ]);
       setCourseTypes(types);
       setEvaluationTypes(evaluationTypeCatalog);
+      setCourseLevels(levels);
+      setCurrentAcademicCycle(
+        settings.currentCycle
+          ? {
+              id: settings.currentCycle.id,
+              startDate: settings.currentCycle.startDate,
+              endDate: settings.currentCycle.endDate,
+            }
+          : null,
+      );
     } catch (error) {
       console.error("Error al cargar datos de creación del curso:", error);
       showToast({
@@ -319,6 +349,15 @@ export default function CursoCreateContent() {
         label: normalizeCourseTypeName(type.name),
       })),
     [courseTypes],
+  );
+
+  const levelOptions = useMemo(
+    () =>
+      courseLevels.map((level) => ({
+        value: level.id,
+        label: level.name,
+      })),
+    [courseLevels],
   );
 
   const evaluationTypeOptions = useMemo(
@@ -465,6 +504,36 @@ export default function CursoCreateContent() {
       current.filter((professor) => professor.id !== professorId),
     );
     setProfessorActionLoadingId(null);
+  };
+
+  const handleAddDraftStudent = (student: EnrollmentStudentOption) => {
+    setDraftStudents((current) => {
+      if (current.some((item) => item.userId === student.id)) {
+        return current;
+      }
+
+      return [
+        ...current,
+        {
+          userId: student.id,
+          fullName: student.fullName,
+          email: student.email,
+        },
+      ];
+    });
+
+    showToast({
+      type: "success",
+      title: "Alumno añadido",
+      description:
+        "El alumno se agregó al borrador del curso. Se aplicará cuando el curso se guarde.",
+    });
+  };
+
+  const handleRemoveDraftStudent = (userId: string) => {
+    setDraftStudents((current) =>
+      current.filter((student) => student.userId !== userId),
+    );
   };
 
   const handleEvaluationQuantityChange = (value: string) => {
@@ -913,13 +982,108 @@ export default function CursoCreateContent() {
     };
   }, [deleteTarget]);
 
-  const handleSave = () => {
-    showToast({
-      type: "info",
-      title: "Creación pendiente",
-      description:
-        "La pantalla ya quedó preparada con evaluaciones sincronizadas y catálogo real de tipos. Para guardar por backend aún falta cerrar el dato de nivel académico que exige el contrato actual.",
-    });
+  const missingSaveRequirements = useMemo(() => {
+    const items: string[] = [];
+    if (!courseName.trim()) items.push("Nombre del curso");
+    if (!courseCode.trim()) items.push("Abreviatura del curso");
+    if (!selectedType) items.push("Unidad");
+    if (!selectedLevel) items.push("Ciclo");
+    if (!currentAcademicCycle?.id) items.push("Ciclo académico vigente");
+    if (draftEvaluations.length === 0) items.push("Al menos una evaluación");
+    return items;
+  }, [
+    courseName,
+    courseCode,
+    selectedType,
+    selectedLevel,
+    currentAcademicCycle,
+    draftEvaluations.length,
+  ]);
+
+  const canSave = missingSaveRequirements.length === 0;
+
+  const handleSave = async () => {
+    if (!canSave || !selectedType || !selectedLevel || !currentAcademicCycle) {
+      showToast({
+        type: "error",
+        title: "Faltan datos por completar",
+        description: `Completa: ${missingSaveRequirements.join(", ")}.`,
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const uniqueEvaluationTypeIds = Array.from(
+        new Set(
+          draftEvaluations.map((evaluation) => evaluation.evaluationTypeId),
+        ),
+      );
+
+      const response = await coursesService.createSetup({
+        course: {
+          code: courseCode.trim(),
+          name: courseName.trim(),
+          courseTypeId: selectedType,
+          cycleLevelId: selectedLevel,
+        },
+        academicCycleId: currentAcademicCycle.id,
+        allowedEvaluationTypeIds: uniqueEvaluationTypeIds,
+        evaluationsToCreate: draftEvaluations.map((evaluation) => ({
+          evaluationTypeId: evaluation.evaluationTypeId,
+          number: evaluation.number,
+          startDate: currentAcademicCycle.startDate,
+          endDate: currentAcademicCycle.endDate,
+        })),
+        professorUserIds: selectedProfessors.map((professor) => professor.id),
+        materialsTemplate: {
+          applyToEachEvaluation: true,
+          roots: materialFolders.map((folder) => ({
+            name: folder.title,
+          })),
+        },
+      });
+
+      const enrollmentResults = await Promise.allSettled(
+        draftStudents.map((student) =>
+          enrollmentService.create({
+            userId: student.userId,
+            courseCycleId: response.courseCycle.id,
+            enrollmentTypeCode: "FULL",
+          }),
+        ),
+      );
+
+      const failedEnrollments = enrollmentResults.filter(
+        (result) => result.status === "rejected",
+      ).length;
+
+      showToast({
+        type: failedEnrollments === 0 ? "success" : "info",
+        title:
+          failedEnrollments === 0
+            ? "Curso creado correctamente"
+            : "Curso creado con observaciones",
+        description:
+          failedEnrollments === 0
+            ? "El curso, su ciclo vigente y los alumnos draft se guardaron correctamente."
+            : `El curso se creó, pero ${failedEnrollments} matrícula(s) draft no pudieron aplicarse.`,
+      });
+
+      router.push(`/plataforma/curso/${response.courseCycle.id}`);
+    } catch (error) {
+      console.error("Error al crear curso:", error);
+      showToast({
+        type: "error",
+        title: "No se pudo crear el curso",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error inesperado al guardar el curso.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -949,6 +1113,9 @@ export default function CursoCreateContent() {
         selectedType={selectedType}
         onSelectedTypeChange={setSelectedType}
         typeOptions={typeOptions}
+        selectedLevel={selectedLevel}
+        onSelectedLevelChange={setSelectedLevel}
+        levelOptions={levelOptions}
         professors={selectedProfessors}
         onOpenProfessorModal={() => setProfessorModalOpen(true)}
       />
@@ -1195,19 +1362,22 @@ export default function CursoCreateContent() {
           </CourseSectionCard>*/}
         </div>
       ) : (
-        <CourseSectionCard title="Gestión de Alumnos" icon="groups">
-          <CourseEmptyStatePanel
-            icon="groups"
-            title="Disponible después de crear el curso"
-            description="Primero crea el curso y su ciclo inicial. Luego desde aquí podrás matricular alumnos y administrar la lista de inscritos."
-          />
-        </CourseSectionCard>
+        <CourseStudentsManagementSection
+          enabled={activeTab === "students"}
+          draftStudents={draftStudents}
+          onAddDraftStudent={handleAddDraftStudent}
+          onRemoveDraftStudent={handleRemoveDraftStudent}
+          containerClassName="self-stretch p-6 bg-bg-primary rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] border border-stroke-secondary inline-flex flex-col justify-start items-start gap-6"
+          headerTrailing={<div className="w-28 h-6" />}
+        />
       )}
 
       <CourseEditorFooter
         onCancel={() => router.push("/plataforma/admin/cursos")}
         onSave={handleSave}
-        saveDisabled
+        saveDisabled={saving}
+        saveLoading={saving}
+        saveLoadingLabel="Guardando curso..."
       />
 
       <CourseProfessorManagerModal

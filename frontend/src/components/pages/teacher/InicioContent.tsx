@@ -93,8 +93,8 @@ export default function InicioContent() {
           <div className="flex items-center gap-1 sm:gap-2">
             <Icon
               name="class"
-              size={24}
-              className="text-accent-secondary sm:h-8 sm:w-8"
+              size={32}
+              className="self-center text-accent-secondary sm:h-8 sm:w-8"
             />
             <h1 className="text-xl font-semibold text-primary sm:text-3xl">
               Mis Cursos

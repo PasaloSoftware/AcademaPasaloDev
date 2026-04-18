@@ -837,7 +837,7 @@ export default function EnrollmentRegistrationModal({
           />
           <EnrollmentModeCard
             title="Evaluaciones una a una"
-            description="Acceso a evaluaciones espec??ficas"
+            description="Acceso a evaluaciones específicas"
             selected={enrollmentMode === "PARTIAL"}
             onClick={() => setEnrollmentMode("PARTIAL")}
           />
@@ -910,7 +910,7 @@ export default function EnrollmentRegistrationModal({
                     Ciclos Pasados
                   </div>
                   <div className="self-stretch justify-center text-text-quartiary text-xs font-normal leading-4">
-                    Habilitar material hist??rico
+                    Habilitar material histórico
                   </div>
                 </div>
               </div>

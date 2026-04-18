@@ -118,6 +118,9 @@ interface CourseGeneralInfoSectionProps {
   selectedType: string | null;
   onSelectedTypeChange: (value: string | null) => void;
   typeOptions: Array<{ value: string; label: string }>;
+  selectedLevel?: string | null;
+  onSelectedLevelChange?: (value: string | null) => void;
+  levelOptions?: Array<{ value: string; label: string }>;
   professors: AdminCourseCycleProfessor[];
   onOpenProfessorModal: () => void;
 }
@@ -130,6 +133,9 @@ export function CourseGeneralInfoSection({
   selectedType,
   onSelectedTypeChange,
   typeOptions,
+  selectedLevel = null,
+  onSelectedLevelChange,
+  levelOptions = [],
   professors,
   onOpenProfessorModal,
 }: CourseGeneralInfoSectionProps) {
@@ -159,12 +165,34 @@ export function CourseGeneralInfoSection({
           value={selectedType}
           options={typeOptions}
           onChange={onSelectedTypeChange}
-          allLabel="Selecciona una unidad"
+          allLabel="Unidad"
+          emptyValueIsPlaceholder
           className="w-full"
           variant="floating"
           size="large"
         />
+        {onSelectedLevelChange ? (
+          <FloatingSelect
+            label="Ciclo"
+            value={selectedLevel}
+            options={levelOptions}
+            onChange={onSelectedLevelChange}
+            allLabel="Ciclo"
+            emptyValueIsPlaceholder
+            className="w-full"
+            variant="floating"
+            size="large"
+          />
+        ) : null}
+
         <div className="self-stretch relative inline-flex flex-col justify-start items-start gap-1">
+          {professors.length > 0 && (
+            <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
+              <span className="text-text-tertiary text-xs font-normal leading-4">
+                Asesor asignado
+              </span>
+            </div>
+          )}
           <div
             className="self-stretch min-h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2 cursor-pointer hover:bg-bg-secondary transition-colors"
             onClick={onOpenProfessorModal}
@@ -180,7 +208,7 @@ export function CourseGeneralInfoSection({
             <div className="flex-1 flex justify-start items-center gap-2 flex-wrap">
               {professors.length === 0 ? (
                 <span className="text-text-tertiary text-base font-normal leading-4">
-                  Sin asignar
+                  Asesor asignado
                 </span>
               ) : (
                 professors.slice(0, MAX_COURSE_PROFESSORS).map((professor) => (
@@ -207,25 +235,7 @@ export function CourseGeneralInfoSection({
                 ))
               )}
             </div>
-            {professors.length < MAX_COURSE_PROFESSORS && (
-              <button
-                type="button"
-                onClick={onOpenProfessorModal}
-                className="flex items-center"
-                title="Añadir asesor"
-              >
-                <Icon
-                  name="person_add_alt"
-                  size={16}
-                  className="text-icon-tertiary"
-                />
-              </button>
-            )}
-          </div>
-          <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex justify-start items-start">
-            <span className="text-text-tertiary text-xs font-normal leading-4">
-              Asesor asignado
-            </span>
+            <Icon name="expand_more" size={16} className="text-icon-tertiary" />
           </div>
         </div>
       </div>
@@ -424,6 +434,7 @@ export function CourseSelectQuantityModal({
           options={selectOptions}
           onChange={onSelectChange}
           allLabel={selectPlaceholder}
+          emptyValueIsPlaceholder
           className="w-full"
           variant="floating"
           size="large"
@@ -733,17 +744,24 @@ interface CourseEditorFooterProps {
   onCancel: () => void;
   onSave: () => void;
   saveDisabled: boolean;
+  saveLoading?: boolean;
+  saveLabel?: string;
+  saveLoadingLabel?: string;
 }
 
 export function CourseEditorFooter({
   onCancel,
   onSave,
   saveDisabled,
+  saveLoading = false,
+  saveLabel = "Guardar",
+  saveLoadingLabel = "Guardando...",
 }: CourseEditorFooterProps) {
   return (
     <div className="self-stretch inline-flex justify-end items-center gap-4">
       <button
         onClick={onCancel}
+        disabled={saveLoading}
         className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary flex justify-center items-center gap-1.5 hover:bg-bg-secondary transition-colors"
       >
         <span className="text-text-tertiary text-sm font-medium leading-4">
@@ -752,13 +770,26 @@ export function CourseEditorFooter({
       </button>
       <button
         onClick={onSave}
-        disabled={saveDisabled}
-        className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 ${!saveDisabled ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover" : "bg-bg-disabled cursor-not-allowed"}`}
+        disabled={saveDisabled || saveLoading}
+        className={`px-6 py-3 rounded-lg flex justify-center items-center gap-1.5 ${
+          !saveDisabled && !saveLoading
+            ? "bg-bg-accent-primary-solid hover:bg-bg-accent-solid-hover"
+            : saveLoading
+              ? "bg-bg-accent-primary-solid cursor-wait"
+              : "bg-bg-disabled cursor-not-allowed"
+        }`}
       >
+        {saveLoading ? (
+          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : null}
         <span
-          className={`${!saveDisabled ? "text-text-white" : "text-text-disabled"} text-sm font-medium leading-4`}
+          className={`${
+            !saveDisabled || saveLoading
+              ? "text-text-white"
+              : "text-text-disabled"
+          } text-sm font-medium leading-4`}
         >
-          Guardar
+          {saveLoading ? saveLoadingLabel : saveLabel}
         </span>
       </button>
     </div>
