@@ -490,6 +490,58 @@ Igual que el POST: objeto `AcademicCycleResponseDto` con los datos actualizados.
 
 ---
 
+### 10.4 `PUT /cycles/active` (ADMIN, SUPER_ADMIN)
+
+- Objetivo: editar los datos del ciclo académico **vigente** actualmente configurado en el sistema. Permite corregir el código identificador, la fecha de inicio y la fecha de fin.
+
+> **Operación de alto impacto.** Cambiar las fechas del ciclo vigente afecta la validación de nuevas evaluaciones, el cálculo de progreso del ciclo en el bundle de settings y la visibilidad de ciclos anteriores para alumnos. Estas consecuencias son inmediatas. Los cachés de dashboard de alumnos y de estado de eventos de clase quedan desactualizados hasta que expire su TTL.
+
+#### Request body
+
+```json
+{
+  "code": "2025-1",
+  "startDate": "2025-01-06",
+  "endDate": "2025-07-15"
+}
+```
+
+| Campo | Tipo | Requerido | Restricciones |
+|---|---|---|---|
+| `code` | string | Sí | Máx. 50 caracteres. Debe ser único en el sistema |
+| `startDate` | string (date) | Sí | Formato `YYYY-MM-DD`. Debe ser anterior a `endDate` |
+| `endDate` | string (date) | Sí | Formato `YYYY-MM-DD`. Debe ser posterior a `startDate` |
+
+#### Response `data`
+
+```json
+{
+  "id": "12",
+  "code": "2025-1",
+  "startDate": "2025-01-06",
+  "endDate": "2025-07-15",
+  "createdAt": "2025-01-01T00:00:00.000Z"
+}
+```
+
+#### Validaciones de negocio
+
+| Condición | Error |
+|---|---|
+| No hay ciclo vigente configurado (`ACTIVE_CYCLE_ID` no apunta a ningún ciclo) | `404 Not Found` — "No se ha podido identificar el ciclo activo del sistema." |
+| `startDate >= endDate` | `400 Bad Request` — "La fecha de inicio debe ser anterior a la fecha de fin." |
+| `code` ya existe en **otro** ciclo | `409 Conflict` — "Ya existe un ciclo con ese código." |
+| Las fechas se solapan con **otro** ciclo | `409 Conflict` — "Las fechas se solapan con el ciclo \"{code del conflicto}\"." |
+
+#### Observaciones
+
+- La validación de código único y solapamiento excluye el propio ciclo vigente (self-exclusion). El ciclo puede mantener su propio código o sus propias fechas sin conflicto.
+- El sistema registra un `WARN` en logs con los valores anteriores y nuevos (`before`/`after`) antes de persistir el cambio — trazabilidad de auditoría.
+- **Cachés invalidadas automáticamente:** al guardar exitosamente, el sistema invalida en paralelo `cache:enrollment:user:*:dashboard` (dashboard de todos los alumnos) y `cache:cycle-active:*` (estado de ciclo activo por evaluación). Los próximos accesos recalculan con los datos nuevos.
+- **Evaluaciones existentes:** las evaluaciones ya creadas no se invalidan retroactivamente. Solo la ventana de creación de nuevas evaluaciones cambia según las nuevas fechas del ciclo.
+
+---
+
 ## 11) Módulo de Auditoría — Panel Admin
 
 > Base path: `/api/v1/audit`

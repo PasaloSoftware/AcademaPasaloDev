@@ -7,8 +7,12 @@ import {
 import { CyclesService } from './cycles.service';
 import { AcademicCycleRepository } from '@modules/cycles/infrastructure/academic-cycle.repository';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
+import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { ENROLLMENT_CACHE_KEYS } from '@modules/enrollments/domain/enrollment.constants';
 import { AcademicCycle } from '@modules/cycles/domain/academic-cycle.entity';
 import { CycleFormDto } from '@modules/cycles/dto/cycle-form.dto';
+
+const CYCLE_ACTIVE_CACHE_GROUP = 'cache:cycle-active:*';
 
 const mockCycleRepo = {
   findAll: jest.fn(),
@@ -22,6 +26,10 @@ const mockCycleRepo = {
 
 const mockAuthSettingsService = {
   getActiveCycleId: jest.fn(),
+};
+
+const mockCacheService = {
+  invalidateGroup: jest.fn(),
 };
 
 const makeCycle = (id: string, code = 'CYCLE_A'): AcademicCycle =>
@@ -50,6 +58,7 @@ describe('CyclesService', () => {
         CyclesService,
         { provide: AcademicCycleRepository, useValue: mockCycleRepo },
         { provide: AuthSettingsService, useValue: mockAuthSettingsService },
+        { provide: RedisCacheService, useValue: mockCacheService },
       ],
     }).compile();
 
@@ -237,6 +246,7 @@ describe('CyclesService', () => {
       mockCycleRepo.saveCycle.mockImplementation((c: AcademicCycle) =>
         Promise.resolve(c),
       );
+      mockCacheService.invalidateGroup.mockResolvedValue(undefined);
     });
 
     it('actualiza y retorna el ciclo vigente con los nuevos valores', async () => {
@@ -342,6 +352,50 @@ describe('CyclesService', () => {
       mockCycleRepo.findOverlapping.mockResolvedValue(null);
 
       await expect(service.updateActiveCycle(makeFormDto())).resolves.not.toThrow();
+    });
+
+    it('invalida el caché de dashboard de todos los alumnos tras guardar', async () => {
+      await service.updateActiveCycle(makeFormDto());
+
+      expect(mockCacheService.invalidateGroup).toHaveBeenCalledWith(
+        ENROLLMENT_CACHE_KEYS.GLOBAL_DASHBOARD_GROUP,
+      );
+    });
+
+    it('invalida el caché de cycle-active de todos los eventos tras guardar', async () => {
+      await service.updateActiveCycle(makeFormDto());
+
+      expect(mockCacheService.invalidateGroup).toHaveBeenCalledWith(
+        CYCLE_ACTIVE_CACHE_GROUP,
+      );
+    });
+
+    it('invalida ambos cachés exactamente una vez en paralelo', async () => {
+      await service.updateActiveCycle(makeFormDto());
+
+      expect(mockCacheService.invalidateGroup).toHaveBeenCalledTimes(2);
+    });
+
+    it('NO invalida cachés si falla antes de guardar', async () => {
+      mockCycleRepo.findByCode.mockResolvedValue(makeCycle('99', '2025-1'));
+
+      await expect(
+        service.updateActiveCycle(makeFormDto()),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockCacheService.invalidateGroup).not.toHaveBeenCalled();
+    });
+
+    it('NO invalida cachés si no hay ciclo vigente configurado', async () => {
+      mockAuthSettingsService.getActiveCycleId.mockRejectedValue(
+        new Error('Not found'),
+      );
+
+      await expect(
+        service.updateActiveCycle(makeFormDto()),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockCacheService.invalidateGroup).not.toHaveBeenCalled();
     });
 
     it('emite logger.warn antes de persistir el cambio', async () => {

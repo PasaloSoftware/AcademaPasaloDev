@@ -17,6 +17,10 @@ import {
   CyclesHistoryResponseDto,
 } from '@modules/cycles/dto/cycles-history.dto';
 import { CycleFormDto } from '@modules/cycles/dto/cycle-form.dto';
+import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
+import { ENROLLMENT_CACHE_KEYS } from '@modules/enrollments/domain/enrollment.constants';
+
+const CYCLE_ACTIVE_CACHE_GROUP = 'cache:cycle-active:*';
 
 @Injectable()
 export class CyclesService {
@@ -25,6 +29,7 @@ export class CyclesService {
   constructor(
     private readonly academicCycleRepository: AcademicCycleRepository,
     private readonly authSettingsService: AuthSettingsService,
+    private readonly cacheService: RedisCacheService,
   ) {}
 
   async findAll(): Promise<AcademicCycle[]> {
@@ -108,7 +113,16 @@ export class CyclesService {
     cycle.code = dto.code;
     cycle.startDate = new Date(dto.startDate);
     cycle.endDate = new Date(dto.endDate);
-    return this.academicCycleRepository.saveCycle(cycle);
+    const saved = await this.academicCycleRepository.saveCycle(cycle);
+
+    await Promise.all([
+      this.cacheService.invalidateGroup(
+        ENROLLMENT_CACHE_KEYS.GLOBAL_DASHBOARD_GROUP,
+      ),
+      this.cacheService.invalidateGroup(CYCLE_ACTIVE_CACHE_GROUP),
+    ]);
+
+    return saved;
   }
 
   async createHistoricalCycle(dto: CycleFormDto): Promise<AcademicCycle> {
