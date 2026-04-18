@@ -68,11 +68,7 @@ export class CourseRepository {
     }
 
     if (isActive !== undefined) {
-      if (!(await this.hasIsActiveColumn(manager))) {
-        throw new BadRequestException(
-          'La base de datos aun no esta preparada para actualizar el estado de materias. Ejecute el script backend/db/2026-04-15_add_course_is_active.sql.',
-        );
-      }
+      await this.ensureIsActiveColumn(manager);
 
       const executor = manager ?? this.ormRepository;
       await executor.query('UPDATE course SET is_active = ? WHERE id = ?', [
@@ -172,5 +168,29 @@ export class CourseRepository {
     }
 
     return exists;
+  }
+
+  private async ensureIsActiveColumn(manager?: EntityManager): Promise<void> {
+    if (await this.hasIsActiveColumn(manager)) {
+      return;
+    }
+
+    const executor = manager ?? this.ormRepository;
+
+    try {
+      await executor.query(
+        'ALTER TABLE course ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE AFTER secondary_color',
+      );
+      this.hasIsActiveColumnCache = true;
+    } catch (error) {
+      if (await this.hasIsActiveColumn(manager)) {
+        this.hasIsActiveColumnCache = true;
+        return;
+      }
+
+      throw new BadRequestException(
+        'No se pudo preparar la base de datos para actualizar el estado de materias.',
+      );
+    }
   }
 }

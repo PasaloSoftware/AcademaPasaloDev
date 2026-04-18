@@ -240,6 +240,30 @@ export const coursesService = {
     return response.data;
   },
 
+  async updateBankFolder(
+    courseCycleId: string,
+    evaluationTypeCode: string,
+    data: {
+      groupName: string;
+      items?: string[];
+    },
+  ): Promise<BankStructureResponse> {
+    const response = await apiClient.patch<BankStructureResponse>(
+      `/courses/cycle/${courseCycleId}/bank-folders/${evaluationTypeCode}`,
+      data,
+    );
+    return response.data;
+  },
+
+  async deleteBankFolder(
+    courseCycleId: string,
+    evaluationTypeCode: string,
+  ): Promise<void> {
+    await apiClient.delete(
+      `/courses/cycle/${courseCycleId}/bank-folders/${evaluationTypeCode}`,
+    );
+  },
+
   /**
    * Obtener contenido de un curso-ciclo (PROFESSOR/ADMIN/SUPER_ADMIN)
    * Ahora devuelve la misma estructura que /current (CurrentCycleResponse)

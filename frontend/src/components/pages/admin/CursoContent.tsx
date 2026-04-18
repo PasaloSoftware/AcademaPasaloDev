@@ -204,7 +204,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           label: "Gestión de Cursos",
           href: "/plataforma/admin/cursos",
         },
-        { label: "Curso" },
+        { label: selectedCycle.course.name },
       ]);
     } catch (err) {
       console.error("Error al cargar detalle del curso:", err);

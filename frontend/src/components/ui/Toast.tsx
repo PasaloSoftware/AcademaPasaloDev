@@ -34,7 +34,7 @@ const toastConfig: Record<ToastType, { bg: string; outline: string; icon: string
   },
   info: {
     bg: 'bg-bg-info-secondary-light',
-    outline: 'outline-stroke-info-secondary',
+    outline: 'outline-muted-indigo-200',
     icon: 'info',
     iconClass: 'text-icon-info-primary',
   },

@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import FloatingSelect from "@/components/ui/FloatingSelect";
+import Modal from "@/components/ui/Modal";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
+import { enrollmentService } from "@/services/enrollment.service";
 import {
   coursesService,
   type AdminCourseCycleItem,
@@ -151,6 +153,10 @@ export default function CursosContent() {
   const [sidebarStatus, setSidebarStatus] = useState<CourseStatusFilter>("");
 
   const [menuCourseId, setMenuCourseId] = useState<string | null>(null);
+  const [statusTarget, setStatusTarget] = useState<CourseManagementRow | null>(
+    null,
+  );
+  const [statusSaving, setStatusSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -204,6 +210,47 @@ export default function CursosContent() {
         cyclesByCourseId.set(item.course.id, current);
       }
 
+      const preferredCycleByCourseId = new Map<string, AdminCourseCycleItem>();
+      for (const course of catalog) {
+        const relatedCycles = cyclesByCourseId.get(course.id) || [];
+        const preferredCycle = pickPreferredCycle(relatedCycles);
+        if (preferredCycle) {
+          preferredCycleByCourseId.set(course.id, preferredCycle);
+        }
+      }
+
+      const uniquePreferredCycleIds = Array.from(
+        new Set(
+          Array.from(preferredCycleByCourseId.values()).map(
+            (cycle) => cycle.courseCycleId,
+          ),
+        ),
+      );
+
+      const studentCountEntries = await Promise.all(
+        uniquePreferredCycleIds.map(async (courseCycleId) => {
+          try {
+            const response =
+              await enrollmentService.getAdminStudentsByCourseCycle({
+                courseCycleId,
+                page: 1,
+                pageSize: 1,
+              });
+            return [courseCycleId, String(response.totalItems)] as const;
+          } catch (error) {
+            console.error(
+              `Error al cargar alumnos del curso-ciclo ${courseCycleId}:`,
+              error,
+            );
+            return [courseCycleId, "-"] as const;
+          }
+        }),
+      );
+
+      const studentCountByCycleId = new Map<string, string>(
+        studentCountEntries,
+      );
+
       const mappedRows = catalog.map((course: Course) => {
         const relatedCycles = cyclesByCourseId.get(course.id) || [];
         const preferredCycle = pickPreferredCycle(relatedCycles);
@@ -218,7 +265,9 @@ export default function CursosContent() {
           advisorLabel: preferredCycle
             ? getAdvisorLabel(preferredCycle.professors)
             : "Sin asignar",
-          studentCountLabel: "-",
+          studentCountLabel: preferredCycle
+            ? (studentCountByCycleId.get(preferredCycle.courseCycleId) ?? "0")
+            : "-",
           isActive: course.isActive,
           courseCycleId: preferredCycle?.courseCycleId || null,
         } satisfies CourseManagementRow;
@@ -371,6 +420,59 @@ export default function CursosContent() {
       return;
     }
     router.push(`/plataforma/curso/${encodeURIComponent(row.courseCycleId)}`);
+  };
+
+  const goToCourseEdit = (row: CourseManagementRow) => {
+    if (!row.courseCycleId) {
+      showToast({
+        type: "info",
+        title: "Curso sin ciclo disponible",
+        description:
+          "Este curso todavía no tiene un ciclo abierto para editar su configuración.",
+      });
+      return;
+    }
+    router.push(
+      `/plataforma/curso/${encodeURIComponent(row.courseCycleId)}/editar`,
+    );
+  };
+
+  const handleToggleCourseStatus = async () => {
+    if (!statusTarget) return;
+
+    setStatusSaving(true);
+    try {
+      const updated = await coursesService.updateStatus(
+        statusTarget.courseId,
+        !statusTarget.isActive,
+      );
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.courseId === statusTarget.courseId
+            ? { ...row, isActive: updated.isActive }
+            : row,
+        ),
+      );
+      setStatusTarget(null);
+      showToast({
+        type: "success",
+        title: updated.isActive ? "Curso activado" : "Curso inactivado",
+        description: updated.isActive
+          ? "La materia vuelve a estar disponible en gestión de cursos."
+          : "La materia fue desactivada correctamente.",
+      });
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "No se pudo actualizar el estado",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error inesperado.",
+      });
+    } finally {
+      setStatusSaving(false);
+    }
   };
 
   return (
@@ -669,6 +771,45 @@ export default function CursosContent() {
                               Ver
                             </span>
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuCourseId(null);
+                              goToCourseEdit(row);
+                            }}
+                            className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name="edit"
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              Editar
+                            </span>
+                          </button>
+                          <div className="self-stretch h-0 outline outline-1 outline-offset-[-0.50px] outline-stroke-secondary" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuCourseId(null);
+                              setStatusTarget(row);
+                            }}
+                            className="self-stretch px-2 py-3 bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name={
+                                row.isActive ? "person_off" : "check_circle"
+                              }
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              {row.isActive ? "Inactivar" : "Activar"}
+                            </span>
+                          </button>
                         </div>
                       )}
                     </td>
@@ -881,6 +1022,40 @@ export default function CursosContent() {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={Boolean(statusTarget)}
+        onClose={() => !statusSaving && setStatusTarget(null)}
+        title={statusTarget?.isActive ? "Inactivar curso" : "Activar curso"}
+        size="sm"
+        footer={
+          <>
+            <Modal.Button
+              variant="secondary"
+              onClick={() => setStatusTarget(null)}
+              disabled={statusSaving}
+            >
+              Cancelar
+            </Modal.Button>
+            <Modal.Button
+              variant={statusTarget?.isActive ? "danger" : "primary"}
+              onClick={() => void handleToggleCourseStatus()}
+              loading={statusSaving}
+              loadingText={
+                statusTarget?.isActive ? "Inactivando..." : "Activando..."
+              }
+            >
+              {statusTarget?.isActive ? "Inactivar" : "Activar"}
+            </Modal.Button>
+          </>
+        }
+      >
+        <p className="text-text-secondary text-sm leading-5">
+          {statusTarget?.isActive
+            ? "Esta acción desactivará la materia en gestión de cursos. Podrás volver a activarla más adelante."
+            : "Esta acción volverá a activar la materia y la mostrará nuevamente como disponible."}
+        </p>
+      </Modal>
     </div>
   );
 }

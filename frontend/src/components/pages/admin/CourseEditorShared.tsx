@@ -165,7 +165,18 @@ export function CourseGeneralInfoSection({
           size="large"
         />
         <div className="self-stretch relative inline-flex flex-col justify-start items-start gap-1">
-          <div className="self-stretch min-h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
+          <div
+            className="self-stretch min-h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2 cursor-pointer hover:bg-bg-secondary transition-colors"
+            onClick={onOpenProfessorModal}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpenProfessorModal();
+              }
+            }}
+          >
             <div className="flex-1 flex justify-start items-center gap-2 flex-wrap">
               {professors.length === 0 ? (
                 <span className="text-text-tertiary text-base font-normal leading-4">
@@ -350,6 +361,192 @@ export function CourseInfoBanner({
         </div>
       </div>
     </div>
+  );
+}
+
+interface CourseSelectQuantityModalProps {
+  isOpen: boolean;
+  title: string;
+  selectLabel: string;
+  quantityLabel: string;
+  selectValue: string | null;
+  onSelectChange: (value: string | null) => void;
+  selectOptions: Array<{ value: string; label: string }>;
+  selectPlaceholder: string;
+  quantityValue: string;
+  onQuantityChange: (value: string) => void;
+  quantityError?: string;
+  onClose: () => void;
+  onSave: () => void;
+  saveDisabled: boolean;
+  selectDisabled?: boolean;
+}
+
+export function CourseSelectQuantityModal({
+  isOpen,
+  title,
+  selectLabel,
+  quantityLabel,
+  selectValue,
+  onSelectChange,
+  selectOptions,
+  selectPlaceholder,
+  quantityValue,
+  onQuantityChange,
+  quantityError,
+  onClose,
+  onSave,
+  saveDisabled,
+  selectDisabled = false,
+}: CourseSelectQuantityModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="md"
+      bodyClassName="overflow-visible"
+      footer={
+        <>
+          <Modal.Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Modal.Button>
+          <Modal.Button onClick={onSave} disabled={saveDisabled}>
+            Guardar
+          </Modal.Button>
+        </>
+      }
+    >
+      <div className="self-stretch flex flex-col justify-start items-start gap-4">
+        <FloatingSelect
+          label={selectLabel}
+          value={selectValue}
+          options={selectOptions}
+          onChange={onSelectChange}
+          allLabel={selectPlaceholder}
+          className="w-full"
+          variant="floating"
+          size="large"
+          disabled={selectDisabled}
+        />
+        <div className="self-stretch flex flex-col gap-1">
+          <FloatingInput
+            id={`${title.toLowerCase().replace(/\s+/g, "-")}-quantity`}
+            label={quantityLabel}
+            value={quantityValue}
+            onChange={onQuantityChange}
+            inputMode="numeric"
+          />
+          {quantityError ? (
+            <span className="text-xs font-normal leading-4 text-text-error-primary">
+              {quantityError}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface CourseMaterialFolderModalProps {
+  isOpen: boolean;
+  title: string;
+  nameValue: string;
+  onNameChange: (value: string) => void;
+  descriptionValue: string;
+  onDescriptionChange: (value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+  saveDisabled: boolean;
+}
+
+export function CourseMaterialFolderModal({
+  isOpen,
+  title,
+  nameValue,
+  onNameChange,
+  descriptionValue,
+  onDescriptionChange,
+  onClose,
+  onSave,
+  saveDisabled,
+}: CourseMaterialFolderModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="md"
+      bodyClassName="overflow-visible"
+      footer={
+        <>
+          <Modal.Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Modal.Button>
+          <Modal.Button onClick={onSave} disabled={saveDisabled}>
+            Guardar
+          </Modal.Button>
+        </>
+      }
+    >
+      <div className="self-stretch flex flex-col justify-start items-start gap-4">
+        <FloatingInput
+          id={`${title.toLowerCase().replace(/\s+/g, "-")}-name`}
+          label="Nombre de la Carpeta Adicional"
+          value={nameValue}
+          onChange={onNameChange}
+          maxLength={80}
+        />
+        <FloatingInput
+          id={`${title.toLowerCase().replace(/\s+/g, "-")}-description`}
+          label="Descripción"
+          value={descriptionValue}
+          onChange={onDescriptionChange}
+          maxLength={180}
+        />
+      </div>
+    </Modal>
+  );
+}
+
+interface CourseDeleteConfirmModalProps {
+  isOpen: boolean;
+  title: string;
+  description: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export function CourseDeleteConfirmModal({
+  isOpen,
+  title,
+  description,
+  onClose,
+  onConfirm,
+}: CourseDeleteConfirmModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      footer={
+        <>
+          <Modal.Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Modal.Button>
+          <Modal.Button variant="danger" onClick={onConfirm}>
+            Eliminar
+          </Modal.Button>
+        </>
+      }
+    >
+      <div className="self-stretch flex flex-col justify-center items-center gap-6">
+        <div className="self-stretch text-text-tertiary text-base font-normal leading-4">
+          {description}
+        </div>
+      </div>
+    </Modal>
   );
 }
 

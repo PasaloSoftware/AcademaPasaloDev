@@ -388,7 +388,7 @@ function UpdateVideoModal({
         {/* Body */}
         <div className="p-6 flex flex-col gap-5">
           {isFirstUpload && !activeUpload && (
-            <div className="rounded-lg bg-bg-info-primary-light p-3 outline outline-1 outline-stroke-info-secondary flex flex-col gap-1.5">
+            <div className="rounded-lg bg-bg-info-primary-light p-3 outline outline-1 outline-muted-indigo-200 flex flex-col gap-1.5">
               <span className="text-text-info-primary text-sm font-medium leading-4">
                 Esta clase todavía no tiene una grabación publicada.
               </span>
