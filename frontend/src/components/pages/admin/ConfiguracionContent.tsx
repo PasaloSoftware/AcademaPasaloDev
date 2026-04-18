@@ -5,6 +5,7 @@ import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
 import Icon from "@/components/ui/Icon";
 import Modal from "@/components/ui/Modal";
+import DatePicker from "@/components/ui/DatePicker";
 import {
   settingsService,
   type SystemSettingsBundle,
@@ -218,7 +219,7 @@ function ModalSelectField({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="self-stretch inline-flex flex-col justify-start items-start gap-1">
+    <div className="self-stretch flex-1 inline-flex flex-col justify-start items-start gap-1">
       <div className="self-stretch h-12 px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-center gap-2">
         <select
           value={value}
@@ -1018,24 +1019,28 @@ export default function ConfiguracionContent() {
               setCurrentCycleForm((prev) => ({ ...prev, identifier: value }))
             }
           />
-          <ModalTextField
-            label="Fecha de inicio"
-            type="date"
-            value={currentCycleForm.startDate}
-            onChange={(value) =>
-              setCurrentCycleForm((prev) => ({ ...prev, startDate: value }))
-            }
-            rightIcon="calendar_month"
-          />
-          <ModalTextField
-            label="Fecha de fin"
-            type="date"
-            value={currentCycleForm.endDate}
-            onChange={(value) =>
-              setCurrentCycleForm((prev) => ({ ...prev, endDate: value }))
-            }
-            rightIcon="calendar_month"
-          />
+          <FloatingField label="Fecha de inicio">
+            <DatePicker
+              value={currentCycleForm.startDate}
+              onChange={(value) =>
+                setCurrentCycleForm((prev) => ({
+                  ...prev,
+                  startDate: value,
+                  endDate:
+                    prev.endDate && value > prev.endDate ? value : prev.endDate,
+                }))
+              }
+            />
+          </FloatingField>
+          <FloatingField label="Fecha de fin">
+            <DatePicker
+              value={currentCycleForm.endDate}
+              min={currentCycleForm.startDate}
+              onChange={(value) =>
+                setCurrentCycleForm((prev) => ({ ...prev, endDate: value }))
+              }
+            />
+          </FloatingField>
         </div>
       </Modal>
 
@@ -1077,24 +1082,28 @@ export default function ConfiguracionContent() {
               setHistoryCycleForm((prev) => ({ ...prev, identifier: value }))
             }
           />
-          <ModalTextField
-            label="Fecha de inicio"
-            type="date"
-            value={historyCycleForm.startDate}
-            onChange={(value) =>
-              setHistoryCycleForm((prev) => ({ ...prev, startDate: value }))
-            }
-            rightIcon="calendar_month"
-          />
-          <ModalTextField
-            label="Fecha de fin"
-            type="date"
-            value={historyCycleForm.endDate}
-            onChange={(value) =>
-              setHistoryCycleForm((prev) => ({ ...prev, endDate: value }))
-            }
-            rightIcon="calendar_month"
-          />
+          <FloatingField label="Fecha de inicio">
+            <DatePicker
+              value={historyCycleForm.startDate}
+              onChange={(value) =>
+                setHistoryCycleForm((prev) => ({
+                  ...prev,
+                  startDate: value,
+                  endDate:
+                    prev.endDate && value > prev.endDate ? value : prev.endDate,
+                }))
+              }
+            />
+          </FloatingField>
+          <FloatingField label="Fecha de fin">
+            <DatePicker
+              value={historyCycleForm.endDate}
+              min={historyCycleForm.startDate}
+              onChange={(value) =>
+                setHistoryCycleForm((prev) => ({ ...prev, endDate: value }))
+              }
+            />
+          </FloatingField>
         </div>
       </Modal>
 
@@ -1178,7 +1187,7 @@ export default function ConfiguracionContent() {
       >
         <div className="self-stretch flex flex-col justify-start items-start gap-4">
           <InfoBanner text="Las cuentas de los alumnos y sus logs seran eliminadas permanentemente tras cumplirse este plazo luego del fin del ciclo academico vigente." />
-          <div className="self-stretch inline-flex flex-col justify-start items-start gap-1">
+          <div className="self-stretch inline-flex flex-row justify-start items-start gap-1">
             <ModalTextField
               label="Periodo de retencion"
               type="number"
