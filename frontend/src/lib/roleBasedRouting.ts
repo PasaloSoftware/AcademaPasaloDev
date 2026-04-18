@@ -62,7 +62,7 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/calendario": {
-    allowedRoles: ["STUDENT", "TEACHER", "ADMIN"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "CalendarioContent",
     redirectOnDenied: "/plataforma/inicio",
   },
@@ -194,6 +194,7 @@ export const roleBasedComponents: Record<
     STUDENT: "student/CalendarioContent",
     TEACHER: "teacher/CalendarioContent",
     ADMIN: "admin/CalendarioContent",
+    SUPER_ADMIN: "admin/CalendarioContent",
   },
   "/plataforma/notificaciones": {
     STUDENT: "student/NotificacionesContent",
@@ -307,6 +308,26 @@ export function sanitizeRouteParam(param: string): string {
  */
 export function normalizeRoute(route: string): string {
   return route
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/ciclo-anterior\/[^/]+\/evaluacion\/[^/]+\/clase\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]/clase/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/ciclo-anterior\/[^/]+\/evaluacion\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/ciclo-anterior\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/ciclo-anterior/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/evaluacion\/[^/]+\/clase\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/evaluacion/[id]/clase/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/evaluacion\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/evaluacion/[id]",
+    )
     .replace(
       /\/plataforma\/admin\/auditoria\/[^/]+(?=\/|$)/i,
       "/plataforma/admin/auditoria/[id]",

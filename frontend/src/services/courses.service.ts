@@ -49,6 +49,26 @@ export interface AdminCourseCycleListResponse {
   totalPages: number;
 }
 
+export interface PublicCourseCatalogProfessor {
+  id: string;
+  firstName: string;
+  lastName1: string | null;
+  profilePhotoUrl: string | null;
+}
+
+export interface PublicCourseCatalogItem {
+  courseCycleId: string;
+  courseId: string;
+  code: string;
+  name: string;
+  categoryCode: string;
+  categoryName: string;
+  cycleLabel: string;
+  headerColor: string | null;
+  freeClassUrl: string | null;
+  professors: PublicCourseCatalogProfessor[];
+}
+
 function unwrapPayload<T>(response: unknown): T {
   if (response && typeof response === "object" && "data" in response) {
     return (response as { data: T }).data;
@@ -80,6 +100,16 @@ export const coursesService = {
   async findAll(): Promise<Course[]> {
     const response = await apiClient.get<Course[]>("/courses");
     const payload = unwrapPayload<Course[] | undefined>(response);
+    return Array.isArray(payload) ? payload : [];
+  },
+
+  async getPublicLandingCatalog(): Promise<PublicCourseCatalogItem[]> {
+    const response = await apiClient.get<PublicCourseCatalogItem[]>(
+      "/public/courses/landing",
+    );
+    const payload = unwrapPayload<PublicCourseCatalogItem[] | undefined>(
+      response,
+    );
     return Array.isArray(payload) ? payload : [];
   },
 

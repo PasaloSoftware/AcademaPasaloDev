@@ -29,17 +29,17 @@ function StatCard({
   value: number;
 }) {
   return (
-    <div className="flex-1 p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-gray-100 inline-flex flex-col justify-start items-start gap-4">
+    <div className="inline-flex flex-1 flex-col items-start justify-start gap-4 rounded-xl bg-bg-primary p-4 outline outline-1 outline-offset-[-1px] outline-gray-100 sm:p-6">
       <div
-        className={`p-3 rounded-xl inline-flex justify-center items-center ${iconWrapperClassName}`}
+        className={`inline-flex items-center justify-center rounded-xl p-2.5 sm:p-3 ${iconWrapperClassName}`}
       >
-        <Icon name={icon} size={24} className={iconClassName} />
+        <Icon name={icon} size={20} className={iconClassName} />
       </div>
-      <div className="self-stretch flex flex-col justify-start items-start gap-1">
-        <div className="self-stretch text-gray-600 text-sm font-medium leading-4 uppercase">
+      <div className="self-stretch">
+        <div className="self-stretch text-xs font-medium uppercase leading-4 text-gray-600 sm:text-sm">
           {label}
         </div>
-        <div className="self-stretch text-text-primary text-3xl font-extrabold leading-9">
+        <div className="self-stretch text-2xl font-extrabold leading-8 text-text-primary sm:text-3xl sm:leading-9">
           {value}
         </div>
       </div>
@@ -60,10 +60,14 @@ function QuickAccessCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 p-6 bg-bg-info-secondary-light rounded-xl inline-flex flex-col justify-center items-center gap-3 hover:bg-bg-info-secondary-light/80 transition-colors"
+      className="inline-flex flex-1 flex-col items-center justify-center gap-3 rounded-xl bg-bg-info-secondary-light p-4 transition-colors hover:bg-bg-info-secondary-light/80 sm:p-6"
     >
-      <Icon name={icon} size={32} className="text-icon-info-secondary" />
-      <div className="self-stretch text-center text-text-info-secondary text-sm font-medium leading-4 whitespace-pre-line">
+      <Icon
+        name={icon}
+        size={24}
+        className="text-icon-info-secondary sm:h-8 sm:w-8"
+      />
+      <div className="self-stretch whitespace-pre-line text-center text-xs font-medium leading-4 text-text-info-secondary sm:text-sm">
         {title}
       </div>
     </button>
@@ -106,7 +110,6 @@ export default function InicioContent() {
         courses: courses.length,
       });
     } catch (err) {
-      console.error("Error al cargar el dashboard admin:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -127,9 +130,9 @@ export default function InicioContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-accent-solid border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-accent-solid border-t-transparent" />
           <p className="text-secondary">Cargando panel administrativo...</p>
         </div>
       </div>
@@ -138,17 +141,17 @@ export default function InicioContent() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
           <Icon
             name="error"
             size={64}
-            className="text-error-solid mb-4 mx-auto"
+            className="mx-auto mb-4 text-error-solid"
           />
-          <p className="text-lg font-semibold text-primary mb-2">{error}</p>
+          <p className="mb-2 text-lg font-semibold text-primary">{error}</p>
           <button
             onClick={() => void loadDashboard()}
-            className="mt-4 px-4 py-2 bg-accent-solid text-white rounded-lg hover:bg-accent-solid-hover transition-colors"
+            className="mt-4 rounded-lg bg-accent-solid px-4 py-2 text-white transition-colors hover:bg-accent-solid-hover"
           >
             Reintentar
           </button>
@@ -159,9 +162,9 @@ export default function InicioContent() {
 
   return (
     <>
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_348px] gap-12">
-        <div className="self-stretch flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[1fr_348px] xl:gap-12">
+        <div className="self-stretch">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-3">
             <StatCard
               icon="how_to_reg"
               iconWrapperClassName="bg-bg-accent-light"
@@ -185,17 +188,21 @@ export default function InicioContent() {
             />
           </div>
 
-          <div className="self-stretch flex flex-col justify-start items-start gap-6">
-            <div className="self-stretch inline-flex justify-start items-center">
-              <div className="flex justify-start items-center gap-2">
-                <Icon name="bolt" size={32} className="text-accent-secondary" />
-                <div className="justify-start text-text-primary text-3xl font-semibold leading-8">
+          <div className="mt-6 flex flex-col gap-6 md:mt-8">
+            <div className="inline-flex items-center justify-start">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Icon
+                  name="bolt"
+                  size={24}
+                  className="text-accent-secondary sm:h-8 sm:w-8"
+                />
+                <div className="text-xl font-semibold leading-7 text-text-primary sm:text-3xl sm:leading-8">
                   Accesos Rapidos
                 </div>
               </div>
             </div>
 
-            <div className="self-stretch grid grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-4 md:gap-6 xl:grid-cols-4">
               <QuickAccessCard
                 icon="person_add_alt"
                 title={"Registrar\nUsuario"}

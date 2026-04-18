@@ -405,7 +405,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
       <div className="self-stretch inline-flex flex-col xl:flex-row justify-start xl:items-center gap-4 xl:gap-5 overflow-hidden">
         <button
           onClick={() => router.push("/plataforma/admin/cursos")}
-          className="flex-1 p-1 rounded-lg inline-flex justify-start items-center gap-2 hover:bg-bg-accent-light transition-colors"
+          className="w-full xl:flex-1 p-1 rounded-lg inline-flex justify-start items-center gap-2 hover:bg-bg-accent-light transition-colors"
         >
           <Icon
             name="arrow_back"
@@ -417,11 +417,11 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
           </span>
         </button>
 
-        <div className="inline-flex items-center gap-3 xl:gap-5 flex-wrap">
+        <div className="inline-flex items-start sm:items-center gap-3 xl:gap-5 flex-col sm:flex-row flex-wrap w-full xl:w-auto">
           <span className="text-text-placeholder text-base font-medium leading-4">
             Vistas:
           </span>
-          <div className="p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-center items-center flex-wrap">
+          <div className="w-full sm:w-auto p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col sm:flex-row justify-center items-stretch sm:items-center flex-wrap">
             <button
               onClick={() => handleViewChange("admin")}
               className={`px-6 py-3 rounded-lg flex justify-center items-center gap-2 transition-colors ${
@@ -527,14 +527,14 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                 className="w-5 rounded-tl-xl rounded-bl-xl"
                 style={{ backgroundColor: courseColors.primary }}
               />
-              <div className="flex-1 p-6 relative bg-bg-primary rounded-tr-xl rounded-br-xl border-r border-t border-b border-stroke-secondary flex justify-start items-center gap-8 overflow-hidden">
+              <div className="flex-1 p-4 sm:p-6 relative bg-bg-primary rounded-tr-xl rounded-br-xl border-r border-t border-b border-stroke-secondary flex justify-start items-center gap-4 sm:gap-8 overflow-hidden">
                 <div
                   className="w-24 h-24 left-[-50px] top-[128px] absolute rounded-full opacity-20"
                   style={{ backgroundColor: courseColors.primary }}
                 />
                 <div className="flex-1 inline-flex flex-col justify-start items-start gap-4 z-10">
                   <div className="self-stretch flex flex-col justify-start items-start">
-                    <div className="self-stretch text-text-primary text-2xl font-bold leading-7">
+                    <div className="self-stretch text-text-primary text-xl sm:text-2xl font-bold leading-6 sm:leading-7">
                       {courseCycle.course.name}
                     </div>
                     <div className="self-stretch text-text-info-primary text-base font-medium leading-5">
@@ -553,7 +553,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </div>
             </div>
 
-            <div className="w-full p-5 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-center items-start gap-2 overflow-hidden">
+            <div className="w-full p-4 sm:p-5 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-center items-start gap-2 overflow-hidden">
               <div className="self-stretch text-text-tertiary text-base font-semibold leading-5">
                 Acciones
               </div>
@@ -599,7 +599,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
             </div>
           </div>
 
-          <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col justify-start items-start gap-6">
+          <div className="self-stretch p-4 sm:p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col justify-start items-start gap-6">
             <div className="self-stretch inline-flex justify-start items-start gap-2">
               <Icon
                 name="person"
@@ -611,8 +611,8 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               </div>
             </div>
             <div className="self-stretch flex flex-col justify-start items-start gap-6">
-              <div className="self-stretch inline-flex justify-start items-start gap-6 flex-wrap content-start">
-                <div className="flex-1 min-w-[280px] inline-flex flex-col justify-start items-start gap-1">
+              <div className="self-stretch inline-flex justify-start items-start gap-4 sm:gap-6 flex-wrap content-start">
+                <div className="flex-1 min-w-[220px] sm:min-w-[280px] inline-flex flex-col justify-start items-start gap-1">
                   <div className="self-stretch text-gray-600 text-sm font-semibold leading-4">
                     Asesor
                   </div>
@@ -658,7 +658,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[180px] inline-flex flex-col justify-start items-start gap-1">
+                <div className="flex-1 min-w-[160px] sm:min-w-[180px] inline-flex flex-col justify-start items-start gap-1">
                   <div className="self-stretch text-gray-600 text-sm font-semibold leading-4">
                     Alumnos matriculados
                   </div>
@@ -666,7 +666,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     {studentsTotalItems}
                   </div>
                 </div>
-                <div className="flex-1 min-w-[180px] inline-flex flex-col justify-start items-start gap-1">
+                <div className="flex-1 min-w-[160px] sm:min-w-[180px] inline-flex flex-col justify-start items-start gap-1">
                   <div className="self-stretch text-gray-600 text-sm font-semibold leading-4">
                     Ciclo
                   </div>
@@ -684,7 +684,7 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
               onTotalItemsChange={setStudentsTotalItems}
             />
 
-            <div className="self-stretch p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start gap-6">
+            <div className="self-stretch p-4 sm:p-6 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex flex-col justify-start items-start gap-6">
               <div className="self-stretch inline-flex justify-start items-start gap-2">
                 <Icon
                   name="assignment"
@@ -708,12 +708,12 @@ export default function CursoContent({ cursoId }: CursoContentProps) {
                     return (
                       <div
                         key={evaluation.id}
-                        className="self-stretch p-4 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-center gap-6"
+                        className="self-stretch p-4 bg-bg-primary rounded-2xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-center gap-4 sm:gap-6"
                       >
                         <div className="flex-1 flex justify-start items-center gap-6">
                           <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
                             <div className="self-stretch inline-flex justify-start items-start gap-2 flex-wrap">
-                              <div className="flex-1 min-w-[220px] text-text-primary text-lg font-medium leading-5">
+                              <div className="flex-1 min-w-[180px] text-text-primary text-base sm:text-lg font-medium leading-5">
                                 {evaluation.fullName}
                               </div>
                               <span

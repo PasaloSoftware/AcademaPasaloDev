@@ -96,6 +96,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: "/plataforma/admin/cursos",
     },
     {
+      icon: "event",
+      label: "Calendario",
+      href: "/plataforma/calendario",
+    },
+    {
       icon: "star_rate",
       label: "Valoraciones",
       href: "/plataforma/admin/valoraciones",
@@ -109,6 +114,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       icon: "verified_user",
       label: "Auditoría",
       href: "/plataforma/admin/auditoria",
+    },
+    {
+      icon: "notifications",
+      label: "Notificaciones",
+      href: "/plataforma/notificaciones",
     },
   ],
 
@@ -129,6 +139,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: "/plataforma/admin/cursos",
     },
     {
+      icon: "event",
+      label: "Calendario",
+      href: "/plataforma/calendario",
+    },
+    {
       icon: "star_rate",
       label: "Valoraciones",
       href: "/plataforma/admin/valoraciones",
@@ -138,10 +153,15 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       label: "Configuración",
       href: "/plataforma/admin/configuracion",
     },
-        {
+    {
       icon: "verified_user",
       label: "Auditoría",
       href: "/plataforma/admin/auditoria",
+    },
+    {
+      icon: "notifications",
+      label: "Notificaciones",
+      href: "/plataforma/notificaciones",
     },
   ],
 };

@@ -12,15 +12,17 @@ import {
 import { useCalendar } from "@/hooks/useCalendar";
 import {
   classEventService,
-  type DiscoveryLayer,
   type GlobalSessionItem,
   type GlobalSessionsGroup,
 } from "@/services/classEvent.service";
-import { useTeacherCourses } from "@/hooks/useTeacherCourses";
+import {
+  coursesService,
+  type AdminCourseCycleItem,
+  type AdminCourseCycleProfessor,
+} from "@/services/courses.service";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
-import { useAuth } from "@/contexts/AuthContext";
 import type { ClassEvent } from "@/types/classEvent";
-import type { CourseCycle } from "@/types/enrollment";
+import type { Course } from "@/types/api";
 import EventDetailModal from "@/components/modals/EventDetailModal";
 import CreateClassModal from "@/components/modals/CreateClassModal";
 import EditClassModal from "@/components/modals/EditClassModal";
@@ -34,12 +36,10 @@ import {
 } from "@/components/calendar";
 import Icon from "@/components/ui/Icon";
 
-type TeacherCalendarScope = "mine" | "all";
-type TeacherCalendarUnit = "ALL" | "CIENCIAS" | "LETRAS" | "FACULTAD";
+type AdminCalendarUnit = "ALL" | "CIENCIAS" | "LETRAS" | "FACULTAD";
 
-interface TeacherCalendarFilters {
-  scope: TeacherCalendarScope;
-  unit: TeacherCalendarUnit;
+interface AdminCalendarFilters {
+  unit: AdminCalendarUnit;
   cycleId: string;
 }
 
@@ -51,11 +51,10 @@ interface VisibleCourseCycle {
   courseTypeCode: string;
   academicCycleId: string;
   academicCycleCode: string;
-  isMine: boolean;
+  professors: AdminCourseCycleProfessor[];
 }
 
-const DEFAULT_FILTERS: TeacherCalendarFilters = {
-  scope: "mine",
+const DEFAULT_FILTERS: AdminCalendarFilters = {
   unit: "ALL",
   cycleId: "ALL",
 };
@@ -67,7 +66,7 @@ const EMPTY_CREATOR = {
   profilePhotoUrl: null,
 };
 
-function normalizeUnitCode(value?: string | null): TeacherCalendarUnit | null {
+function normalizeUnitCode(value?: string | null): AdminCalendarUnit | null {
   const normalized = value?.trim().toUpperCase();
 
   if (normalized === "CIENCIAS") return "CIENCIAS";
@@ -77,42 +76,29 @@ function normalizeUnitCode(value?: string | null): TeacherCalendarUnit | null {
   return null;
 }
 
-function unitLabel(unit: TeacherCalendarUnit) {
+function unitLabel(unit: AdminCalendarUnit) {
   if (unit === "ALL") return "Todos";
   return unit.charAt(0) + unit.slice(1).toLowerCase();
 }
 
-function buildOwnVisibleCourseCycle(
-  courseCycle: CourseCycle,
+function mapAdminCourseCycle(
+  item: AdminCourseCycleItem,
+  courseMap: Map<string, Course>,
 ): VisibleCourseCycle {
-  return {
-    courseCycleId: courseCycle.id,
-    courseId: courseCycle.courseId,
-    courseCode: courseCycle.course.code,
-    courseName: courseCycle.course.name,
-    courseTypeCode:
-      normalizeUnitCode(courseCycle.course.courseType?.name) ??
-      normalizeUnitCode(courseCycle.course.courseType?.code) ??
-      "CIENCIAS",
-    academicCycleId: courseCycle.academicCycleId,
-    academicCycleCode: courseCycle.academicCycle.code,
-    isMine: true,
-  };
-}
+  const courseMeta = courseMap.get(item.course.id);
 
-function buildDiscoveryVisibleCourseCycle(
-  layer: DiscoveryLayer,
-  sourceCycle: CourseCycle,
-): VisibleCourseCycle {
   return {
-    courseCycleId: layer.courseCycleId,
-    courseId: layer.courseId,
-    courseCode: layer.courseCode,
-    courseName: layer.courseName,
-    courseTypeCode: normalizeUnitCode(layer.courseTypeCode) ?? "CIENCIAS",
-    academicCycleId: sourceCycle.academicCycleId,
-    academicCycleCode: sourceCycle.academicCycle.code,
-    isMine: false,
+    courseCycleId: item.courseCycleId,
+    courseId: item.course.id,
+    courseCode: item.course.code,
+    courseName: item.course.name,
+    courseTypeCode:
+      normalizeUnitCode(courseMeta?.courseType?.name) ??
+      normalizeUnitCode(courseMeta?.courseType?.code) ??
+      "CIENCIAS",
+    academicCycleId: item.academicCycle.id,
+    academicCycleCode: item.academicCycle.code,
+    professors: item.professors,
   };
 }
 
@@ -172,10 +158,28 @@ function FilterChip({
   );
 }
 
+async function loadAllAdminCourseCycles() {
+  const pageSize = 200;
+  const firstPage = await coursesService.getAdminCourseCycles({
+    page: 1,
+    pageSize,
+  });
+
+  const allItems = [...firstPage.items];
+
+  for (let page = 2; page <= firstPage.totalPages; page += 1) {
+    const response = await coursesService.getAdminCourseCycles({
+      page,
+      pageSize,
+    });
+    allItems.push(...response.items);
+  }
+
+  return allItems;
+}
+
 export default function CalendarioContent() {
   const {
-    events,
-    loading,
     view,
     selectedCourseIds,
     currentDate,
@@ -188,40 +192,31 @@ export default function CalendarioContent() {
     getCurrentMonthYear,
     getWeekDays,
     isToday,
-    refreshEvents,
-  } = useCalendar();
+  } = useCalendar({ enabled: false });
 
   const searchParams = useSearchParams();
-  const {
-    courseCycles,
-    uniqueCourses,
-    loading: loadingCourses,
-  } = useTeacherCourses();
   const { setBreadcrumbItems } = useBreadcrumb();
-  const { user } = useAuth();
   const deepLinkHandled = useRef(false);
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] =
-    useState<TeacherCalendarFilters>(DEFAULT_FILTERS);
+    useState<AdminCalendarFilters>(DEFAULT_FILTERS);
   const [draftFilters, setDraftFilters] =
-    useState<TeacherCalendarFilters>(DEFAULT_FILTERS);
-  const [visibleCourseCycles, setVisibleCourseCycles] = useState<
-    VisibleCourseCycle[]
-  >([]);
-  const [loadingVisibleCourses, setLoadingVisibleCourses] = useState(false);
+    useState<AdminCalendarFilters>(DEFAULT_FILTERS);
+  const [allCourseCycles, setAllCourseCycles] = useState<VisibleCourseCycle[]>(
+    [],
+  );
+  const [loadingCourseCycles, setLoadingCourseCycles] = useState(true);
   const [globalEvents, setGlobalEvents] = useState<ClassEvent[]>([]);
   const [loadingGlobalEvents, setLoadingGlobalEvents] = useState(false);
   const [globalEventIds, setGlobalEventIds] = useState<Set<string>>(new Set());
 
-  // Detail modal state
   const [selectedEvent, setSelectedEvent] = useState<ClassEvent | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [anchorPosition, setAnchorPosition] = useState<
     { x: number; y: number } | undefined
   >();
 
-  // CRUD modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -249,23 +244,66 @@ export default function CalendarioContent() {
     };
   }, [currentDate, view]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCalendarCatalog = async () => {
+      setLoadingCourseCycles(true);
+
+      try {
+        const [courses, adminCourseCycles] = await Promise.all([
+          coursesService.findAll(),
+          loadAllAdminCourseCycles(),
+        ]);
+
+        if (!isMounted) return;
+
+        const courseMap = new Map(courses.map((course) => [course.id, course]));
+        const mappedCourseCycles = adminCourseCycles.map((item) =>
+          mapAdminCourseCycle(item, courseMap),
+        );
+
+        setAllCourseCycles(
+          mappedCourseCycles.sort((a, b) =>
+            a.courseName.localeCompare(b.courseName),
+          ),
+        );
+      } catch (error) {
+        console.error("Error loading admin calendar catalog:", error);
+        if (isMounted) {
+          setAllCourseCycles([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCourseCycles(false);
+        }
+      }
+    };
+
+    void loadCalendarCatalog();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const cycleOptions = useMemo(() => {
     const unique = new Map<string, { id: string; code: string }>();
 
-    courseCycles.forEach((courseCycle) => {
+    allCourseCycles.forEach((courseCycle) => {
       unique.set(courseCycle.academicCycleId, {
         id: courseCycle.academicCycleId,
-        code: courseCycle.academicCycle.code,
+        code: courseCycle.academicCycleCode,
       });
     });
 
     return Array.from(unique.values()).sort((a, b) =>
       b.code.localeCompare(a.code),
     );
-  }, [courseCycles]);
+  }, [allCourseCycles]);
 
   const filteredVisibleCourseCycles = useMemo(() => {
-    return visibleCourseCycles.filter((courseCycle) => {
+    return allCourseCycles.filter((courseCycle) => {
       const matchesUnit =
         appliedFilters.unit === "ALL" ||
         courseCycle.courseTypeCode === appliedFilters.unit;
@@ -275,13 +313,9 @@ export default function CalendarioContent() {
 
       return matchesUnit && matchesCycle;
     });
-  }, [appliedFilters.cycleId, appliedFilters.unit, visibleCourseCycles]);
+  }, [allCourseCycles, appliedFilters.cycleId, appliedFilters.unit]);
 
   const headerCourses = useMemo(() => {
-    if (appliedFilters.scope === "mine") {
-      return uniqueCourses;
-    }
-
     const unique = new Map<
       string,
       { id: string; code: string; name: string }
@@ -300,7 +334,7 @@ export default function CalendarioContent() {
     return Array.from(unique.values()).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
-  }, [appliedFilters.scope, filteredVisibleCourseCycles, uniqueCourses]);
+  }, [filteredVisibleCourseCycles]);
 
   useEffect(() => {
     const availableCodes = new Set(headerCourses.map((course) => course.code));
@@ -315,98 +349,7 @@ export default function CalendarioContent() {
     }
   }, [filterByCourse, headerCourses, selectedCourseIds]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadVisibleCourseCycles = async () => {
-      if (courseCycles.length === 0) {
-        setVisibleCourseCycles([]);
-        return;
-      }
-
-      setLoadingVisibleCourses(true);
-
-      try {
-        const ownCourseCycles = courseCycles.map(buildOwnVisibleCourseCycle);
-        const sourceCycleMap = new Map(
-          courseCycles.map((courseCycle) => [courseCycle.id, courseCycle]),
-        );
-
-        const discoveryResults = await Promise.all(
-          courseCycles.map(async (courseCycle) => {
-            try {
-              const layers = await classEventService.getDiscoveryLayers(
-                courseCycle.id,
-              );
-              return layers.map((layer) =>
-                buildDiscoveryVisibleCourseCycle(layer, courseCycle),
-              );
-            } catch (error) {
-              console.error(
-                "Error loading discovery layers for teacher calendar:",
-                error,
-              );
-              return [];
-            }
-          }),
-        );
-
-        if (!isMounted) return;
-
-        const merged = new Map<string, VisibleCourseCycle>();
-
-        [...ownCourseCycles, ...discoveryResults.flat()].forEach(
-          (courseCycle) => {
-            const existing = merged.get(courseCycle.courseCycleId);
-            if (!existing) {
-              merged.set(courseCycle.courseCycleId, courseCycle);
-              return;
-            }
-
-            merged.set(courseCycle.courseCycleId, {
-              ...existing,
-              ...courseCycle,
-              isMine: existing.isMine || courseCycle.isMine,
-              academicCycleId:
-                existing.academicCycleId || courseCycle.academicCycleId,
-              academicCycleCode:
-                existing.academicCycleCode || courseCycle.academicCycleCode,
-            });
-          },
-        );
-
-        sourceCycleMap.forEach((sourceCycle) => {
-          if (!merged.has(sourceCycle.id)) {
-            merged.set(sourceCycle.id, buildOwnVisibleCourseCycle(sourceCycle));
-          }
-        });
-
-        setVisibleCourseCycles(
-          Array.from(merged.values()).sort((a, b) =>
-            a.courseName.localeCompare(b.courseName),
-          ),
-        );
-      } finally {
-        if (isMounted) {
-          setLoadingVisibleCourses(false);
-        }
-      }
-    };
-
-    loadVisibleCourseCycles();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [courseCycles]);
-
   const loadGlobalEvents = useCallback(async () => {
-    if (appliedFilters.scope !== "all") {
-      setGlobalEvents([]);
-      setGlobalEventIds(new Set());
-      return;
-    }
-
     if (filteredVisibleCourseCycles.length === 0) {
       setGlobalEvents([]);
       setGlobalEventIds(new Set());
@@ -459,46 +402,45 @@ export default function CalendarioContent() {
       setGlobalEvents(mappedEvents);
       setGlobalEventIds(new Set(mappedEvents.map((event) => event.id)));
     } catch (error) {
-      console.error("Error loading global teacher calendar sessions:", error);
+      console.error("Error loading admin calendar global sessions:", error);
       setGlobalEvents([]);
       setGlobalEventIds(new Set());
     } finally {
       setLoadingGlobalEvents(false);
     }
   }, [
-    appliedFilters.scope,
     currentRange.endDate,
     currentRange.startDate,
     filteredVisibleCourseCycles,
   ]);
 
   useEffect(() => {
-    loadGlobalEvents();
+    void loadGlobalEvents();
   }, [loadGlobalEvents]);
 
   const displayEvents = useMemo(() => {
-    const baseEvents = appliedFilters.scope === "all" ? globalEvents : events;
-
     if (selectedCourseIds.size === 0) {
-      return baseEvents;
+      return globalEvents;
     }
 
-    return baseEvents.filter((event) =>
+    return globalEvents.filter((event) =>
       selectedCourseIds.has(event.courseCode),
     );
-  }, [appliedFilters.scope, events, globalEvents, selectedCourseIds]);
+  }, [globalEvents, selectedCourseIds]);
 
   useEffect(() => {
-    if (deepLinkHandled.current || loading) return;
+    setBreadcrumbItems([{ icon: "event", label: "Calendario" }]);
+  }, [setBreadcrumbItems]);
+
+  useEffect(() => {
+    if (deepLinkHandled.current || loadingGlobalEvents) return;
     const eventId = searchParams.get("eventId");
     if (!eventId) return;
 
-    const found = [...displayEvents, ...events, ...globalEvents].find(
-      (event) => event.id === eventId,
-    );
-
     deepLinkHandled.current = true;
     changeView("weekly");
+
+    const found = displayEvents.find((event) => event.id === eventId);
 
     if (found) {
       goToDate(new Date(found.startDatetime));
@@ -517,27 +459,7 @@ export default function CalendarioContent() {
       .catch((error) => {
         console.error("Error al cargar evento desde notificación:", error);
       });
-  }, [
-    changeView,
-    displayEvents,
-    events,
-    globalEvents,
-    goToDate,
-    loading,
-    searchParams,
-  ]);
-
-  useEffect(() => {
-    setBreadcrumbItems([{ icon: "event", label: "Calendario" }]);
-  }, [setBreadcrumbItems]);
-
-  const isEventOwner = (event: ClassEvent) => {
-    if (!user) return false;
-    return (
-      event.creator?.id === user.id ||
-      event.professors?.some((professor) => professor.id === user.id)
-    );
-  };
+  }, [changeView, displayEvents, goToDate, loadingGlobalEvents, searchParams]);
 
   const handleEventClick = async (event: ClassEvent, e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -556,7 +478,7 @@ export default function CalendarioContent() {
       const fullEvent = await classEventService.getEventDetail(event.id);
       setSelectedEvent(fullEvent);
     } catch (error) {
-      console.error("Error hydrating global teacher calendar event:", error);
+      console.error("Error hydrating admin calendar event:", error);
     }
   };
 
@@ -580,23 +502,12 @@ export default function CalendarioContent() {
     }
   };
 
-  const refreshVisibleEvents = useCallback(() => {
-    refreshEvents();
-    void loadGlobalEvents();
-  }, [loadGlobalEvents, refreshEvents]);
-
   const handleEventMutated = () => {
-    refreshVisibleEvents();
+    void loadGlobalEvents();
     setSelectedEvent(null);
     setEventToEdit(null);
     setEventToCancel(null);
   };
-
-  const ownerOfSelected = selectedEvent ? isEventOwner(selectedEvent) : false;
-  const headerLoading =
-    loadingCourses || (appliedFilters.scope === "all" && loadingVisibleCourses);
-  const calendarLoading =
-    loading || (appliedFilters.scope === "all" && loadingGlobalEvents);
 
   const openFilters = () => {
     setDraftFilters(appliedFilters);
@@ -612,6 +523,20 @@ export default function CalendarioContent() {
     setIsFiltersOpen(false);
   };
 
+  const courseOptions = filteredVisibleCourseCycles.map((courseCycle) => ({
+    id: courseCycle.courseCycleId,
+    name: courseCycle.courseName,
+    professors: courseCycle.professors.map((professor) => ({
+      id: professor.id,
+      firstName: professor.firstName,
+      lastName1: professor.lastName1,
+      profilePhotoUrl: professor.profilePhotoUrl,
+    })),
+  }));
+
+  const defaultCourseOption = courseOptions[0];
+  const calendarLoading = loadingCourseCycles || loadingGlobalEvents;
+
   return (
     <div className="flex flex-col gap-8 max-h-[calc(100vh-152px)]">
       <CalendarHeader
@@ -620,7 +545,7 @@ export default function CalendarioContent() {
         view={view}
         selectedCourseIds={selectedCourseIds}
         courses={headerCourses}
-        loadingCourses={headerLoading}
+        loadingCourses={loadingCourseCycles}
         onViewChange={changeView}
         onNext={goToNext}
         onPrevious={goToPrevious}
@@ -688,33 +613,11 @@ export default function CalendarioContent() {
       >
         <div className="self-stretch flex flex-col justify-center items-start gap-4">
           <div className="self-stretch text-text-quartiary text-base font-semibold leading-5">
-            Cursos
-          </div>
-          <div className="self-stretch flex justify-start items-center gap-2 flex-wrap">
-            <FilterChip
-              active={draftFilters.scope === "mine"}
-              label="Mis cursos"
-              onClick={() =>
-                setDraftFilters((current) => ({ ...current, scope: "mine" }))
-              }
-            />
-            <FilterChip
-              active={draftFilters.scope === "all"}
-              label="Todos"
-              onClick={() =>
-                setDraftFilters((current) => ({ ...current, scope: "all" }))
-              }
-            />
-          </div>
-        </div>
-
-        <div className="self-stretch flex flex-col justify-center items-start gap-4">
-          <div className="self-stretch text-text-quartiary text-base font-semibold leading-5">
             Unidad
           </div>
           <div className="self-stretch flex justify-start items-center gap-2 flex-wrap">
             {(
-              ["ALL", "CIENCIAS", "LETRAS", "FACULTAD"] as TeacherCalendarUnit[]
+              ["ALL", "CIENCIAS", "LETRAS", "FACULTAD"] as AdminCalendarUnit[]
             ).map((unit) => (
               <FilterChip
                 key={unit}
@@ -766,11 +669,11 @@ export default function CalendarioContent() {
         isOpen={isDetailOpen}
         anchorPosition={anchorPosition}
         calendarView={view === "monthly" ? "monthly" : "weekly"}
-        canEdit={ownerOfSelected}
-        canCancel={ownerOfSelected}
+        canEdit
+        canCancel
         onEdit={handleEdit}
         onCancel={handleCancel}
-        onDuplicate={ownerOfSelected ? handleDuplicate : undefined}
+        onDuplicate={handleDuplicate}
         onClose={() => {
           setIsDetailOpen(false);
           setSelectedEvent(null);
@@ -778,7 +681,7 @@ export default function CalendarioContent() {
         }}
       />
 
-      {(isCreateOpen || duplicateSource) && courseCycles.length > 0 && (
+      {(isCreateOpen || duplicateSource) && courseOptions.length > 0 && (
         <CreateClassModal
           isOpen={isCreateOpen || !!duplicateSource}
           onClose={() => {
@@ -788,25 +691,17 @@ export default function CalendarioContent() {
           onCreated={handleEventMutated}
           duplicateFrom={duplicateSource || undefined}
           courseName={
-            duplicateSource?.courseName || courseCycles[0]?.course?.name || ""
+            duplicateSource?.courseName || defaultCourseOption?.name || ""
           }
           courseCycleId={
-            duplicateSource?.courseCycleId || courseCycles[0]?.id || ""
+            duplicateSource?.courseCycleId || defaultCourseOption?.id || ""
           }
           evaluationId={duplicateSource?.evaluationId}
           evaluationName={duplicateSource?.evaluationName}
           courseProfessors={
-            duplicateSource?.professors || courseCycles[0]?.professors || []
+            duplicateSource?.professors || defaultCourseOption?.professors || []
           }
-          courseOptions={
-            courseCycles.length > 1
-              ? courseCycles.map((courseCycle) => ({
-                  id: courseCycle.id,
-                  name: courseCycle.course.name,
-                  professors: courseCycle.professors || [],
-                }))
-              : undefined
-          }
+          courseOptions={courseOptions}
           allowEvalSelection
         />
       )}
