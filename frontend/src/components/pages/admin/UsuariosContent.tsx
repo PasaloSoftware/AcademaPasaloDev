@@ -357,7 +357,7 @@ export default function UsuariosContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-text-primary text-3xl font-semibold leading-10">

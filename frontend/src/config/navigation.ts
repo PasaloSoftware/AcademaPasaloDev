@@ -86,19 +86,14 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: "/plataforma/inicio",
     },
     {
-      icon: "class",
-      label: "Cursos",
-      href: "/plataforma/admin/cursos",
-    },
-    {
       icon: "groups",
       label: "Usuarios",
       href: "/plataforma/admin/usuarios",
     },
     {
-      icon: "shield",
-      label: "Auditoría",
-      href: "/plataforma/admin/auditoria",
+      icon: "class",
+      label: "Cursos",
+      href: "/plataforma/admin/cursos",
     },
     {
       icon: "star_rate",
@@ -109,6 +104,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       icon: "settings",
       label: "Configuración",
       href: "/plataforma/admin/configuracion",
+    },
+    {
+      icon: "verified_user",
+      label: "Auditoría",
+      href: "/plataforma/admin/auditoria",
     },
   ],
 
@@ -119,14 +119,14 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: "/plataforma/inicio",
     },
     {
-      icon: "class",
-      label: "Cursos",
-      href: "/plataforma/admin/cursos",
-    },
-    {
       icon: "groups",
       label: "Usuarios",
       href: "/plataforma/admin/usuarios",
+    },
+    {
+      icon: "class",
+      label: "Cursos",
+      href: "/plataforma/admin/cursos",
     },
     {
       icon: "star_rate",
@@ -134,14 +134,14 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       href: "/plataforma/admin/valoraciones",
     },
     {
-      icon: "shield",
-      label: "Auditoría",
-      href: "/plataforma/admin/auditoria",
-    },
-    {
       icon: "settings",
       label: "Configuración",
       href: "/plataforma/admin/configuracion",
+    },
+        {
+      icon: "verified_user",
+      label: "Auditoría",
+      href: "/plataforma/admin/auditoria",
     },
   ],
 };

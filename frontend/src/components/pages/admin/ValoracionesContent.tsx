@@ -502,7 +502,7 @@ export default function ValoracionesContent() {
   };
 
   return (
-    <div className="w-full max-w-[1200px] flex flex-col justify-start items-start gap-6 overflow-hidden">
+    <div className="w-full max-w-[1200px] flex flex-col justify-start items-start gap-8 overflow-hidden">
       <div className="self-stretch inline-flex justify-start items-center">
         <div className="justify-start text-text-primary text-3xl font-semibold leading-10">
           Gestion de Valoraciones

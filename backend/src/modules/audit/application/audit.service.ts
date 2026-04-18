@@ -343,9 +343,19 @@ export class AuditService implements OnApplicationBootstrap {
 
     worksheet.columns = [
       {
+        header: AUDIT_EXCEL_CONFIG.COLUMNS.ID,
+        key: 'id',
+        width: 20,
+      },
+      {
         header: AUDIT_EXCEL_CONFIG.COLUMNS.DATETIME,
         key: 'datetime',
         width: 25,
+      },
+      {
+        header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_ID,
+        key: 'userId',
+        width: 18,
       },
       {
         header: AUDIT_EXCEL_CONFIG.COLUMNS.USER_NAME,
@@ -417,6 +427,27 @@ export class AuditService implements OnApplicationBootstrap {
         worksheet
           .addRow({
             ...row,
+            userId: row.userId ?? '',
+            userName:
+              row.userName === AUDIT_LABELS.UNKNOWN_USER ? '' : row.userName,
+            userEmail:
+              row.userEmail === AUDIT_LABELS.NOT_AVAILABLE ? ''
+              : row.userEmail,
+            userRole:
+              row.userRole === AUDIT_LABELS.UNKNOWN_ROLE ? '' : row.userRole,
+            actionName:
+              row.actionName === AUDIT_LABELS.UNKNOWN_ACTION
+                ? ''
+                : row.actionName,
+            actionCode:
+              row.actionCode === AUDIT_LABELS.UNKNOWN_ACTION
+                ? ''
+                : row.actionCode,
+            ipAddress:
+              row.ipAddress === AUDIT_LABELS.NOT_AVAILABLE ? '' : row.ipAddress,
+            userAgent:
+              row.userAgent === AUDIT_LABELS.NOT_AVAILABLE ? ''
+              : row.userAgent,
             source:
               row.source === AUDIT_SOURCES.SECURITY
                 ? AUDIT_LABELS.SOURCE_SECURITY

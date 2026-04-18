@@ -107,6 +107,11 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     component: "AuditoriaContent",
     redirectOnDenied: "/plataforma/inicio",
   },
+  "/plataforma/admin/auditoria/[id]": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "AuditoriaDetalleContent",
+    redirectOnDenied: "/plataforma/inicio",
+  },
   "/plataforma/admin/valoraciones": {
     allowedRoles: ["ADMIN", "SUPER_ADMIN"],
     component: "ValoracionesContent",
@@ -199,6 +204,10 @@ export const roleBasedComponents: Record<
   "/plataforma/admin/auditoria": {
     ADMIN: "admin/AuditoriaContent",
     SUPER_ADMIN: "admin/AuditoriaContent",
+  },
+  "/plataforma/admin/auditoria/[id]": {
+    ADMIN: "admin/AuditoriaDetalleContent",
+    SUPER_ADMIN: "admin/AuditoriaDetalleContent",
   },
   "/plataforma/admin/valoraciones": {
     ADMIN: "admin/ValoracionesContent",
@@ -298,6 +307,18 @@ export function sanitizeRouteParam(param: string): string {
  */
 export function normalizeRoute(route: string): string {
   return route
+    .replace(
+      /\/plataforma\/admin\/auditoria\/[^/]+(?=\/|$)/i,
+      "/plataforma/admin/auditoria/[id]",
+    )
+    .replace(
+      /\/plataforma\/admin\/usuarios\/[^/]+\/editar(?=\/|$)/i,
+      "/plataforma/admin/usuarios/[id]/editar",
+    )
+    .replace(
+      /\/plataforma\/admin\/usuarios\/[^/]+(?=\/|$)/i,
+      "/plataforma/admin/usuarios/[id]",
+    )
     .replace(/\/[0-9a-f-]+(?=\/|$)/gi, "/[id]")
     .replace(/\/banco\/[^/]+(?=\/|$)/i, "/banco/[id]");
 }
