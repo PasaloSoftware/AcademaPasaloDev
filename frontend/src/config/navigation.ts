@@ -105,6 +105,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       label: "Valoraciones",
       href: "/plataforma/admin/valoraciones",
     },
+    {
+      icon: "settings",
+      label: "Configuración",
+      href: "/plataforma/admin/configuracion",
+    },
   ],
 
   SUPER_ADMIN: [
@@ -132,6 +137,11 @@ export const navigationConfig: Record<UserRole, SidebarNavItem[]> = {
       icon: "shield",
       label: "Auditoría",
       href: "/plataforma/admin/auditoria",
+    },
+    {
+      icon: "settings",
+      label: "Configuración",
+      href: "/plataforma/admin/configuracion",
     },
   ],
 };

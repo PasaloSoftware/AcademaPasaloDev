@@ -113,7 +113,7 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/admin/configuracion": {
-    allowedRoles: ["SUPER_ADMIN"],
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
     component: "ConfiguracionContent",
     redirectOnDenied: "/plataforma/inicio",
   },
@@ -203,6 +203,10 @@ export const roleBasedComponents: Record<
   "/plataforma/admin/valoraciones": {
     ADMIN: "admin/ValoracionesContent",
     SUPER_ADMIN: "admin/ValoracionesContent",
+  },
+  "/plataforma/admin/configuracion": {
+    ADMIN: "admin/ConfiguracionContent",
+    SUPER_ADMIN: "admin/ConfiguracionContent",
   },
   "/plataforma/admin/usuarios": {
     ADMIN: "admin/UsuariosContent",
