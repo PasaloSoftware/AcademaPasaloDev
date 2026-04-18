@@ -15,6 +15,7 @@ interface FloatingSelectProps {
   options: FloatingSelectOption[];
   onChange: (value: string | null) => void;
   allLabel?: string;
+  includeAllOption?: boolean;
   disabled?: boolean;
   className?: string;
   variant?: "floating" | "filled";
@@ -27,6 +28,7 @@ export default function FloatingSelect({
   options,
   onChange,
   allLabel = "Todos",
+  includeAllOption = true,
   disabled = false,
   className = "w-64",
   variant = "floating",
@@ -165,26 +167,27 @@ export default function FloatingSelect({
               width: dropdownStyle.width,
             }}
           >
-            {/* "Todos" option */}
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setIsOpen(false);
-              }}
-              className={`self-stretch bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors ${dropdownItemClass}`}
-            >
-              <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
-                {allLabel}
-              </span>
-              {value === null && (
-                <Icon
-                  name="check"
-                  size={16}
-                  className="text-icon-accent-primary"
-                />
-              )}
-            </button>
+            {includeAllOption && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  setIsOpen(false);
+                }}
+                className={`self-stretch bg-bg-primary rounded inline-flex justify-start items-center gap-2 hover:bg-bg-secondary transition-colors ${dropdownItemClass}`}
+              >
+                <span className="flex-1 text-left text-text-secondary text-base font-normal leading-4">
+                  {allLabel}
+                </span>
+                {value === null && (
+                  <Icon
+                    name="check"
+                    size={16}
+                    className="text-icon-accent-primary"
+                  />
+                )}
+              </button>
+            )}
 
             {/* Course options */}
             {options.map((option) => (

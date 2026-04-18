@@ -6,6 +6,7 @@ import { evaluationsService } from "@/services/evaluations.service";
 import type { Evaluation } from "@/types/api";
 import type { CourseCycle } from "@/types/enrollment";
 import Modal from "@/components/ui/Modal";
+import FloatingSelect from "@/components/ui/FloatingSelect";
 
 interface CreateEventModalProps {
   isOpen: boolean;
@@ -45,7 +46,9 @@ export default function CreateEventModal({
     const loadEvaluations = async () => {
       setLoadingEvaluations(true);
       try {
-        const data = await evaluationsService.findByCourseCycle(selectedCourseCycleId);
+        const data = await evaluationsService.findByCourseCycle(
+          selectedCourseCycleId,
+        );
         setEvaluations(data);
         setSelectedEvaluationId("");
       } catch (err) {
@@ -101,7 +104,16 @@ export default function CreateEventModal({
     e.preventDefault();
     setError(null);
 
-    if (!selectedEvaluationId || !title || !topic || !startDate || !startTime || !endDate || !endTime || !liveMeetingUrl) {
+    if (
+      !selectedEvaluationId ||
+      !title ||
+      !topic ||
+      !startDate ||
+      !startTime ||
+      !endDate ||
+      !endTime ||
+      !liveMeetingUrl
+    ) {
       setError("Por favor completa todos los campos requeridos.");
       return;
     }
@@ -144,7 +156,8 @@ export default function CreateEventModal({
     return `Evaluación ${ev.number}`;
   };
 
-  const inputClasses = "h-10 px-3 bg-bg-primary rounded-lg border border-stroke-primary text-sm text-text-primary focus:outline-none focus:border-stroke-accent-primary";
+  const inputClasses =
+    "h-10 px-3 bg-bg-primary rounded-lg border border-stroke-primary text-sm text-text-primary focus:outline-none focus:border-stroke-accent-primary";
 
   return (
     <Modal
@@ -163,7 +176,9 @@ export default function CreateEventModal({
             loading={submitting}
             loadingText="Registrando..."
             onClick={() => {
-              const form = document.getElementById('create-event-form') as HTMLFormElement;
+              const form = document.getElementById(
+                "create-event-form",
+              ) as HTMLFormElement;
               form?.requestSubmit();
             }}
           >
@@ -172,52 +187,52 @@ export default function CreateEventModal({
         </>
       }
     >
-      <form id="create-event-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        id="create-event-form"
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4"
+      >
         {error && (
           <div className="px-4 py-3 bg-red-50 text-text-error-primary text-sm rounded-lg">
             {error}
           </div>
         )}
+        <FloatingSelect
+          label="Curso *"
+          value={selectedCourseCycleId || null}
+          options={courseCycles.map((cc) => ({
+            value: cc.id,
+            label: `${cc.course?.code} - ${cc.course?.name}`,
+          }))}
+          onChange={(value) => setSelectedCourseCycleId(value ?? "")}
+          allLabel="Selecciona un curso"
+          includeAllOption={false}
+          className="w-full"
+          variant="filled"
+          size="large"
+        />
+        <FloatingSelect
+          label="Evaluacion *"
+          value={selectedEvaluationId || null}
+          options={evaluations.map((ev) => ({
+            value: ev.id,
+            label: getEvaluationLabel(ev),
+          }))}
+          onChange={(value) => setSelectedEvaluationId(value ?? "")}
+          allLabel={
+            loadingEvaluations ? "Cargando..." : "Selecciona una evaluacion"
+          }
+          includeAllOption={false}
+          disabled={!selectedCourseCycleId || loadingEvaluations}
+          className="w-full"
+          variant="filled"
+          size="large"
+        />
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-secondary">Curso *</label>
-          <select
-            value={selectedCourseCycleId}
-            onChange={(e) => setSelectedCourseCycleId(e.target.value)}
-            className={inputClasses}
-            required
-          >
-            <option value="">Selecciona un curso</option>
-            {courseCycles.map((cc) => (
-              <option key={cc.id} value={cc.id}>
-                {cc.course?.code} - {cc.course?.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-secondary">Evaluación *</label>
-          <select
-            value={selectedEvaluationId}
-            onChange={(e) => setSelectedEvaluationId(e.target.value)}
-            className={`${inputClasses} disabled:opacity-50`}
-            disabled={!selectedCourseCycleId || loadingEvaluations}
-            required
-          >
-            <option value="">
-              {loadingEvaluations ? "Cargando..." : "Selecciona una evaluación"}
-            </option>
-            {evaluations.map((ev) => (
-              <option key={ev.id} value={ev.id}>
-                {getEvaluationLabel(ev)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-secondary">N° de Sesión *</label>
+          <label className="text-sm font-medium text-text-secondary">
+            N° de Sesión *
+          </label>
           <input
             type="number"
             min={1}
@@ -229,7 +244,9 @@ export default function CreateEventModal({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-secondary">Título *</label>
+          <label className="text-sm font-medium text-text-secondary">
+            Título *
+          </label>
           <input
             type="text"
             value={title}
@@ -242,7 +259,9 @@ export default function CreateEventModal({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-secondary">Tema *</label>
+          <label className="text-sm font-medium text-text-secondary">
+            Tema *
+          </label>
           <input
             type="text"
             value={topic}
@@ -256,25 +275,59 @@ export default function CreateEventModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Fecha inicio *</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClasses} required />
+            <label className="text-sm font-medium text-text-secondary">
+              Fecha inicio *
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className={inputClasses}
+              required
+            />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Hora inicio *</label>
-            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inputClasses} required />
+            <label className="text-sm font-medium text-text-secondary">
+              Hora inicio *
+            </label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className={inputClasses}
+              required
+            />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Fecha fin *</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClasses} required />
+            <label className="text-sm font-medium text-text-secondary">
+              Fecha fin *
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className={inputClasses}
+              required
+            />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Hora fin *</label>
-            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inputClasses} required />
+            <label className="text-sm font-medium text-text-secondary">
+              Hora fin *
+            </label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className={inputClasses}
+              required
+            />
           </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-secondary">Link de reunión *</label>
+          <label className="text-sm font-medium text-text-secondary">
+            Link de reunión *
+          </label>
           <input
             type="url"
             value={liveMeetingUrl}
