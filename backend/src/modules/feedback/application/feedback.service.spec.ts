@@ -13,6 +13,7 @@ import {
   CourseTestimony,
 } from '@modules/feedback/domain/course-testimony.entity';
 import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
+import { AdminFeedbackListQueryDto } from '@modules/feedback/dto/admin-feedback-list.dto';
 
 describe('FeedbackService', () => {
   let service: FeedbackService;
@@ -29,7 +30,8 @@ describe('FeedbackService', () => {
           useValue: {
             create: jest.fn(),
             findById: jest.fn(),
-            findByCycleId: jest.fn(),
+            findAdminPaginated: jest.fn(),
+            getAdminAggregates: jest.fn(),
             save: jest.fn(),
             countActive: jest.fn(),
             findActivePublic: jest.fn(),
@@ -188,6 +190,160 @@ describe('FeedbackService', () => {
       expect(result).toEqual(items);
       expect(testimonyRepo.findActivePublic).toHaveBeenCalledWith(3);
       expect(cacheService.set).toHaveBeenCalled();
+    });
+  });
+
+  describe('getAdminTestimonies', () => {
+    const mockItem = {
+      id: '1',
+      rating: 5,
+      comment: 'Excelente',
+      isActive: false,
+      createdAt: new Date('2024-01-01'),
+      courseCycleId: '10',
+      photoUrl: null,
+      photoSource: PhotoSource.NONE,
+      updatedAt: null,
+      userId: 'u1',
+      user: {
+        id: 'u1',
+        firstName: 'Ana',
+        lastName1: 'Garcia',
+        lastName2: null,
+        profilePhotoUrl: null,
+        career: { id: 1, name: 'Derecho' },
+      },
+      courseCycle: {
+        id: '10',
+        course: { name: 'Matematicas' },
+      },
+    } as unknown as CourseTestimony;
+
+    it('should return paginated list with pagination metadata', async () => {
+      jest
+        .spyOn(testimonyRepo, 'findAdminPaginated')
+        .mockResolvedValue([[mockItem], 10]);
+      jest.spyOn(testimonyRepo, 'getAdminAggregates').mockResolvedValue({
+        total: '10',
+        average: '4.50',
+        r1: '0',
+        r2: '0',
+        r3: '1',
+        r4: '4',
+        r5: '5',
+      });
+
+      const query = new AdminFeedbackListQueryDto();
+      query.page = 1;
+
+      const result = await service.getAdminTestimonies(query);
+
+      expect(result.currentPage).toBe(1);
+      expect(result.pageSize).toBe(6);
+      expect(result.totalItems).toBe(10);
+      expect(result.totalPages).toBe(2);
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should map item fields including courseName and careerName', async () => {
+      jest
+        .spyOn(testimonyRepo, 'findAdminPaginated')
+        .mockResolvedValue([[mockItem], 1]);
+      jest.spyOn(testimonyRepo, 'getAdminAggregates').mockResolvedValue({
+        total: '1',
+        average: '5.00',
+        r1: '0',
+        r2: '0',
+        r3: '0',
+        r4: '0',
+        r5: '1',
+      });
+
+      const query = new AdminFeedbackListQueryDto();
+      const result = await service.getAdminTestimonies(query);
+
+      const item = result.items[0];
+      expect(item.courseName).toBe('Matematicas');
+      expect(item.user.careerName).toBe('Derecho');
+      expect(item.user.firstName).toBe('Ana');
+    });
+
+    it('should return all stats zeroed when no testimonies exist', async () => {
+      jest
+        .spyOn(testimonyRepo, 'findAdminPaginated')
+        .mockResolvedValue([[], 0]);
+      jest.spyOn(testimonyRepo, 'getAdminAggregates').mockResolvedValue({
+        total: '0',
+        average: null,
+        r1: '0',
+        r2: '0',
+        r3: '0',
+        r4: '0',
+        r5: '0',
+      });
+
+      const query = new AdminFeedbackListQueryDto();
+      const result = await service.getAdminTestimonies(query);
+
+      expect(result.stats.total).toBe(0);
+      expect(result.stats.average).toBe(0);
+      expect(result.stats.distribution[1]).toBe(0);
+      expect(result.stats.distribution[5]).toBe(0);
+      expect(result.totalPages).toBe(0);
+      expect(result.items).toHaveLength(0);
+    });
+
+    it('should compute distribution percentages correctly', async () => {
+      jest
+        .spyOn(testimonyRepo, 'findAdminPaginated')
+        .mockResolvedValue([[], 4]);
+      jest.spyOn(testimonyRepo, 'getAdminAggregates').mockResolvedValue({
+        total: '4',
+        average: '4.00',
+        r1: '0',
+        r2: '0',
+        r3: '0',
+        r4: '2',
+        r5: '2',
+      });
+
+      const query = new AdminFeedbackListQueryDto();
+      const result = await service.getAdminTestimonies(query);
+
+      expect(result.stats.distribution[4]).toBe(50);
+      expect(result.stats.distribution[5]).toBe(50);
+      expect(result.stats.distribution[1]).toBe(0);
+    });
+
+    it('should pass filters to repo methods', async () => {
+      jest
+        .spyOn(testimonyRepo, 'findAdminPaginated')
+        .mockResolvedValue([[], 0]);
+      jest.spyOn(testimonyRepo, 'getAdminAggregates').mockResolvedValue({
+        total: '0',
+        average: null,
+        r1: '0',
+        r2: '0',
+        r3: '0',
+        r4: '0',
+        r5: '0',
+      });
+
+      const query = new AdminFeedbackListQueryDto();
+      query.page = 2;
+      query.rating = 5;
+      query.isActive = true;
+
+      await service.getAdminTestimonies(query);
+
+      expect(testimonyRepo.findAdminPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ rating: 5, isActive: true }),
+        2,
+        6,
+      );
+      expect(testimonyRepo.getAdminAggregates).toHaveBeenCalledWith(
+        expect.objectContaining({ rating: 5, isActive: true }),
+      );
     });
   });
 });

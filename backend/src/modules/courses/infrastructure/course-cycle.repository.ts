@@ -43,6 +43,23 @@ export type CourseCycleCategoryMetaRow = {
   courseTypeId: string;
 };
 
+export type PublicLandingCourseRow = {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  courseTypeCode: string;
+  courseTypeName: string;
+  cycleLevelName: string;
+  introVideoUrl: string | null;
+  professorId: string | null;
+  professorFirstName: string | null;
+  professorLastName1: string | null;
+  professorProfilePhotoUrl: string | null;
+};
+
 @Injectable()
 export class CourseCycleRepository {
   constructor(
@@ -259,6 +276,27 @@ export class CourseCycleRepository {
       .getRawMany<CourseCycleCategoryMetaRow>();
   }
 
+  async findIdsByCourseTypeCodeAndCycleLevelId(
+    courseTypeCode: string,
+    cycleLevelId: string,
+  ): Promise<{ courseCycleIds: string[]; courseTypeId: string | null }> {
+    const rows = await this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .innerJoin('course.courseType', 'ct')
+      .innerJoin('course.cycleLevel', 'cl')
+      .where('ct.code = :courseTypeCode', { courseTypeCode })
+      .andWhere('cl.id = :cycleLevelId', { cycleLevelId })
+      .select(['cc.id AS courseCycleId', 'ct.id AS courseTypeId'])
+      .getRawMany<{ courseCycleId: string; courseTypeId: string }>();
+
+    if (rows.length === 0) return { courseCycleIds: [], courseTypeId: null };
+    return {
+      courseCycleIds: rows.map((r) => r.courseCycleId),
+      courseTypeId: rows[0].courseTypeId,
+    };
+  }
+
   async findAdminCourseCyclesPage(
     params: AdminCourseCycleListParams,
   ): Promise<{ rows: AdminCourseCycleListRow[]; totalItems: number }> {
@@ -353,5 +391,53 @@ export class CourseCycleRepository {
       })),
       totalItems,
     };
+  }
+
+  async findPublicLandingCatalogByCycleId(
+    activeCycleId: string,
+  ): Promise<PublicLandingCourseRow[]> {
+    return await this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .innerJoin(
+        'course_type',
+        'courseType',
+        'courseType.id = course.course_type_id',
+      )
+      .innerJoin(
+        'cycle_level',
+        'cycleLevel',
+        'cycleLevel.id = course.cycle_level_id',
+      )
+      .leftJoin(
+        'course_cycle_professor',
+        'ccp',
+        'ccp.course_cycle_id = cc.id AND ccp.revoked_at IS NULL',
+      )
+      .leftJoin(
+        'user',
+        'professor',
+        'professor.id = ccp.professor_user_id AND professor.is_active = 1',
+      )
+      .where('cc.academic_cycle_id = :activeCycleId', { activeCycleId })
+      .select([
+        'cc.id AS courseCycleId',
+        'cc.course_id AS courseId',
+        'course.code AS courseCode',
+        'course.name AS courseName',
+        'course.primary_color AS primaryColor',
+        'course.secondary_color AS secondaryColor',
+        'courseType.code AS courseTypeCode',
+        'courseType.name AS courseTypeName',
+        'cycleLevel.name AS cycleLevelName',
+        'cc.intro_video_url AS introVideoUrl',
+        'professor.id AS professorId',
+        'professor.first_name AS professorFirstName',
+        'professor.last_name_1 AS professorLastName1',
+        'professor.profile_photo_url AS professorProfilePhotoUrl',
+      ])
+      .orderBy('cycleLevel.level_number', 'ASC')
+      .addOrderBy('course.name', 'ASC')
+      .getRawMany<PublicLandingCourseRow>();
   }
 }

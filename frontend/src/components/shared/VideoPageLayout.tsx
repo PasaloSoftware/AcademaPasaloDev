@@ -4,7 +4,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { classEventService } from "@/services/classEvent.service";
-import { materialsService } from "@/services/materials.service";
+import {
+  materialsService,
+  type MaterialLastModifiedResponse,
+  type MaterialVersionHistoryResponse,
+  type PendingMaterialDeletionRequest,
+} from "@/services/materials.service";
 import type { ClassEvent } from "@/types/classEvent";
 import type { ClassEventMaterial } from "@/types/material";
 import Icon from "@/components/ui/Icon";
@@ -105,6 +110,42 @@ function formatMaterialDate(iso: string): string {
   return `${d}/${m}/${y} - ${timeStr}`;
 }
 
+function formatHumanMaterialDate(iso: string): string {
+  return new Date(iso).toLocaleString("es-PE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "America/Lima",
+  });
+}
+
+function getPersonDisplayName(
+  person?: {
+    firstName?: string | null;
+    lastName1?: string | null;
+    lastName2?: string | null;
+  } | null,
+): string {
+  const fullName = [person?.firstName, person?.lastName1, person?.lastName2]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return fullName || "Usuario";
+}
+
+function getPersonInitials(
+  person?: {
+    firstName?: string | null;
+    lastName1?: string | null;
+  } | null,
+): string {
+  return `${person?.firstName?.[0] || "U"}${person?.lastName1?.[0] || "S"}`.toUpperCase();
+}
+
 // ============================================
 // Upload constants & helpers
 // ============================================
@@ -144,6 +185,7 @@ export interface VideoPageLayoutProps {
   courseHrefOverride?: string;
   cycleHrefOverride?: string;
   cycleLabelOverride?: string;
+  adminPreviewMode?: "advisor" | "student";
 }
 
 export default function VideoPageLayout({
@@ -157,6 +199,7 @@ export default function VideoPageLayout({
   courseHrefOverride,
   cycleHrefOverride,
   cycleLabelOverride,
+  adminPreviewMode,
 }: VideoPageLayoutProps) {
   const router = useRouter();
   const { setBreadcrumbItems } = useBreadcrumb();
@@ -207,10 +250,33 @@ export default function VideoPageLayout({
   const [renameMatValue, setRenameMatValue] = useState("");
   const [renameMatLoading, setRenameMatLoading] = useState(false);
   const [hiddenMatIds, setHiddenMatIds] = useState<Set<string>>(new Set());
+  const [pendingDeletionRequests, setPendingDeletionRequests] = useState<
+    PendingMaterialDeletionRequest[]
+  >([]);
+  const [materialInfoTab, setMaterialInfoTab] = useState<
+    "details" | "activity"
+  >("details");
+  const [materialInfoMeta, setMaterialInfoMeta] = useState<
+    Record<
+      string,
+      {
+        loading: boolean;
+        versions?: MaterialVersionHistoryResponse;
+        lastModified?: MaterialLastModifiedResponse;
+      }
+    >
+  >({});
+  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(
+    null,
+  );
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
+  const isAdminPreviewAdvisor = adminPreviewMode === "advisor";
+  const isAdminPreviewStudent = adminPreviewMode === "student";
+
   const evaluationPath =
-    evaluationPathOverride || `/plataforma/curso/${cursoId}/evaluacion/${evalId}`;
+    evaluationPathOverride ||
+    `/plataforma/curso/${cursoId}/evaluacion/${evalId}`;
   const courseHref = courseHrefOverride || `/plataforma/curso/${cursoId}`;
   const cycleHref = cycleHrefOverride || courseHref;
   const cycleLabel = cycleLabelOverride || "Ciclo Vigente";
@@ -263,6 +329,25 @@ export default function VideoPageLayout({
 
     loadMaterials();
   }, [eventId]);
+
+  const loadPendingDeletionRequests = useCallback(async () => {
+    if (!adminPreviewMode) {
+      setPendingDeletionRequests([]);
+      return;
+    }
+
+    try {
+      const data = await materialsService.getPendingDeletionRequests();
+      setPendingDeletionRequests(data);
+    } catch (err) {
+      console.error("Error al cargar solicitudes pendientes:", err);
+    }
+  }, [adminPreviewMode]);
+
+  useEffect(() => {
+    if (!adminPreviewMode) return;
+    void loadPendingDeletionRequests();
+  }, [adminPreviewMode, loadPendingDeletionRequests]);
 
   useEffect(() => {
     async function loadNames() {
@@ -336,6 +421,143 @@ export default function VideoPageLayout({
   const handleBack = useCallback(() => {
     router.push(evaluationPath);
   }, [router, evaluationPath]);
+
+  const refreshMaterials = useCallback(async () => {
+    try {
+      const updated = await materialsService.getClassEventMaterials(eventId);
+      setMaterials(updated);
+    } catch (err) {
+      console.error("Error al recargar materiales:", err);
+    }
+  }, [eventId]);
+
+  const handleReviewDeletionRequest = useCallback(
+    async (
+      requestId: string,
+      action: "APPROVE" | "REJECT",
+      materialId: string,
+    ) => {
+      setReviewingRequestId(requestId);
+      try {
+        await materialsService.reviewDeletionRequest(requestId, action);
+        await Promise.all([loadPendingDeletionRequests(), refreshMaterials()]);
+
+        setHiddenMatIds((prev) => {
+          const next = new Set(prev);
+          if (action === "REJECT") {
+            next.delete(materialId);
+          } else {
+            next.add(materialId);
+          }
+          return next;
+        });
+
+        if (action === "APPROVE") {
+          setInfoMat(null);
+          showToast({
+            type: "success",
+            title: "Eliminación aprobada",
+            description: "El material fue eliminado correctamente.",
+          });
+        } else {
+          showToast({
+            type: "success",
+            title: "Solicitud rechazada",
+            description: "El material vuelve a estar visible para el docente.",
+          });
+        }
+      } catch (err) {
+        console.error("Error al revisar solicitud de eliminación:", err);
+        showToast({
+          type: "error",
+          title: "No se pudo procesar la solicitud",
+          description:
+            err instanceof Error ? err.message : "Ocurrió un error inesperado.",
+        });
+      } finally {
+        setReviewingRequestId(null);
+      }
+    },
+    [loadPendingDeletionRequests, refreshMaterials, showToast],
+  );
+
+  const pendingRequestsByMaterialId = useCallback(
+    (materialId: string) =>
+      pendingDeletionRequests.filter(
+        (request) => request.entityId === materialId,
+      ),
+    [pendingDeletionRequests],
+  );
+
+  const pendingRequestByMaterialId = useCallback(
+    (materialId: string) => pendingRequestsByMaterialId(materialId)[0] ?? null,
+    [pendingRequestsByMaterialId],
+  );
+
+  const pendingMaterialIds = new Set(
+    pendingDeletionRequests.map((request) => request.entityId),
+  );
+
+  const isMaterialHidden = useCallback(
+    (material: ClassEventMaterial) =>
+      Boolean(material.isPendingDeletion) ||
+      hiddenMatIds.has(material.id) ||
+      pendingMaterialIds.has(material.id),
+    [hiddenMatIds, pendingMaterialIds],
+  );
+
+  const visibleMaterials = materials.filter((material) =>
+    isAdminPreviewStudent ? !pendingMaterialIds.has(material.id) : true,
+  );
+
+  const ensureMaterialInfoMeta = useCallback(
+    async (materialId: string) => {
+      if (
+        materialInfoMeta[materialId]?.loading ||
+        (materialInfoMeta[materialId]?.versions &&
+          materialInfoMeta[materialId]?.lastModified)
+      ) {
+        return;
+      }
+
+      setMaterialInfoMeta((prev) => ({
+        ...prev,
+        [materialId]: { ...prev[materialId], loading: true },
+      }));
+
+      try {
+        const [versions, lastModified] = await Promise.all([
+          materialsService.getVersionsHistory(materialId),
+          materialsService.getLastModified(materialId).catch(() => undefined),
+        ]);
+
+        setMaterialInfoMeta((prev) => ({
+          ...prev,
+          [materialId]: {
+            loading: false,
+            versions,
+            lastModified,
+          },
+        }));
+      } catch (err) {
+        console.error("Error al cargar metadata del material:", err);
+        setMaterialInfoMeta((prev) => ({
+          ...prev,
+          [materialId]: {
+            ...prev[materialId],
+            loading: false,
+          },
+        }));
+      }
+    },
+    [materialInfoMeta],
+  );
+
+  useEffect(() => {
+    if (!infoMat) return;
+    setMaterialInfoTab("details");
+    void ensureMaterialInfoMeta(infoMat.id);
+  }, [infoMat, ensureMaterialInfoMeta]);
 
   // ---- Upload view handlers ----
 
@@ -1086,7 +1308,8 @@ export default function VideoPageLayout({
               </span>
               {isFirstRecordingUpload && (
                 <span className="max-w-md text-center text-text-tertiary text-sm font-normal leading-5">
-                  Cuando finalice la clase, puedes usar el botón de acción para subir el video por primera vez.
+                  Cuando finalice la clase, puedes usar el botón de acción para
+                  subir el video por primera vez.
                 </span>
               )}
             </div>
@@ -1183,15 +1406,17 @@ export default function VideoPageLayout({
             Materiales de esta clase
           </h2>
 
-          {materials.length === 0 ? (
+          {visibleMaterials.length === 0 ? (
             <div className="self-stretch px-5 py-10 bg-bg-secondary rounded-lg inline-flex flex-col justify-center items-center gap-2">
               <div className="self-stretch text-center justify-center text-text-disabled text-xs font-normal font-['Poppins'] leading-4">
                 No hay materiales disponibles para esta clase
               </div>
             </div>
           ) : (
-            <div className={`flex flex-col gap-2 ${materials.length > 6 ? 'max-h-[420px] overflow-y-auto' : 'overflow-visible'}`}>
-              {materials.map((mat, matIdx) => {
+            <div
+              className={`flex flex-col gap-2 ${visibleMaterials.length > 6 ? "max-h-[420px] overflow-y-auto" : "overflow-visible"}`}
+            >
+              {visibleMaterials.map((mat, matIdx) => {
                 const fileName =
                   mat.displayName || mat.fileResource.originalName;
                 const ext = getFileExtension(fileName);
@@ -1203,6 +1428,9 @@ export default function VideoPageLayout({
                 const lastModified = formatMaterialDate(
                   mat.fileResource.createdAt,
                 );
+                const pendingRequest = pendingRequestByMaterialId(mat.id);
+                const showAdminPendingActions =
+                  isAdminPreviewAdvisor && Boolean(pendingRequest);
 
                 return (
                   <div key={mat.id} className="relative">
@@ -1229,7 +1457,7 @@ export default function VideoPageLayout({
                             <span className="text-text-primary text-sm font-normal leading-4 flex-shrink-0">
                               {ext}
                             </span>
-                            {hiddenMatIds.has(mat.id) && (
+                            {isMaterialHidden(mat) && (
                               <Icon
                                 name="visibility_off"
                                 size={14}
@@ -1309,31 +1537,33 @@ export default function VideoPageLayout({
                           </span>
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setContextMenuMat(null);
-                            setRenameMat(mat);
-                            setRenameMatValue(
-                              getFileNameWithoutExt(
-                                mat.displayName ||
-                                  mat.fileResource.originalName,
-                              ),
-                            );
-                          }}
-                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
-                        >
-                          <Icon
-                            name="edit"
-                            size={20}
-                            className="text-icon-secondary"
-                            variant="rounded"
-                          />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                            Cambiar nombre
-                          </span>
-                        </button>
-
-                        <div className="h-px bg-stroke-secondary" />
+                        {showAdminPendingActions ? (
+                          <div className="h-px bg-stroke-secondary" />
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setContextMenuMat(null);
+                              setRenameMat(mat);
+                              setRenameMatValue(
+                                getFileNameWithoutExt(
+                                  mat.displayName ||
+                                    mat.fileResource.originalName,
+                                ),
+                              );
+                            }}
+                            className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name="edit"
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              Cambiar nombre
+                            </span>
+                          </button>
+                        )}
 
                         <button
                           onClick={() => {
@@ -1373,23 +1603,105 @@ export default function VideoPageLayout({
 
                         <div className="h-px bg-stroke-secondary" />
 
-                        <button
-                          onClick={() => {
-                            setContextMenuMat(null);
-                            setDeleteMat(mat);
-                          }}
-                          className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
-                        >
-                          <Icon
-                            name="delete"
-                            size={20}
-                            className="text-icon-secondary"
-                            variant="rounded"
-                          />
-                          <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
-                            Eliminar
-                          </span>
-                        </button>
+                        {showAdminPendingActions ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                setContextMenuMat(null);
+                                if (!pendingRequest) return;
+                                void handleReviewDeletionRequest(
+                                  pendingRequest.id,
+                                  "REJECT",
+                                  mat.id,
+                                );
+                              }}
+                              className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                            >
+                              <Icon
+                                name="history"
+                                size={20}
+                                className="text-icon-secondary"
+                                variant="rounded"
+                              />
+                              <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                                Restaurar
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                setContextMenuMat(null);
+                                if (!pendingRequest) return;
+
+                                try {
+                                  setDeleteLoading(true);
+                                  await materialsService.reviewDeletionRequest(
+                                    pendingRequest.id,
+                                    "APPROVE",
+                                  );
+                                  await materialsService.hardDelete(mat.id);
+                                  await Promise.all([
+                                    refreshMaterials(),
+                                    loadPendingDeletionRequests(),
+                                  ]);
+                                  if (infoMat?.id === mat.id) {
+                                    setInfoMat(null);
+                                  }
+                                  showToast({
+                                    type: "success",
+                                    title: "Material eliminado",
+                                    description:
+                                      "El material se eliminó definitivamente.",
+                                  });
+                                } catch (err) {
+                                  console.error(
+                                    "Error al eliminar material definitivamente:",
+                                    err,
+                                  );
+                                  showToast({
+                                    type: "error",
+                                    title: "No se pudo eliminar el material",
+                                    description:
+                                      err instanceof Error
+                                        ? err.message
+                                        : "Ocurrió un error inesperado.",
+                                  });
+                                } finally {
+                                  setDeleteLoading(false);
+                                }
+                              }}
+                              className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                            >
+                              <Icon
+                                name="delete_forever"
+                                size={20}
+                                className="text-text-error-primary"
+                                variant="rounded"
+                              />
+                              <span className="flex-1 text-text-error-primary text-sm font-normal leading-4 text-left">
+                                Eliminar definitivamente
+                              </span>
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setContextMenuMat(null);
+                              setDeleteMat(mat);
+                            }}
+                            className="self-stretch px-2 py-3 rounded inline-flex items-center gap-2 hover:bg-bg-secondary transition-colors"
+                          >
+                            <Icon
+                              name="delete"
+                              size={20}
+                              className="text-icon-secondary"
+                              variant="rounded"
+                            />
+                            <span className="flex-1 text-text-secondary text-sm font-normal leading-4 text-left">
+                              Eliminar
+                            </span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1420,9 +1732,9 @@ export default function VideoPageLayout({
       </div>
 
       {/* Material Preview Modal */}
-      {showPreview && materials.length > 0 && (
+      {showPreview && visibleMaterials.length > 0 && (
         <MaterialPreviewModal
-          materials={materials}
+          materials={visibleMaterials}
           initialIndex={previewIndex}
           onClose={() => setShowPreview(false)}
         />
@@ -1440,95 +1752,292 @@ export default function VideoPageLayout({
           const infoSize = formatBytes(
             parseInt(infoMat.fileResource.sizeBytes, 10) || 0,
           );
+          const infoMeta = materialInfoMeta[infoMat.id];
+          const versionHistory = infoMeta?.versions;
+          const currentVersion = versionHistory?.versions.find(
+            (version) => version.isCurrent,
+          );
+          const firstVersion = versionHistory?.versions.length
+            ? versionHistory.versions[versionHistory.versions.length - 1]
+            : undefined;
+          const ownerName = getPersonDisplayName(
+            currentVersion?.createdBy || firstVersion?.createdBy,
+          );
           const infoModified = new Date(
-            infoMat.fileResource.createdAt,
+            infoMeta?.lastModified?.lastModifiedAt ||
+              infoMat.fileResource.createdAt,
           ).toLocaleDateString("es-PE", {
             day: "numeric",
             month: "long",
             year: "numeric",
             timeZone: "America/Lima",
           });
-          const infoUploaded = new Date(infoMat.createdAt).toLocaleDateString(
-            "es-PE",
-            {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              timeZone: "America/Lima",
-            },
+          const infoUploaded = new Date(
+            firstVersion?.createdAt || infoMat.createdAt,
+          ).toLocaleDateString("es-PE", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            timeZone: "America/Lima",
+          });
+          const relatedPendingRequests = pendingRequestsByMaterialId(
+            infoMat.id,
           );
 
           return (
             <Modal
               isOpen
               onClose={() => setInfoMat(null)}
-              title="Información del material"
+              title="Informaci?n del material"
               size="md"
             >
               <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Nombre
-                  </span>
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    {infoNameOnly}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Tipo
-                  </span>
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    {infoExt || "Desconocido"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Tamaño
-                  </span>
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    {infoSize}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Ubicación
-                  </span>
-                  <span className="px-2.5 py-1.5 bg-bg-info-primary-light rounded inline-flex w-fit">
-                    <span className="text-text-info-primary text-xs font-medium leading-3">
-                      Clase {event?.sessionNumber}
-                    </span>
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Propietario
-                  </span>
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    yo
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Modificado
-                  </span>
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    {infoModified} por yo
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-text-secondary text-xs font-medium leading-4">
-                    Subido
-                  </span>
-                  <span className="text-text-tertiary text-base font-normal leading-4">
-                    {infoUploaded} por yo
-                  </span>
-                </div>
+                {isAdminPreviewAdvisor && (
+                  <div className="p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-center items-center w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setMaterialInfoTab("details")}
+                      className={`px-6 py-3 rounded-lg flex justify-center items-center gap-2 ${
+                        materialInfoTab === "details"
+                          ? "bg-bg-accent-primary-solid"
+                          : "bg-bg-primary"
+                      }`}
+                    >
+                      <span
+                        className={`text-base leading-4 ${
+                          materialInfoTab === "details"
+                            ? "text-text-white font-medium"
+                            : "text-text-secondary font-normal"
+                        }`}
+                      >
+                        Detalles
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMaterialInfoTab("activity")}
+                      className={`px-6 py-3 rounded-lg flex justify-center items-center gap-2 ${
+                        materialInfoTab === "activity"
+                          ? "bg-bg-accent-primary-solid"
+                          : "bg-bg-primary"
+                      }`}
+                    >
+                      <span
+                        className={`text-base leading-4 ${
+                          materialInfoTab === "activity"
+                            ? "text-text-white font-medium"
+                            : "text-text-secondary font-normal"
+                        }`}
+                      >
+                        Actividad
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                {materialInfoTab === "details" || !isAdminPreviewAdvisor ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Nombre
+                      </span>
+                      <span className="text-text-tertiary text-base font-normal leading-4">
+                        {infoNameOnly}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Tipo
+                      </span>
+                      <span className="text-text-tertiary text-base font-normal leading-4">
+                        {infoExt || "Desconocido"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Tama?o
+                      </span>
+                      <span className="text-text-tertiary text-base font-normal leading-4">
+                        {infoSize}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Ubicaci?n
+                      </span>
+                      <span className="px-2.5 py-1.5 bg-bg-info-primary-light rounded inline-flex w-fit">
+                        <span className="text-text-info-primary text-xs font-medium leading-3">
+                          Clase {event?.sessionNumber}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Propietario
+                      </span>
+                      <span className="text-text-tertiary text-base font-normal leading-4">
+                        {ownerName}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Modificado
+                      </span>
+                      <span className="text-text-tertiary text-base font-normal leading-4">
+                        {infoModified} por {ownerName}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-secondary text-xs font-medium leading-4">
+                        Subido
+                      </span>
+                      <span className="text-text-tertiary text-base font-normal leading-4">
+                        {infoUploaded} por{" "}
+                        {getPersonDisplayName(firstVersion?.createdBy)}
+                      </span>
+                    </div>
+                  </>
+                ) : infoMeta?.loading ? (
+                  <div className="text-text-tertiary text-sm leading-4">
+                    Cargando actividad...
+                  </div>
+                ) : (
+                  <>
+                    {relatedPendingRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="self-stretch p-4 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-4"
+                      >
+                        <div className="w-8 h-8 p-1.5 bg-bg-info-primary-solid rounded-full flex justify-center items-center gap-2">
+                          <div className="text-text-white text-xs font-medium leading-3">
+                            {getPersonInitials(request.requestedBy)}
+                          </div>
+                        </div>
+                        <div className="flex-1 flex flex-col gap-1">
+                          <div className="self-stretch inline-flex justify-start items-start gap-4">
+                            <div className="flex-1 text-text-primary text-sm leading-4">
+                              <span className="font-medium">
+                                {getPersonDisplayName(request.requestedBy)}
+                              </span>
+                              <span className="font-normal">
+                                {" "}
+                                ha solicitado la eliminaci?n del material
+                              </span>
+                            </div>
+                            <div className="text-text-quartiary text-xs font-normal leading-4">
+                              {formatHumanMaterialDate(request.createdAt)}
+                            </div>
+                          </div>
+                          <div className="self-stretch inline-flex justify-end items-center gap-4">
+                            <Modal.Button
+                              variant="secondary"
+                              className="px-4 py-2 text-xs"
+                              disabled={reviewingRequestId == request.id}
+                              onClick={() =>
+                                void handleReviewDeletionRequest(
+                                  request.id,
+                                  "REJECT",
+                                  infoMat.id,
+                                )
+                              }
+                            >
+                              Rechazar
+                            </Modal.Button>
+                            <Modal.Button
+                              variant="danger"
+                              className="px-4 py-2 text-xs"
+                              disabled={reviewingRequestId == request.id}
+                              loading={reviewingRequestId == request.id}
+                              loadingText="Procesando..."
+                              onClick={() =>
+                                void handleReviewDeletionRequest(
+                                  request.id,
+                                  "APPROVE",
+                                  infoMat.id,
+                                )
+                              }
+                            >
+                              Aceptar eliminaci?n
+                            </Modal.Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {versionHistory?.versions.map((version) => {
+                      const versionFileName =
+                        version.file.originalName || infoFileName;
+                      const versionExt = getFileExtension(versionFileName);
+                      const versionNameOnly =
+                        getFileNameWithoutExt(versionFileName);
+                      const iconPath = getFileIconPath(
+                        version.file.mimeType,
+                        versionFileName,
+                      );
+                      const actor = getPersonDisplayName(version.createdBy);
+
+                      return (
+                        <div
+                          key={version.versionId}
+                          className="self-stretch p-4 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary inline-flex justify-start items-start gap-4"
+                        >
+                          <div className="w-8 h-8 p-1.5 bg-bg-info-primary-solid rounded-full flex justify-center items-center gap-2">
+                            <div className="text-text-white text-xs font-medium leading-3">
+                              {getPersonInitials(version.createdBy)}
+                            </div>
+                          </div>
+                          <div className="flex-1 inline-flex flex-col justify-start items-start gap-3">
+                            <div className="self-stretch inline-flex justify-start items-center gap-4">
+                              <div className="flex-1 text-text-primary text-sm leading-4">
+                                <span className="font-medium">{actor}</span>
+                                <span className="font-normal">
+                                  {" "}
+                                  {version.versionNumber === 1
+                                    ? "ha subido un material"
+                                    : "ha actualizado la versi?n del material"}
+                                </span>
+                              </div>
+                              <div className="text-text-quartiary text-xs font-normal leading-4">
+                                {formatHumanMaterialDate(version.createdAt)}
+                              </div>
+                            </div>
+                            <div className="self-stretch p-2 bg-bg-secondary rounded-lg inline-flex justify-start items-center gap-3">
+                              <div className="flex-1 flex justify-start items-center gap-1">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={iconPath}
+                                  alt={versionExt || "file"}
+                                  className="w-6 h-6 flex-shrink-0"
+                                />
+                                <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
+                                  <div className="self-stretch inline-flex justify-start items-start">
+                                    <div className="text-text-primary text-sm font-normal leading-4 line-clamp-1">
+                                      {versionNameOnly}
+                                    </div>
+                                    <div className="text-text-primary text-sm font-normal leading-4">
+                                      {versionExt}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {relatedPendingRequests.length === 0 &&
+                      !versionHistory?.versions?.length && (
+                        <div className="text-text-tertiary text-sm leading-4">
+                          No hay actividad registrada para este material.
+                        </div>
+                      )}
+                  </>
+                )}
               </div>
             </Modal>
           );
         })()}
-
       {/* Delete Material Modal */}
       <Modal
         isOpen={!!deleteMat}
@@ -1551,20 +2060,31 @@ export default function VideoPageLayout({
                 if (!deleteMat) return;
                 setDeleteLoading(true);
                 try {
-                  await materialsService.requestDeletion(
-                    deleteMat.id,
-                    "Eliminado por docente",
-                  );
-                  setHiddenMatIds((prev) => new Set(prev).add(deleteMat.id));
+                  if (isAdminPreviewAdvisor) {
+                    await materialsService.hardDelete(deleteMat.id);
+                    await Promise.all([
+                      refreshMaterials(),
+                      loadPendingDeletionRequests(),
+                    ]);
+                  } else {
+                    await materialsService.requestDeletion(
+                      deleteMat.id,
+                      "Eliminado por docente",
+                    );
+                    setHiddenMatIds((prev) => new Set(prev).add(deleteMat.id));
+                  }
                   setDeleteMat(null);
                   showToast({
                     type: "success",
-                    title: "Solicitud enviada",
-                    description:
-                      "El material se ocultará hasta que los administradores aprueben la eliminación.",
+                    title: isAdminPreviewAdvisor
+                      ? "Material eliminado"
+                      : "Solicitud enviada",
+                    description: isAdminPreviewAdvisor
+                      ? "El material se elimin? directamente como administrador."
+                      : "El material se ocultar? hasta que los administradores aprueben la eliminaci?n.",
                   });
                 } catch (err) {
-                  console.error("Error al solicitar eliminación:", err);
+                  console.error("Error al eliminar material:", err);
                   setDeleteMat(null);
                   showToast({
                     type: "error",
@@ -1572,7 +2092,7 @@ export default function VideoPageLayout({
                     description:
                       err instanceof Error
                         ? err.message
-                        : "No se pudo enviar la solicitud.",
+                        : "No se pudo completar la eliminaci?n.",
                   });
                 } finally {
                   setDeleteLoading(false);
@@ -1585,9 +2105,9 @@ export default function VideoPageLayout({
         }
       >
         <p className="text-text-tertiary text-base font-normal leading-4">
-          ¿Estás seguro de que deseas eliminar este material? La solicitud de
-          eliminación será enviada a los administradores y el material se
-          ocultará hasta que sea aprobada.
+          {isAdminPreviewAdvisor
+            ? "¿Estás seguro de que deseas eliminar este material? Como administrador, la eliminación será inmediata."
+            : "¿Estás seguro de que deseas eliminar este material? La solicitud de eliminación será enviada a los administradores y el material se ocultará hasta que sea aprobada."}
         </p>
       </Modal>
 

@@ -117,6 +117,7 @@ export default function AdminPreviewVideoPageContent({
     courseHref,
     cycleHref,
     cycleLabel: cycleCode ? `Ciclo ${cycleCode}` : "Ciclo Vigente",
+    adminPreviewView: view,
   };
 
   return view === "advisor" ? (

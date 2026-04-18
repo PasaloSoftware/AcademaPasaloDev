@@ -22,6 +22,7 @@ import { CourseCycleAllowedEvaluationTypeRepository } from '@modules/courses/inf
 import { CoursesService } from '@modules/courses/application/courses.service';
 import { CourseSetupService } from '@modules/courses/application/course-setup.service';
 import { CoursesController } from '@modules/courses/presentation/courses.controller';
+import { PublicCoursesController } from '@modules/courses/presentation/public-courses.controller';
 import { AuthModule } from '@modules/auth/auth.module';
 import { EvaluationsModule } from '@modules/evaluations/evaluations.module';
 import { CyclesModule } from '@modules/cycles/cycles.module';
@@ -55,7 +56,7 @@ import { MaterialCatalogRepository } from '@modules/materials/infrastructure/mat
     MediaAccessModule,
     StorageModule,
   ],
-  controllers: [CoursesController],
+  controllers: [CoursesController, PublicCoursesController],
   providers: [
     CourseRepository,
     CourseTypeRepository,

@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Param,
+  Query,
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import {
   PublicTestimonyResponseDto,
   TestimonyResponseDto,
 } from '@modules/feedback/dto/feedback-response.dto';
+import { AdminFeedbackListQueryDto } from '@modules/feedback/dto/admin-feedback-list.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -81,15 +83,11 @@ export class FeedbackController {
     });
   }
 
-  @Get('admin/course-cycle/:id')
+  @Get('admin')
   @Auth()
   @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
-  @ResponseMessage('Listado completo de testimonios')
-  async getAdmin(@Param('id') courseCycleId: string) {
-    const testimonies =
-      await this.feedbackService.getAllTestimoniesAdmin(courseCycleId);
-    return plainToInstance(TestimonyResponseDto, testimonies, {
-      excludeExtraneousValues: true,
-    });
+  @ResponseMessage('Listado de valoraciones obtenido')
+  async getAdmin(@Query() query: AdminFeedbackListQueryDto) {
+    return this.feedbackService.getAdminTestimonies(query);
   }
 }

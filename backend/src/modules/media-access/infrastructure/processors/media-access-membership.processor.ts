@@ -486,7 +486,9 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
   private async resolveEvaluationTypeCode(
     evaluationId: string,
   ): Promise<string | null> {
-    const rows = await this.dataSource.query<Array<{ typeCode: string | null }>>(
+    const rows = await this.dataSource.query<
+      Array<{ typeCode: string | null }>
+    >(
       `
         SELECT et.code AS typeCode
         FROM evaluation ev

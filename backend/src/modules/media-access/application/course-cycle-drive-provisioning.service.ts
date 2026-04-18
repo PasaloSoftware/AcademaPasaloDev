@@ -93,7 +93,6 @@ export class CourseCycleDriveProvisioningService {
       viewerGroupEmail,
       professorGroupEmail,
     } = resolvedScope;
-    const workspaceDomain = this.getWorkspaceGroupDomain();
 
     const group = await this.workspaceGroupsService.findOrCreateGroup({
       email: viewerGroupEmail,
@@ -179,15 +178,17 @@ export class CourseCycleDriveProvisioningService {
       'evaluationNumber',
     );
     const typeFolderLabel = this.normalizeOptionalFolderName(input.groupName)
-      ? this.normalizeOptionalFolderName(input.groupName)!
+      ? this.normalizeOptionalFolderName(input.groupName)
       : BANK_TYPE_FOLDER_LABELS[normalizedTypeCode] || normalizedTypeCode;
     const typeFolderId =
       await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
         provisioned.bankFolderId,
         typeFolderLabel,
       );
-    const leafFolderName = this.normalizeOptionalFolderName(input.leafFolderName)
-      ? this.normalizeOptionalFolderName(input.leafFolderName)!
+    const leafFolderName = this.normalizeOptionalFolderName(
+      input.leafFolderName,
+    )
+      ? this.normalizeOptionalFolderName(input.leafFolderName)
       : `${normalizedTypeCode}${normalizedNumber}`;
     const leafFolderId =
       await this.driveScopeProvisioningService.findOrCreateDriveFolderUnderParent(
@@ -395,11 +396,13 @@ export class CourseCycleDriveProvisioningService {
     }
 
     const grouped = this.groupBankCardsByType(input.bankCards);
-    return Array.from(grouped.entries()).map(([evaluationTypeCode, numbers]) => ({
-      groupName:
-        BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode,
-      items: numbers.map((number) => `${evaluationTypeCode}${number}`),
-    }));
+    return Array.from(grouped.entries()).map(
+      ([evaluationTypeCode, numbers]) => ({
+        groupName:
+          BANK_TYPE_FOLDER_LABELS[evaluationTypeCode] || evaluationTypeCode,
+        items: numbers.map((number) => `${evaluationTypeCode}${number}`),
+      }),
+    );
   }
 
   private normalizeToken(raw: string, fieldName: string): string {

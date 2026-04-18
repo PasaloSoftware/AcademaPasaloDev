@@ -30,6 +30,7 @@ import {
   AdminCourseCycleListQueryDto,
   AdminCourseCycleListResponseDto,
 } from '@modules/courses/dto/admin-course-cycle-list.dto';
+import { PublicCourseCatalogItemDto } from '@modules/courses/dto/public-course-catalog.dto';
 import { CourseContentResponseDto } from '@modules/courses/dto/course-content.dto';
 import {
   StudentCurrentCycleContentResponseDto,
@@ -169,6 +170,61 @@ export class CoursesService {
 
   async findAllCourses(): Promise<Course[]> {
     return await this.courseRepository.findAll();
+  }
+
+  async getPublicLandingCatalog(): Promise<PublicCourseCatalogItemDto[]> {
+    const activeCycle = await this.cyclesService.getActiveCycle();
+    const rows =
+      await this.courseCycleRepository.findPublicLandingCatalogByCycleId(
+        activeCycle.id,
+      );
+
+    const grouped = new Map<string, PublicCourseCatalogItemDto>();
+
+    rows.forEach((row) => {
+      const existing = grouped.get(row.courseCycleId);
+
+      if (!existing) {
+        grouped.set(row.courseCycleId, {
+          courseCycleId: row.courseCycleId,
+          courseId: row.courseId,
+          code: row.courseCode,
+          name: row.courseName,
+          categoryCode: row.courseTypeCode,
+          categoryName: row.courseTypeName,
+          cycleLabel: row.cycleLevelName,
+          headerColor: row.primaryColor,
+          freeClassUrl: row.introVideoUrl,
+          professors: row.professorId
+            ? [
+                {
+                  id: row.professorId,
+                  firstName: row.professorFirstName || '',
+                  lastName1: row.professorLastName1,
+                  profilePhotoUrl: row.professorProfilePhotoUrl,
+                },
+              ]
+            : [],
+        });
+        return;
+      }
+
+      if (
+        row.professorId &&
+        !existing.professors.some(
+          (professor) => professor.id === row.professorId,
+        )
+      ) {
+        existing.professors.push({
+          id: row.professorId,
+          firstName: row.professorFirstName || '',
+          lastName1: row.professorLastName1,
+          profilePhotoUrl: row.professorProfilePhotoUrl,
+        });
+      }
+    });
+
+    return Array.from(grouped.values());
   }
 
   async findAdminCourseCycles(
@@ -1124,28 +1180,30 @@ export class CoursesService {
         );
       const { entriesByTypeCode, groupNamesByTypeCode } =
         await this.resolveBankEntriesByTypeCode(
-        bankEvaluation.id,
-        bankCards,
-        structure.map((item) => ({
-          evaluationTypeId: String(item.evaluationTypeId),
-          evaluationTypeCode: String(item.evaluationType?.code || '')
-            .trim()
-            .toUpperCase(),
-          evaluationTypeName: this.getBankEvaluationTypePluralName(
-            String(item.evaluationType?.code || '')
+          bankEvaluation.id,
+          bankCards,
+          structure.map((item) => ({
+            evaluationTypeId: String(item.evaluationTypeId),
+            evaluationTypeCode: String(item.evaluationType?.code || '')
               .trim()
               .toUpperCase(),
-            String(item.evaluationType?.name || '').trim(),
-          ),
-        })),
-      );
+            evaluationTypeName: this.getBankEvaluationTypePluralName(
+              String(item.evaluationType?.code || '')
+                .trim()
+                .toUpperCase(),
+              String(item.evaluationType?.name || '').trim(),
+            ),
+          })),
+        );
 
       items = structure.map((item) => ({
         evaluationTypeId: String(item.evaluationTypeId),
         evaluationTypeCode: item.evaluationType.code,
         evaluationTypeName:
           groupNamesByTypeCode[
-            String(item.evaluationType.code || '').trim().toUpperCase()
+            String(item.evaluationType.code || '')
+              .trim()
+              .toUpperCase()
           ] ||
           this.getBankEvaluationTypePluralName(
             item.evaluationType.code,
@@ -1197,7 +1255,8 @@ export class CoursesService {
       const normalizedTypeCode = String(typeCode || '')
         .trim()
         .toUpperCase();
-      const perType = entryKeysByTypeCode.get(normalizedTypeCode) || new Set<string>();
+      const perType =
+        entryKeysByTypeCode.get(normalizedTypeCode) || new Set<string>();
       const key = `${entry.label}::${entry.folderId || ''}`;
       if (perType.has(key)) {
         return;
@@ -1239,9 +1298,13 @@ export class CoursesService {
     }
 
     for (const item of structure) {
-      const code = String(item.evaluationTypeCode || '').trim().toUpperCase();
-      const matchingLeafFolders = leafFolders.filter((leaf) =>
-        this.tryParseBankLeafNumber(String(leaf.folder.name || ''), code) !== null,
+      const code = String(item.evaluationTypeCode || '')
+        .trim()
+        .toUpperCase();
+      const matchingLeafFolders = leafFolders.filter(
+        (leaf) =>
+          this.tryParseBankLeafNumber(String(leaf.folder.name || ''), code) !==
+          null,
       );
       for (const leaf of matchingLeafFolders) {
         if (!groupNamesByTypeCode[code]) {
@@ -1325,13 +1388,20 @@ export class CoursesService {
     };
   }
 
-  private tryParseBankLeafNumber(label: string, evaluationTypeCode: string): number | null {
-    const normalizedLabel = String(label || '').trim().toUpperCase();
+  private tryParseBankLeafNumber(
+    label: string,
+    evaluationTypeCode: string,
+  ): number | null {
+    const normalizedLabel = String(label || '')
+      .trim()
+      .toUpperCase();
     const normalizedTypeCode = String(evaluationTypeCode || '')
       .trim()
       .toUpperCase();
     const match = normalizedLabel.match(
-      new RegExp(`^${normalizedTypeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`),
+      new RegExp(
+        `^${normalizedTypeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`,
+      ),
     );
     if (!match) {
       return null;
@@ -1437,7 +1507,11 @@ export class CoursesService {
     const normalizedTypeCode = String(evaluationTypeCode || '')
       .trim()
       .toUpperCase();
-    if (!normalizedTypeCode || !Number.isInteger(evaluationNumber) || evaluationNumber <= 0) {
+    if (
+      !normalizedTypeCode ||
+      !Number.isInteger(evaluationNumber) ||
+      evaluationNumber <= 0
+    ) {
       return null;
     }
 
@@ -1468,8 +1542,9 @@ export class CoursesService {
     const matchedType =
       structure.find(
         (item) =>
-          String(item.evaluationType?.code || '').trim().toUpperCase() ===
-          normalizedTypeCode,
+          String(item.evaluationType?.code || '')
+            .trim()
+            .toUpperCase() === normalizedTypeCode,
       ) || null;
     if (!matchedType) {
       return null;
@@ -1489,7 +1564,9 @@ export class CoursesService {
       const matchedLeaf =
         children.find(
           (child) =>
-            String(child.name || '').trim().toUpperCase() === targetLeafLabel,
+            String(child.name || '')
+              .trim()
+              .toUpperCase() === targetLeafLabel,
         ) || null;
       if (!matchedLeaf) {
         continue;
@@ -1536,17 +1613,25 @@ export class CoursesService {
     const normalizedRequestedItems = Array.from(
       new Set(
         (requestedItems || [])
-          .map((item) => String(item || '').trim().toUpperCase())
+          .map((item) =>
+            String(item || '')
+              .trim()
+              .toUpperCase(),
+          )
           .filter(Boolean),
       ),
     );
 
     if (hasAcademicEvaluations) {
       const normalizedAcademicItems = academicItems
-        .map((item) => String(item || '').trim().toUpperCase())
+        .map((item) =>
+          String(item || '')
+            .trim()
+            .toUpperCase(),
+        )
         .sort((left, right) => left.localeCompare(right, 'es'));
-      const requestedComparable = [...normalizedRequestedItems].sort((left, right) =>
-        left.localeCompare(right, 'es'),
+      const requestedComparable = [...normalizedRequestedItems].sort(
+        (left, right) => left.localeCompare(right, 'es'),
       );
 
       if (
@@ -1560,14 +1645,16 @@ export class CoursesService {
       }
 
       return academicItems
-        .map((item) => String(item || '').trim().toUpperCase())
+        .map((item) =>
+          String(item || '')
+            .trim()
+            .toUpperCase(),
+        )
         .filter(Boolean);
     }
 
     if (normalizedRequestedItems.length === 0) {
-      throw new BadRequestException(
-        'items es requerido para tipos solo-banco',
-      );
+      throw new BadRequestException('items es requerido para tipos solo-banco');
     }
 
     for (const item of normalizedRequestedItems) {
@@ -1597,11 +1684,11 @@ export class CoursesService {
     return matchedLeaf ? matchedLeaf.root : null;
   }
 
-  private async assertNoConflictingBankGroupName(
+  private assertNoConflictingBankGroupName(
     bankFolderTree: LoadedBankFolderTree,
     evaluationTypeCode: string,
     groupName: string,
-  ): Promise<void> {
+  ): void {
     const normalizedTarget = this.normalizeBankFolderName(groupName);
     const conflictingRoot =
       bankFolderTree.roots.find((root) => {
@@ -1612,7 +1699,10 @@ export class CoursesService {
         if (!rootCode || rootCode === evaluationTypeCode) {
           return false;
         }
-        return this.normalizeBankFolderName(String(root.name || '')) === normalizedTarget;
+        return (
+          this.normalizeBankFolderName(String(root.name || '')) ===
+          normalizedTarget
+        );
       }) || null;
     if (conflictingRoot) {
       throw new ConflictException(
@@ -1632,7 +1722,9 @@ export class CoursesService {
     if (!matchedLeaf) {
       return null;
     }
-    const label = String(matchedLeaf.folder.name || '').trim().toUpperCase();
+    const label = String(matchedLeaf.folder.name || '')
+      .trim()
+      .toUpperCase();
     const match = label.match(/^([A-Z0-9_-]+?)(\d+)$/);
     return match ? match[1] : null;
   }
@@ -1650,9 +1742,8 @@ export class CoursesService {
   }
 
   private async getFolderStatusOrFail(code: string) {
-    const status = await this.materialCatalogRepository.findFolderStatusByCode(
-      code,
-    );
+    const status =
+      await this.materialCatalogRepository.findFolderStatusByCode(code);
     if (!status) {
       throw new InternalServerErrorException(
         `Error de configuracion: Estado ${code} de carpeta faltante`,
@@ -2146,8 +2237,9 @@ export class CoursesService {
     const matchedType =
       structure.find(
         (item) =>
-          String(item.evaluationType?.code || '').trim().toUpperCase() ===
-          normalizedTypeCode,
+          String(item.evaluationType?.code || '')
+            .trim()
+            .toUpperCase() === normalizedTypeCode,
       ) || null;
     if (!matchedType) {
       throw new NotFoundException(
@@ -2179,7 +2271,7 @@ export class CoursesService {
         String(matchedType.evaluationType?.name || '').trim(),
       );
 
-    await this.assertNoConflictingBankGroupName(
+    this.assertNoConflictingBankGroupName(
       bankFolderTree,
       normalizedTypeCode,
       normalizedGroupName,
@@ -2196,7 +2288,9 @@ export class CoursesService {
     );
     const currentLeafByName = new Map(
       currentLeafFolders.map((folder) => [
-        String(folder.name || '').trim().toUpperCase(),
+        String(folder.name || '')
+          .trim()
+          .toUpperCase(),
         folder,
       ]),
     );
@@ -2207,7 +2301,11 @@ export class CoursesService {
       ? []
       : currentLeafFolders.filter(
           (folder) =>
-            !desiredItemsSet.has(String(folder.name || '').trim().toUpperCase()),
+            !desiredItemsSet.has(
+              String(folder.name || '')
+                .trim()
+                .toUpperCase(),
+            ),
         );
 
     if (removedLeafFolders.length > 0) {
@@ -2223,18 +2321,23 @@ export class CoursesService {
 
     await this.dataSource.transaction(async (manager) => {
       if (!persistedRoot) {
-        persistedRoot = await this.materialFolderRepository.create({
-          evaluationId: bankEvaluation.id,
-          parentFolderId: null,
-          folderStatusId: activeFolderStatus.id,
-          name: normalizedGroupName,
-          visibleFrom: null,
-          visibleUntil: null,
-          createdById: String(user.id),
-          createdAt: now,
-          updatedAt: now,
-        }, manager);
-      } else if (String(persistedRoot.name || '').trim() !== normalizedGroupName) {
+        persistedRoot = await this.materialFolderRepository.create(
+          {
+            evaluationId: bankEvaluation.id,
+            parentFolderId: null,
+            folderStatusId: activeFolderStatus.id,
+            name: normalizedGroupName,
+            visibleFrom: null,
+            visibleUntil: null,
+            createdById: String(user.id),
+            createdAt: now,
+            updatedAt: now,
+          },
+          manager,
+        );
+      } else if (
+        String(persistedRoot.name || '').trim() !== normalizedGroupName
+      ) {
         persistedRoot.name = normalizedGroupName;
         persistedRoot.updatedAt = now;
         persistedRoot = await this.materialFolderRepository.save(
@@ -2250,17 +2353,20 @@ export class CoursesService {
       }
 
       for (const itemName of missingItems) {
-        await this.materialFolderRepository.create({
-          evaluationId: bankEvaluation.id,
-          parentFolderId: persistedRoot!.id,
-          folderStatusId: activeFolderStatus.id,
-          name: itemName,
-          visibleFrom: null,
-          visibleUntil: null,
-          createdById: String(user.id),
-          createdAt: now,
-          updatedAt: now,
-        }, manager);
+        await this.materialFolderRepository.create(
+          {
+            evaluationId: bankEvaluation.id,
+            parentFolderId: persistedRoot.id,
+            folderStatusId: activeFolderStatus.id,
+            name: itemName,
+            visibleFrom: null,
+            visibleUntil: null,
+            createdById: String(user.id),
+            createdAt: now,
+            updatedAt: now,
+          },
+          manager,
+        );
       }
     });
 
@@ -2325,8 +2431,9 @@ export class CoursesService {
     const matchedType =
       structure.find(
         (item) =>
-          String(item.evaluationType?.code || '').trim().toUpperCase() ===
-          normalizedTypeCode,
+          String(item.evaluationType?.code || '')
+            .trim()
+            .toUpperCase() === normalizedTypeCode,
       ) || null;
     if (!matchedType) {
       throw new NotFoundException(
@@ -2335,7 +2442,9 @@ export class CoursesService {
     }
 
     const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
-    if (bankCards.some((item) => item.evaluationTypeCode === normalizedTypeCode)) {
+    if (
+      bankCards.some((item) => item.evaluationTypeCode === normalizedTypeCode)
+    ) {
       throw new ConflictException(
         'No se puede eliminar una carpeta del banco sincronizada con evaluaciones academicas. Modifica primero la estructura de evaluaciones.',
       );
@@ -2382,8 +2491,9 @@ export class CoursesService {
       const remainingEvaluationTypeIds = structure
         .filter(
           (item) =>
-            String(item.evaluationType?.code || '').trim().toUpperCase() !==
-            normalizedTypeCode,
+            String(item.evaluationType?.code || '')
+              .trim()
+              .toUpperCase() !== normalizedTypeCode,
         )
         .map((item) => String(item.evaluationTypeId));
 

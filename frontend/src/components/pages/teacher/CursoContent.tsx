@@ -221,7 +221,7 @@ export default function CursoContent({
     return (
       <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
         <div className="self-stretch animate-pulse">
-          <div className="flex gap-8">
+          <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
             <div className="flex-1 space-y-5">
               <div className="flex gap-2">
                 <div className="h-7 w-24 bg-bg-secondary rounded-full" />
@@ -232,7 +232,7 @@ export default function CursoContent({
             </div>
             <div className="flex-1 h-44 bg-bg-secondary rounded-lg" />
           </div>
-          <div className="mt-8 h-12 w-[575px] bg-bg-secondary rounded-xl" />
+          <div className="mt-8 h-12 w-full max-w-[575px] bg-bg-secondary rounded-xl" />
           <div className="mt-8 space-y-0">
             {[1, 2, 3].map((i) => (
               <div
@@ -278,10 +278,10 @@ export default function CursoContent({
   return (
     <div className="w-full inline-flex flex-col justify-start items-start overflow-hidden">
       {/* HEADER SECTION */}
-      <div className="self-stretch inline-flex justify-start items-start gap-8 overflow-hidden mb-8">
+      <div className="self-stretch inline-flex flex-col xl:flex-row justify-start items-start gap-6 xl:gap-8 overflow-hidden mb-8">
         <div className="flex-1 inline-flex flex-col justify-start items-start gap-4">
           {/* Tags */}
-          <div className="inline-flex justify-start items-center gap-2">
+          <div className="inline-flex flex-wrap justify-start items-center gap-2">
             <div className="px-2.5 py-1.5 bg-bg-success-light rounded-full flex justify-center items-center gap-1">
               <span className="text-text-success-primary text-xs font-medium leading-3">
                 {courseTypeName.toUpperCase()}
@@ -291,7 +291,7 @@ export default function CursoContent({
 
           {/* Title */}
           <div className="self-stretch inline-flex justify-start items-center gap-2">
-            <div className="flex-1 text-text-primary text-4xl font-bold leading-[48px]">
+            <div className="flex-1 text-text-primary text-3xl sm:text-4xl font-bold leading-8 sm:leading-[48px]">
               {courseName}
             </div>
           </div>
@@ -308,7 +308,7 @@ export default function CursoContent({
                 <span className="text-text-secondary text-[10px] font-medium leading-3">
                   DOCENTE
                 </span>
-                <span className="self-stretch text-text-secondary text-base font-normal leading-4 line-clamp-1">
+                <span className="self-stretch text-text-secondary text-sm sm:text-base font-normal leading-4 line-clamp-1">
                   {getTeacherName()}
                 </span>
               </div>
@@ -319,7 +319,7 @@ export default function CursoContent({
         </div>
 
         {/* Right: Intro Video */}
-        <div className="h-[190px] aspect-video rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary overflow-hidden">
+        <div className="w-full xl:w-auto h-[190px] aspect-video rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-primary overflow-hidden">
           {introVideoUrl ? (
             <iframe
               src={introVideoUrl}
@@ -347,9 +347,9 @@ export default function CursoContent({
       </div>
 
       {/* TABS + CONTENT SECTION */}
-      <div className="self-stretch inline-flex flex-col justify-start items-start gap-8">
+      <div className="self-stretch inline-flex flex-col justify-start items-start gap-6 sm:gap-8">
         {/* Horizontal Pill Tabs */}
-        <div className="w-[567px] p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex justify-start items-start gap-2">
+        <div className="w-full p-1 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-primary inline-flex flex-col sm:flex-row justify-start items-start gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -362,7 +362,7 @@ export default function CursoContent({
             >
               <div className="flex-1 flex justify-start items-center gap-2">
                 <span
-                  className={`flex-1 text-center text-[15px] leading-4 whitespace-nowrap ${
+                  className={`flex-1 text-center text-sm sm:text-[15px] leading-4 ${
                     activeTab === tab.key
                       ? "text-text-white"
                       : "text-text-secondary"
@@ -379,13 +379,13 @@ export default function CursoContent({
         {activeTab === "vigente" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
-              <span className="text-text-primary text-2xl font-semibold leading-7">
+              <span className="text-text-primary text-lg sm:text-2xl font-semibold leading-6 sm:leading-7">
                 Ciclo Vigente {currentCycle?.cycleCode || ""}
               </span>
             </div>
 
             {evaluations.length > 0 ? (
-              <div className="self-stretch grid grid-cols-3 gap-8">
+              <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 xl:gap-8">
                 {sortEvaluations(evaluations).map((evaluation) => (
                   <EvaluationCard
                     key={evaluation.id}
@@ -424,7 +424,7 @@ export default function CursoContent({
         {activeTab === "anteriores" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
-              <span className="text-text-primary text-2xl font-semibold leading-7">
+              <span className="text-text-primary text-lg sm:text-2xl font-semibold leading-6 sm:leading-7">
                 Ciclos Pasados
               </span>
             </div>
@@ -434,7 +434,7 @@ export default function CursoContent({
                 <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
               </div>
             ) : previousCycles && previousCycles.cycles.length > 0 ? (
-              <div className="self-stretch grid grid-cols-3 gap-8">
+              <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 xl:gap-8">
                 {previousCycles.cycles.map((cycle) => (
                   <PreviousCycleCard
                     key={cycle.cycleCode}
@@ -468,7 +468,7 @@ export default function CursoContent({
         {activeTab === "banco" && (
           <div className="self-stretch flex flex-col justify-start items-start gap-6 overflow-hidden">
             <div className="self-stretch h-7 inline-flex justify-start items-center gap-4">
-              <span className="text-text-primary text-2xl font-semibold leading-7">
+              <span className="text-text-primary text-lg sm:text-2xl font-semibold leading-6 sm:leading-7">
                 Banco de Enunciados
               </span>
             </div>
@@ -478,7 +478,7 @@ export default function CursoContent({
                 <div className="w-10 h-10 border-4 border-accent-solid border-t-transparent rounded-full animate-spin" />
               </div>
             ) : bankStructure && bankStructure.items.length > 0 ? (
-              <div className="self-stretch grid grid-cols-3 gap-8">
+              <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 xl:gap-8">
                 {bankStructure.items.map((item) => (
                   <BancoCategoryCard
                     key={item.evaluationTypeCode}

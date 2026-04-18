@@ -45,6 +45,7 @@ describe('AuditExportProcessor', () => {
       data: {
         requestedByUserId: 'user-1',
         filters: {},
+        exportTemplate: 'events',
         totalRows: 120000,
         estimatedFileCount: 2,
         lockToken: 'lock-1',
@@ -116,6 +117,7 @@ describe('AuditExportProcessor', () => {
       data: {
         requestedByUserId: 'user-1',
         filters: {},
+        exportTemplate: 'events',
         totalRows: 120000,
         estimatedFileCount: 2,
         lockToken: 'lock-2',
@@ -177,6 +179,7 @@ describe('AuditExportProcessor', () => {
       data: {
         requestedByUserId: 'user-1',
         filters: {},
+        exportTemplate: 'events',
         totalRows: 120000,
         estimatedFileCount: 2,
         lockToken: 'lock-3',

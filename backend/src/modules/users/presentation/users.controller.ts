@@ -224,8 +224,7 @@ export class UsersController {
             courseCycleId: enrollment.courseCycleId,
             enrollmentTypeCode: enrollment.enrollmentTypeCode,
             evaluationIds: enrollment.evaluationIds || [],
-            historicalCourseCycleIds:
-              enrollment.historicalCourseCycleIds || [],
+            historicalCourseCycleIds: enrollment.historicalCourseCycleIds || [],
           }),
         ),
       },

@@ -128,6 +128,7 @@ export class AuditExportProcessor extends WorkerHost {
         job.data.totalRows,
         technicalSettings.audit.exportRowsPerFile,
         String(job.id),
+        job.data.exportTemplate,
         async (progressValue, estimatedFileCount) => {
           if (refreshFailure) {
             throw refreshFailure;

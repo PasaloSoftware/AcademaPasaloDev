@@ -15,6 +15,7 @@ import { EnrollmentsModule } from '@modules/enrollments/enrollments.module';
 import { MaterialsModule } from '@modules/materials/materials.module';
 import { FeedbackModule } from '@modules/feedback/feedback.module';
 import { SettingsModule } from '@modules/settings/settings.module';
+import { AdminSettingsModule } from '@modules/settings/admin-settings.module';
 import { ClassEventsModule } from '@modules/events/class-events.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { MediaAccessModule } from '@modules/media-access/media-access.module';
@@ -42,6 +43,7 @@ import { technicalSettings } from '@config/technical-settings';
     StorageModule,
     QueueModule,
     SettingsModule,
+    AdminSettingsModule,
     UsersModule,
     AuthModule,
     AuditModule,

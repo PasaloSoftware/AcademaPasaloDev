@@ -608,10 +608,9 @@ describe('UsersService', () => {
     const cached = [
       {
         courseId: '11',
-        courseCycleId: '41',
+        currentCourseCycleId: '41',
         courseCode: 'MAT101',
         courseName: 'Matematica Basica',
-        academicCycleCode: '2026-0',
       },
     ];
     cacheServiceMock.get.mockResolvedValue(cached);
@@ -627,6 +626,7 @@ describe('UsersService', () => {
     dataSourceMock.query.mockResolvedValue([
       {
         courseId: '11',
+        currentCourseCycleId: '41',
         courseCode: 'MAT101',
         courseName: 'Matematica Basica',
       },
@@ -641,6 +641,7 @@ describe('UsersService', () => {
     expect(result).toEqual([
       {
         courseId: '11',
+        currentCourseCycleId: '41',
         courseCode: 'MAT101',
         courseName: 'Matematica Basica',
       },

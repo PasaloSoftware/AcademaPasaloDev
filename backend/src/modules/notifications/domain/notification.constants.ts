@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPE_CODES = {
   CLASS_CANCELLED: 'CLASS_CANCELLED',
   CLASS_REMINDER: 'CLASS_REMINDER',
   CLASS_RECORDING_AVAILABLE: 'CLASS_RECORDING_AVAILABLE',
+  DELETION_REQUEST_CREATED: 'DELETION_REQUEST_CREATED',
   DELETION_REQUEST_APPROVED: 'DELETION_REQUEST_APPROVED',
   DELETION_REQUEST_REJECTED: 'DELETION_REQUEST_REJECTED',
   AUDIT_EXPORT_READY: 'AUDIT_EXPORT_READY',
@@ -75,6 +76,11 @@ export const NOTIFICATION_MESSAGES = {
     title: 'Grabacion disponible',
     message: (classTitle: string) =>
       `La grabacion de la clase '${classTitle}' ya esta disponible.`,
+  },
+  [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_CREATED]: {
+    title: 'Nueva solicitud de eliminacion',
+    message: (displayName: string, requestedByName: string) =>
+      `El profesor ${requestedByName} solicito la eliminacion del material '${displayName}'.`,
   },
   [NOTIFICATION_TYPE_CODES.DELETION_REQUEST_APPROVED]: {
     title: 'Solicitud de eliminacion aprobada',

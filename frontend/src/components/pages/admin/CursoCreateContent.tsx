@@ -2,21 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Modal from "@/components/ui/Modal";
 import Icon from "@/components/ui/Icon";
-import FloatingInput from "@/components/ui/FloatingInput";
-import FloatingSelect from "@/components/ui/FloatingSelect";
 import {
+  CourseDeleteConfirmModal,
   CourseEditorFooter,
   CourseEditorHeader,
   CourseEditorTabs,
   CourseEmptyStatePanel,
+  CourseMaterialFolderModal,
   CourseEvaluationList,
   CourseGeneralInfoSection,
   CourseInfoBanner,
   CourseProfessorManagerModal,
   CourseResourceCard,
   CourseSectionCard,
+  CourseSelectQuantityModal,
   CourseEditorTab,
   ProfessorModalOption,
   getEvaluationTypeMeta,
@@ -65,6 +65,9 @@ type EvaluationDraft = {
   shortName: string;
   fullName: string;
 };
+
+type EvaluationModalMode = "create" | "edit";
+type MaterialModalMode = "create" | "edit";
 
 type BankAdditionalFolderType =
   | "PRACTICAS_DIRIGIDAS"
@@ -217,6 +220,11 @@ export default function CursoCreateContent() {
     string | null
   >(null);
   const [evaluationModalOpen, setEvaluationModalOpen] = useState(false);
+  const [evaluationModalMode, setEvaluationModalMode] =
+    useState<EvaluationModalMode>("create");
+  const [editingEvaluationTypeId, setEditingEvaluationTypeId] = useState<
+    string | null
+  >(null);
   const [evaluationTypeId, setEvaluationTypeId] = useState<string | null>(null);
   const [evaluationQuantity, setEvaluationQuantity] = useState("");
   const [evaluationQuantityError, setEvaluationQuantityError] = useState("");
@@ -224,6 +232,8 @@ export default function CursoCreateContent() {
     [],
   );
   const [bankAdditionalModalOpen, setBankAdditionalModalOpen] = useState(false);
+  const [editingBankAdditionalFolderId, setEditingBankAdditionalFolderId] =
+    useState<string | null>(null);
   const [bankAdditionalFolderType, setBankAdditionalFolderType] =
     useState<BankAdditionalFolderType | null>(null);
   const [bankAdditionalFolderQuantity, setBankAdditionalFolderQuantity] =
@@ -236,6 +246,11 @@ export default function CursoCreateContent() {
     BankAdditionalFolderDraft[]
   >([]);
   const [materialModalOpen, setMaterialModalOpen] = useState(false);
+  const [materialModalMode, setMaterialModalMode] =
+    useState<MaterialModalMode>("create");
+  const [editingMaterialFolderId, setEditingMaterialFolderId] = useState<
+    string | null
+  >(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [materialFolderName, setMaterialFolderName] = useState("");
   const [materialFolderDescription, setMaterialFolderDescription] =
@@ -452,14 +467,6 @@ export default function CursoCreateContent() {
     setProfessorActionLoadingId(null);
   };
 
-  const handlePendingAction = (action: string) => {
-    showToast({
-      type: "info",
-      title: `${action} pendiente`,
-      description: `La acción de ${action.toLowerCase()} se habilitará en el siguiente paso.`,
-    });
-  };
-
   const handleEvaluationQuantityChange = (value: string) => {
     const sanitized = value.replace(/\D/g, "");
 
@@ -483,6 +490,8 @@ export default function CursoCreateContent() {
   };
 
   const resetEvaluationModal = () => {
+    setEvaluationModalMode("create");
+    setEditingEvaluationTypeId(null);
     setEvaluationTypeId(null);
     setEvaluationQuantity("");
     setEvaluationQuantityError("");
@@ -511,14 +520,69 @@ export default function CursoCreateContent() {
   };
 
   const resetMaterialModal = () => {
+    setMaterialModalMode("create");
+    setEditingMaterialFolderId(null);
     setMaterialFolderName("");
     setMaterialFolderDescription("");
   };
 
   const resetBankAdditionalModal = () => {
+    setEditingBankAdditionalFolderId(null);
     setBankAdditionalFolderType(null);
     setBankAdditionalFolderQuantity("");
     setBankAdditionalFolderQuantityError("");
+  };
+
+  const openCreateEvaluationModal = () => {
+    resetEvaluationModal();
+    setEvaluationModalMode("create");
+    setEvaluationModalOpen(true);
+  };
+
+  const openEditEvaluationModal = (evaluationId: string) => {
+    const target = draftEvaluations.find(
+      (evaluation) => evaluation.id === evaluationId,
+    );
+    if (!target) return;
+
+    const quantity = draftEvaluations.filter(
+      (evaluation) => evaluation.evaluationTypeId === target.evaluationTypeId,
+    ).length;
+
+    setEvaluationModalMode("edit");
+    setEditingEvaluationTypeId(target.evaluationTypeId);
+    setEvaluationTypeId(target.evaluationTypeId);
+    setEvaluationQuantity(String(quantity));
+    setEvaluationQuantityError("");
+    setEvaluationModalOpen(true);
+  };
+
+  const openEditBankAdditionalModal = (folderId: string) => {
+    const folder = bankAdditionalFolders.find((item) => item.id === folderId);
+    if (!folder) return;
+
+    setEditingBankAdditionalFolderId(folderId);
+    setBankAdditionalFolderType(folder.type);
+    setBankAdditionalFolderQuantity(String(folder.evaluationCount));
+    setBankAdditionalFolderQuantityError("");
+    setBankAdditionalModalOpen(true);
+  };
+
+  const openCreateMaterialModal = () => {
+    resetMaterialModal();
+    setMaterialModalMode("create");
+    setMaterialModalOpen(true);
+  };
+
+  const openEditMaterialModal = (folderId: string) => {
+    const folder = materialFolders.find((item) => item.id === folderId);
+    if (!folder) return;
+
+    setMaterialModalMode("edit");
+    setEditingMaterialFolderId(folderId);
+    setMaterialFolderName(folder.title);
+    setMaterialFolderDescription(folder.description);
+    setMaterialModalOpen(true);
   };
 
   const handleCreateEvaluations = () => {
@@ -540,7 +604,39 @@ export default function CursoCreateContent() {
       return;
     }
 
+    if (
+      evaluationModalMode === "edit" &&
+      editingEvaluationTypeId &&
+      evaluationTypeId !== editingEvaluationTypeId &&
+      draftEvaluations.some(
+        (draft) => draft.evaluationTypeId === evaluationTypeId,
+      )
+    ) {
+      showToast({
+        type: "error",
+        title: "Tipo duplicado",
+        description:
+          "Ya existe un grupo de evaluaciones con ese tipo. Edita el grupo existente o conserva el tipo actual.",
+      });
+      return;
+    }
+
     setDraftEvaluations((current) => {
+      if (evaluationModalMode === "edit" && editingEvaluationTypeId) {
+        const baseDrafts = current.filter(
+          (draft) => draft.evaluationTypeId !== editingEvaluationTypeId,
+        );
+
+        const nextDrafts = Array.from({ length: quantity }, (_, index) =>
+          buildEvaluationDraft(selectedEvaluationType, index + 1),
+        );
+
+        return normalizeDrafts(
+          [...baseDrafts, ...nextDrafts],
+          evaluationTypesById,
+        );
+      }
+
       const currentCountForType = current.filter(
         (draft) => draft.evaluationTypeId === evaluationTypeId,
       ).length;
@@ -557,8 +653,14 @@ export default function CursoCreateContent() {
 
     showToast({
       type: "success",
-      title: "Evaluaciones añadidas",
-      description: `Se agregaron ${quantity} evaluaciones de tipo ${selectedEvaluationType.name}.`,
+      title:
+        evaluationModalMode === "edit"
+          ? "Evaluación actualizada"
+          : "Evaluaciones añadidas",
+      description:
+        evaluationModalMode === "edit"
+          ? `Se actualizó ${selectedEvaluationType.name} a ${quantity} evaluaciones.`
+          : `Se agregaron ${quantity} evaluaciones de tipo ${selectedEvaluationType.name}.`,
     });
 
     resetEvaluationModal();
@@ -610,6 +712,18 @@ export default function CursoCreateContent() {
     }
 
     setMaterialFolders((current) => {
+      if (materialModalMode === "edit" && editingMaterialFolderId) {
+        return current.map((folder) =>
+          folder.id === editingMaterialFolderId
+            ? {
+                ...folder,
+                title: trimmedName,
+                description: trimmedDescription,
+              }
+            : folder,
+        );
+      }
+
       return [
         ...current,
         {
@@ -622,8 +736,14 @@ export default function CursoCreateContent() {
 
     showToast({
       type: "success",
-      title: "Carpeta añadida",
-      description: `Se agregó la carpeta ${trimmedName}.`,
+      title:
+        materialModalMode === "edit"
+          ? "Carpeta actualizada"
+          : "Carpeta añadida",
+      description:
+        materialModalMode === "edit"
+          ? `Se actualizó la carpeta ${trimmedName}.`
+          : `Se agregó la carpeta ${trimmedName}.`,
     });
 
     resetMaterialModal();
@@ -643,7 +763,37 @@ export default function CursoCreateContent() {
 
     const meta = BANK_ADDITIONAL_FOLDER_META[bankAdditionalFolderType];
 
+    if (
+      editingBankAdditionalFolderId &&
+      bankAdditionalFolders.some(
+        (folder) =>
+          folder.id !== editingBankAdditionalFolderId &&
+          folder.type === bankAdditionalFolderType,
+      )
+    ) {
+      showToast({
+        type: "error",
+        title: "Tipo duplicado",
+        description:
+          "Ya existe una carpeta adicional del banco con ese tipo. Edita la existente o conserva el tipo actual.",
+      });
+      return;
+    }
+
     setBankAdditionalFolders((current) => {
+      if (editingBankAdditionalFolderId) {
+        return current.map((folder) =>
+          folder.id === editingBankAdditionalFolderId
+            ? {
+                ...folder,
+                type: bankAdditionalFolderType,
+                title: meta.label,
+                evaluationCount: quantity,
+              }
+            : folder,
+        );
+      }
+
       const existingFolderIndex = current.findIndex(
         (folder) => folder.type === bankAdditionalFolderType,
       );
@@ -672,8 +822,12 @@ export default function CursoCreateContent() {
 
     showToast({
       type: "success",
-      title: "Carpetas del banco añadidas",
-      description: `Se agregaron ${quantity} carpetas de tipo ${meta.label}.`,
+      title: editingBankAdditionalFolderId
+        ? "Carpeta actualizada"
+        : "Carpetas del banco añadidas",
+      description: editingBankAdditionalFolderId
+        ? `Se actualizó ${meta.label} a ${quantity} evaluaciones.`
+        : `Se agregaron ${quantity} carpetas de tipo ${meta.label}.`,
     });
 
     resetBankAdditionalModal();
@@ -808,7 +962,7 @@ export default function CursoCreateContent() {
             icon="assignment"
             actions={
               <button
-                onClick={() => setEvaluationModalOpen(true)}
+                onClick={openCreateEvaluationModal}
                 className="px-4 py-2 bg-bg-accent-primary-solid rounded flex justify-center items-center gap-1 hover:bg-bg-accent-solid-hover transition-colors"
               >
                 <Icon name="add" size={14} className="text-icon-white" />
@@ -863,7 +1017,7 @@ export default function CursoCreateContent() {
                   setDraggedEvaluationId(null);
                   setDragOverEvaluationId(null);
                 }}
-                onEdit={() => handlePendingAction("Editar evaluación")}
+                onEdit={openEditEvaluationModal}
                 onDelete={requestDeleteEvaluation}
               />
             )}
@@ -872,25 +1026,10 @@ export default function CursoCreateContent() {
           <CourseSectionCard
             title="Banco de Enunciados"
             icon="chrome_reader_mode"
-            actions={
-              <button
-                onClick={() => setBankAdditionalModalOpen(true)}
-                className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
-              >
-                <Icon
-                  name="add"
-                  size={14}
-                  className="text-icon-accent-primary"
-                />
-                <span className="text-text-accent-primary text-xs font-medium leading-4">
-                  Añadir carpeta adicional
-                </span>
-              </button>
-            }
           >
             <CourseInfoBanner
               title="Sincronización"
-              description="Las evaluaciones configuradas se sincronizan automáticamente con el banco de enunciados. Cada vez que agregues una evaluación en la estructura, también aparecerá aquí agrupada por tipo."
+              description="El banco de enunciados se generará cuando se ingrese al menos una evaluación. Toda evaluación que se agregue, también se duplicará en este."
             />
             {bankGroups.length === 0 && bankAdditionalFolders.length === 0 ? (
               <CourseEmptyStatePanel
@@ -920,11 +1059,7 @@ export default function CursoCreateContent() {
                       actions={
                         <div className="inline-flex justify-end items-center gap-2">
                           <button
-                            onClick={() =>
-                              handlePendingAction(
-                                "Editar carpeta de enunciados",
-                              )
-                            }
+                            onClick={() => openEditEvaluationModal(items[0].id)}
                             className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
                             title="Editar carpeta"
                           >
@@ -964,11 +1099,7 @@ export default function CursoCreateContent() {
                     actions={
                       <div className="inline-flex justify-end items-center gap-2">
                         <button
-                          onClick={() =>
-                            handlePendingAction(
-                              "Editar carpeta adicional del banco",
-                            )
-                          }
+                          onClick={() => openEditBankAdditionalModal(folder.id)}
                           className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
                           title="Editar carpeta"
                         >
@@ -1003,12 +1134,12 @@ export default function CursoCreateContent() {
             )}
           </CourseSectionCard>
 
-          <CourseSectionCard
+          {/*<CourseSectionCard
             title="Material Adicional"
             icon="article"
             actions={
               <button
-                onClick={() => setMaterialModalOpen(true)}
+                onClick={openCreateMaterialModal}
                 className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
               >
                 <Icon
@@ -1031,9 +1162,7 @@ export default function CursoCreateContent() {
                   actions={
                     <div className="inline-flex justify-end items-center gap-2">
                       <button
-                        onClick={() =>
-                          handlePendingAction("Editar carpeta de material")
-                        }
+                        onClick={() => openEditMaterialModal(folder.id)}
                         className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
                       >
                         <Icon
@@ -1063,7 +1192,7 @@ export default function CursoCreateContent() {
                 />
               ))}
             </div>
-          </CourseSectionCard>
+          </CourseSectionCard>*/}
         </div>
       ) : (
         <CourseSectionCard title="Gestión de Alumnos" icon="groups">
@@ -1098,215 +1227,82 @@ export default function CursoCreateContent() {
         onRemoveProfessor={handleRemoveProfessor}
       />
 
-      <Modal
+      <CourseDeleteConfirmModal
         isOpen={Boolean(deleteTarget && deleteModalConfig)}
         onClose={() => setDeleteTarget(null)}
         title={deleteModalConfig?.title || ""}
-        size="sm"
-        footer={
-          <>
-            <Modal.Button
-              variant="secondary"
-              onClick={() => setDeleteTarget(null)}
-            >
-              Cancelar
-            </Modal.Button>
-            <Modal.Button variant="danger" onClick={confirmDelete}>
-              Eliminar
-            </Modal.Button>
-          </>
-        }
-      >
-        <div className="self-stretch flex flex-col justify-center items-center gap-6">
-          <div className="self-stretch text-text-tertiary text-base font-normal leading-4">
-            {deleteModalConfig?.description}
-          </div>
-        </div>
-      </Modal>
+        description={deleteModalConfig?.description || ""}
+        onConfirm={confirmDelete}
+      />
 
-      <Modal
+      <CourseSelectQuantityModal
         isOpen={evaluationModalOpen}
         onClose={() => {
           resetEvaluationModal();
           setEvaluationModalOpen(false);
         }}
-        title="Crear Nueva Evaluación"
-        size="md"
-        bodyClassName="overflow-visible"
-        footer={
-          <>
-            <Modal.Button
-              variant="secondary"
-              onClick={() => {
-                resetEvaluationModal();
-                setEvaluationModalOpen(false);
-              }}
-            >
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              onClick={handleCreateEvaluations}
-              disabled={isEvaluationModalSaveDisabled}
-            >
-              Guardar
-            </Modal.Button>
-          </>
+        title={
+          evaluationModalMode === "edit"
+            ? "Editar Evaluación"
+            : "Crear Nueva Evaluación"
         }
-      >
-        <div className="self-stretch flex flex-col justify-start items-start gap-4">
-          <FloatingSelect
-            label="Tipo de Evaluación"
-            value={evaluationTypeId}
-            options={evaluationTypeOptions}
-            onChange={(value) => setEvaluationTypeId(value)}
-            allLabel="Tipo de Evaluación"
-            className="w-full"
-            variant="floating"
-            size="large"
-          />
-          <div className="self-stretch flex flex-col gap-1">
-            <FloatingInput
-              id="evaluation-quantity"
-              label="Cantidad de Evaluaciones"
-              value={evaluationQuantity}
-              onChange={handleEvaluationQuantityChange}
-              inputMode="numeric"
-            />
-            {evaluationQuantityError ? (
-              <span className="text-xs font-normal leading-4 text-text-error-primary">
-                {evaluationQuantityError}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </Modal>
+        selectLabel="Tipo de Evaluación"
+        quantityLabel="Cantidad de Evaluaciones"
+        selectValue={evaluationTypeId}
+        onSelectChange={setEvaluationTypeId}
+        selectOptions={evaluationTypeOptions}
+        selectPlaceholder="Tipo de Evaluación"
+        quantityValue={evaluationQuantity}
+        onQuantityChange={handleEvaluationQuantityChange}
+        quantityError={evaluationQuantityError}
+        onSave={handleCreateEvaluations}
+        saveDisabled={isEvaluationModalSaveDisabled}
+      />
 
-      <Modal
+      <CourseSelectQuantityModal
         isOpen={bankAdditionalModalOpen}
         onClose={() => {
           resetBankAdditionalModal();
           setBankAdditionalModalOpen(false);
         }}
-        title="Crear Nueva Carpeta Adicional"
-        size="md"
-        bodyClassName="overflow-visible"
-        footer={
-          <>
-            <Modal.Button
-              variant="secondary"
-              onClick={() => {
-                resetBankAdditionalModal();
-                setBankAdditionalModalOpen(false);
-              }}
-            >
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              onClick={handleCreateBankAdditionalFolders}
-              disabled={isBankAdditionalModalSaveDisabled}
-            >
-              Guardar
-            </Modal.Button>
-          </>
+        title={
+          editingBankAdditionalFolderId
+            ? "Editar Carpeta Adicional"
+            : "Crear Nueva Carpeta Adicional"
         }
-      >
-        <div className="self-stretch flex flex-col justify-start items-start gap-4">
-          <FloatingSelect
-            label="Tipo de Carpeta Adicional"
-            value={bankAdditionalFolderType}
-            options={bankAdditionalFolderTypeOptions}
-            onChange={(value) =>
-              setBankAdditionalFolderType(
-                value as BankAdditionalFolderType | null,
-              )
-            }
-            allLabel="Tipo de Carpeta Adicional"
-            className="w-full"
-            variant="floating"
-            size="large"
-          />
-          <div className="self-stretch flex flex-col gap-1">
-            <FloatingInput
-              id="bank-additional-folder-quantity"
-              label="Cantidad de Evaluaciones"
-              value={bankAdditionalFolderQuantity}
-              onChange={handleBankAdditionalFolderQuantityChange}
-              inputMode="numeric"
-            />
-            {bankAdditionalFolderQuantityError ? (
-              <span className="text-xs font-normal leading-4 text-text-error-primary">
-                {bankAdditionalFolderQuantityError}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </Modal>
+        selectLabel="Tipo de Carpeta Adicional"
+        quantityLabel="Cantidad de Evaluaciones"
+        selectValue={bankAdditionalFolderType}
+        onSelectChange={(value) =>
+          setBankAdditionalFolderType(value as BankAdditionalFolderType | null)
+        }
+        selectOptions={bankAdditionalFolderTypeOptions}
+        selectPlaceholder="Tipo de Carpeta Adicional"
+        quantityValue={bankAdditionalFolderQuantity}
+        onQuantityChange={handleBankAdditionalFolderQuantityChange}
+        quantityError={bankAdditionalFolderQuantityError}
+        onSave={handleCreateBankAdditionalFolders}
+        saveDisabled={isBankAdditionalModalSaveDisabled}
+      />
 
-      <Modal
+      <CourseMaterialFolderModal
         isOpen={materialModalOpen}
+        title={
+          materialModalMode === "edit"
+            ? "Editar Carpeta Adicional"
+            : "Crear Nueva Carpeta Adicional"
+        }
+        nameValue={materialFolderName}
+        onNameChange={setMaterialFolderName}
+        descriptionValue={materialFolderDescription}
+        onDescriptionChange={setMaterialFolderDescription}
+        onSave={handleCreateAdditionalFolders}
         onClose={() => {
           resetMaterialModal();
           setMaterialModalOpen(false);
         }}
-        title="Crear Nueva Carpeta Adicional"
-        size="md"
-        bodyClassName="overflow-visible"
-        footer={
-          <>
-            <Modal.Button
-              variant="secondary"
-              onClick={() => {
-                resetMaterialModal();
-                setMaterialModalOpen(false);
-              }}
-            >
-              Cancelar
-            </Modal.Button>
-            <Modal.Button
-              onClick={handleCreateAdditionalFolders}
-              disabled={isMaterialModalSaveDisabled}
-            >
-              Guardar
-            </Modal.Button>
-          </>
-        }
-      >
-        <div className="self-stretch flex flex-col justify-start items-start gap-4">
-          <div className="self-stretch px-2 py-3 bg-bg-info-primary-light rounded-lg outline outline-2 outline-offset-[-2px] outline-muted-indigo-200 inline-flex justify-start items-center gap-2">
-            <div className="px-2 py-1 rounded-full flex justify-start items-center">
-              <Icon
-                name="content_paste"
-                size={24}
-                className="text-icon-info-primary"
-              />
-            </div>
-            <div className="flex-1 inline-flex flex-col justify-start items-start gap-0.5">
-              <div className="self-stretch text-text-primary text-sm font-normal leading-4">
-                Recuerda
-              </div>
-              <div className="self-stretch text-text-tertiary text-xs font-normal leading-4">
-                Para mantener el estándar y una vista ordenada, escribe el
-                nombre de cada evaluación con la primera letra de cada palabra
-                en mayúscula y el resto en minúscula.
-              </div>
-            </div>
-          </div>
-          <FloatingInput
-            id="material-folder-name"
-            label="Nombre de la Carpeta Adicional"
-            value={materialFolderName}
-            onChange={setMaterialFolderName}
-            maxLength={80}
-          />
-          <FloatingInput
-            id="material-folder-description"
-            label="Descripción"
-            value={materialFolderDescription}
-            onChange={setMaterialFolderDescription}
-            maxLength={180}
-          />
-        </div>
-      </Modal>
+        saveDisabled={isMaterialModalSaveDisabled}
+      />
     </div>
   );
 }

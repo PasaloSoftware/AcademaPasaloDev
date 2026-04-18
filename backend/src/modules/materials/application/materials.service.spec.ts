@@ -200,6 +200,7 @@ describe('MaterialsService', () => {
           useValue: {
             dispatchNewMaterial: jest.fn().mockResolvedValue(undefined),
             dispatchMaterialUpdated: jest.fn().mockResolvedValue(undefined),
+            dispatchDeletionRequestCreated: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -897,6 +898,7 @@ describe('MaterialsService', () => {
         materialFolderId: 'folder-1',
       } as Material);
       folderRepo.findById.mockResolvedValue(mockFolder('folder-1', '100'));
+      deletionRepo.create.mockResolvedValue({ id: 'req-1' } as any);
 
       await service.requestDeletion(mockProfessor, {
         entityType: AUDIT_ENTITY_TYPES.MATERIAL,

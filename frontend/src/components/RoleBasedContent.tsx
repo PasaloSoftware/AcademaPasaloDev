@@ -28,6 +28,7 @@ import TeacherVideoPageContent from "@/components/pages/teacher/VideoPageContent
 import TeacherPreviousCycleContent from "@/components/pages/teacher/PreviousCycleContent";
 import TeacherPreviousCycleEvaluationContent from "@/components/pages/teacher/PreviousCycleEvaluationContent";
 import TeacherBancoEnunciadosContent from "@/components/pages/teacher/BancoEnunciadosContent";
+import TeacherNotificacionesContent from "@/components/pages/teacher/NotificacionesContent";
 import TeacherPerfilContent from "@/components/pages/teacher/PerfilContent";
 
 // Importar componentes de shared
@@ -35,7 +36,12 @@ import SharedPerfilContent from "@/components/pages/shared/PerfilContent";
 
 // Importar componentes de admin
 import AdminInicioContent from "@/components/pages/admin/InicioContent";
+import AdminCalendarioContent from "@/components/pages/admin/CalendarioContent";
 import AdminAuditoriaContent from "@/components/pages/admin/AuditoriaContent";
+import AdminAuditoriaDetalleContent from "@/components/pages/admin/AuditoriaDetalleContent";
+import AdminConfiguracionContent from "@/components/pages/admin/ConfiguracionContent";
+import AdminNotificacionesContent from "@/components/pages/admin/NotificacionesContent";
+import AdminValoracionesContent from "@/components/pages/admin/ValoracionesContent";
 import AdminCursoContent from "@/components/pages/admin/CursoContent";
 import AdminCursoCreateContent from "@/components/pages/admin/CursoCreateContent";
 import AdminCursoEditContent from "@/components/pages/admin/CursoEditContent";
@@ -78,10 +84,16 @@ const componentMap: Record<string, React.ComponentType<any>> = {
   "teacher/PreviousCycleEvaluationContent":
     TeacherPreviousCycleEvaluationContent,
   "teacher/BancoEnunciadosContent": TeacherBancoEnunciadosContent,
+  "teacher/NotificacionesContent": TeacherNotificacionesContent,
 
   // Admin
   "admin/InicioContent": AdminInicioContent,
+  "admin/CalendarioContent": AdminCalendarioContent,
   "admin/AuditoriaContent": AdminAuditoriaContent,
+  "admin/AuditoriaDetalleContent": AdminAuditoriaDetalleContent,
+  "admin/ConfiguracionContent": AdminConfiguracionContent,
+  "admin/NotificacionesContent": AdminNotificacionesContent,
+  "admin/ValoracionesContent": AdminValoracionesContent,
   "admin/CursoContent": AdminCursoContent,
   "admin/CursoCreateContent": AdminCursoCreateContent,
   "admin/CursoEditContent": AdminCursoEditContent,

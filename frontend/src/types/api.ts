@@ -22,17 +22,17 @@ export interface ApiError {
 // AUTH & SESSION
 // ============================================
 
-export type SessionStatus = 
-  | 'ACTIVE' 
-  | 'PENDING_CONCURRENT_RESOLUTION' 
-  | 'BLOCKED_PENDING_REAUTH';
+export type SessionStatus =
+  | "ACTIVE"
+  | "PENDING_CONCURRENT_RESOLUTION"
+  | "BLOCKED_PENDING_REAUTH";
 
-export type RoleCode = 
-  | 'STUDENT' 
-  | 'TEACHER' 
-  | 'PROFESSOR' // Backend usa PROFESSOR en lugar de TEACHER
-  | 'ADMIN' 
-  | 'SUPER_ADMIN';
+export type RoleCode =
+  | "STUDENT"
+  | "TEACHER"
+  | "PROFESSOR" // Backend usa PROFESSOR en lugar de TEACHER
+  | "ADMIN"
+  | "SUPER_ADMIN";
 
 export interface Role {
   id?: string; // Opcional porque el backend no siempre lo retorna
@@ -49,7 +49,7 @@ export interface User {
   phone?: string;
   career?: string;
   profilePhotoUrl?: string;
-  photoSource: 'google' | 'uploaded' | 'none';
+  photoSource: "google" | "uploaded" | "none";
   roles: Role[];
   lastActiveRoleId?: string; // Opcional porque puede no venir del backend
   createdAt: string;
@@ -85,7 +85,7 @@ export interface RefreshTokenRequest {
 export interface ResolveConcurrentSessionRequest {
   refreshToken: string;
   deviceId: string;
-  decision: 'KEEP_NEW' | 'KEEP_EXISTING';
+  decision: "KEEP_NEW" | "KEEP_EXISTING";
 }
 
 export interface ReauthAnomalousRequest {
@@ -169,7 +169,7 @@ export interface Evaluation {
 
 export interface EnrollmentType {
   id: string;
-  code: 'FULL' | 'PARTIAL';
+  code: "FULL" | "PARTIAL";
   name: string;
 }
 
@@ -246,15 +246,17 @@ export interface Notification {
 // AUDIT & SECURITY
 // ============================================
 
-export type AuditSource = 'AUDIT' | 'SECURITY';
+export type AuditSource = "AUDIT" | "SECURITY";
 
 export interface AuditEntry {
   id: string;
   datetime: string;
-  userId: string;
-  userName: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  userRole?: string;
   actionCode: string;
-  actionName: string;
+  actionName?: string;
   source: AuditSource;
   entityType?: string;
   entityId?: string;
@@ -267,5 +269,7 @@ export interface AuditHistoryParams {
   startDate?: string;
   endDate?: string;
   userId?: string;
+  source?: AuditSource;
+  actionCode?: string;
   limit?: number;
 }

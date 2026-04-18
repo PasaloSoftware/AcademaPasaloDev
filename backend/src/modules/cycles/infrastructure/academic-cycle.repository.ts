@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AcademicCycle } from '@modules/cycles/domain/academic-cycle.entity';
 
+export const CYCLES_HISTORY_PAGE_SIZE = 4;
+
 @Injectable()
 export class AcademicCycleRepository {
   constructor(
@@ -26,5 +28,66 @@ export class AcademicCycleRepository {
     return await repo.findOne({
       where: { id },
     });
+  }
+
+  async findHistoryPaginated(
+    excludeId: string | null,
+    page: number,
+    pageSize: number,
+  ): Promise<[AcademicCycle[], number]> {
+    const qb = this.ormRepository
+      .createQueryBuilder('c')
+      .orderBy('c.startDate', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    if (excludeId) {
+      qb.where('c.id != :excludeId', { excludeId });
+    }
+
+    return qb.getManyAndCount();
+  }
+
+  async findByCode(
+    code: string,
+    excludeId?: string,
+  ): Promise<AcademicCycle | null> {
+    const qb = this.ormRepository
+      .createQueryBuilder('c')
+      .where('c.code = :code', { code });
+    if (excludeId) {
+      qb.andWhere('c.id != :excludeId', { excludeId });
+    }
+    return qb.getOne();
+  }
+
+  async findOverlapping(
+    startDate: string,
+    endDate: string,
+    excludeId?: string,
+  ): Promise<AcademicCycle | null> {
+    const qb = this.ormRepository
+      .createQueryBuilder('c')
+      .where('c.startDate <= :endDate AND c.endDate >= :startDate', {
+        startDate,
+        endDate,
+      });
+    if (excludeId) {
+      qb.andWhere('c.id != :excludeId', { excludeId });
+    }
+    return qb.getOne();
+  }
+
+  async createCycle(data: {
+    code: string;
+    startDate: Date;
+    endDate: Date;
+  }): Promise<AcademicCycle> {
+    const cycle = this.ormRepository.create(data);
+    return this.ormRepository.save(cycle);
+  }
+
+  async saveCycle(cycle: AcademicCycle): Promise<AcademicCycle> {
+    return this.ormRepository.save(cycle);
   }
 }

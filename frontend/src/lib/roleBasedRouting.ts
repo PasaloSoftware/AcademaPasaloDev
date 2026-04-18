@@ -62,7 +62,7 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     redirectOnDenied: "/plataforma/inicio",
   },
   "/plataforma/calendario": {
-    allowedRoles: ["STUDENT", "TEACHER", "ADMIN"],
+    allowedRoles: ["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"],
     component: "CalendarioContent",
     redirectOnDenied: "/plataforma/inicio",
   },
@@ -107,8 +107,18 @@ export const routeAccessConfig: Record<string, RouteAccess> = {
     component: "AuditoriaContent",
     redirectOnDenied: "/plataforma/inicio",
   },
+  "/plataforma/admin/auditoria/[id]": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "AuditoriaDetalleContent",
+    redirectOnDenied: "/plataforma/inicio",
+  },
+  "/plataforma/admin/valoraciones": {
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
+    component: "ValoracionesContent",
+    redirectOnDenied: "/plataforma/inicio",
+  },
   "/plataforma/admin/configuracion": {
-    allowedRoles: ["SUPER_ADMIN"],
+    allowedRoles: ["ADMIN", "SUPER_ADMIN"],
     component: "ConfiguracionContent",
     redirectOnDenied: "/plataforma/inicio",
   },
@@ -184,6 +194,7 @@ export const roleBasedComponents: Record<
     STUDENT: "student/CalendarioContent",
     TEACHER: "teacher/CalendarioContent",
     ADMIN: "admin/CalendarioContent",
+    SUPER_ADMIN: "admin/CalendarioContent",
   },
   "/plataforma/notificaciones": {
     STUDENT: "student/NotificacionesContent",
@@ -194,6 +205,18 @@ export const roleBasedComponents: Record<
   "/plataforma/admin/auditoria": {
     ADMIN: "admin/AuditoriaContent",
     SUPER_ADMIN: "admin/AuditoriaContent",
+  },
+  "/plataforma/admin/auditoria/[id]": {
+    ADMIN: "admin/AuditoriaDetalleContent",
+    SUPER_ADMIN: "admin/AuditoriaDetalleContent",
+  },
+  "/plataforma/admin/valoraciones": {
+    ADMIN: "admin/ValoracionesContent",
+    SUPER_ADMIN: "admin/ValoracionesContent",
+  },
+  "/plataforma/admin/configuracion": {
+    ADMIN: "admin/ConfiguracionContent",
+    SUPER_ADMIN: "admin/ConfiguracionContent",
   },
   "/plataforma/admin/usuarios": {
     ADMIN: "admin/UsuariosContent",
@@ -285,6 +308,38 @@ export function sanitizeRouteParam(param: string): string {
  */
 export function normalizeRoute(route: string): string {
   return route
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/ciclo-anterior\/[^/]+\/evaluacion\/[^/]+\/clase\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]/clase/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/ciclo-anterior\/[^/]+\/evaluacion\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/ciclo-anterior/[id]/evaluacion/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/ciclo-anterior\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/ciclo-anterior/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/evaluacion\/[^/]+\/clase\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/evaluacion/[id]/clase/[id]",
+    )
+    .replace(
+      /\/plataforma\/curso\/[^/]+\/evaluacion\/[^/]+(?=\/|$)/i,
+      "/plataforma/curso/[id]/evaluacion/[id]",
+    )
+    .replace(
+      /\/plataforma\/admin\/auditoria\/[^/]+(?=\/|$)/i,
+      "/plataforma/admin/auditoria/[id]",
+    )
+    .replace(
+      /\/plataforma\/admin\/usuarios\/[^/]+\/editar(?=\/|$)/i,
+      "/plataforma/admin/usuarios/[id]/editar",
+    )
+    .replace(
+      /\/plataforma\/admin\/usuarios\/[^/]+(?=\/|$)/i,
+      "/plataforma/admin/usuarios/[id]",
+    )
     .replace(/\/[0-9a-f-]+(?=\/|$)/gi, "/[id]")
     .replace(/\/banco\/[^/]+(?=\/|$)/i, "/banco/[id]");
 }

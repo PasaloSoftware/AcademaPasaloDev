@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import type { CalendarView } from '@/hooks/useCalendar';
-import Icon from '@/components/ui/Icon';
+import { useState, useRef, useEffect } from "react";
+import type { CalendarView } from "@/hooks/useCalendar";
+import Icon from "@/components/ui/Icon";
 
 interface CourseOption {
   id: string;
@@ -23,6 +23,10 @@ interface CalendarHeaderProps {
   onToday: () => void;
   onCourseChange: (courseIds: Set<string>) => void;
   actions?: React.ReactNode;
+  leftActions?: React.ReactNode;
+  courseBaseLabel?: string;
+  emptyCourseStateLabel?: string;
+  emptyCourseSearchLabel?: string;
 }
 
 // ============================================
@@ -34,29 +38,40 @@ function CourseFilterDropdown({
   selectedIds,
   onChange,
   disabled,
+  baseLabel = "Todos los cursos",
+  emptyStateLabel = "No hay cursos disponibles",
+  emptySearchLabel = "No se encontraron cursos",
 }: {
   courses: CourseOption[];
   selectedIds: Set<string>;
   onChange: (ids: Set<string>) => void;
   disabled?: boolean;
+  baseLabel?: string;
+  emptyStateLabel?: string;
+  emptySearchLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
-        setQuery('');
+        setQuery("");
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const filtered = courses.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase()) || c.code.toLowerCase().includes(query.toLowerCase())
+  const filtered = courses.filter(
+    (c) =>
+      c.name.toLowerCase().includes(query.toLowerCase()) ||
+      c.code.toLowerCase().includes(query.toLowerCase()),
   );
 
   const toggleCourse = (code: string) => {
@@ -68,9 +83,9 @@ function CourseFilterDropdown({
 
   const allSelected = selectedIds.size === 0;
   const label = allSelected
-    ? 'Todos los cursos'
+    ? baseLabel
     : selectedIds.size === 1
-      ? courses.find((c) => selectedIds.has(c.code))?.name || 'Curso'
+      ? courses.find((c) => selectedIds.has(c.code))?.name || "Curso"
       : `${selectedIds.size} cursos`;
 
   return (
@@ -78,18 +93,28 @@ function CourseFilterDropdown({
       <button
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
-        className={`h-full min-w-[200px] px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? 'outline-stroke-accent-secondary' : 'outline-stroke-primary'} inline-flex justify-start items-center gap-2 transition-colors`}
+        className={`h-full min-w-[200px] px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? "outline-stroke-accent-secondary" : "outline-stroke-primary"} inline-flex justify-start items-center gap-2 transition-colors`}
       >
-        <span className={`flex-1 text-base font-normal leading-4 text-left line-clamp-1 ${allSelected ? 'text-text-tertiary' : 'text-text-primary'}`}>
+        <span
+          className={`flex-1 text-base font-normal leading-4 text-left line-clamp-1 ${allSelected ? "text-text-tertiary" : "text-text-primary"}`}
+        >
           {label}
         </span>
-        <Icon name="expand_more" size={20} className={open ? 'text-icon-accent-primary' : 'text-icon-tertiary'} />
+        <Icon
+          name="expand_more"
+          size={20}
+          className={open ? "text-icon-accent-primary" : "text-icon-tertiary"}
+        />
       </button>
 
       {/* Floating label */}
       {(!allSelected || open) && (
         <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex">
-          <span className={`text-xs font-normal leading-4 ${open ? 'text-text-accent-primary' : 'text-text-tertiary'}`}>Curso</span>
+          <span
+            className={`text-xs font-normal leading-4 ${open ? "text-text-accent-primary" : "text-text-tertiary"}`}
+          >
+            Curso
+          </span>
         </div>
       )}
 
@@ -114,19 +139,29 @@ function CourseFilterDropdown({
           <div className="max-h-60 overflow-y-auto p-1 flex flex-col">
             {/* "Todos" option */}
             <button
-              onClick={() => { onChange(new Set()); }}
-              className={`px-2 py-2.5 rounded flex items-center gap-2 hover:bg-bg-secondary transition-colors ${allSelected ? 'bg-bg-accent-light' : ''}`}
+              onClick={() => {
+                onChange(new Set());
+              }}
+              className={`px-2 py-2.5 rounded flex items-center gap-2 hover:bg-bg-secondary transition-colors ${allSelected ? "bg-bg-accent-light" : ""}`}
             >
-              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${allSelected ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
-                {allSelected && <Icon name="check" size={12} className="text-icon-white" />}
+              <div
+                className={`w-4 h-4 rounded border-2 flex items-center justify-center ${allSelected ? "bg-bg-accent-primary-solid border-bg-accent-primary-solid" : "border-icon-tertiary"}`}
+              >
+                {allSelected && (
+                  <Icon name="check" size={12} className="text-icon-white" />
+                )}
               </div>
-              <span className={`flex-1 text-sm font-normal leading-4 text-left ${allSelected ? 'text-text-accent-primary font-medium' : 'text-text-secondary'}`}>
+              <span
+                className={`flex-1 text-sm font-normal leading-4 text-left ${allSelected ? "text-text-accent-primary font-medium" : "text-text-secondary"}`}
+              >
                 Todos
               </span>
             </button>
 
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-text-tertiary text-sm">No se encontraron cursos</div>
+              <div className="px-3 py-3 text-text-tertiary text-sm">
+                {courses.length === 0 ? emptyStateLabel : emptySearchLabel}
+              </div>
             ) : (
               filtered.map((course) => {
                 const checked = selectedIds.has(course.code);
@@ -136,10 +171,20 @@ function CourseFilterDropdown({
                     onClick={() => toggleCourse(course.code)}
                     className="px-2 py-2.5 rounded flex items-center gap-2 hover:bg-bg-secondary transition-colors"
                   >
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${checked ? 'bg-bg-accent-primary-solid border-bg-accent-primary-solid' : 'border-icon-tertiary'}`}>
-                      {checked && <Icon name="check" size={12} className="text-icon-white" />}
+                    <div
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center ${checked ? "bg-bg-accent-primary-solid border-bg-accent-primary-solid" : "border-icon-tertiary"}`}
+                    >
+                      {checked && (
+                        <Icon
+                          name="check"
+                          size={12}
+                          className="text-icon-white"
+                        />
+                      )}
                     </div>
-                    <span className={`flex-1 text-sm font-normal leading-4 text-left ${checked ? 'text-text-accent-primary font-medium' : 'text-text-secondary'}`}>
+                    <span
+                      className={`flex-1 text-sm font-normal leading-4 text-left ${checked ? "text-text-accent-primary font-medium" : "text-text-secondary"}`}
+                    >
                       {course.name}
                     </span>
                   </button>
@@ -169,6 +214,10 @@ export default function CalendarHeader({
   onToday,
   onCourseChange,
   actions,
+  leftActions,
+  courseBaseLabel,
+  emptyCourseStateLabel,
+  emptyCourseSearchLabel,
 }: CalendarHeaderProps) {
   return (
     <div className="self-stretch flex flex-col gap-8 flex-shrink-0">
@@ -183,12 +232,18 @@ export default function CalendarHeader({
       {/* Row 2: Course filter + Controls bar */}
       <div className="self-stretch inline-flex justify-between items-stretch">
         {/* Left: Course filter */}
-        <CourseFilterDropdown
-          courses={courses}
-          selectedIds={selectedCourseIds}
-          onChange={onCourseChange}
-          disabled={loadingCourses}
-        />
+        <div className="flex items-stretch gap-4">
+          <CourseFilterDropdown
+            courses={courses}
+            selectedIds={selectedCourseIds}
+            onChange={onCourseChange}
+            disabled={loadingCourses}
+            baseLabel={courseBaseLabel}
+            emptyStateLabel={emptyCourseStateLabel}
+            emptySearchLabel={emptyCourseSearchLabel}
+          />
+          {leftActions}
+        </div>
 
         {/* Right: Controls bar */}
         <div className="p-2 bg-bg-primary rounded-xl outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex justify-center items-center">
@@ -208,25 +263,41 @@ export default function CalendarHeader({
           <div className="px-6 border-r border-stroke-secondary flex justify-center items-center">
             <div className="flex justify-start items-center gap-2.5">
               <button
-                onClick={() => onViewChange('weekly')}
+                onClick={() => onViewChange("weekly")}
                 className={`px-2.5 py-2 rounded flex justify-center items-center gap-1 text-sm font-medium transition-colors ${
-                  view === 'weekly'
-                    ? 'bg-bg-accent-primary-solid text-text-white'
-                    : 'bg-bg-primary text-text-accent-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary'
+                  view === "weekly"
+                    ? "bg-bg-accent-primary-solid text-text-white"
+                    : "bg-bg-primary text-text-accent-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary"
                 }`}
               >
-                <Icon name="calendar_view_week" size={16} className={view === 'weekly' ? 'text-icon-white' : 'text-icon-accent-primary'} />
+                <Icon
+                  name="calendar_view_week"
+                  size={16}
+                  className={
+                    view === "weekly"
+                      ? "text-icon-white"
+                      : "text-icon-accent-primary"
+                  }
+                />
                 <span>Semanal</span>
               </button>
               <button
-                onClick={() => onViewChange('monthly')}
+                onClick={() => onViewChange("monthly")}
                 className={`px-2.5 py-2 rounded flex justify-center items-center gap-1 text-sm font-medium transition-colors ${
-                  view === 'monthly'
-                    ? 'bg-bg-accent-primary-solid text-text-white'
-                    : 'bg-bg-primary text-text-accent-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary'
+                  view === "monthly"
+                    ? "bg-bg-accent-primary-solid text-text-white"
+                    : "bg-bg-primary text-text-accent-primary outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary"
                 }`}
               >
-                <Icon name="calendar_view_month" size={16} className={view === 'monthly' ? 'text-icon-white' : 'text-icon-accent-primary'} />
+                <Icon
+                  name="calendar_view_month"
+                  size={16}
+                  className={
+                    view === "monthly"
+                      ? "text-icon-white"
+                      : "text-icon-accent-primary"
+                  }
+                />
                 <span>Mensual</span>
               </button>
             </div>
@@ -243,13 +314,21 @@ export default function CalendarHeader({
                   onClick={onPrevious}
                   className="p-1 rounded-lg flex justify-center items-center hover:bg-bg-secondary transition-colors"
                 >
-                  <Icon name="chevron_left" size={16} className="text-icon-accent-primary" />
+                  <Icon
+                    name="chevron_left"
+                    size={16}
+                    className="text-icon-accent-primary"
+                  />
                 </button>
                 <button
                   onClick={onNext}
                   className="p-1 rounded-lg flex justify-center items-center hover:bg-bg-secondary transition-colors"
                 >
-                  <Icon name="chevron_right" size={16} className="text-icon-accent-primary" />
+                  <Icon
+                    name="chevron_right"
+                    size={16}
+                    className="text-icon-accent-primary"
+                  />
                 </button>
               </div>
             </div>
