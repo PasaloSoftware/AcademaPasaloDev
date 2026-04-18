@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
@@ -158,6 +159,79 @@ function buildAuditDetailExportRow(entry: AuditEntry): Record<string, string> {
   };
 }
 
+function renderJsonValue(
+  value: unknown,
+  indentLevel = 0,
+  path = "root",
+): ReactNode {
+  const indentStyle =
+    indentLevel > 0 ? { paddingLeft: `${indentLevel * 24}px` } : undefined;
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="text-sky-300">[]</span>;
+    }
+
+    return (
+      <div className="flex flex-col" style={indentStyle}>
+        <span className="text-sky-300">[</span>
+        {value.map((item, index) => (
+          <div key={`${path}[${index}]`} className="pl-6">
+            {renderJsonValue(item, indentLevel + 1, `${path}[${index}]`)}
+            {index < value.length - 1 ? (
+              <span className="text-sky-300">,</span>
+            ) : null}
+          </div>
+        ))}
+        <span className="text-sky-300">]</span>
+      </div>
+    );
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value);
+
+    if (entries.length === 0) {
+      return <span className="text-sky-300">{"{}"}</span>;
+    }
+
+    return (
+      <div className="flex flex-col" style={indentStyle}>
+        <span className="text-sky-300">{"{"}</span>
+        {entries.map(([key, nestedValue], index) => (
+          <div key={`${path}.${key}`} className="pl-6">
+            <span className="text-fuchsia-300">"{key}"</span>
+            <span className="text-sky-300">: </span>
+            {renderJsonValue(nestedValue, indentLevel + 1, `${path}.${key}`)}
+            {index < entries.length - 1 ? (
+              <span className="text-sky-300">,</span>
+            ) : null}
+          </div>
+        ))}
+        <span className="text-sky-300">{"}"}</span>
+      </div>
+    );
+  }
+
+  if (typeof value === "string") {
+    return <span className="text-emerald-300">"{value}"</span>;
+  }
+
+  if (typeof value === "number") {
+    return <span className="text-amber-300">{value}</span>;
+  }
+
+  if (typeof value === "boolean") {
+    return <span className="text-violet-300">{String(value)}</span>;
+  }
+
+  if (value === null) {
+    return <span className="text-rose-300">null</span>;
+  }
+
+  return <span className="text-slate-300">{String(value ?? "")}</span>;
+}
+
 function readStoredEvent(id: string): AuditEntry | null {
   if (typeof window === "undefined") return null;
 
@@ -197,7 +271,7 @@ function InfoField({
     <div
       className={`flex-1 inline-flex flex-col justify-start items-start gap-1 min-w-[220px] ${className}`}
     >
-      <div className="self-stretch justify-center text-text-quartiary text-sm font-semibold leading-4">
+      <div className="self-stretch justify-center text-gray-600 text-sm font-semibold leading-4">
         {label}
       </div>
       <div className="self-stretch justify-center text-text-primary text-base font-medium leading-4 break-words">
@@ -347,6 +421,10 @@ export default function AuditoriaDetalleContent() {
     () => (entry ? JSON.stringify(entry, null, 2) : ""),
     [entry],
   );
+  const highlightedJson = useMemo(
+    () => (entry ? renderJsonValue(entry) : null),
+    [entry],
+  );
   const isSecurityEvent = entry?.source === "SECURITY";
 
   const handleCopyRawJson = useCallback(async () => {
@@ -437,7 +515,7 @@ export default function AuditoriaDetalleContent() {
           <Icon
             name="person"
             size={20}
-            className="text-icon-accent-secondary"
+            className="text-accent-secondary"
           />
           <div className="flex-1 justify-center text-text-primary text-lg font-semibold leading-5">
             Información del Usuario
@@ -505,7 +583,7 @@ export default function AuditoriaDetalleContent() {
               value={formatDateTime(entry.datetime)}
             />
             <div className="flex-1 inline-flex flex-col justify-start items-start gap-1 min-w-[220px]">
-              <div className="self-stretch justify-center text-text-quartiary text-sm font-semibold leading-4">
+              <div className="self-stretch justify-center text-gray-600 text-sm font-semibold leading-4">
                 Tipo
               </div>
               <div className="inline-flex justify-start items-start">
@@ -562,9 +640,9 @@ export default function AuditoriaDetalleContent() {
           </button>
         </div>
         <div className="self-stretch px-8 py-8 flex flex-col justify-start items-start overflow-hidden">
-          <pre className="self-stretch whitespace-pre-wrap break-words text-slate-200 text-sm font-normal font-mono leading-6">
-            {rawJson}
-          </pre>
+          <div className="self-stretch whitespace-pre-wrap break-words text-sm font-normal font-mono leading-6">
+            {highlightedJson}
+          </div>
         </div>
       </div>
     </div>
