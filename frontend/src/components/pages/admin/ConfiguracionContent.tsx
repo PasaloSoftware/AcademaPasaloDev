@@ -611,7 +611,7 @@ export default function ConfiguracionContent() {
                   </div>
                 </div>
                 <EmptyStatePanel
-                  icon="event_busy"
+                  icon="warning"
                   title="No hay un ciclo academico configurado"
                   description="Para comenzar a gestionar estudiantes y cursos, primero debe definir los periodos de inicio y fin del ciclo actual."
                   buttonLabel="Configurar ciclo vigente"
@@ -730,7 +730,7 @@ export default function ConfiguracionContent() {
                     </div>
                   </div>
                   <EmptyStatePanel
-                    icon="security"
+                    icon="warning"
                     title="Sin parametros de seguridad"
                     description="No se ha configurado ningun parametro de seguridad"
                     buttonLabel="Configurar seguridad"
@@ -754,7 +754,7 @@ export default function ConfiguracionContent() {
                     </div>
                   </div>
                   <EmptyStatePanel
-                    icon="database"
+                    icon="warning"
                     title="Sin periodo de retencion"
                     description="No se ha definido el periodo de retencion de datos"
                     buttonLabel="Configurar retencion"
