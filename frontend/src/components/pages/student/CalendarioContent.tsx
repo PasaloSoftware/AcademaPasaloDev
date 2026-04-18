@@ -63,13 +63,16 @@ export default function CalendarioContent() {
       setSelectedEvent(found);
       setIsModalOpen(true);
     } else {
-      classEventService.getEventDetail(eventId).then((event) => {
-        goToDate(new Date(event.startDatetime));
-        setSelectedEvent(event);
-        setIsModalOpen(true);
-      }).catch((err) => {
-        console.error("Error al cargar evento desde notificación:", err);
-      });
+      classEventService
+        .getEventDetail(eventId)
+        .then((event) => {
+          goToDate(new Date(event.startDatetime));
+          setSelectedEvent(event);
+          setIsModalOpen(true);
+        })
+        .catch((err) => {
+          console.error("Error al cargar evento desde notificación:", err);
+        });
     }
   }, [searchParams, events, loading, changeView, goToDate]);
 
@@ -110,6 +113,7 @@ export default function CalendarioContent() {
           isToday={isToday}
           onEventClick={handleEventClick}
           selectedEventId={isModalOpen ? selectedEvent?.id : null}
+          disableScroll={isModalOpen}
         />
       ) : (
         <CalendarMonthlyView
@@ -118,6 +122,7 @@ export default function CalendarioContent() {
           isToday={isToday}
           onEventClick={handleEventClick}
           selectedEventId={isModalOpen ? selectedEvent?.id : null}
+          disableScroll={isModalOpen}
         />
       )}
 
@@ -125,7 +130,7 @@ export default function CalendarioContent() {
         event={selectedEvent}
         isOpen={isModalOpen}
         anchorPosition={anchorPosition}
-        calendarView={view === 'monthly' ? 'monthly' : 'weekly'}
+        calendarView={view === "monthly" ? "monthly" : "weekly"}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedEvent(null);

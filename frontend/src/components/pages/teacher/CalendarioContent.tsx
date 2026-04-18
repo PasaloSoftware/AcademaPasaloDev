@@ -626,7 +626,7 @@ export default function CalendarioContent() {
         onPrevious={goToPrevious}
         onToday={goToToday}
         onCourseChange={filterByCourse}
-        courseBaseLabel="Todos los cursos del filtro"
+        courseBaseLabel="Todos"
         emptyCourseStateLabel="No hay cursos para los filtros aplicados"
         emptyCourseSearchLabel="No se encontraron cursos con esa búsqueda"
         leftActions={
@@ -669,6 +669,7 @@ export default function CalendarioContent() {
           isToday={isToday}
           onEventClick={handleEventClick}
           selectedEventId={isDetailOpen ? selectedEvent?.id : null}
+          disableScroll={isDetailOpen}
         />
       ) : (
         <CalendarMonthlyView
@@ -677,6 +678,7 @@ export default function CalendarioContent() {
           isToday={isToday}
           onEventClick={handleEventClick}
           selectedEventId={isDetailOpen ? selectedEvent?.id : null}
+          disableScroll={isDetailOpen}
         />
       )}
 

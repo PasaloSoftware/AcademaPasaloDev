@@ -89,15 +89,13 @@ function CourseFilterDropdown({
       : `${selectedIds.size} cursos`;
 
   return (
-    <div ref={wrapperRef} className="relative self-stretch">
+    <div ref={wrapperRef} className="relative w-64">
       <button
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
-        className={`h-full min-w-[200px] px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? "outline-stroke-accent-secondary" : "outline-stroke-primary"} inline-flex justify-start items-center gap-2 transition-colors`}
+        className={`h-12 w-full px-3 py-3.5 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] ${open ? "outline-stroke-accent-secondary" : "outline-stroke-primary"} inline-flex justify-start items-center gap-2 transition-colors`}
       >
-        <span
-          className={`flex-1 text-base font-normal leading-4 text-left line-clamp-1 ${allSelected ? "text-text-tertiary" : "text-text-primary"}`}
-        >
+        <span className="flex-1 text-base font-normal leading-4 text-left line-clamp-1 text-text-primary">
           {label}
         </span>
         <Icon
@@ -108,15 +106,13 @@ function CourseFilterDropdown({
       </button>
 
       {/* Floating label */}
-      {(!allSelected || open) && (
-        <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex">
-          <span
-            className={`text-xs font-normal leading-4 ${open ? "text-text-accent-primary" : "text-text-tertiary"}`}
-          >
-            Curso
-          </span>
-        </div>
-      )}
+      <div className="px-1 left-[8px] top-[-7px] absolute bg-bg-primary inline-flex">
+        <span
+          className={`text-xs font-normal leading-4 ${open ? "text-text-accent-primary" : "text-text-tertiary"}`}
+        >
+          Curso
+        </span>
+      </div>
 
       {open && (
         <div className="absolute top-full left-0 mt-1 z-20 w-72 bg-bg-primary rounded-lg shadow-[2px_4px_4px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-stroke-secondary flex flex-col">
@@ -230,9 +226,9 @@ export default function CalendarHeader({
       </div>
 
       {/* Row 2: Course filter + Controls bar */}
-      <div className="self-stretch inline-flex justify-between items-stretch">
+      <div className="self-stretch inline-flex justify-between items-center gap-4">
         {/* Left: Course filter */}
-        <div className="flex items-stretch gap-4">
+        <div className="flex items-center gap-4">
           <CourseFilterDropdown
             courses={courses}
             selectedIds={selectedCourseIds}

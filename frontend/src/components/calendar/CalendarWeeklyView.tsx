@@ -21,6 +21,7 @@ interface CalendarWeeklyViewProps {
   isToday: (date: Date) => boolean;
   onEventClick: (event: ClassEvent, e: React.MouseEvent) => void;
   selectedEventId?: string | null;
+  disableScroll?: boolean;
 }
 
 export default function CalendarWeeklyView({
@@ -31,6 +32,7 @@ export default function CalendarWeeklyView({
   isToday,
   onEventClick,
   selectedEventId,
+  disableScroll = false,
 }: CalendarWeeklyViewProps) {
   const EVENT_BOTTOM_GAP_PX = 4;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -94,7 +96,9 @@ export default function CalendarWeeklyView({
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        className={`flex-1 overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
+          disableScroll ? "overflow-y-hidden" : "overflow-y-auto"
+        }`}
       >
         <div className="flex min-w-full">
           <div className="w-16 flex flex-col flex-shrink-0 bg-bg-primary sticky left-0 z-10 border-r border-stroke-secondary">

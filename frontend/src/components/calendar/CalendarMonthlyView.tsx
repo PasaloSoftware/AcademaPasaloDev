@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { ClassEvent } from '@/types/classEvent';
-import { getCourseColor } from '@/lib/courseColors';
-import { DAY_NAMES, getMonthDays, getEventsForDay } from './calendarUtils';
+import type { ClassEvent } from "@/types/classEvent";
+import { getCourseColor } from "@/lib/courseColors";
+import { DAY_NAMES, getMonthDays, getEventsForDay } from "./calendarUtils";
 
 interface CalendarMonthlyViewProps {
   currentDate: Date;
@@ -10,6 +10,7 @@ interface CalendarMonthlyViewProps {
   isToday: (date: Date) => boolean;
   onEventClick: (event: ClassEvent, e: React.MouseEvent) => void;
   selectedEventId?: string | null;
+  disableScroll?: boolean;
 }
 
 export default function CalendarMonthlyView({
@@ -18,6 +19,7 @@ export default function CalendarMonthlyView({
   isToday,
   onEventClick,
   selectedEventId,
+  disableScroll = false,
 }: CalendarMonthlyViewProps) {
   const monthDays = getMonthDays(currentDate);
   const weeksCount = monthDays.length / 7;
@@ -28,7 +30,7 @@ export default function CalendarMonthlyView({
         {DAY_NAMES.map((dayName, index) => (
           <div
             key={dayName}
-            className={`flex-1 p-4 flex flex-col items-center ${index === 6 ? 'rounded-tr-2xl' : ''}`}
+            className={`flex-1 p-4 flex flex-col items-center ${index === 6 ? "rounded-tr-2xl" : ""}`}
           >
             <div className="text-sm font-medium text-text-tertiary">
               {dayName}
@@ -37,7 +39,11 @@ export default function CalendarMonthlyView({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div
+        className={`flex-1 overflow-x-hidden min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
+          disableScroll ? "overflow-y-hidden" : "overflow-y-auto"
+        }`}
+      >
         <div className="flex flex-col min-h-0">
           {Array.from({ length: weeksCount }, (_, weekIndex) => {
             const weekDays = monthDays.slice(
@@ -48,7 +54,7 @@ export default function CalendarMonthlyView({
             return (
               <div
                 key={weekIndex}
-                className={`flex min-h-[108px] ${weekIndex < weeksCount - 1 ? 'border-b border-stroke-secondary' : ''}`}
+                className={`flex min-h-[108px] ${weekIndex < weeksCount - 1 ? "border-b border-stroke-secondary" : ""}`}
               >
                 {weekDays.map((day, dayIndex) => {
                   const dayEvents = getEventsForDay(events, day);
@@ -60,23 +66,21 @@ export default function CalendarMonthlyView({
                     <div
                       key={`${day.getTime()}-${dayIndex}`}
                       className={`flex-1 self-stretch py-2 flex flex-col items-center gap-2 ${
-                        dayIndex < 6
-                          ? 'border-r border-stroke-secondary'
-                          : ''
+                        dayIndex < 6 ? "border-r border-stroke-secondary" : ""
                       }`}
                     >
                       <div
                         className={`w-6 h-6 p-0.5 rounded-full flex items-center justify-center ${
-                          isTodayDay ? 'bg-info-primary-solid' : ''
+                          isTodayDay ? "bg-info-primary-solid" : ""
                         }`}
                       >
                         <div
                           className={`text-sm font-medium text-center ${
                             isTodayDay
-                              ? 'text-text-white'
+                              ? "text-text-white"
                               : isCurrentMonth
-                                ? 'text-text-primary'
-                                : 'text-text-tertiary'
+                                ? "text-text-primary"
+                                : "text-text-tertiary"
                           }`}
                         >
                           {day.getDate()}
@@ -92,7 +96,7 @@ export default function CalendarMonthlyView({
                           return (
                             <div
                               key={event.id}
-                              className={`mr-2 rounded-lg overflow-hidden border-l-4 px-2 py-1 cursor-pointer hover:opacity-80 transition-all ${isSelected ? 'shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10' : ''}`}
+                              className={`mr-2 rounded-lg overflow-hidden border-l-4 px-2 py-1 cursor-pointer hover:opacity-80 transition-all ${isSelected ? "shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)] z-10" : ""}`}
                               style={{
                                 borderLeftColor: colors.primary,
                                 backgroundColor: colors.secondary,
