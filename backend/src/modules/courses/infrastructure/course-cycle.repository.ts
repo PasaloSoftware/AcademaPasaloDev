@@ -43,6 +43,19 @@ export type CourseCycleCategoryMetaRow = {
   courseTypeId: string;
 };
 
+export type GlobalFilterCatalogRow = {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  courseTypeCode: string;
+  courseTypeName: string;
+  academicCycleId: string;
+  academicCycleCode: string;
+  academicCycleStartDate: Date;
+  academicCycleEndDate: Date;
+};
+
 export type PublicLandingCourseRow = {
   courseCycleId: string;
   courseId: string;
@@ -295,6 +308,65 @@ export class CourseCycleRepository {
       courseCycleIds: rows.map((r) => r.courseCycleId),
       courseTypeId: rows[0].courseTypeId,
     };
+  }
+
+  async findCourseCycleIdsByGlobalFilters(params: {
+    academicCycleId?: string;
+    courseTypeCode?: string;
+    courseIds?: string[];
+  }): Promise<string[]> {
+    const qb = this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .innerJoin('course.courseType', 'ct')
+      .select('cc.id', 'courseCycleId');
+
+    if (params.academicCycleId) {
+      qb.andWhere('cc.academic_cycle_id = :academicCycleId', {
+        academicCycleId: params.academicCycleId,
+      });
+    }
+
+    if (params.courseTypeCode) {
+      qb.andWhere('ct.code = :courseTypeCode', {
+        courseTypeCode: params.courseTypeCode,
+      });
+    }
+
+    if (params.courseIds && params.courseIds.length > 0) {
+      qb.andWhere('course.id IN (:...courseIds)', {
+        courseIds: params.courseIds,
+      });
+    }
+
+    qb.orderBy('cc.id', 'ASC');
+
+    const rows = await qb.getRawMany<{ courseCycleId: string }>();
+    return rows.map((row) => row.courseCycleId);
+  }
+
+  async findGlobalFilterCatalogRows(): Promise<GlobalFilterCatalogRow[]> {
+    return await this.ormRepository
+      .createQueryBuilder('cc')
+      .innerJoin('cc.course', 'course')
+      .innerJoin('cc.academicCycle', 'ac')
+      .innerJoin('course.courseType', 'ct')
+      .select([
+        'cc.id AS courseCycleId',
+        'course.id AS courseId',
+        'course.code AS courseCode',
+        'course.name AS courseName',
+        'ct.code AS courseTypeCode',
+        'ct.name AS courseTypeName',
+        'ac.id AS academicCycleId',
+        'ac.code AS academicCycleCode',
+        'ac.startDate AS academicCycleStartDate',
+        'ac.endDate AS academicCycleEndDate',
+      ])
+      .orderBy('ac.startDate', 'DESC')
+      .addOrderBy('ct.code', 'ASC')
+      .addOrderBy('course.name', 'ASC')
+      .getRawMany<GlobalFilterCatalogRow>();
   }
 
   async findAdminCourseCyclesPage(

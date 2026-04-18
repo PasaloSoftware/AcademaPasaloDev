@@ -12,17 +12,16 @@ import {
 import { useCalendar } from "@/hooks/useCalendar";
 import {
   classEventService,
+  type GlobalFilterCatalogCourseCycle,
   type GlobalSessionItem,
   type GlobalSessionsGroup,
 } from "@/services/classEvent.service";
 import {
   coursesService,
-  type AdminCourseCycleItem,
   type AdminCourseCycleProfessor,
 } from "@/services/courses.service";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import type { ClassEvent } from "@/types/classEvent";
-import type { Course } from "@/types/api";
 import EventDetailModal from "@/components/modals/EventDetailModal";
 import CreateClassModal from "@/components/modals/CreateClassModal";
 import EditClassModal from "@/components/modals/EditClassModal";
@@ -52,7 +51,6 @@ interface VisibleCourseCycle {
   courseTypeCode: string;
   academicCycleId: string;
   academicCycleCode: string;
-  professors: AdminCourseCycleProfessor[];
 }
 
 const DEFAULT_FILTERS: AdminCalendarFilters = {
@@ -82,24 +80,17 @@ function unitLabel(unit: AdminCalendarUnit) {
   return unit.charAt(0) + unit.slice(1).toLowerCase();
 }
 
-function mapAdminCourseCycle(
-  item: AdminCourseCycleItem,
-  courseMap: Map<string, Course>,
+function mapGlobalFilterCourseCycle(
+  item: GlobalFilterCatalogCourseCycle,
 ): VisibleCourseCycle {
-  const courseMeta = courseMap.get(item.course.id);
-
   return {
     courseCycleId: item.courseCycleId,
-    courseId: item.course.id,
-    courseCode: item.course.code,
-    courseName: item.course.name,
-    courseTypeCode:
-      normalizeUnitCode(courseMeta?.courseType?.name) ??
-      normalizeUnitCode(courseMeta?.courseType?.code) ??
-      "CIENCIAS",
-    academicCycleId: item.academicCycle.id,
-    academicCycleCode: item.academicCycle.code,
-    professors: item.professors,
+    courseId: item.courseId,
+    courseCode: item.courseCode,
+    courseName: item.courseName,
+    courseTypeCode: normalizeUnitCode(item.courseTypeCode) ?? "CIENCIAS",
+    academicCycleId: item.academicCycleId,
+    academicCycleCode: item.academicCycleCode,
   };
 }
 
@@ -159,26 +150,6 @@ function FilterChip({
   );
 }
 
-async function loadAllAdminCourseCycles() {
-  const pageSize = 200;
-  const firstPage = await coursesService.getAdminCourseCycles({
-    page: 1,
-    pageSize,
-  });
-
-  const allItems = [...firstPage.items];
-
-  for (let page = 2; page <= firstPage.totalPages; page += 1) {
-    const response = await coursesService.getAdminCourseCycles({
-      page,
-      pageSize,
-    });
-    allItems.push(...response.items);
-  }
-
-  return allItems;
-}
-
 export default function CalendarioContent() {
   const {
     view,
@@ -207,7 +178,11 @@ export default function CalendarioContent() {
   const [allCourseCycles, setAllCourseCycles] = useState<VisibleCourseCycle[]>(
     [],
   );
+  const [professorsByCourseCycle, setProfessorsByCourseCycle] = useState<
+    Record<string, AdminCourseCycleProfessor[]>
+  >({});
   const [loadingCourseCycles, setLoadingCourseCycles] = useState(true);
+  const [loadingCreateOptions, setLoadingCreateOptions] = useState(false);
   const [globalEvents, setGlobalEvents] = useState<ClassEvent[]>([]);
   const [loadingGlobalEvents, setLoadingGlobalEvents] = useState(false);
   const [globalEventIds, setGlobalEventIds] = useState<Set<string>>(new Set());
@@ -252,16 +227,12 @@ export default function CalendarioContent() {
       setLoadingCourseCycles(true);
 
       try {
-        const [courses, adminCourseCycles] = await Promise.all([
-          coursesService.findAll(),
-          loadAllAdminCourseCycles(),
-        ]);
+        const catalog = await classEventService.getGlobalFilterCatalog();
 
         if (!isMounted) return;
 
-        const courseMap = new Map(courses.map((course) => [course.id, course]));
-        const mappedCourseCycles = adminCourseCycles.map((item) =>
-          mapAdminCourseCycle(item, courseMap),
+        const mappedCourseCycles = catalog.courseCycles.map((item) =>
+          mapGlobalFilterCourseCycle(item),
         );
 
         setAllCourseCycles(
@@ -360,35 +331,18 @@ export default function CalendarioContent() {
     setLoadingGlobalEvents(true);
 
     try {
-      const groupedCourseCycleIds = filteredVisibleCourseCycles.reduce(
-        (acc, courseCycle) => {
-          const key = `${courseCycle.courseTypeCode}:${courseCycle.academicCycleId}`;
-          if (!acc.has(key)) {
-            acc.set(key, []);
-          }
-
-          const group = acc.get(key);
-          if (group && !group.includes(courseCycle.courseCycleId)) {
-            group.push(courseCycle.courseCycleId);
-          }
-
-          return acc;
+      const groupedResponses = await classEventService.getGlobalSessionsByFilters(
+        {
+          startDate: currentRange.startDate,
+          endDate: currentRange.endDate,
+          academicCycleId:
+            appliedFilters.cycleId === "ALL" ? undefined : appliedFilters.cycleId,
+          courseTypeCode:
+            appliedFilters.unit === "ALL" ? undefined : appliedFilters.unit,
         },
-        new Map<string, string[]>(),
-      );
-
-      const groupedResponses = await Promise.all(
-        Array.from(groupedCourseCycleIds.values()).map((courseCycleIds) =>
-          classEventService.getGlobalSessions({
-            courseCycleIds,
-            startDate: currentRange.startDate,
-            endDate: currentRange.endDate,
-          }),
-        ),
       );
 
       const mappedEvents = groupedResponses
-        .flat()
         .flatMap((group) =>
           group.sessions.map((session) =>
             mapGlobalSessionToClassEvent(group, session),
@@ -410,6 +364,8 @@ export default function CalendarioContent() {
       setLoadingGlobalEvents(false);
     }
   }, [
+    appliedFilters.cycleId,
+    appliedFilters.unit,
     currentRange.endDate,
     currentRange.startDate,
     filteredVisibleCourseCycles,
@@ -497,11 +453,75 @@ export default function CalendarioContent() {
     }
   };
 
-  const handleDuplicate = () => {
-    if (selectedEvent) {
-      setDuplicateSource(selectedEvent);
+  const ensureProfessorsLoaded = useCallback(
+    async (courseCycleIds: string[]) => {
+      const uniqueIds = [...new Set(courseCycleIds)];
+      const missingIds = uniqueIds.filter(
+        (id) => professorsByCourseCycle[id] === undefined,
+      );
+
+      if (missingIds.length === 0) return;
+
+      const fetched = await Promise.all(
+        missingIds.map(
+          async (
+            courseCycleId,
+          ): Promise<[string, AdminCourseCycleProfessor[]]> => {
+          try {
+            const professors =
+              await coursesService.getProfessorsByCourseCycle(courseCycleId);
+            return [
+              courseCycleId,
+              professors.map((professor) => ({
+                ...professor,
+                lastName2: "",
+              })),
+            ];
+          } catch {
+            return [courseCycleId, []];
+          }
+          },
+        ),
+      );
+
+      setProfessorsByCourseCycle((previous) => {
+        const next = { ...previous };
+        fetched.forEach(([courseCycleId, professors]) => {
+          next[courseCycleId] = professors;
+        });
+        return next;
+      });
+    },
+    [professorsByCourseCycle],
+  );
+
+  const handleOpenCreate = useCallback(async () => {
+    const courseCycleIds = filteredVisibleCourseCycles.map(
+      (courseCycle) => courseCycle.courseCycleId,
+    );
+
+    if (courseCycleIds.length === 0) return;
+
+    setLoadingCreateOptions(true);
+    try {
+      await ensureProfessorsLoaded(courseCycleIds);
+      setIsCreateOpen(true);
+    } finally {
+      setLoadingCreateOptions(false);
     }
-  };
+  }, [ensureProfessorsLoaded, filteredVisibleCourseCycles]);
+
+  const handleDuplicate = useCallback(async () => {
+    if (!selectedEvent) return;
+
+    setLoadingCreateOptions(true);
+    try {
+      await ensureProfessorsLoaded([selectedEvent.courseCycleId]);
+      setDuplicateSource(selectedEvent);
+    } finally {
+      setLoadingCreateOptions(false);
+    }
+  }, [ensureProfessorsLoaded, selectedEvent]);
 
   const handleEventMutated = () => {
     void loadGlobalEvents();
@@ -527,7 +547,9 @@ export default function CalendarioContent() {
   const courseOptions = filteredVisibleCourseCycles.map((courseCycle) => ({
     id: courseCycle.courseCycleId,
     name: courseCycle.courseName,
-    professors: courseCycle.professors.map((professor) => ({
+    professors: (
+      professorsByCourseCycle[courseCycle.courseCycleId] || []
+    ).map((professor) => ({
       id: professor.id,
       firstName: professor.firstName,
       lastName1: professor.lastName1,
@@ -573,12 +595,13 @@ export default function CalendarioContent() {
         }
         actions={
           <button
-            onClick={() => setIsCreateOpen(true)}
+            onClick={() => void handleOpenCreate()}
+            disabled={loadingCreateOptions || courseOptions.length === 0}
             className="px-6 py-3 bg-bg-accent-primary-solid rounded-lg inline-flex justify-center items-center gap-1.5 hover:opacity-90 transition-opacity"
           >
             <Icon name="add" size={16} className="text-icon-white" />
             <span className="text-text-white text-sm font-medium leading-4">
-              Crear Clase
+              {loadingCreateOptions ? "Cargando..." : "Crear Clase"}
             </span>
           </button>
         }
@@ -668,7 +691,7 @@ export default function CalendarioContent() {
         canCancel
         onEdit={handleEdit}
         onCancel={handleCancel}
-        onDuplicate={handleDuplicate}
+        onDuplicate={() => void handleDuplicate()}
         onClose={() => {
           setIsDetailOpen(false);
           setSelectedEvent(null);
@@ -694,7 +717,12 @@ export default function CalendarioContent() {
           evaluationId={duplicateSource?.evaluationId}
           evaluationName={duplicateSource?.evaluationName}
           courseProfessors={
-            duplicateSource?.professors || defaultCourseOption?.professors || []
+            (duplicateSource
+              ? professorsByCourseCycle[duplicateSource.courseCycleId]
+              : undefined) ||
+            duplicateSource?.professors ||
+            defaultCourseOption?.professors ||
+            []
           }
           courseOptions={courseOptions}
           allowEvalSelection

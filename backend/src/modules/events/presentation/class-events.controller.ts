@@ -18,6 +18,7 @@ import { UpdateClassEventDto } from '@modules/events/dto/update-class-event.dto'
 import { AssignProfessorDto } from '@modules/events/dto/assign-professor.dto';
 import { ClassEventResponseDto } from '@modules/events/dto/class-event-response.dto';
 import { GlobalSessionsQueryDto } from '@modules/events/dto/global-sessions-query.dto';
+import { GlobalSessionsByFiltersQueryDto } from '@modules/events/dto/global-sessions-by-filters-query.dto';
 import { StartClassEventRecordingUploadDto } from '@modules/events/dto/start-class-event-recording-upload.dto';
 import { FinalizeClassEventRecordingUploadDto } from '@modules/events/dto/finalize-class-event-recording-upload.dto';
 import { HeartbeatClassEventRecordingUploadDto } from '@modules/events/dto/heartbeat-class-event-recording-upload.dto';
@@ -162,6 +163,43 @@ export class ClassEventsController {
         courseCycleIds: query.courseCycleIds,
         courseTypeCode: query.courseTypeCode,
         cycleLevelId: query.cycleLevelId,
+      },
+      startDate,
+      endDate,
+    );
+  }
+
+  @Get('global/filter-catalog')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Catalogo de filtros globales obtenido exitosamente')
+  async getGlobalFilterCatalog() {
+    return await this.classEventsQueryService.getGlobalFilterCatalog();
+  }
+
+  @Get('global/sessions-by-filters')
+  @Roles(ROLE_CODES.PROFESSOR, ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Sesiones globales por filtros obtenidas exitosamente')
+  async getGlobalSessionsByFilters(
+    @Query() query: GlobalSessionsByFiltersQueryDto,
+  ): Promise<
+    Awaited<ReturnType<ClassEventsQueryService['getGlobalSessionsByFilters']>>
+  > {
+    const startDate = parseScheduleRangeStartToUtc(
+      query.startDate,
+      'startDate',
+    );
+    const endDate = parseScheduleRangeEndExclusiveToUtc(
+      query.endDate,
+      'endDate',
+    );
+
+    assertValidDateRange(startDate, endDate, 'startDate', 'endDate');
+
+    return await this.classEventsQueryService.getGlobalSessionsByFilters(
+      {
+        academicCycleId: query.academicCycleId,
+        courseTypeCode: query.courseTypeCode,
+        courseIds: query.courseIds,
       },
       startDate,
       endDate,

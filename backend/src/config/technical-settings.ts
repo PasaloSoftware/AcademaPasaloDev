@@ -128,6 +128,8 @@ export const technicalSettings = {
     events: {
       // src/modules/events/application/class-events.service.ts
       classEventsCacheTtlSeconds: 1800, // 30m
+      // src/modules/events/application/class-events-query.service.ts
+      globalFilterCatalogCacheTtlSeconds: 300, // 5m
       // src/modules/events/application/class-events.service.ts
       calendarLockTimeoutSeconds: 10, // 10s
       // src/modules/events/application/class-events.service.ts
@@ -148,6 +150,8 @@ export const technicalSettings = {
       professorAssignmentCacheTtlSeconds: 3600, // 60m
       // src/modules/courses/application/courses.service.ts
       courseCycleExistsCacheTtlSeconds: 30, // 30s
+      // src/modules/courses/application/courses.service.ts
+      adminCourseCyclesListCacheTtlSeconds: 60, // 60s
     },
 
     enrollments: {

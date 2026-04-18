@@ -147,6 +147,8 @@ export class CoursesService {
     technicalSettings.cache.courses.professorAssignmentCacheTtlSeconds;
   private readonly COURSE_CYCLE_EXISTS_CACHE_TTL =
     technicalSettings.cache.courses.courseCycleExistsCacheTtlSeconds;
+  private readonly ADMIN_COURSE_CYCLES_LIST_CACHE_TTL =
+    technicalSettings.cache.courses.adminCourseCyclesListCacheTtlSeconds;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -232,18 +234,30 @@ export class CoursesService {
   ): Promise<AdminCourseCycleListResponseDto> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
+    const search = query.search?.trim() ?? '';
+    const cacheKey = COURSE_CACHE_KEYS.ADMIN_COURSE_CYCLES_LIST(
+      page,
+      pageSize,
+      search,
+    );
+
+    const cached =
+      await this.cacheService.get<AdminCourseCycleListResponseDto>(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     const { rows, totalItems } =
       await this.courseCycleRepository.findAdminCourseCyclesPage({
         page,
         pageSize,
-        search: query.search,
+        search: search || undefined,
       });
 
     const now = new Date();
     const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
 
-    return {
+    const response: AdminCourseCycleListResponseDto = {
       items: rows.map((row) => {
         const startDate = toBusinessDayStartUtc(row.academicCycleStartDate);
         const endDate = toBusinessDayEndUtc(row.academicCycleEndDate);
@@ -269,6 +283,14 @@ export class CoursesService {
       totalItems,
       totalPages,
     };
+
+    await this.cacheService.set(
+      cacheKey,
+      response,
+      this.ADMIN_COURSE_CYCLES_LIST_CACHE_TTL,
+    );
+
+    return response;
   }
 
   async findCourseById(id: string): Promise<Course> {
@@ -307,6 +329,8 @@ export class CoursesService {
       });
       return await repo.save(newCourse);
     });
+
+    await this.invalidateAdminCourseCyclesListCache();
 
     return await this.findCourseById(course.id);
   }
@@ -353,6 +377,7 @@ export class CoursesService {
       this.cacheService.invalidateGroup(
         CLASS_EVENT_CACHE_KEYS.GLOBAL_EVALUATION_LIST_GROUP,
       ),
+      this.invalidateAdminCourseCyclesListCache(),
     ]);
 
     return updatedCourse;
@@ -364,6 +389,8 @@ export class CoursesService {
     const updatedCourse = await this.courseRepository.updateAndReturn(id, {
       isActive: dto.isActive,
     });
+
+    await this.invalidateAdminCourseCyclesListCache();
 
     this.logger.log({
       message: 'Estado de materia actualizado exitosamente',
@@ -395,6 +422,8 @@ export class CoursesService {
       courseId: id,
       timestamp: new Date().toISOString(),
     });
+
+    await this.invalidateAdminCourseCyclesListCache();
   }
 
   async assignToCycle(dto: AssignCourseToCycleDto): Promise<CourseCycle> {
@@ -460,6 +489,7 @@ export class CoursesService {
     await this.cacheService.invalidateGroup(
       COURSE_CACHE_KEYS.GLOBAL_COURSE_CYCLE_EXISTS_GROUP,
     );
+    await this.invalidateAdminCourseCyclesListCache();
 
     return courseCycle;
   }
@@ -489,6 +519,7 @@ export class CoursesService {
       [courseCycleId],
       evaluationIds,
     );
+    await this.invalidateAdminCourseCyclesListCache();
     await this.mediaAccessMembershipDispatchService.enqueueGrantForUserCourseCycles(
       professorUserId,
       [courseCycleId],
@@ -525,6 +556,7 @@ export class CoursesService {
       [courseCycleId],
       evaluationIds,
     );
+    await this.invalidateAdminCourseCyclesListCache();
     await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserCourseCycles(
       professorUserId,
       [courseCycleId],
@@ -917,6 +949,12 @@ export class CoursesService {
     }
 
     await this.cacheService.delMany(uniqueKeys);
+  }
+
+  private async invalidateAdminCourseCyclesListCache(): Promise<void> {
+    await this.cacheService.invalidateGroup(
+      COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
+    );
   }
 
   private buildCourseContentResponse(
