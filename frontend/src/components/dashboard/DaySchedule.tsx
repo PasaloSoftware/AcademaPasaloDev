@@ -15,10 +15,25 @@ import {
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { getCourseColor } from "@/lib/courseColors";
+import { useAuth } from "@/contexts/AuthContext";
+
+type DayScheduleEvent = Pick<
+  ClassEvent,
+  | "id"
+  | "title"
+  | "courseName"
+  | "courseCode"
+  | "startDatetime"
+  | "endDatetime"
+  | "sessionStatus"
+  | "liveMeetingUrl"
+  | "isCancelled"
+>;
 
 export default function DaySchedule() {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<ClassEvent[]>([]);
+  const [events, setEvents] = useState<DayScheduleEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -36,6 +51,19 @@ export default function DaySchedule() {
   }, [currentDate]);
 
   const { weekStart, weekEnd, weekDays, weekStartIso, weekEndIso } = weekRange;
+  const activeRoleCode = useMemo(() => {
+    if (!user?.roles?.length) return null;
+    if (user.lastActiveRoleId) {
+      const activeRole = user.roles.find(
+        (role) => (role.id || role.code) === user.lastActiveRoleId,
+      );
+      if (activeRole) return activeRole.code;
+    }
+    return user.roles[0]?.code || null;
+  }, [user]);
+
+  const isAdminView =
+    activeRoleCode === "ADMIN" || activeRoleCode === "SUPER_ADMIN";
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -47,7 +75,9 @@ export default function DaySchedule() {
     setError(null);
 
     try {
-      const eventsData = await classEventService.getMySchedule({ start, end });
+      const eventsData = isAdminView
+        ? await classEventService.getAdminDayWidgetSchedule({ start, end })
+        : await classEventService.getMyDayWidgetSchedule({ start, end });
       setEvents(eventsData);
     } catch {
       setError("Error al cargar los eventos");
@@ -58,7 +88,7 @@ export default function DaySchedule() {
 
   useEffect(() => {
     void loadSchedule(weekStartIso, weekEndIso);
-  }, [weekStartIso, weekEndIso]);
+  }, [weekStartIso, weekEndIso, isAdminView]);
 
   const goToPreviousWeek = () => {
     setCurrentDate((prev) => addDays(prev, -7));

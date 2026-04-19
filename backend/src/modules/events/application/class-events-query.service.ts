@@ -18,12 +18,16 @@ import {
   GlobalFilterCatalog,
   GlobalSessionGroup,
 } from '@modules/events/interfaces/class-event.interfaces';
-import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
+import {
+  CLASS_EVENT_CACHE_KEYS,
+  CLASS_EVENT_STATUS,
+} from '@modules/events/domain/class-event.constants';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
 import {
   toBusinessDayEndUtc,
   toBusinessDayStartUtc,
 } from '@common/utils/peru-time.util';
+import { AdminDayWidgetScheduleItemDto } from '@modules/events/dto/admin-day-widget-schedule-item.dto';
 
 @Injectable()
 export class ClassEventsQueryService {
@@ -76,6 +80,88 @@ export class ClassEventsQueryService {
       ),
     ]);
     return events;
+  }
+
+  async getMyDayWidgetSchedule(
+    userId: string,
+    start: Date,
+    end: Date,
+  ): Promise<AdminDayWidgetScheduleItemDto[]> {
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.MY_DAY_WIDGET_SCHEDULE(
+      userId,
+      start.toISOString(),
+      end.toISOString(),
+    );
+    const cached =
+      await this.cacheService.get<AdminDayWidgetScheduleItemDto[]>(cacheKey);
+    if (cached) return cached;
+
+    const rows =
+      await this.classEventRepository.findMyDayWidgetScheduleByUserAndRange(
+        userId,
+        start,
+        end,
+      );
+    const now = new Date();
+    const response: AdminDayWidgetScheduleItemDto[] = rows.map((row) => ({
+      id: row.id,
+      sessionNumber: row.sessionNumber,
+      title: row.title,
+      startDatetime: row.startDatetime,
+      endDatetime: row.endDatetime,
+      liveMeetingUrl: row.liveMeetingUrl,
+      isCancelled: row.isCancelled,
+      sessionStatus: this.resolveSessionStatus(row, now),
+      courseName: row.courseName,
+      courseCode: row.courseCode,
+    }));
+
+    await this.cacheService.set(cacheKey, response, this.EVENT_CACHE_TTL);
+    await this.cacheService.addToIndex(
+      CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX(userId),
+      cacheKey,
+      this.EVENT_CACHE_TTL,
+    );
+    return response;
+  }
+
+  async getAdminDayWidgetSchedule(
+    start: Date,
+    end: Date,
+  ): Promise<AdminDayWidgetScheduleItemDto[]> {
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.ADMIN_DAY_WIDGET_SCHEDULE(
+      start.toISOString(),
+      end.toISOString(),
+    );
+    const cached =
+      await this.cacheService.get<AdminDayWidgetScheduleItemDto[]>(cacheKey);
+    if (cached) return cached;
+
+    const rows = await this.classEventRepository.findAdminDayWidgetScheduleByRange(
+      start,
+      end,
+    );
+    const now = new Date();
+    const response: AdminDayWidgetScheduleItemDto[] = rows.map((row) => ({
+      id: row.id,
+      sessionNumber: row.sessionNumber,
+      title: row.title,
+      startDatetime: row.startDatetime,
+      endDatetime: row.endDatetime,
+      liveMeetingUrl: row.liveMeetingUrl,
+      isCancelled: row.isCancelled,
+      sessionStatus: this.resolveSessionStatus(row, now),
+      courseName: row.courseName,
+      courseCode: row.courseCode,
+    }));
+
+    await this.cacheService.set(cacheKey, response, this.EVENT_CACHE_TTL);
+    await this.cacheService.addToIndex(
+      CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_INDEX,
+      cacheKey,
+      this.EVENT_CACHE_TTL,
+    );
+    return response;
   }
 
   async getDiscoveryLayers(courseCycleId: string): Promise<DiscoveryLayer[]> {
@@ -421,5 +507,26 @@ export class ClassEventsQueryService {
     });
 
     return [...grouped.values()];
+  }
+
+  private resolveSessionStatus(
+    row: {
+      startDatetime: Date;
+      endDatetime: Date;
+      isCancelled: boolean;
+    },
+    nowReference: Date,
+  ) {
+    if (row.isCancelled) {
+      return CLASS_EVENT_STATUS.CANCELADA;
+    }
+
+    const now = nowReference.getTime();
+    const start = row.startDatetime.getTime();
+    const end = row.endDatetime.getTime();
+
+    if (now < start) return CLASS_EVENT_STATUS.PROGRAMADA;
+    if (now >= start && now < end) return CLASS_EVENT_STATUS.EN_CURSO;
+    return CLASS_EVENT_STATUS.FINALIZADA;
   }
 }
