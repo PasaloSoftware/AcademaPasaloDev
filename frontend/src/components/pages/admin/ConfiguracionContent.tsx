@@ -678,7 +678,7 @@ export default function ConfiguracionContent() {
                 </FilledConfigCard>
 
                 <FilledConfigCard
-                  title="Retencion de Datos Estudiantiles"
+                  title="Retención de Logs de Auditoría"
                   icon="folder_zip"
                   iconClassName="text-icon-info-primary"
                   onEdit={openRetentionModal}
@@ -701,9 +701,8 @@ export default function ConfiguracionContent() {
                     </div>
                   </div>
                   <div className="self-stretch justify-center text-text-tertiary text-xs font-light leading-4">
-                    Las cuentas de los alumnos y sus logs seran eliminadas
-                    permanentemente tras cumplirse este plazo luego del fin del
-                    ciclo academico vigente.
+                    Los logs de auditoría y seguridad se depuran automáticamente 
+                    según el período de retención configurado.
                   </div>
                 </FilledConfigCard>
               </>
@@ -1181,7 +1180,7 @@ export default function ConfiguracionContent() {
         }
       >
         <div className="self-stretch flex flex-col justify-start items-start gap-4">
-          <InfoBanner text="Las cuentas de los alumnos y sus logs seran eliminadas permanentemente tras cumplirse este plazo luego del fin del ciclo academico vigente." />
+          <InfoBanner text=" Los logs de auditoría y seguridad se depuran automáticamente según el período de retención configurado" />
           <div className="self-stretch inline-flex flex-row justify-start items-start gap-1">
             <ModalTextField
               label="Periodo de retencion"

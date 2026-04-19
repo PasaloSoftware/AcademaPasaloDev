@@ -55,4 +55,14 @@ export const CLASS_EVENT_CACHE_KEYS = {
     courseCycleIdsKey: string,
   ) =>
     `cache:class-events:category-cycle:course-type:${courseTypeId}:cycle:${academicCycleId}:global:start:${startDateIso}:end:${endDateIso}:cycles:${courseCycleIdsKey}`,
+  GLOBAL_FILTER_CATALOG:
+    'cache:class-events:global:filter-catalog:all-course-cycles',
+  GLOBAL_SESSIONS_BY_FILTERS: (
+    startDateIso: string,
+    endDateIso: string,
+    academicCycleId: string,
+    courseTypeCode: string,
+    courseIdsKey: string,
+  ) =>
+    `cache:class-events:global:sessions-by-filters:start:${startDateIso}:end:${endDateIso}:cycle:${academicCycleId}:unit:${courseTypeCode}:courses:${courseIdsKey}`,
 } as const;

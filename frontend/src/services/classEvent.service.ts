@@ -40,6 +40,36 @@ export interface GlobalSessionsGroup {
   sessions: GlobalSessionItem[];
 }
 
+export interface GlobalFilterCatalogCycle {
+  id: string;
+  code: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+}
+
+export interface GlobalFilterCatalogUnit {
+  code: string;
+  name: string;
+}
+
+export interface GlobalFilterCatalogCourseCycle {
+  courseCycleId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  academicCycleId: string;
+  academicCycleCode: string;
+  courseTypeCode: string;
+  courseTypeName: string;
+}
+
+export interface GlobalFilterCatalogResponse {
+  cycles: GlobalFilterCatalogCycle[];
+  units: GlobalFilterCatalogUnit[];
+  courseCycles: GlobalFilterCatalogCourseCycle[];
+}
+
 export interface CreateClassEventPayload {
   evaluationId: string;
   sessionNumber: number;
@@ -123,6 +153,43 @@ export const classEventService = {
     });
     const response = await apiClient.get<GlobalSessionsGroup[]>(
       `/class-events/global/sessions?${query.toString()}`,
+    );
+    return response.data;
+  },
+
+  async getGlobalFilterCatalog(): Promise<GlobalFilterCatalogResponse> {
+    const response = await apiClient.get<GlobalFilterCatalogResponse>(
+      "/class-events/global/filter-catalog",
+    );
+    return response.data;
+  },
+
+  async getGlobalSessionsByFilters(params: {
+    startDate: string;
+    endDate: string;
+    academicCycleId?: string;
+    courseTypeCode?: string;
+    courseIds?: string[];
+  }): Promise<GlobalSessionsGroup[]> {
+    const query = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+
+    if (params.academicCycleId && params.academicCycleId !== "ALL") {
+      query.set("academicCycleId", params.academicCycleId);
+    }
+
+    if (params.courseTypeCode && params.courseTypeCode !== "ALL") {
+      query.set("courseTypeCode", params.courseTypeCode);
+    }
+
+    if (params.courseIds && params.courseIds.length > 0) {
+      query.set("courseIds", params.courseIds.join(","));
+    }
+
+    const response = await apiClient.get<GlobalSessionsGroup[]>(
+      `/class-events/global/sessions-by-filters?${query.toString()}`,
     );
     return response.data;
   },

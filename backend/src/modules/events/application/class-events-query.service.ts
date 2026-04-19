@@ -15,6 +15,7 @@ import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { technicalSettings } from '@config/technical-settings';
 import {
   DiscoveryLayer,
+  GlobalFilterCatalog,
   GlobalSessionGroup,
 } from '@modules/events/interfaces/class-event.interfaces';
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
@@ -28,6 +29,8 @@ import {
 export class ClassEventsQueryService {
   private readonly EVENT_CACHE_TTL =
     technicalSettings.cache.events.classEventsCacheTtlSeconds;
+  private readonly GLOBAL_FILTER_CATALOG_CACHE_TTL =
+    technicalSettings.cache.events.globalFilterCatalogCacheTtlSeconds;
   private readonly CYCLE_ACTIVE_CACHE_TTL =
     technicalSettings.cache.events.cycleActiveCacheTtlSeconds;
 
@@ -186,45 +189,7 @@ export class ClassEventsQueryService {
         startDate,
         endDate,
       );
-
-    const grouped = new Map<string, GlobalSessionGroup>();
-    for (const row of rows) {
-      const existing = grouped.get(row.courseCycleId);
-      if (existing) {
-        existing.sessions.push({
-          eventId: row.eventId,
-          evaluationId: row.evaluationId,
-          sessionNumber: row.sessionNumber,
-          title: row.title,
-          topic: row.topic,
-          startDatetime: row.startDatetime,
-          endDatetime: row.endDatetime,
-        });
-        continue;
-      }
-
-      grouped.set(row.courseCycleId, {
-        courseCycleId: row.courseCycleId,
-        courseId: row.courseId,
-        courseCode: row.courseCode,
-        courseName: row.courseName,
-        primaryColor: row.primaryColor,
-        secondaryColor: row.secondaryColor,
-        sessions: [
-          {
-            eventId: row.eventId,
-            evaluationId: row.evaluationId,
-            sessionNumber: row.sessionNumber,
-            title: row.title,
-            topic: row.topic,
-            startDatetime: row.startDatetime,
-            endDatetime: row.endDatetime,
-          },
-        ],
-      });
-    }
-
-    const groupedSessions = [...grouped.values()];
+    const groupedSessions = this.mapGlobalSessionRows(rows);
     await Promise.all([
       this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL),
       this.cacheService.addToIndex(
@@ -233,6 +198,113 @@ export class ClassEventsQueryService {
         this.EVENT_CACHE_TTL,
       ),
     ]);
+    return groupedSessions;
+  }
+
+  async getGlobalFilterCatalog(): Promise<GlobalFilterCatalog> {
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.GLOBAL_FILTER_CATALOG;
+    const cached = await this.cacheService.get<GlobalFilterCatalog>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const rows = await this.courseCycleRepository.findGlobalFilterCatalogRows();
+    const now = new Date();
+
+    const cyclesMap = new Map<string, GlobalFilterCatalog['cycles'][number]>();
+    const unitsMap = new Map<string, GlobalFilterCatalog['units'][number]>();
+
+    rows.forEach((row) => {
+      if (!cyclesMap.has(row.academicCycleId)) {
+        const startDate = toBusinessDayStartUtc(row.academicCycleStartDate);
+        const endDate = toBusinessDayEndUtc(row.academicCycleEndDate);
+        cyclesMap.set(row.academicCycleId, {
+          id: row.academicCycleId,
+          code: row.academicCycleCode,
+          startDate,
+          endDate,
+          isCurrent: now >= startDate && now <= endDate,
+        });
+      }
+
+      if (!unitsMap.has(row.courseTypeCode)) {
+        unitsMap.set(row.courseTypeCode, {
+          code: row.courseTypeCode,
+          name: row.courseTypeName,
+        });
+      }
+    });
+
+    const response: GlobalFilterCatalog = {
+      cycles: [...cyclesMap.values()].sort((a, b) => b.code.localeCompare(a.code)),
+      units: [...unitsMap.values()].sort((a, b) => a.code.localeCompare(b.code)),
+      courseCycles: rows.map((row) => ({
+        courseCycleId: row.courseCycleId,
+        courseId: row.courseId,
+        courseCode: row.courseCode,
+        courseName: row.courseName,
+        academicCycleId: row.academicCycleId,
+        academicCycleCode: row.academicCycleCode,
+        courseTypeCode: row.courseTypeCode,
+        courseTypeName: row.courseTypeName,
+      })),
+    };
+
+    await this.cacheService.set(
+      cacheKey,
+      response,
+      this.GLOBAL_FILTER_CATALOG_CACHE_TTL,
+    );
+    return response;
+  }
+
+  async getGlobalSessionsByFilters(
+    params: {
+      academicCycleId?: string;
+      courseTypeCode?: string;
+      courseIds?: string[];
+    },
+    startDate: Date,
+    endDate: Date,
+  ): Promise<GlobalSessionGroup[]> {
+    const normalizedCourseIds = params.courseIds
+      ? [...new Set(params.courseIds.map((id) => id.trim()).filter((id) => id))]
+      : [];
+
+    const courseCycleIds =
+      await this.courseCycleRepository.findCourseCycleIdsByGlobalFilters({
+        academicCycleId: params.academicCycleId,
+        courseTypeCode: params.courseTypeCode,
+        courseIds: normalizedCourseIds.length > 0 ? normalizedCourseIds : undefined,
+      });
+
+    if (courseCycleIds.length === 0) {
+      return [];
+    }
+
+    const sortedCourseCycleIds = [...courseCycleIds].sort();
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.GLOBAL_SESSIONS_BY_FILTERS(
+      startDate.toISOString(),
+      endDate.toISOString(),
+      params.academicCycleId || 'ALL',
+      params.courseTypeCode || 'ALL',
+      sortedCourseCycleIds.join(','),
+    );
+
+    const cached = await this.cacheService.get<GlobalSessionGroup[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const rows =
+      await this.classEventRepository.findGlobalSessionsByCourseCyclesAndRange(
+        sortedCourseCycleIds,
+        startDate,
+        endDate,
+      );
+    const groupedSessions = this.mapGlobalSessionRows(rows);
+
+    await this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL);
     return groupedSessions;
   }
 
@@ -292,5 +364,51 @@ export class ClassEventsQueryService {
       courseTypeId: base.courseTypeId,
       academicCycleId: base.academicCycleId,
     };
+  }
+
+  private mapGlobalSessionRows(
+    rows: Awaited<
+      ReturnType<ClassEventRepository['findGlobalSessionsByCourseCyclesAndRange']>
+    >,
+  ): GlobalSessionGroup[] {
+    const grouped = new Map<string, GlobalSessionGroup>();
+
+    rows.forEach((row) => {
+      const existing = grouped.get(row.courseCycleId);
+      if (existing) {
+        existing.sessions.push({
+          eventId: row.eventId,
+          evaluationId: row.evaluationId,
+          sessionNumber: row.sessionNumber,
+          title: row.title,
+          topic: row.topic,
+          startDatetime: row.startDatetime,
+          endDatetime: row.endDatetime,
+        });
+        return;
+      }
+
+      grouped.set(row.courseCycleId, {
+        courseCycleId: row.courseCycleId,
+        courseId: row.courseId,
+        courseCode: row.courseCode,
+        courseName: row.courseName,
+        primaryColor: row.primaryColor,
+        secondaryColor: row.secondaryColor,
+        sessions: [
+          {
+            eventId: row.eventId,
+            evaluationId: row.evaluationId,
+            sessionNumber: row.sessionNumber,
+            title: row.title,
+            topic: row.topic,
+            startDatetime: row.startDatetime,
+            endDatetime: row.endDatetime,
+          },
+        ],
+      });
+    });
+
+    return [...grouped.values()];
   }
 }
