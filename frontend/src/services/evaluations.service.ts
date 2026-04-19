@@ -47,4 +47,19 @@ export const evaluationsService = {
     );
     return response.data;
   },
+
+  async update(
+    id: string,
+    data: { startDate: string; endDate: string },
+  ): Promise<Evaluation> {
+    const response = await apiClient.patch<Evaluation>(
+      `/evaluations/${id}`,
+      data,
+    );
+    return response.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/evaluations/${id}`);
+  },
 };

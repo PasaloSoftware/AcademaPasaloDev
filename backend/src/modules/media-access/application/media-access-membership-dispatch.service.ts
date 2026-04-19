@@ -5,6 +5,7 @@ import { QUEUES } from '@infrastructure/queue/queue.constants';
 import {
   MEDIA_ACCESS_JOB_NAMES,
   MEDIA_ACCESS_MEMBERSHIP_ACTIONS,
+  MEDIA_ACCESS_SYNC_SOURCES,
   MediaAccessMembershipAction,
 } from '@modules/media-access/domain/media-access.constants';
 
@@ -40,6 +41,24 @@ export type MediaAccessRecoverScopeJobPayload = {
   reconcileMembers: boolean;
   pruneExtraMembers: boolean;
   source: string;
+  requestedAt: string;
+};
+
+export type MediaAccessEvaluationTeardownJobPayload = {
+  evaluationId: string;
+  viewerGroupEmail: string;
+  driveScopeFolderId: string | null;
+  source: string;
+  requestedAt: string;
+};
+
+export type MediaAccessCourseSetupProvisionJobPayload = {
+  courseCycleId: string;
+  courseCode: string;
+  cycleCode: string;
+  evaluationIds: string[];
+  bankCards: Array<{ evaluationTypeCode: string; number: number }>;
+  bankFolders: Array<{ groupName: string; items: string[] }>;
   requestedAt: string;
 };
 
@@ -156,6 +175,77 @@ export class MediaAccessMembershipDispatchService {
       },
     );
     return { jobId };
+  }
+
+  async enqueueProvisionCourseSetup(input: {
+    courseCycleId: string;
+    courseCode: string;
+    cycleCode: string;
+    evaluationIds: string[];
+    bankCards: Array<{ evaluationTypeCode: string; number: number }>;
+    bankFolders: Array<{ groupName: string; items: string[] }>;
+  }): Promise<void> {
+    const payload: MediaAccessCourseSetupProvisionJobPayload = {
+      ...input,
+      requestedAt: new Date().toISOString(),
+    };
+    await this.mediaAccessQueue.add(
+      MEDIA_ACCESS_JOB_NAMES.PROVISION_COURSE_SETUP,
+      payload,
+      {
+        jobId: `media-access__provision-course-setup__${input.courseCycleId}`,
+        removeOnComplete: true,
+      },
+    );
+    this.logger.log({
+      context: MediaAccessMembershipDispatchService.name,
+      message: 'Provisioning Drive de course setup encolado',
+      courseCycleId: input.courseCycleId,
+      evaluationsToProvision: input.evaluationIds.length,
+      bankFolderGroups: input.bankFolders.length,
+    });
+  }
+
+  async enqueueEvaluationScopeTeardown(input: {
+    evaluationId: string;
+    viewerGroupEmail: string;
+    driveScopeFolderId: string | null;
+    source?: string;
+  }): Promise<void> {
+    const evaluationId = String(input.evaluationId || '').trim();
+    const viewerGroupEmail = String(input.viewerGroupEmail || '')
+      .trim()
+      .toLowerCase();
+    if (!evaluationId || !viewerGroupEmail) {
+      this.logger.warn({
+        context: MediaAccessMembershipDispatchService.name,
+        message:
+          'Se omitió encolar teardown de evaluation scope por datos incompletos',
+        evaluationId,
+        viewerGroupEmail,
+      });
+      return;
+    }
+
+    const source =
+      String(input.source || '').trim() ||
+      MEDIA_ACCESS_SYNC_SOURCES.EVALUATION_DELETED;
+    const payload: MediaAccessEvaluationTeardownJobPayload = {
+      evaluationId,
+      viewerGroupEmail,
+      driveScopeFolderId: input.driveScopeFolderId ?? null,
+      source,
+      requestedAt: new Date().toISOString(),
+    };
+
+    await this.mediaAccessQueue.add(
+      MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE,
+      payload,
+      {
+        jobId: `media-access__teardown-scope__${evaluationId}`,
+        removeOnComplete: true,
+      },
+    );
   }
 
   private async enqueueMembershipSyncJobs(

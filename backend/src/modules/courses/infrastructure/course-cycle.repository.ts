@@ -11,6 +11,7 @@ export type AdminCourseCycleListParams = {
 
 export type AdminCourseCycleListRow = {
   courseCycleId: string;
+  studentCount: number;
   courseId: string;
   courseCode: string;
   courseName: string;
@@ -424,10 +425,28 @@ export class CourseCycleRepository {
       .addOrderBy('c.name', 'ASC')
       .getMany();
 
+    const enrollmentCountRows = await this.ormRepository.manager
+      .createQueryBuilder()
+      .select('e.course_cycle_id', 'courseCycleId')
+      .addSelect('COUNT(*)', 'studentCount')
+      .from('enrollment', 'e')
+      .where('e.cancelled_at IS NULL')
+      .andWhere('e.course_cycle_id IN (:...courseCycleIds)', { courseCycleIds })
+      .groupBy('e.course_cycle_id')
+      .getRawMany<{ courseCycleId: string; studentCount: string }>();
+
+    const studentCountByCourseCycleId = new Map<string, number>(
+      enrollmentCountRows.map((row) => [
+        row.courseCycleId,
+        Number(row.studentCount) || 0,
+      ]),
+    );
+
     const rowMap = new Map<string, AdminCourseCycleListRow>();
     for (const entity of entities) {
       rowMap.set(entity.id, {
         courseCycleId: entity.id,
+        studentCount: studentCountByCourseCycleId.get(entity.id) ?? 0,
         courseId: entity.course.id,
         courseCode: entity.course.code,
         courseName: entity.course.name,
@@ -452,6 +471,7 @@ export class CourseCycleRepository {
     return {
       rows: orderedRows.map((row) => ({
         courseCycleId: row.courseCycleId,
+        studentCount: row.studentCount,
         courseId: row.courseId,
         courseCode: row.courseCode,
         courseName: row.courseName,

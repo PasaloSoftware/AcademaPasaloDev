@@ -32,6 +32,30 @@ export type NotificationClassEventTargetRow = {
   evaluationNumber: number;
 };
 
+export type AdminDayWidgetScheduleRow = {
+  id: string;
+  sessionNumber: number;
+  title: string;
+  startDatetime: Date;
+  endDatetime: Date;
+  liveMeetingUrl: string | null;
+  isCancelled: boolean;
+  courseName: string;
+  courseCode: string;
+};
+
+export type MyDayWidgetScheduleRow = {
+  id: string;
+  sessionNumber: number;
+  title: string;
+  startDatetime: Date;
+  endDatetime: Date;
+  liveMeetingUrl: string | null;
+  isCancelled: boolean;
+  courseName: string;
+  courseCode: string;
+};
+
 @Injectable()
 export class ClassEventRepository {
   constructor(
@@ -342,6 +366,112 @@ export class ClassEventRepository {
       )
       .orderBy('classEvent.startDatetime', 'ASC')
       .getMany();
+  }
+
+  async findMyDayWidgetScheduleByUserAndRange(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<MyDayWidgetScheduleRow[]> {
+    const rows = await this.ormRepository
+      .createQueryBuilder('ce')
+      .innerJoin('ce.evaluation', 'ev')
+      .innerJoin('ev.courseCycle', 'cc')
+      .innerJoin('cc.course', 'course')
+      .where(':startDate < ce.end_datetime', { startDate })
+      .andWhere(':endDate > ce.start_datetime', { endDate })
+      .andWhere(
+        new Brackets((where) => {
+          where
+            .where('ce.created_by = :userId', { userId })
+            .orWhere(
+              `EXISTS (
+                SELECT 1
+                FROM class_event_professor cep
+                WHERE cep.class_event_id = ce.id
+                  AND cep.professor_user_id = :userId
+                  AND cep.revoked_at IS NULL
+              )`,
+              { userId },
+            )
+            .orWhere(
+              `EXISTS (
+                SELECT 1
+                FROM enrollment_evaluation ee
+                INNER JOIN enrollment e
+                  ON e.id = ee.enrollment_id
+                WHERE ee.evaluation_id = ce.evaluation_id
+                  AND ee.is_active = 1
+                  AND e.user_id = :userId
+                  AND e.cancelled_at IS NULL
+              )`,
+              { userId },
+            );
+        }),
+      )
+      .select([
+        'ce.id AS id',
+        'ce.session_number AS sessionNumber',
+        'ce.title AS title',
+        'ce.start_datetime AS startDatetime',
+        'ce.end_datetime AS endDatetime',
+        'ce.live_meeting_url AS liveMeetingUrl',
+        'ce.is_cancelled AS isCancelled',
+        'course.name AS courseName',
+        'course.code AS courseCode',
+      ])
+      .orderBy('ce.start_datetime', 'ASC')
+      .getRawMany<MyDayWidgetScheduleRow>();
+
+    return rows.map((row) => ({
+      id: row.id,
+      sessionNumber: Number(row.sessionNumber),
+      title: row.title,
+      startDatetime: new Date(row.startDatetime),
+      endDatetime: new Date(row.endDatetime),
+      liveMeetingUrl: row.liveMeetingUrl ?? null,
+      isCancelled: Boolean(Number(row.isCancelled as unknown as number)),
+      courseName: row.courseName,
+      courseCode: row.courseCode,
+    }));
+  }
+
+  async findAdminDayWidgetScheduleByRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<AdminDayWidgetScheduleRow[]> {
+    const rows = await this.ormRepository
+      .createQueryBuilder('ce')
+      .innerJoin('ce.evaluation', 'ev')
+      .innerJoin('ev.courseCycle', 'cc')
+      .innerJoin('cc.course', 'course')
+      .where(':startDate < ce.end_datetime', { startDate })
+      .andWhere(':endDate > ce.start_datetime', { endDate })
+      .select([
+        'ce.id AS id',
+        'ce.session_number AS sessionNumber',
+        'ce.title AS title',
+        'ce.start_datetime AS startDatetime',
+        'ce.end_datetime AS endDatetime',
+        'ce.live_meeting_url AS liveMeetingUrl',
+        'ce.is_cancelled AS isCancelled',
+        'course.name AS courseName',
+        'course.code AS courseCode',
+      ])
+      .orderBy('ce.start_datetime', 'ASC')
+      .getRawMany<AdminDayWidgetScheduleRow>();
+
+    return rows.map((row) => ({
+      id: row.id,
+      sessionNumber: Number(row.sessionNumber),
+      title: row.title,
+      startDatetime: new Date(row.startDatetime),
+      endDatetime: new Date(row.endDatetime),
+      liveMeetingUrl: row.liveMeetingUrl ?? null,
+      isCancelled: Boolean(Number(row.isCancelled as unknown as number)),
+      courseName: row.courseName,
+      courseCode: row.courseCode,
+    }));
   }
 
   async findGlobalSessionsByCourseCyclesAndRange(

@@ -32,6 +32,10 @@ export const CLASS_EVENT_CACHE_KEYS = {
   DETAIL: (eventId: string) => `cache:class-event:${eventId}`,
   MY_SCHEDULE: (userId: string, start: string, end: string) =>
     `cache:my-schedule:user:${userId}:from:${start}:to:${end}`,
+  MY_DAY_WIDGET_SCHEDULE: (userId: string, start: string, end: string) =>
+    `cache:my-schedule:user:${userId}:day-widget:from:${start}:to:${end}`,
+  ADMIN_DAY_WIDGET_SCHEDULE: (start: string, end: string) =>
+    `cache:my-schedule:admin-day-widget:from:${start}:to:${end}`,
   USER_SCHEDULE_INDEX: (userId: string) =>
     `cache:index:my-schedule:user:${userId}`,
   GLOBAL_SCHEDULE_INDEX: 'cache:index:my-schedule:all',

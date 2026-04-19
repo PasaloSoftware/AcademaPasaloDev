@@ -4,6 +4,7 @@ import { MediaAccessMembershipDispatchService } from '@modules/media-access/appl
 import {
   MEDIA_ACCESS_JOB_NAMES,
   MEDIA_ACCESS_MEMBERSHIP_ACTIONS,
+  MEDIA_ACCESS_SYNC_SOURCES,
 } from '@modules/media-access/domain/media-access.constants';
 
 describe('MediaAccessMembershipDispatchService', () => {
@@ -124,5 +125,59 @@ describe('MediaAccessMembershipDispatchService', () => {
         pruneExtraMembers: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  describe('enqueueEvaluationScopeTeardown', () => {
+    it('encola job con jobId correcto y payload normalizado', async () => {
+      await service.enqueueEvaluationScopeTeardown({
+        evaluationId: ' 42 ',
+        viewerGroupEmail: ' EV-42-Viewers@AcademiaPasalo.com ',
+        driveScopeFolderId: 'drive-folder-xyz',
+      });
+
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      const [name, data, opts] = (queue.add as jest.Mock).mock.calls[0];
+      expect(name).toBe(MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE);
+      expect(data).toMatchObject({
+        evaluationId: '42',
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: 'drive-folder-xyz',
+        source: MEDIA_ACCESS_SYNC_SOURCES.EVALUATION_DELETED,
+      });
+      expect(data.requestedAt).toBeDefined();
+      expect(opts.jobId).toBe('media-access__teardown-scope__42');
+      expect(opts.removeOnComplete).toBe(true);
+    });
+
+    it('encola job con driveScopeFolderId null cuando no se pasa', async () => {
+      await service.enqueueEvaluationScopeTeardown({
+        evaluationId: '42',
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: null,
+      });
+
+      const [, data] = (queue.add as jest.Mock).mock.calls[0];
+      expect(data.driveScopeFolderId).toBeNull();
+    });
+
+    it('omite el encolado cuando evaluationId esta en blanco', async () => {
+      await service.enqueueEvaluationScopeTeardown({
+        evaluationId: '   ',
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: null,
+      });
+
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('omite el encolado cuando viewerGroupEmail esta en blanco', async () => {
+      await service.enqueueEvaluationScopeTeardown({
+        evaluationId: '42',
+        viewerGroupEmail: '',
+        driveScopeFolderId: null,
+      });
+
+      expect(queue.add).not.toHaveBeenCalled();
+    });
   });
 });

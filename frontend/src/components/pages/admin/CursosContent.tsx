@@ -8,7 +8,6 @@ import Modal from "@/components/ui/Modal";
 import AdvancedFiltersSidebar from "@/components/pages/admin/AdvancedFiltersSidebar";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 import { useToast } from "@/components/ui/ToastContainer";
-import { enrollmentService } from "@/services/enrollment.service";
 import {
   coursesService,
   type AdminCourseCycleItem,
@@ -211,47 +210,6 @@ export default function CursosContent() {
         cyclesByCourseId.set(item.course.id, current);
       }
 
-      const preferredCycleByCourseId = new Map<string, AdminCourseCycleItem>();
-      for (const course of catalog) {
-        const relatedCycles = cyclesByCourseId.get(course.id) || [];
-        const preferredCycle = pickPreferredCycle(relatedCycles);
-        if (preferredCycle) {
-          preferredCycleByCourseId.set(course.id, preferredCycle);
-        }
-      }
-
-      const uniquePreferredCycleIds = Array.from(
-        new Set(
-          Array.from(preferredCycleByCourseId.values()).map(
-            (cycle) => cycle.courseCycleId,
-          ),
-        ),
-      );
-
-      const studentCountEntries = await Promise.all(
-        uniquePreferredCycleIds.map(async (courseCycleId) => {
-          try {
-            const response =
-              await enrollmentService.getAdminStudentsByCourseCycle({
-                courseCycleId,
-                page: 1,
-                pageSize: 1,
-              });
-            return [courseCycleId, String(response.totalItems)] as const;
-          } catch (error) {
-            console.error(
-              `Error al cargar alumnos del curso-ciclo ${courseCycleId}:`,
-              error,
-            );
-            return [courseCycleId, "-"] as const;
-          }
-        }),
-      );
-
-      const studentCountByCycleId = new Map<string, string>(
-        studentCountEntries,
-      );
-
       const mappedRows = catalog.map((course: Course) => {
         const relatedCycles = cyclesByCourseId.get(course.id) || [];
         const preferredCycle = pickPreferredCycle(relatedCycles);
@@ -267,7 +225,7 @@ export default function CursosContent() {
             ? getAdvisorLabel(preferredCycle.professors)
             : "Sin asignar",
           studentCountLabel: preferredCycle
-            ? (studentCountByCycleId.get(preferredCycle.courseCycleId) ?? "0")
+            ? String(preferredCycle.studentCount ?? 0)
             : "-",
           isActive: course.isActive,
           courseCycleId: preferredCycle?.courseCycleId || null,

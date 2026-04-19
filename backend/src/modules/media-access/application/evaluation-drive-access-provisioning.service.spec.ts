@@ -201,6 +201,63 @@ describe('EvaluationDriveAccessProvisioningService', () => {
     expect(result.id).toBe('200');
   });
 
+  describe('getDriveAccessSnapshot', () => {
+    it('devuelve null cuando evaluationId esta en blanco', async () => {
+      const result = await service.getDriveAccessSnapshot('   ');
+      expect(result).toBeNull();
+      expect(driveAccessRepo.findByEvaluationId).not.toHaveBeenCalled();
+    });
+
+    it('devuelve null cuando no existe registro en BD', async () => {
+      driveAccessRepo.findByEvaluationId.mockResolvedValue(null);
+
+      const result = await service.getDriveAccessSnapshot('42');
+      expect(result).toBeNull();
+    });
+
+    it('devuelve snapshot con viewerGroupEmail y driveScopeFolderId cuando existe registro', async () => {
+      driveAccessRepo.findByEvaluationId.mockResolvedValue({
+        id: '1',
+        evaluationId: '42',
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: 'drive-folder-xyz',
+        isActive: true,
+      } as unknown as EvaluationDriveAccess);
+
+      const result = await service.getDriveAccessSnapshot('42');
+
+      expect(result).toEqual({
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: 'drive-folder-xyz',
+      });
+    });
+
+    it('devuelve snapshot con driveScopeFolderId null cuando el campo es null en BD', async () => {
+      driveAccessRepo.findByEvaluationId.mockResolvedValue({
+        id: '1',
+        evaluationId: '42',
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: null,
+        isActive: false,
+      } as unknown as EvaluationDriveAccess);
+
+      const result = await service.getDriveAccessSnapshot('42');
+
+      expect(result).toEqual({
+        viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+        driveScopeFolderId: null,
+      });
+    });
+
+    it('normaliza evaluationId antes de consultar', async () => {
+      driveAccessRepo.findByEvaluationId.mockResolvedValue(null);
+
+      await service.getDriveAccessSnapshot('  42  ');
+
+      expect(driveAccessRepo.findByEvaluationId).toHaveBeenCalledWith('42');
+    });
+  });
+
   it('should also share scope with global staff viewers group when configured', async () => {
     (technicalSettings as any).mediaAccess.staffViewersGroupEmail =
       'staff-viewers@academiapasalo.com';

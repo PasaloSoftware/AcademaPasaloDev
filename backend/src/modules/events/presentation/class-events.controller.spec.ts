@@ -16,8 +16,12 @@ const mockClassEventsService = {
 
 const mockClassEventsQueryService = {
   getMySchedule: jest.fn(),
+  getMyDayWidgetSchedule: jest.fn(),
+  getAdminDayWidgetSchedule: jest.fn(),
   getDiscoveryLayers: jest.fn(),
   getGlobalSessions: jest.fn(),
+  getGlobalFilterCatalog: jest.fn(),
+  getGlobalSessionsByFilters: jest.fn(),
 };
 
 const mockRecordingUploadsService = {
@@ -110,5 +114,24 @@ describe('ClassEventsController RBAC', () => {
     expect(roles).toContain(ROLE_CODES.PROFESSOR);
     expect(roles).toContain(ROLE_CODES.ADMIN);
     expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "getMyDayWidgetSchedule" should allow STUDENT/PROFESSOR/ADMIN/SUPER_ADMIN roles', () => {
+    const roles = Reflect.getMetadata('roles', controller.getMyDayWidgetSchedule);
+    expect(roles).toContain(ROLE_CODES.STUDENT);
+    expect(roles).toContain(ROLE_CODES.PROFESSOR);
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+  });
+
+  it('endpoint "getAdminDayWidgetSchedule" should allow ADMIN/SUPER_ADMIN roles only', () => {
+    const roles = Reflect.getMetadata(
+      'roles',
+      controller.getAdminDayWidgetSchedule,
+    );
+    expect(roles).toContain(ROLE_CODES.ADMIN);
+    expect(roles).toContain(ROLE_CODES.SUPER_ADMIN);
+    expect(roles).not.toContain(ROLE_CODES.STUDENT);
+    expect(roles).not.toContain(ROLE_CODES.PROFESSOR);
   });
 });
