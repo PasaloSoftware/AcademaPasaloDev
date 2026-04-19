@@ -82,7 +82,7 @@ services:
     image: mysql:8.0
     container_name: academia-pasalo-mysql
     restart: unless-stopped
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=512M
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
@@ -198,13 +198,6 @@ services:
     networks:
       - academia-network
 
-  # ──────────────────────────────────────────────────────────────
-  # Certbot genera y renueva el certificado SSL de Let's Encrypt.
-  # El webroot challenge ocurre en /var/www/certbot — nginx sirve
-  # ese path en HTTP antes del redirect a HTTPS.
-  # El certificado se generó manualmente con --standalone la primera
-  # vez. Las renovaciones corren via webroot cada 12h.
-  # ──────────────────────────────────────────────────────────────
   certbot:
     image: certbot/certbot:v3.3.0
     container_name: academia-pasalo-certbot
