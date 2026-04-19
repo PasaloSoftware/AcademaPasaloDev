@@ -23,6 +23,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch || github.event.inputs.branch }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy
