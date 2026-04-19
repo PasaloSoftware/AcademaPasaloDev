@@ -27,8 +27,6 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    # workflow_run: solo si el CI fue exitoso
-    # workflow_dispatch: siempre — el operador es responsable
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -81,7 +79,7 @@ jobs:
           env-slug: ${{ steps.env.outputs.infisical_env }}
           project-slug: "academia-pasalo"
           export-type: env
-          
+
       - name: Check EC2 is running (dev only)
         if: steps.ctx.outputs.branch == 'develop'
         env:
@@ -243,22 +241,21 @@ jobs:
             docker image prune -f
           "
 
-      - name: Run SQL seed (dev only)
-        if: steps.ctx.outputs.branch == 'develop'
+      - name: Run migrations
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
             set -Eeuo pipefail
-            echo 'Esperando MySQL...'
+            echo 'Esperando backend...'
             for i in \$(seq 1 30); do
-              if docker exec academia-pasalo-mysql mysqladmin ping -h localhost -u root -p'${{ env.DB_ROOT_PASSWORD }}' --silent 2>/dev/null; then
-                echo '✅ MySQL disponible'
+              if docker exec academia-pasalo-backend node -e 'process.exit(0)' 2>/dev/null; then
+                echo '✅ Backend disponible'
                 break
               fi
               sleep 3
             done
-            echo 'Ejecutando SQL seed...'
-            docker exec academia-pasalo-backend node dist/scripts/academy-real/run-academy-real-sql.js
-            echo '✅ SQL seed completado'
+            echo 'Ejecutando migrations...'
+            docker exec academia-pasalo-backend npm run migration:run
+            echo '✅ Migrations completadas'
           "
 
       - name: Wait for backend healthcheck
