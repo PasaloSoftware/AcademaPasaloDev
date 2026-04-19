@@ -208,13 +208,7 @@ jobs:
 
       - name: Deploy
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
-            set -Eeuo pipefail
-            cd ${{ steps.env.outputs.deploy_dir }}
-
-            echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
-
-            cat > .env << EOF
+          cat > /tmp/deploy.env << 'ENVEOF'
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           IMAGE_TAG=${{ steps.ctx.outputs.image_tag }}
           DB_HOST=${{ env.DB_HOST }}
@@ -236,7 +230,18 @@ jobs:
           GOOGLE_WORKSPACE_GROUP_DOMAIN=${{ env.GOOGLE_WORKSPACE_GROUP_DOMAIN }}
           GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=${{ env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL }}
           GRAFANA_PASSWORD=${{ env.GRAFANA_PASSWORD }}
-          EOF
+          ENVEOF
+
+          scp -i ~/.ssh/deploy_key /tmp/deploy.env \
+            ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/.env
+
+          rm -f /tmp/deploy.env
+
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
+            set -Eeuo pipefail
+            cd ${{ steps.env.outputs.deploy_dir }}
+
+            echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
 
             docker compose -p academia-pasalo --env-file .env pull
             docker compose -p academia-pasalo --env-file .env down --remove-orphans
@@ -295,16 +300,16 @@ jobs:
         if: failure()
         run: |
           echo "⚠️ Deploy falló — ejecutando rollback..."
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
-            cd ${{ steps.env.outputs.deploy_dir }}
 
-            PREVIOUS_TAG=\$(cat .previous-tag 2>/dev/null || echo '')
+          PREVIOUS_TAG=$(ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} \
+            "cat ${{ steps.env.outputs.deploy_dir }}/.previous-tag 2>/dev/null || echo ''")
 
-            if [ -n \"\$PREVIOUS_TAG\" ]; then
-              echo \"↩️ Volviendo a tag: \$PREVIOUS_TAG\"
-              cat > .env << EOF
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "↩️ Volviendo a tag: $PREVIOUS_TAG"
+
+            cat > /tmp/rollback.env << 'ENVEOF'
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-          IMAGE_TAG=\$PREVIOUS_TAG
+          IMAGE_TAG=PLACEHOLDER_TAG
           DB_HOST=${{ env.DB_HOST }}
           DB_PORT=${{ env.DB_PORT }}
           DB_USER=${{ env.DB_USER }}
@@ -324,15 +329,28 @@ jobs:
           GOOGLE_WORKSPACE_GROUP_DOMAIN=${{ env.GOOGLE_WORKSPACE_GROUP_DOMAIN }}
           GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL=${{ env.GOOGLE_WORKSPACE_STAFF_VIEWERS_GROUP_EMAIL }}
           GRAFANA_PASSWORD=${{ env.GRAFANA_PASSWORD }}
-          EOF
+          ENVEOF
+
+            sed -i "s|IMAGE_TAG=PLACEHOLDER_TAG|IMAGE_TAG=$PREVIOUS_TAG|g" /tmp/rollback.env
+
+            scp -i ~/.ssh/deploy_key /tmp/rollback.env \
+              ubuntu@${{ steps.host.outputs.value }}:${{ steps.env.outputs.deploy_dir }}/.env
+
+            rm -f /tmp/rollback.env
+
+            ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
+              cd ${{ steps.env.outputs.deploy_dir }}
               docker compose -p academia-pasalo --env-file .env down --remove-orphans || true
               docker compose -p academia-pasalo --env-file .env up -d || true
               rm -f .env
-              echo \"✅ Rollback completado — revisá los logs para entender la causa\"
-            else
-              echo \"⚠️ No hay tag :previous — primer deploy fallido, sin estado anterior\"
+              echo '✅ Rollback completado — revisá los logs para entender la causa'
+              docker ps -a
+            " || true
+          else
+            echo "⚠️ No hay tag :previous — primer deploy fallido, sin estado anterior"
+            ssh -i ~/.ssh/deploy_key ubuntu@${{ steps.host.outputs.value }} "
               docker compose -p academia-pasalo down --remove-orphans || true
-              echo \"❌ Servidor detenido — intervención manual requerida\"
-            fi
-            docker ps -a
-          " || true
+              echo '❌ Servidor detenido — intervención manual requerida'
+              docker ps -a
+            " || true
+          fi
