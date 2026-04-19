@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { MediaAccessAdminController } from '@modules/media-access/presentation/media-access-admin.controller';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
 
 describe('MediaAccessAdminController', () => {
   let controller: MediaAccessAdminController;
@@ -17,6 +18,7 @@ describe('MediaAccessAdminController', () => {
     };
     dispatchService = {
       enqueueRecoverEvaluationScope: jest.fn(),
+      enqueueProvisionCourseSetup: jest.fn(),
     } as unknown as jest.Mocked<MediaAccessMembershipDispatchService>;
 
     const moduleRef = await Test.createTestingModule({
@@ -29,6 +31,12 @@ describe('MediaAccessAdminController', () => {
         {
           provide: MediaAccessMembershipDispatchService,
           useValue: dispatchService,
+        },
+        {
+          provide: CourseCycleDriveProvisioningService,
+          useValue: {
+            loadReprovisionData: jest.fn(),
+          },
         },
       ],
     }).compile();

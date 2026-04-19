@@ -606,12 +606,12 @@ export function CourseBankFolderModal({
       <div className="self-stretch flex flex-col gap-4">
         {typeOptions && onTypeChange ? (
           <FloatingSelect
-            id="bank-folder-type"
             label="Tipo de Evaluación"
             value={selectedType ?? null}
             onChange={onTypeChange}
             options={typeOptions}
-            placeholder="Selecciona un tipo"
+            allLabel="Selecciona un tipo"
+            emptyValueIsPlaceholder
             variant="floating"
             size="large"
             className="w-full"
@@ -1137,3 +1137,5 @@ export function CourseProfessorManagerModal({
     </Modal>
   );
 }
+
+

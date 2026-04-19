@@ -3,16 +3,14 @@ import { DataSource } from 'typeorm';
 import { CourseSetupService } from '@modules/courses/application/course-setup.service';
 import { CoursesService } from '@modules/courses/application/courses.service';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
-import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
-import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 
 describe('CourseSetupService', () => {
   let service: CourseSetupService;
   let dataSource: jest.Mocked<DataSource>;
   let coursesService: jest.Mocked<CoursesService>;
   let evaluationsService: jest.Mocked<EvaluationsService>;
-  let evaluationDriveAccessProvisioningService: jest.Mocked<EvaluationDriveAccessProvisioningService>;
-  let courseCycleDriveProvisioningService: jest.Mocked<CourseCycleDriveProvisioningService>;
+  let mediaAccessDispatchService: jest.Mocked<MediaAccessMembershipDispatchService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,15 +39,9 @@ describe('CourseSetupService', () => {
           },
         },
         {
-          provide: EvaluationDriveAccessProvisioningService,
+          provide: MediaAccessMembershipDispatchService,
           useValue: {
-            provisionByEvaluationId: jest.fn(),
-          },
-        },
-        {
-          provide: CourseCycleDriveProvisioningService,
-          useValue: {
-            provision: jest.fn(),
+            enqueueProvisionCourseSetup: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -59,12 +51,7 @@ describe('CourseSetupService', () => {
     dataSource = module.get(DataSource);
     coursesService = module.get(CoursesService);
     evaluationsService = module.get(EvaluationsService);
-    evaluationDriveAccessProvisioningService = module.get(
-      EvaluationDriveAccessProvisioningService,
-    );
-    courseCycleDriveProvisioningService = module.get(
-      CourseCycleDriveProvisioningService,
-    );
+    mediaAccessDispatchService = module.get(MediaAccessMembershipDispatchService);
   });
 
   function installQueryMock(options: {
@@ -194,18 +181,6 @@ describe('CourseSetupService', () => {
     (evaluationsService.create as jest.Mock)
       .mockResolvedValueOnce({ id: 'eval-pc1', number: 1 })
       .mockResolvedValueOnce({ id: 'eval-ex1', number: 1 });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-1',
-      introFolderId: 'intro-1',
-      bankFolderId: 'bank-1',
-      viewerGroupEmail: 'cc-1-viewers@test.com',
-      bankLeafFoldersCreated: 2,
-    });
 
     const result = await service.createFullCourseSetup(
       { id: 'admin-1' } as any,
@@ -240,12 +215,12 @@ describe('CourseSetupService', () => {
     );
 
     expect(
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId,
-    ).toHaveBeenCalledTimes(2);
-    expect(courseCycleDriveProvisioningService.provision).toHaveBeenCalledWith({
+      mediaAccessDispatchService.enqueueProvisionCourseSetup,
+    ).toHaveBeenCalledWith({
       courseCycleId: 'cc-1',
       courseCode: 'MAT101',
       cycleCode: '2026-0',
+      evaluationIds: ['eval-pc1', 'eval-ex1'],
       bankCards: [
         { evaluationTypeCode: 'PC', number: 1 },
         { evaluationTypeCode: 'EX', number: 1 },
@@ -294,18 +269,6 @@ describe('CourseSetupService', () => {
       id: 'eval-pc1',
       number: 1,
     });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-2',
-      introFolderId: 'intro-2',
-      bankFolderId: 'bank-2',
-      viewerGroupEmail: 'cc-2-viewers@test.com',
-      bankLeafFoldersCreated: 5,
-    });
 
     const result = await service.createFullCourseSetup(
       { id: 'admin-2' } as any,
@@ -349,10 +312,13 @@ describe('CourseSetupService', () => {
       ['type-pc', 'type-pd'],
     );
     expect(evaluationsService.create).toHaveBeenCalledTimes(1);
-    expect(courseCycleDriveProvisioningService.provision).toHaveBeenCalledWith({
+    expect(
+      mediaAccessDispatchService.enqueueProvisionCourseSetup,
+    ).toHaveBeenCalledWith({
       courseCycleId: 'cc-2',
       courseCode: 'QUI101',
       cycleCode: '2026-0',
+      evaluationIds: ['eval-pc1'],
       bankCards: [{ evaluationTypeCode: 'PC', number: 1 }],
       bankFolders: [
         { groupName: 'Prácticas Calificadas', items: ['PC1'] },
@@ -516,18 +482,6 @@ describe('CourseSetupService', () => {
       id: 'eval-pc1',
       number: 1,
     });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-7',
-      introFolderId: 'intro-7',
-      bankFolderId: 'bank-7',
-      viewerGroupEmail: 'cc-7-viewers@test.com',
-      bankLeafFoldersCreated: 1,
-    });
 
     await service.createFullCourseSetup(
       { id: 'admin-7' } as any,
@@ -588,18 +542,6 @@ describe('CourseSetupService', () => {
       id: 'eval-pc1',
       number: 1,
     });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-8',
-      introFolderId: 'intro-8',
-      bankFolderId: 'bank-8',
-      viewerGroupEmail: 'cc-8-viewers@test.com',
-      bankLeafFoldersCreated: 1,
-    });
 
     await service.createFullCourseSetup(
       { id: 'admin-8' } as any,
@@ -653,18 +595,6 @@ describe('CourseSetupService', () => {
     (evaluationsService.create as jest.Mock).mockResolvedValue({
       id: 'eval-pd1',
       number: 1,
-    });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-9',
-      introFolderId: 'intro-9',
-      bankFolderId: 'bank-9',
-      viewerGroupEmail: 'cc-9-viewers@test.com',
-      bankLeafFoldersCreated: 1,
     });
 
     // Frontend sends allowedEvaluationTypeIds: [] but creates a PD evaluation

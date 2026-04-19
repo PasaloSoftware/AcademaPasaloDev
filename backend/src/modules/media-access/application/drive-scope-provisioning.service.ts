@@ -351,11 +351,12 @@ export class DriveScopeProvisioningService {
 
   getRootFolderId(): string {
     const rootFolderId = (
-      this.configService.get<string>('GOOGLE_DRIVE_ROOT_FOLDER_ID', '') || ''
+      this.configService.get<string>('GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID', '') ||
+      ''
     ).trim();
     if (!rootFolderId) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_DRIVE_ROOT_FOLDER_ID en configuración',
+        'Falta GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID en configuración',
       );
     }
     return rootFolderId;
@@ -372,17 +373,17 @@ export class DriveScopeProvisioningService {
 
     if (!payload.id) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID inválido: no existe',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID inválido: no existe',
       );
     }
     if (payload.mimeType !== DRIVE_FOLDER_MIME_TYPE) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID debe apuntar a carpeta',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID debe apuntar a carpeta',
       );
     }
     if (payload.trashed) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID apunta a carpeta en papelera',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID apunta a carpeta en papelera',
       );
     }
   }

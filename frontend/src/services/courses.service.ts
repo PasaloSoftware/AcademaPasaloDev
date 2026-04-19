@@ -134,20 +134,18 @@ export const coursesService = {
     courseTypeId: string;
     cycleLevelId: string;
   }): Promise<Course> {
-    const response = await apiClient.post<ApiResponse<Course>>(
-      "/courses",
-      data,
-    );
-    return response.data.data;
+    const response = await apiClient.post<Course>("/courses", data);
+    return response.data;
   },
 
   async createSetup(
     data: CreateCourseSetupPayload,
   ): Promise<CreateCourseSetupResponse> {
-    const response = await apiClient.post<
-      ApiResponse<CreateCourseSetupResponse>
-    >("/courses/setup", data);
-    return response.data.data;
+    const response = await apiClient.post<CreateCourseSetupResponse>(
+      "/courses/setup",
+      data,
+    );
+    return response.data;
   },
 
   /**
