@@ -14,12 +14,16 @@ import {
 } from '@modules/media-access/domain/media-access.constants';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
+import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
+import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import {
   MediaAccessMembershipSyncJobPayload,
   MediaAccessRecoverScopeJobPayload,
   MediaAccessCourseCycleMembershipSyncJobPayload,
+  MediaAccessEvaluationTeardownJobPayload,
+  MediaAccessCourseSetupProvisionJobPayload,
 } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { MediaAccessReconciliationService } from '@modules/media-access/application/media-access-reconciliation.service';
 import { ConfigService } from '@nestjs/config';
@@ -36,7 +40,9 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly workspaceGroupsService: WorkspaceGroupsService,
+    private readonly driveScopeProvisioningService: DriveScopeProvisioningService,
     private readonly provisioningService: EvaluationDriveAccessProvisioningService,
+    private readonly courseCycleDriveProvisioningService: CourseCycleDriveProvisioningService,
     private readonly evaluationDriveAccessRepository: EvaluationDriveAccessRepository,
     private readonly reconciliationService: MediaAccessReconciliationService,
     private readonly configService: ConfigService,
@@ -71,6 +77,18 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       );
       return;
     }
+    if (job.name === MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE) {
+      await this.handleEvaluationScopeTeardown(
+        job as Job<MediaAccessEvaluationTeardownJobPayload>,
+      );
+      return;
+    }
+    if (job.name === MEDIA_ACCESS_JOB_NAMES.PROVISION_COURSE_SETUP) {
+      await this.handleProvisionCourseSetup(
+        job as Job<MediaAccessCourseSetupProvisionJobPayload>,
+      );
+      return;
+    }
     this.logger.warn({
       context: MediaAccessMembershipProcessor.name,
       message: 'Job de media-access desconocido, ignorado',
@@ -102,6 +120,41 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
       }
       throw error;
     }
+  }
+
+  private async handleEvaluationScopeTeardown(
+    job: Job<MediaAccessEvaluationTeardownJobPayload>,
+  ): Promise<void> {
+    const payload = job.data ?? ({} as MediaAccessEvaluationTeardownJobPayload);
+    const evaluationId = String(payload.evaluationId || '').trim();
+    const viewerGroupEmail = String(payload.viewerGroupEmail || '')
+      .trim()
+      .toLowerCase();
+    const driveScopeFolderId = payload.driveScopeFolderId
+      ? String(payload.driveScopeFolderId).trim()
+      : null;
+
+    if (!evaluationId || !viewerGroupEmail) {
+      throw new UnrecoverableError(
+        'Payload inválido para teardown de evaluation scope',
+      );
+    }
+
+    await this.workspaceGroupsService.deleteGroupIfExists(viewerGroupEmail);
+
+    if (driveScopeFolderId) {
+      await this.driveScopeProvisioningService.trashDriveFolderIfExists(
+        driveScopeFolderId,
+      );
+    }
+
+    this.logger.log({
+      context: MediaAccessMembershipProcessor.name,
+      message: 'Scope de evaluación eliminado (Drive + grupo Workspace)',
+      evaluationId,
+      viewerGroupEmail,
+      driveScopeFolderId,
+    });
   }
 
   @OnWorkerEvent('error')
@@ -660,6 +713,48 @@ export class MediaAccessMembershipProcessor extends WorkerHost {
     await this.workspaceGroupsService.removeMemberFromGroup({
       groupEmail: input.groupEmail,
       memberEmail: input.memberEmail,
+    });
+  }
+
+  private async handleProvisionCourseSetup(
+    job: Job<MediaAccessCourseSetupProvisionJobPayload>,
+  ): Promise<void> {
+    const payload =
+      job.data ?? ({} as MediaAccessCourseSetupProvisionJobPayload);
+    const courseCycleId = String(payload.courseCycleId || '').trim();
+    const courseCode = String(payload.courseCode || '').trim();
+    const cycleCode = String(payload.cycleCode || '').trim();
+    const evaluationIds = Array.isArray(payload.evaluationIds)
+      ? payload.evaluationIds
+      : [];
+    const bankCards = Array.isArray(payload.bankCards) ? payload.bankCards : [];
+    const bankFolders = Array.isArray(payload.bankFolders)
+      ? payload.bankFolders
+      : [];
+
+    if (!courseCycleId || !courseCode || !cycleCode) {
+      throw new UnrecoverableError(
+        'Payload inválido para provision de course setup Drive',
+      );
+    }
+
+    for (const evaluationId of evaluationIds) {
+      await this.provisioningService.provisionByEvaluationId(evaluationId);
+    }
+
+    await this.courseCycleDriveProvisioningService.provision({
+      courseCycleId,
+      courseCode,
+      cycleCode,
+      bankCards,
+      bankFolders,
+    });
+
+    this.logger.log({
+      context: MediaAccessMembershipProcessor.name,
+      message: 'Provisioning Drive de course setup completado',
+      courseCycleId,
+      evaluationsProvisioned: evaluationIds.length,
     });
   }
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import CourseStudentsManagementSection from "@/components/pages/admin/CourseStudentsManagementSection";
 import {
+  CourseBankFolderModal,
   CourseDeleteConfirmModal,
   CourseEditorFooter,
   CourseEditorHeader,
@@ -16,7 +17,7 @@ import {
   CourseSectionCard,
   CourseInfoBanner,
   CourseGeneralInfoSection,
-  CourseSelectQuantityModal,
+  CourseEvaluationDateModal,
   CourseEditorTab,
   ProfessorModalOption,
   getEvaluationTypeMeta,
@@ -32,7 +33,7 @@ import {
 } from "@/services/courses.service";
 import { evaluationsService } from "@/services/evaluations.service";
 import { usersService } from "@/services/users.service";
-import type { CourseType } from "@/types/api";
+import type { CourseType, EvaluationType } from "@/types/api";
 import type {
   BankStructureResponse,
   CurrentCycleResponse,
@@ -48,10 +49,7 @@ type MaterialFolderDraft = {
   description: string;
 };
 
-type DeleteTarget =
-  | { kind: "evaluation"; evaluationId: string }
-  | { kind: "bank-folder"; evaluationTypeCode: string }
-  | { kind: "material"; folderId: string };
+type DeleteTarget = { kind: "material"; folderId: string };
 
 const DEFAULT_MATERIAL_FOLDERS: MaterialFolderDraft[] = [
   {
@@ -113,12 +111,23 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   );
   const [evaluationQuantity, setEvaluationQuantity] = useState("");
   const [evaluationQuantityError, setEvaluationQuantityError] = useState("");
+  const [evaluationDatesById, setEvaluationDatesById] = useState<
+    Record<string, { startDate: string; endDate: string }>
+  >({});
+  const [editingStartDate, setEditingStartDate] = useState("");
+  const [editingEndDate, setEditingEndDate] = useState("");
+  const [editingDateSaving, setEditingDateSaving] = useState(false);
+  const [editingDateError, setEditingDateError] = useState("");
   const [bankFolderModalOpen, setBankFolderModalOpen] = useState(false);
   const [editingBankFolderCode, setEditingBankFolderCode] = useState<
     string | null
   >(null);
   const [bankFolderQuantity, setBankFolderQuantity] = useState("");
   const [bankFolderQuantityError, setBankFolderQuantityError] = useState("");
+  const [editingBankFolderGroupName, setEditingBankFolderGroupName] =
+    useState("");
+  const [editingBankFolderSaving, setEditingBankFolderSaving] = useState(false);
+  const [editingBankFolderError, setEditingBankFolderError] = useState("");
   const [materialFolders, setMaterialFolders] = useState<MaterialFolderDraft[]>(
     DEFAULT_MATERIAL_FOLDERS,
   );
@@ -130,19 +139,37 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   const [materialFolderDescription, setMaterialFolderDescription] =
     useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [pendingDeleteBankCodes, setPendingDeleteBankCodes] = useState<string[]>([]);
+  const [evaluationTypes, setEvaluationTypes] = useState<EvaluationType[]>([]);
+  const [addBankFolderModalOpen, setAddBankFolderModalOpen] = useState(false);
+  const [newBankFolderTypeCode, setNewBankFolderTypeCode] = useState<
+    string | null
+  >(null);
+  const [newBankFolderGroupName, setNewBankFolderGroupName] = useState("");
+  const [newBankFolderQuantity, setNewBankFolderQuantity] = useState("");
+  const [newBankFolderQuantityError, setNewBankFolderQuantityError] =
+    useState("");
+  const [newBankFolderSaving, setNewBankFolderSaving] = useState(false);
+  const [newBankFolderError, setNewBankFolderError] = useState("");
 
   const loadCourseEditData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [catalog, firstPage, types, content, bank] = await Promise.all([
-        coursesService.findAll(),
-        coursesService.getAdminCourseCycles({ page: 1, pageSize: 100 }),
-        coursesService.getCourseTypes(),
-        coursesService.getCourseContent(cursoId),
-        coursesService.getBankStructure(cursoId).catch(() => null),
-      ]);
+      const [catalog, firstPage, types, content, bank, evalDates, evalTypes] =
+        await Promise.all([
+          coursesService.findAll(),
+          coursesService.getAdminCourseCycles({ page: 1, pageSize: 100 }),
+          coursesService.getCourseTypes(),
+          coursesService.getCourseContent(cursoId),
+          coursesService.getBankStructure(cursoId).catch(() => null),
+          evaluationsService
+            .findByCourseCycle(cursoId)
+            .catch(() => [] as import("@/types/api").Evaluation[]),
+          evaluationsService.getTypes().catch(() => [] as EvaluationType[]),
+        ]);
 
       const cycleItems = [...firstPage.items];
       let page = 2;
@@ -169,6 +196,17 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
           (type) => normalizeCourseTypeName(type.name) === normalizedTypeName,
         ) || null;
 
+      const datesMap: Record<string, { startDate: string; endDate: string }> =
+        {};
+      for (const ev of evalDates) {
+        datesMap[ev.id] = {
+          startDate: ev.startDate.slice(0, 10),
+          endDate: ev.endDate.slice(0, 10),
+        };
+      }
+      setEvaluationDatesById(datesMap);
+      setPendingDeleteIds([]);
+      setPendingDeleteBankCodes([]);
       setCourseCycle(selectedCycle);
       setCourseTypes(types);
       setOrderedEvaluations(content.evaluations || []);
@@ -176,6 +214,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
         (content.evaluations || []).map((evaluation) => evaluation.id),
       );
       setBankStructure(bank);
+      setEvaluationTypes(evalTypes);
       setCourseName(selectedCycle.course.name);
       setCourseCode(selectedCycle.course.code);
       setSelectedType(matchedType?.id || null);
@@ -237,6 +276,11 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     [availableProfessors, selectedProfessorIds],
   );
 
+  const isFormComplete =
+    courseName.trim().length > 0 &&
+    courseCode.trim().length > 0 &&
+    selectedType !== null;
+
   const evaluations = orderedEvaluations;
   const evaluationOrderChanged =
     initialEvaluationOrder.length !== evaluations.length ||
@@ -248,7 +292,8 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     ? courseName !== currentCourse.name ||
       courseCode !== currentCourse.code ||
       selectedTypeName !== initialTypeName ||
-      evaluationOrderChanged
+      evaluationOrderChanged ||
+      pendingDeleteBankCodes.length > 0
     : false;
 
   const evaluationTypeOptions = useMemo(
@@ -260,14 +305,20 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     [orderedEvaluations],
   );
 
-  const bankFolderTypeOptions = useMemo(
-    () =>
-      (bankStructure?.items || []).map((item) => ({
-        value: item.evaluationTypeCode,
-        label: item.evaluationTypeName,
-      })),
-    [bankStructure],
-  );
+  const addBankFolderTypeOptions = useMemo(() => {
+    const existingCodes = new Set(
+      (bankStructure?.items || []).map((item) =>
+        item.evaluationTypeCode.toUpperCase(),
+      ),
+    );
+    return evaluationTypes
+      .filter(
+        (type) =>
+          type.code.toUpperCase() !== "BANCO_ENUNCIADOS" &&
+          !existingCodes.has(type.code.toUpperCase()),
+      )
+      .map((type) => ({ value: type.code, label: type.name }));
+  }, [evaluationTypes, bankStructure]);
 
   const isEvaluationModalSaveDisabled =
     !editingEvaluationId ||
@@ -276,9 +327,17 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     Boolean(evaluationQuantityError);
   const isBankFolderModalSaveDisabled =
     !editingBankFolderCode ||
+    editingBankFolderGroupName.trim().length === 0 ||
     !bankFolderQuantity ||
     Number(bankFolderQuantity) <= 0 ||
-    Boolean(bankFolderQuantityError);
+    Boolean(bankFolderQuantityError) ||
+    editingBankFolderSaving;
+  const isAddBankFolderModalSaveDisabled =
+    !newBankFolderTypeCode ||
+    !newBankFolderQuantity ||
+    Number(newBankFolderQuantity) <= 0 ||
+    Boolean(newBankFolderQuantityError) ||
+    newBankFolderSaving;
   const isMaterialModalSaveDisabled =
     materialFolderName.trim().length === 0 ||
     materialFolderDescription.trim().length === 0;
@@ -337,6 +396,8 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     setEditingBankFolderCode(null);
     setBankFolderQuantity("");
     setBankFolderQuantityError("");
+    setEditingBankFolderGroupName("");
+    setEditingBankFolderError("");
   };
 
   const resetMaterialModal = () => {
@@ -346,19 +407,52 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   };
 
   const openEditEvaluationModal = (evaluationId: string) => {
-    const evaluation = orderedEvaluations.find(
-      (item) => item.id === evaluationId,
-    );
-    if (!evaluation) return;
-
-    const quantity = orderedEvaluations.filter(
-      (item) => item.evaluationTypeCode === evaluation.evaluationTypeCode,
-    ).length;
-
+    const dates = evaluationDatesById[evaluationId];
     setEditingEvaluationId(evaluationId);
-    setEvaluationQuantity(String(quantity));
-    setEvaluationQuantityError("");
+    setEditingStartDate(dates?.startDate ?? "");
+    setEditingEndDate(dates?.endDate ?? "");
+    setEditingDateError("");
     setEvaluationModalOpen(true);
+  };
+
+  const resetAddBankFolderModal = () => {
+    setNewBankFolderTypeCode(null);
+    setNewBankFolderGroupName("");
+    setNewBankFolderQuantity("");
+    setNewBankFolderQuantityError("");
+    setNewBankFolderError("");
+  };
+
+  const handleAddBankFolder = async () => {
+    if (!newBankFolderTypeCode) return;
+
+    setNewBankFolderSaving(true);
+    setNewBankFolderError("");
+    try {
+      await coursesService.updateBankFolder(cursoId, newBankFolderTypeCode, {
+        groupName: newBankFolderGroupName.trim(),
+        items: Array.from(
+          { length: Number(newBankFolderQuantity) },
+          (_, index) => `${newBankFolderTypeCode}${index + 1}`,
+        ),
+      });
+      const refreshedBank = await coursesService.getBankStructure(cursoId);
+      setBankStructure(refreshedBank);
+      showToast({
+        type: "success",
+        title: "Carpeta creada",
+        description: "La carpeta fue agregada al banco de enunciados.",
+      });
+      resetAddBankFolderModal();
+      setAddBankFolderModalOpen(false);
+    } catch (err) {
+      console.error("Error al crear carpeta del banco:", err);
+      setNewBankFolderError(
+        err instanceof Error ? err.message : "Ocurrió un error inesperado.",
+      );
+    } finally {
+      setNewBankFolderSaving(false);
+    }
   };
 
   const openEditBankFolderModal = (evaluationTypeCode: string) => {
@@ -368,8 +462,10 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     if (!folder) return;
 
     setEditingBankFolderCode(folder.evaluationTypeCode);
+    setEditingBankFolderGroupName(folder.evaluationTypeName);
     setBankFolderQuantity(String(folder.entries?.length || 0));
     setBankFolderQuantityError("");
+    setEditingBankFolderError("");
     setBankFolderModalOpen(true);
   };
 
@@ -386,7 +482,11 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
   const handleSave = async () => {
     if (!courseCycle) return;
 
-    if (!evaluationOrderChanged) {
+    const hasPendingDeletes = pendingDeleteIds.length > 0;
+    const hasPendingBankDeletes = pendingDeleteBankCodes.length > 0;
+    const hasReorder = evaluationOrderChanged;
+
+    if (!hasPendingDeletes && !hasReorder && !hasPendingBankDeletes) {
       showToast({
         type: "info",
         title: "Guardado pendiente",
@@ -396,30 +496,60 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       return;
     }
 
+    const remainingInitialOrder = initialEvaluationOrder.filter(
+      (id) => !pendingDeleteIds.includes(id),
+    );
+    const hasExplicitReorder = remainingInitialOrder.some(
+      (id, index) => evaluations[index]?.id !== id,
+    );
+
     setSaving(true);
     try {
-      const nextIds = evaluations.map((evaluation) => evaluation.id);
-      await evaluationsService.reorderByCourseCycle(cursoId, nextIds);
-      setInitialEvaluationOrder(nextIds);
+      if (hasPendingDeletes) {
+        await Promise.all(
+          pendingDeleteIds.map((id) => evaluationsService.delete(id)),
+        );
+        setPendingDeleteIds([]);
+      }
+
+      const remainingIds = evaluations.map((evaluation) => evaluation.id);
+      if (remainingIds.length > 0) {
+        await evaluationsService.reorderByCourseCycle(cursoId, remainingIds);
+      }
+      setInitialEvaluationOrder(remainingIds);
+
+      if (hasPendingBankDeletes) {
+        await Promise.all(
+          pendingDeleteBankCodes.map((code) =>
+            coursesService.deleteBankFolder(cursoId, code),
+          ),
+        );
+        const refreshedBank = await coursesService.getBankStructure(cursoId);
+        setBankStructure(refreshedBank);
+        setPendingDeleteBankCodes([]);
+      }
+
       showToast({
         type: "success",
-        title: "Orden actualizado",
+        title: "Cambios guardados",
         description:
-          courseName !== courseCycle.course.name ||
-          courseCode !== courseCycle.course.code ||
-          selectedTypeName !== initialTypeName
-            ? "El orden de evaluaciones se guardo correctamente. Los cambios de informacion general aun siguen pendientes."
-            : "El orden de evaluaciones se guardo correctamente.",
+          hasPendingBankDeletes && !hasPendingDeletes && !hasReorder
+            ? "Las carpetas del banco fueron eliminadas correctamente."
+            : hasPendingDeletes && hasExplicitReorder
+              ? "Las evaluaciones eliminadas y el nuevo orden fueron guardados correctamente."
+              : hasPendingDeletes
+                ? "Las evaluaciones fueron eliminadas correctamente."
+                : "El orden de evaluaciones se guardo correctamente.",
       });
     } catch (err) {
-      console.error("Error al guardar el orden de evaluaciones:", err);
+      console.error("Error al guardar cambios de evaluaciones:", err);
       showToast({
         type: "error",
         title: "No se pudo guardar",
         description:
           err instanceof Error
             ? err.message
-            : "Ocurrio un error al guardar el orden de evaluaciones.",
+            : "Ocurrio un error al guardar los cambios.",
       });
     } finally {
       setSaving(false);
@@ -434,20 +564,46 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     });
   };
 
-  const handleSaveEditedEvaluation = () => {
-    const evaluation = orderedEvaluations.find(
-      (item) => item.id === editingEvaluationId,
-    );
-    if (!evaluation) return;
+  const handleSaveEditedEvaluation = async () => {
+    if (!editingEvaluationId) return;
+    if (!editingStartDate || !editingEndDate) {
+      setEditingDateError("Ambas fechas son obligatorias.");
+      return;
+    }
+    if (editingStartDate > editingEndDate) {
+      setEditingDateError(
+        "La fecha de inicio no puede ser posterior a la fecha de fin.",
+      );
+      return;
+    }
 
-    showToast({
-      type: "info",
-      title: "Edición pendiente de backend",
-      description:
-        "La API actual permite crear y reordenar evaluaciones, pero aún no expone edición o eliminación individual de evaluaciones académicas.",
-    });
-    resetEvaluationModal();
-    setEvaluationModalOpen(false);
+    setEditingDateSaving(true);
+    try {
+      await evaluationsService.update(editingEvaluationId, {
+        startDate: editingStartDate,
+        endDate: editingEndDate,
+      });
+      setEvaluationDatesById((prev) => ({
+        ...prev,
+        [editingEvaluationId]: {
+          startDate: editingStartDate,
+          endDate: editingEndDate,
+        },
+      }));
+      showToast({
+        type: "success",
+        title: "Fechas actualizadas",
+        description: "Las fechas de la evaluación se guardaron correctamente.",
+      });
+      setEvaluationModalOpen(false);
+      setEditingEvaluationId(null);
+    } catch (err) {
+      setEditingDateError(
+        err instanceof Error ? err.message : "No se pudo guardar las fechas.",
+      );
+    } finally {
+      setEditingDateSaving(false);
+    }
   };
 
   const handleSaveEditedBankFolder = async () => {
@@ -458,9 +614,11 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     );
     if (!folder) return;
 
+    setEditingBankFolderSaving(true);
+    setEditingBankFolderError("");
     try {
       await coursesService.updateBankFolder(cursoId, editingBankFolderCode, {
-        groupName: folder.evaluationTypeName,
+        groupName: editingBankFolderGroupName.trim() || folder.evaluationTypeName,
         items: Array.from(
           { length: Number(bankFolderQuantity) },
           (_, index) => `${editingBankFolderCode}${index + 1}`,
@@ -478,12 +636,11 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       setBankFolderModalOpen(false);
     } catch (err) {
       console.error("Error al actualizar carpeta del banco:", err);
-      showToast({
-        type: "error",
-        title: "No se pudo actualizar la carpeta",
-        description:
-          err instanceof Error ? err.message : "Ocurrió un error inesperado.",
-      });
+      setEditingBankFolderError(
+        err instanceof Error ? err.message : "Ocurrió un error inesperado.",
+      );
+    } finally {
+      setEditingBankFolderSaving(false);
     }
   };
 
@@ -513,46 +670,8 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
     setMaterialModalOpen(false);
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!deleteTarget) return;
-
-    if (deleteTarget.kind === "evaluation") {
-      showToast({
-        type: "info",
-        title: "Eliminación pendiente de backend",
-        description:
-          "La API actual aún no expone eliminación individual de evaluaciones académicas.",
-      });
-      setDeleteTarget(null);
-      return;
-    }
-
-    if (deleteTarget.kind === "bank-folder") {
-      try {
-        await coursesService.deleteBankFolder(
-          cursoId,
-          deleteTarget.evaluationTypeCode,
-        );
-        const refreshedBank = await coursesService.getBankStructure(cursoId);
-        setBankStructure(refreshedBank);
-        showToast({
-          type: "success",
-          title: "Carpeta eliminada",
-          description: "La carpeta del banco fue eliminada correctamente.",
-        });
-      } catch (err) {
-        console.error("Error al eliminar carpeta del banco:", err);
-        showToast({
-          type: "error",
-          title: "No se pudo eliminar la carpeta",
-          description:
-            err instanceof Error ? err.message : "Ocurrió un error inesperado.",
-        });
-      } finally {
-        setDeleteTarget(null);
-      }
-      return;
-    }
 
     setMaterialFolders((current) =>
       current.filter((folder) => folder.id !== deleteTarget.folderId),
@@ -568,14 +687,6 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
 
   const deleteModalConfig = useMemo(() => {
     if (!deleteTarget) return null;
-
-    if (deleteTarget.kind === "evaluation") {
-      return {
-        title: "¿Eliminar esta evaluación?",
-        description:
-          "¿Estás seguro de que deseas eliminar esta evaluación? Si la evaluación tiene materiales asociados, estos también serán eliminados.",
-      };
-    }
 
     return {
       title: "¿Eliminar esta carpeta?",
@@ -783,6 +894,12 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
               </button>
             }
           >
+            {pendingDeleteIds.length > 0 && (
+              <CourseInfoBanner
+                title="Cambios pendientes"
+                description={`${pendingDeleteIds.length} evaluación${pendingDeleteIds.length > 1 ? "es" : ""} marcada${pendingDeleteIds.length > 1 ? "s" : ""} para eliminar. Presiona Guardar para confirmar.`}
+              />
+            )}
             <CourseEvaluationList
               evaluations={evaluations}
               draggedEvaluationId={draggedEvaluationId}
@@ -808,22 +925,56 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                 setDragOverEvaluationId(null);
               }}
               onEdit={openEditEvaluationModal}
-              onDelete={(evaluationId) =>
-                setDeleteTarget({ kind: "evaluation", evaluationId })
-              }
+              onDelete={(evaluationId) => {
+                setOrderedEvaluations((current) =>
+                  current.filter((ev) => String(ev.id) !== String(evaluationId)),
+                );
+                setEvaluationDatesById((prev) => {
+                  const next = { ...prev };
+                  delete next[String(evaluationId)];
+                  return next;
+                });
+                setPendingDeleteIds((prev) =>
+                  prev.includes(evaluationId) ? prev : [...prev, evaluationId],
+                );
+              }}
             />
           </CourseSectionCard>
 
           <CourseSectionCard
             title="Banco de Enunciados"
             icon="chrome_reader_mode"
+            actions={
+              addBankFolderTypeOptions.length > 0 ? (
+                <button
+                  onClick={() => setAddBankFolderModalOpen(true)}
+                  className="px-4 py-2 bg-bg-primary rounded outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1 hover:bg-bg-accent-light transition-colors"
+                >
+                  <Icon name="add" size={14} className="text-icon-accent-primary" />
+                  <span className="text-text-accent-primary text-xs font-medium leading-4">
+                    Añadir carpeta adicional
+                  </span>
+                </button>
+              ) : undefined
+            }
           >
             <CourseInfoBanner
               title="Sincronización"
               description="El banco de enunciados se generará cuando se ingrese al menos una evaluación. Toda evaluación que se agregue, también se duplicará en este."
             />
+            {pendingDeleteBankCodes.length > 0 && (
+              <CourseInfoBanner
+                title="Cambios pendientes"
+                description={`${pendingDeleteBankCodes.length} carpeta${pendingDeleteBankCodes.length > 1 ? "s" : ""} marcada${pendingDeleteBankCodes.length > 1 ? "s" : ""} para eliminar. Presiona Guardar para confirmar.`}
+              />
+            )}
             <div className="self-stretch grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {(bankStructure?.items || []).map((item) => {
+              {(bankStructure?.items || [])
+                .filter(
+                  (item) =>
+                    !pendingDeleteBankCodes.includes(item.evaluationTypeCode),
+                )
+                .map((item) => {
                 const typeMeta = getEvaluationTypeMeta(item.evaluationTypeCode);
                 return (
                   <CourseResourceCard
@@ -850,10 +1001,11 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                         </button>
                         <button
                           onClick={() =>
-                            setDeleteTarget({
-                              kind: "bank-folder",
-                              evaluationTypeCode: item.evaluationTypeCode,
-                            })
+                            setPendingDeleteBankCodes((prev) =>
+                              prev.includes(item.evaluationTypeCode)
+                                ? prev
+                                : [...prev, item.evaluationTypeCode],
+                            )
                           }
                           className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
                           title="Eliminar carpeta"
@@ -869,7 +1021,10 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
                   />
                 );
               })}
-              {!bankStructure?.items?.length && (
+              {!(bankStructure?.items || []).filter(
+                  (item) =>
+                    !pendingDeleteBankCodes.includes(item.evaluationTypeCode),
+                ).length && (
                 <div className="md:col-span-2 xl:col-span-3 self-stretch p-6 bg-bg-secondary rounded-xl border border-dashed border-stroke-secondary text-text-tertiary text-sm">
                   No hay estructura de banco configurada para este curso.
                 </div>
@@ -952,7 +1107,7 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
       <CourseEditorFooter
         onCancel={() => router.push(`/plataforma/curso/${cursoId}`)}
         onSave={handleSave}
-        saveDisabled={!isDirty || saving}
+        saveDisabled={!isDirty || !isFormComplete || saving}
         saveLoading={saving}
         saveLoadingLabel="Guardando cambios..."
       />
@@ -974,47 +1129,35 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
         onRemoveProfessor={handleRemoveProfessor}
       />
 
-      <CourseSelectQuantityModal
+      <CourseEvaluationDateModal
         isOpen={evaluationModalOpen}
+        title="Editar Fechas de Evaluación"
+        startDate={editingStartDate}
+        endDate={editingEndDate}
+        onStartDateChange={setEditingStartDate}
+        onEndDateChange={setEditingEndDate}
+        error={editingDateError}
         onClose={() => {
-          resetEvaluationModal();
+          if (editingDateSaving) return;
           setEvaluationModalOpen(false);
+          setEditingEvaluationId(null);
+          setEditingDateError("");
         }}
-        title="Editar Evaluación"
-        selectLabel="Tipo de Evaluación"
-        quantityLabel="Cantidad de Evaluaciones"
-        selectValue={editingEvaluationId}
-        onSelectChange={() => undefined}
-        selectOptions={evaluationTypeOptions}
-        selectPlaceholder="Tipo de Evaluación"
-        quantityValue={evaluationQuantity}
-        onQuantityChange={(value) =>
-          handleQuantityChange(
-            value,
-            setEvaluationQuantity,
-            setEvaluationQuantityError,
-          )
-        }
-        quantityError={evaluationQuantityError}
         onSave={handleSaveEditedEvaluation}
-        saveDisabled={isEvaluationModalSaveDisabled}
-        selectDisabled
+        saveDisabled={!editingStartDate || !editingEndDate || editingDateSaving}
+        saving={editingDateSaving}
       />
 
-      <CourseSelectQuantityModal
+      <CourseBankFolderModal
         isOpen={bankFolderModalOpen}
         onClose={() => {
+          if (editingBankFolderSaving) return;
           resetBankFolderModal();
           setBankFolderModalOpen(false);
         }}
-        title="Editar Carpeta Adicional"
-        selectLabel="Tipo de Carpeta Adicional"
-        quantityLabel="Cantidad de Evaluaciones"
-        selectValue={editingBankFolderCode}
-        onSelectChange={() => undefined}
-        selectOptions={bankFolderTypeOptions}
-        selectPlaceholder="Tipo de Carpeta Adicional"
-        quantityValue={bankFolderQuantity}
+        groupName={editingBankFolderGroupName}
+        onGroupNameChange={setEditingBankFolderGroupName}
+        quantity={bankFolderQuantity}
         onQuantityChange={(value) =>
           handleQuantityChange(
             value,
@@ -1023,9 +1166,44 @@ export default function CursoEditContent({ cursoId }: CursoEditContentProps) {
           )
         }
         quantityError={bankFolderQuantityError}
-        onSave={handleSaveEditedBankFolder}
+        error={editingBankFolderError}
+        saving={editingBankFolderSaving}
         saveDisabled={isBankFolderModalSaveDisabled}
-        selectDisabled
+        onSave={handleSaveEditedBankFolder}
+      />
+
+      <CourseBankFolderModal
+        isOpen={addBankFolderModalOpen}
+        title="Añadir Carpeta Adicional"
+        onClose={() => {
+          if (newBankFolderSaving) return;
+          resetAddBankFolderModal();
+          setAddBankFolderModalOpen(false);
+        }}
+        typeOptions={addBankFolderTypeOptions}
+        selectedType={newBankFolderTypeCode}
+        onTypeChange={(value) => {
+          setNewBankFolderTypeCode(value);
+          const option = addBankFolderTypeOptions.find(
+            (opt) => opt.value === value,
+          );
+          setNewBankFolderGroupName(option?.label ?? "");
+        }}
+        groupName={newBankFolderGroupName}
+        onGroupNameChange={setNewBankFolderGroupName}
+        quantity={newBankFolderQuantity}
+        onQuantityChange={(value) =>
+          handleQuantityChange(
+            value,
+            setNewBankFolderQuantity,
+            setNewBankFolderQuantityError,
+          )
+        }
+        quantityError={newBankFolderQuantityError}
+        error={newBankFolderError}
+        saving={newBankFolderSaving}
+        saveDisabled={isAddBankFolderModalSaveDisabled}
+        onSave={handleAddBankFolder}
       />
 
       <CourseMaterialFolderModal

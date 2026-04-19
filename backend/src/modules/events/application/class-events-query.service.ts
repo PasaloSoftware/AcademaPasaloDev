@@ -236,8 +236,12 @@ export class ClassEventsQueryService {
     });
 
     const response: GlobalFilterCatalog = {
-      cycles: [...cyclesMap.values()].sort((a, b) => b.code.localeCompare(a.code)),
-      units: [...unitsMap.values()].sort((a, b) => a.code.localeCompare(b.code)),
+      cycles: [...cyclesMap.values()].sort((a, b) =>
+        b.code.localeCompare(a.code),
+      ),
+      units: [...unitsMap.values()].sort((a, b) =>
+        a.code.localeCompare(b.code),
+      ),
       courseCycles: rows.map((row) => ({
         courseCycleId: row.courseCycleId,
         courseId: row.courseId,
@@ -275,7 +279,8 @@ export class ClassEventsQueryService {
       await this.courseCycleRepository.findCourseCycleIdsByGlobalFilters({
         academicCycleId: params.academicCycleId,
         courseTypeCode: params.courseTypeCode,
-        courseIds: normalizedCourseIds.length > 0 ? normalizedCourseIds : undefined,
+        courseIds:
+          normalizedCourseIds.length > 0 ? normalizedCourseIds : undefined,
       });
 
     if (courseCycleIds.length === 0) {
@@ -304,7 +309,11 @@ export class ClassEventsQueryService {
       );
     const groupedSessions = this.mapGlobalSessionRows(rows);
 
-    await this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL);
+    await this.cacheService.set(
+      cacheKey,
+      groupedSessions,
+      this.EVENT_CACHE_TTL,
+    );
     return groupedSessions;
   }
 
@@ -368,7 +377,9 @@ export class ClassEventsQueryService {
 
   private mapGlobalSessionRows(
     rows: Awaited<
-      ReturnType<ClassEventRepository['findGlobalSessionsByCourseCyclesAndRange']>
+      ReturnType<
+        ClassEventRepository['findGlobalSessionsByCourseCyclesAndRange']
+      >
     >,
   ): GlobalSessionGroup[] {
     const grouped = new Map<string, GlobalSessionGroup>();

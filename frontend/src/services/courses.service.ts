@@ -30,6 +30,7 @@ export interface AdminCourseCycleProfessor {
 
 export interface AdminCourseCycleItem {
   courseCycleId: string;
+  studentCount: number;
   course: { id: string; code: string; name: string };
   academicCycle: {
     id: string;

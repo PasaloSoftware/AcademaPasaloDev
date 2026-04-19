@@ -36,6 +36,7 @@ import {
   AdminCourseOptionDto,
   AdminUserDetailResponseDto,
 } from '@modules/users/dto/admin-user-detail.dto';
+import { AdminDashboardStatsDto } from '@modules/users/dto/admin-dashboard-stats.dto';
 import {
   AdminUserOnboardingDto,
   AdminUserOnboardingResponseDto,
@@ -67,6 +68,7 @@ import { ROLE_CODES } from '@common/constants/role-codes.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { AUDIT_ACTION_CODES } from '@modules/audit/interfaces/audit.constants';
 import { USER_CACHE_KEYS } from '@modules/users/domain/user.constants';
+import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import {
   ENROLLMENT_STATUS_CODES,
   ENROLLMENT_TYPE_CODES,
@@ -98,6 +100,8 @@ const ADMIN_USERS_BASE_CACHE_TTL_SECONDS =
   technicalSettings.cache.users.adminUsersBaseListCacheTtlSeconds;
 const COURSES_CATALOG_CACHE_TTL_SECONDS =
   technicalSettings.cache.users.coursesCatalogCacheTtlSeconds;
+const ADMIN_DASHBOARD_STATS_CACHE_TTL_SECONDS =
+  ADMIN_USERS_BASE_CACHE_TTL_SECONDS;
 
 @Injectable()
 export class UsersService {
@@ -348,6 +352,9 @@ export class UsersService {
     });
 
     await this.invalidateAdminUsersBaseCache();
+    if (result.enrollmentId) {
+      await this.invalidateAdminCourseCyclesListCache();
+    }
 
     return {
       userId: result.userId,
@@ -620,6 +627,12 @@ export class UsersService {
     }
 
     await this.invalidateAdminUsersBaseCache();
+    if (
+      transactionResult.cancelledEnrollmentIds.length > 0 ||
+      transactionResult.createdEnrollmentIds.length > 0
+    ) {
+      await this.invalidateAdminCourseCyclesListCache();
+    }
 
     const changedRoleCodes = transactionResult.previousRoleCodes.filter(
       (code) => !transactionResult.finalRoleCodes.includes(code),
@@ -817,6 +830,63 @@ export class UsersService {
       USER_CACHE_KEYS.COURSES_CATALOG,
       response,
       COURSES_CATALOG_CACHE_TTL_SECONDS,
+    );
+
+    return response;
+  }
+
+  async getAdminDashboardStats(): Promise<AdminDashboardStatsDto> {
+    const cached = await this.cacheService.get<AdminDashboardStatsDto>(
+      USER_CACHE_KEYS.ADMIN_DASHBOARD_STATS,
+    );
+    if (cached) {
+      return cached;
+    }
+
+    const rows = await this.dataSource.query<
+      Array<{
+        activeStudents: string | number;
+        teachers: string | number;
+        courses: string | number;
+      }>
+    >(
+      `
+        SELECT
+          (
+            SELECT COUNT(DISTINCT u.id)
+            FROM user u
+            INNER JOIN user_role ur ON ur.user_id = u.id
+            INNER JOIN role r ON r.id = ur.role_id
+            WHERE u.is_active = 1
+              AND r.code = ?
+          ) AS activeStudents,
+          (
+            SELECT COUNT(DISTINCT u.id)
+            FROM user u
+            INNER JOIN user_role ur ON ur.user_id = u.id
+            INNER JOIN role r ON r.id = ur.role_id
+            WHERE u.is_active = 1
+              AND r.code = ?
+          ) AS teachers,
+          (
+            SELECT COUNT(*)
+            FROM course c
+          ) AS courses
+      `,
+      [ROLE_CODES.STUDENT, ROLE_CODES.PROFESSOR],
+    );
+
+    const row = rows[0];
+    const response: AdminDashboardStatsDto = {
+      activeStudents: Number(row?.activeStudents || 0),
+      teachers: Number(row?.teachers || 0),
+      courses: Number(row?.courses || 0),
+    };
+
+    await this.cacheService.set(
+      USER_CACHE_KEYS.ADMIN_DASHBOARD_STATS,
+      response,
+      ADMIN_DASHBOARD_STATS_CACHE_TTL_SECONDS,
     );
 
     return response;
@@ -2663,6 +2733,36 @@ export class UsersService {
       this.logger.warn({
         context: UsersService.name,
         message: 'No se pudo invalidar cache base de tabla admin de usuarios',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async invalidateAdminCourseCyclesListCache(): Promise<void> {
+    try {
+      await this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
+      );
+    } catch (error) {
+      this.logger.warn({
+        context: UsersService.name,
+        message:
+          'No se pudo invalidar cache de tabla admin de cursos (course-cycles list)',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    await this.invalidateAdminDashboardStatsCache();
+  }
+
+  private async invalidateAdminDashboardStatsCache(): Promise<void> {
+    try {
+      await this.cacheService.del(USER_CACHE_KEYS.ADMIN_DASHBOARD_STATS);
+    } catch (error) {
+      this.logger.warn({
+        context: UsersService.name,
+        message:
+          'No se pudo invalidar cache de dashboard admin (estadisticas base)',
         error: error instanceof Error ? error.message : String(error),
       });
     }

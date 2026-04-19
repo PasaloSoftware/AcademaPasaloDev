@@ -120,6 +120,21 @@ export class EvaluationDriveAccessProvisioningService {
     return persisted;
   }
 
+  async getDriveAccessSnapshot(evaluationId: string): Promise<{
+    viewerGroupEmail: string;
+    driveScopeFolderId: string | null;
+  } | null> {
+    const normalized = String(evaluationId || '').trim();
+    if (!normalized) return null;
+    const record =
+      await this.evaluationDriveAccessRepository.findByEvaluationId(normalized);
+    if (!record) return null;
+    return {
+      viewerGroupEmail: record.viewerGroupEmail,
+      driveScopeFolderId: record.driveScopeFolderId,
+    };
+  }
+
   private async ensureStaffGroupWriterPermission(
     folderId: string,
   ): Promise<void> {

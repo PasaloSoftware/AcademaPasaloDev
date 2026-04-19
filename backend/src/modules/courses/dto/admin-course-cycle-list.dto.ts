@@ -73,6 +73,9 @@ export class AdminCourseCycleListItemDto {
   courseCycleId: string;
 
   @Expose()
+  studentCount: number;
+
+  @Expose()
   @Type(() => AdminCourseCycleListCourseDto)
   course: AdminCourseCycleListCourseDto;
 

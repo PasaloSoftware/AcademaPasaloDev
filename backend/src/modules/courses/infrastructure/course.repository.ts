@@ -182,7 +182,7 @@ export class CourseRepository {
         'ALTER TABLE course ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE AFTER secondary_color',
       );
       this.hasIsActiveColumnCache = true;
-    } catch (error) {
+    } catch (_error) {
       if (await this.hasIsActiveColumn(manager)) {
         this.hasIsActiveColumnCache = true;
         return;

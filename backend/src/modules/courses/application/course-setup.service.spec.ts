@@ -94,6 +94,16 @@ describe('CourseSetupService', () => {
 
       if (
         query.includes('FROM evaluation_type') &&
+        query.includes('UPPER(TRIM(code)) != ?')
+      ) {
+        const excludedCode = String(params[0] || '').toUpperCase().trim();
+        return options.types.filter(
+          (t) => String(t.code || '').toUpperCase().trim() !== excludedCode,
+        );
+      }
+
+      if (
+        query.includes('FROM evaluation_type') &&
         query.includes('LOWER(TRIM(name)) = LOWER(TRIM(?))')
       ) {
         const row = typeByName.get(String(params[0] || '').toLowerCase().trim());
@@ -479,6 +489,212 @@ describe('CourseSetupService', () => {
       ),
     ).rejects.toThrow(
       'bankFoldersToCreate[0] debe enviar evaluationTypeId o newEvaluationTypeName',
+    );
+  });
+
+  it('registers all catalog evaluation types as allowed regardless of what the frontend sends', async () => {
+    installQueryMock({
+      types: [
+        { id: 'type-pc', code: 'PC', name: 'Practica Calificada' },
+        { id: 'type-ex', code: 'EX', name: 'Examen' },
+        { id: 'type-pd', code: 'PD', name: 'Practica Dirigida' },
+      ],
+      courseMeta: { courseCode: 'FIS101', cycleCode: '2026-0' },
+    });
+
+    (coursesService.create as jest.Mock).mockResolvedValue({
+      id: 'course-7',
+      code: 'FIS101',
+      name: 'Fisica',
+    });
+    (coursesService.assignToCycle as jest.Mock).mockResolvedValue({
+      id: 'cc-7',
+      courseId: 'course-7',
+      academicCycleId: 'ac-7',
+    });
+    (evaluationsService.create as jest.Mock).mockResolvedValue({
+      id: 'eval-pc1',
+      number: 1,
+    });
+    (
+      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
+    ).mockResolvedValue({});
+    (
+      courseCycleDriveProvisioningService.provision as jest.Mock
+    ).mockResolvedValue({
+      scopeFolderId: 'scope-7',
+      introFolderId: 'intro-7',
+      bankFolderId: 'bank-7',
+      viewerGroupEmail: 'cc-7-viewers@test.com',
+      bankLeafFoldersCreated: 1,
+    });
+
+    await service.createFullCourseSetup(
+      { id: 'admin-7' } as any,
+      {
+        course: {
+          code: 'FIS101',
+          name: 'Fisica',
+          courseTypeId: 'ct-1',
+          cycleLevelId: 'cl-1',
+        },
+        academicCycleId: 'ac-7',
+        allowedEvaluationTypeIds: ['type-pc'],
+        evaluationsToCreate: [
+          {
+            evaluationTypeId: 'type-pc',
+            number: 1,
+            startDate: '2026-01-10',
+            endDate: '2026-01-11',
+          },
+        ],
+        materialsTemplate: { roots: [] },
+      },
+    );
+
+    const callArg = (
+      coursesService.updateCourseCycleEvaluationStructure as jest.Mock
+    ).mock.calls[0][1] as string[];
+    expect(callArg).toHaveLength(3);
+    expect(callArg).toEqual(
+      expect.arrayContaining(['type-pc', 'type-ex', 'type-pd']),
+    );
+  });
+
+  it('excludes BANCO_ENUNCIADOS from allowed types even when present in the catalog', async () => {
+    installQueryMock({
+      types: [
+        { id: 'type-pc', code: 'PC', name: 'Practica Calificada' },
+        {
+          id: 'type-bank',
+          code: 'BANCO_ENUNCIADOS',
+          name: 'Banco de Enunciados',
+        },
+      ],
+      courseMeta: { courseCode: 'FIS102', cycleCode: '2026-0' },
+    });
+
+    (coursesService.create as jest.Mock).mockResolvedValue({
+      id: 'course-8',
+      code: 'FIS102',
+      name: 'Fisica 2',
+    });
+    (coursesService.assignToCycle as jest.Mock).mockResolvedValue({
+      id: 'cc-8',
+      courseId: 'course-8',
+      academicCycleId: 'ac-8',
+    });
+    (evaluationsService.create as jest.Mock).mockResolvedValue({
+      id: 'eval-pc1',
+      number: 1,
+    });
+    (
+      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
+    ).mockResolvedValue({});
+    (
+      courseCycleDriveProvisioningService.provision as jest.Mock
+    ).mockResolvedValue({
+      scopeFolderId: 'scope-8',
+      introFolderId: 'intro-8',
+      bankFolderId: 'bank-8',
+      viewerGroupEmail: 'cc-8-viewers@test.com',
+      bankLeafFoldersCreated: 1,
+    });
+
+    await service.createFullCourseSetup(
+      { id: 'admin-8' } as any,
+      {
+        course: {
+          code: 'FIS102',
+          name: 'Fisica 2',
+          courseTypeId: 'ct-1',
+          cycleLevelId: 'cl-1',
+        },
+        academicCycleId: 'ac-8',
+        allowedEvaluationTypeIds: ['type-pc'],
+        evaluationsToCreate: [
+          {
+            evaluationTypeId: 'type-pc',
+            number: 1,
+            startDate: '2026-01-10',
+            endDate: '2026-01-11',
+          },
+        ],
+        materialsTemplate: { roots: [] },
+      },
+    );
+
+    const callArg = (
+      coursesService.updateCourseCycleEvaluationStructure as jest.Mock
+    ).mock.calls[0][1] as string[];
+    expect(callArg).toEqual(['type-pc']);
+    expect(callArg).not.toContain('type-bank');
+  });
+
+  it('allows creating evaluations of any catalog type even if not sent in allowedEvaluationTypeIds', async () => {
+    installQueryMock({
+      types: [
+        { id: 'type-pc', code: 'PC', name: 'Practica Calificada' },
+        { id: 'type-pd', code: 'PD', name: 'Practica Dirigida' },
+      ],
+      courseMeta: { courseCode: 'MAT201', cycleCode: '2026-0' },
+    });
+
+    (coursesService.create as jest.Mock).mockResolvedValue({
+      id: 'course-9',
+      code: 'MAT201',
+      name: 'Algebra 2',
+    });
+    (coursesService.assignToCycle as jest.Mock).mockResolvedValue({
+      id: 'cc-9',
+      courseId: 'course-9',
+      academicCycleId: 'ac-9',
+    });
+    (evaluationsService.create as jest.Mock).mockResolvedValue({
+      id: 'eval-pd1',
+      number: 1,
+    });
+    (
+      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
+    ).mockResolvedValue({});
+    (
+      courseCycleDriveProvisioningService.provision as jest.Mock
+    ).mockResolvedValue({
+      scopeFolderId: 'scope-9',
+      introFolderId: 'intro-9',
+      bankFolderId: 'bank-9',
+      viewerGroupEmail: 'cc-9-viewers@test.com',
+      bankLeafFoldersCreated: 1,
+    });
+
+    // Frontend sends allowedEvaluationTypeIds: [] but creates a PD evaluation
+    await expect(
+      service.createFullCourseSetup(
+        { id: 'admin-9' } as any,
+        {
+          course: {
+            code: 'MAT201',
+            name: 'Algebra 2',
+            courseTypeId: 'ct-1',
+            cycleLevelId: 'cl-1',
+          },
+          academicCycleId: 'ac-9',
+          allowedEvaluationTypeIds: [],
+          evaluationsToCreate: [
+            {
+              evaluationTypeId: 'type-pd',
+              number: 1,
+              startDate: '2026-01-10',
+              endDate: '2026-01-11',
+            },
+          ],
+          materialsTemplate: { roots: [] },
+        },
+      ),
+    ).resolves.toBeDefined();
+
+    expect(evaluationsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ evaluationTypeId: 'type-pd' }),
     );
   });
 

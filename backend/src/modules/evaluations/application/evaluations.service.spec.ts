@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
+import { EvaluationDeletionService } from '@modules/evaluations/application/evaluation-deletion.service';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
 import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
@@ -26,6 +27,12 @@ describe('EvaluationsService create', () => {
       providers: [
         EvaluationsService,
         {
+          provide: EvaluationDeletionService,
+          useValue: {
+            delete: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
           provide: DataSource,
           useValue: {
             transaction: jest.fn(),
@@ -40,6 +47,8 @@ describe('EvaluationsService create', () => {
             findMaxDisplayOrderByCourseCycle: jest.fn(),
             updateDisplayOrder: jest.fn(),
             hasDisplayOrderColumn: jest.fn(),
+            findByIdWithTypeAndCycle: jest.fn(),
+            updateDates: jest.fn(),
           },
         },
         {
@@ -307,5 +316,111 @@ describe('EvaluationsService create', () => {
         evaluationIds: ['11'],
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  describe('update', () => {
+    const EVALUATION_WITH_CYCLE = {
+      id: '42',
+      courseCycleId: '10',
+      evaluationTypeId: '5',
+      evaluationType: { code: 'PC' },
+      courseCycle: {
+        academicCycle: {
+          startDate: new Date('2026-01-01T00:00:00.000Z'),
+          endDate: new Date('2026-07-30T23:59:59.000Z'),
+        },
+      },
+      startDate: new Date('2026-02-01T05:00:00.000Z'),
+      endDate: new Date('2026-02-01T23:59:59.000Z'),
+    };
+
+    it('should update dates when within cycle range', async () => {
+      (evaluationRepository.findByIdWithTypeAndCycle as jest.Mock).mockResolvedValue(
+        EVALUATION_WITH_CYCLE,
+      );
+      (evaluationRepository.updateDates as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await service.update('42', {
+        startDate: '2026-03-01T05:00:00.000Z',
+        endDate: '2026-03-01T23:59:59.000Z',
+      });
+
+      expect(evaluationRepository.updateDates).toHaveBeenCalledWith(
+        '42',
+        expect.any(Date),
+        expect.any(Date),
+      );
+      expect(cacheService.invalidateIndex).toHaveBeenCalled();
+      expect(result.id).toBe('42');
+    });
+
+    it('should reject blank id', async () => {
+      await expect(
+        service.update('   ', { startDate: '2026-03-01T05:00:00.000Z', endDate: '2026-03-01T23:59:59.000Z' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException when evaluation does not exist', async () => {
+      (evaluationRepository.findByIdWithTypeAndCycle as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.update('999', { startDate: '2026-03-01T05:00:00.000Z', endDate: '2026-03-01T23:59:59.000Z' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject update for BANCO_ENUNCIADOS type', async () => {
+      (evaluationRepository.findByIdWithTypeAndCycle as jest.Mock).mockResolvedValue({
+        ...EVALUATION_WITH_CYCLE,
+        evaluationType: { code: EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS },
+      });
+
+      await expect(
+        service.update('42', { startDate: '2026-03-01T05:00:00.000Z', endDate: '2026-03-01T23:59:59.000Z' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(evaluationRepository.updateDates).not.toHaveBeenCalled();
+    });
+
+    it('should reject dates outside cycle range', async () => {
+      (evaluationRepository.findByIdWithTypeAndCycle as jest.Mock).mockResolvedValue(
+        EVALUATION_WITH_CYCLE,
+      );
+
+      await expect(
+        service.update('42', {
+          startDate: '2025-12-01T05:00:00.000Z',
+          endDate: '2025-12-01T23:59:59.000Z',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(evaluationRepository.updateDates).not.toHaveBeenCalled();
+    });
+
+    it('should reject when startDate is after endDate', async () => {
+      (evaluationRepository.findByIdWithTypeAndCycle as jest.Mock).mockResolvedValue(
+        EVALUATION_WITH_CYCLE,
+      );
+
+      await expect(
+        service.update('42', {
+          startDate: '2026-03-10T23:59:59.000Z',
+          endDate: '2026-03-01T05:00:00.000Z',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(evaluationRepository.updateDates).not.toHaveBeenCalled();
+    });
+
+    it('should normalize whitespace in id before querying', async () => {
+      (evaluationRepository.findByIdWithTypeAndCycle as jest.Mock).mockResolvedValue(
+        EVALUATION_WITH_CYCLE,
+      );
+      (evaluationRepository.updateDates as jest.Mock).mockResolvedValue(undefined);
+
+      await service.update('  42  ', {
+        startDate: '2026-03-01T05:00:00.000Z',
+        endDate: '2026-03-01T23:59:59.000Z',
+      });
+
+      expect(evaluationRepository.findByIdWithTypeAndCycle).toHaveBeenCalledWith('42');
+      expect(evaluationRepository.updateDates).toHaveBeenCalledWith('42', expect.any(Date), expect.any(Date));
+    });
   });
 });

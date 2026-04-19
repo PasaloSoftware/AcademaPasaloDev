@@ -17,11 +17,7 @@ export const COURSE_CACHE_KEYS = {
     `cache:prof-assignment:eval:${evaluationId}:user:${userId}`,
   PROFESSORS_LIST: (courseCycleId: string) =>
     `cache:prof-list:cycle:${courseCycleId}`,
-  ADMIN_COURSE_CYCLES_LIST: (
-    page: number,
-    pageSize: number,
-    search: string,
-  ) =>
+  ADMIN_COURSE_CYCLES_LIST: (page: number, pageSize: number, search: string) =>
     `cache:admin:course-cycles:list:page:${page}:page-size:${pageSize}:search:${encodeURIComponent(search)}`,
   GLOBAL_CONTENT_GROUP: 'cache:content:cycle:*',
   GLOBAL_COURSE_CYCLE_EXISTS_GROUP: 'cache:course-cycle:exists:*',

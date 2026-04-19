@@ -313,6 +313,17 @@ export class DriveScopeProvisioningService {
     });
   }
 
+  async trashDriveFolderIfExists(folderId: string): Promise<void> {
+    const normalizedFolderId = String(folderId || '').trim();
+    if (!normalizedFolderId) return;
+    try {
+      await this.trashDriveFolder(normalizedFolderId);
+    } catch (error) {
+      if (this.getStatusFromError(error) === 404) return;
+      throw error;
+    }
+  }
+
   async getDriveFolderMetadata(folderId: string): Promise<{
     id: string;
     name: string;

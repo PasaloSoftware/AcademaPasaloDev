@@ -21,6 +21,7 @@ import {
   MEDIA_ACCESS_SYNC_SOURCES,
 } from '@modules/media-access/domain/media-access.constants';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
+import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 
 describe('UsersService', () => {
   let usersService: UsersService;
@@ -648,6 +649,52 @@ describe('UsersService', () => {
     ]);
   });
 
+  it('getAdminDashboardStats: usa cache cuando existe', async () => {
+    const cached = {
+      activeStudents: 120,
+      teachers: 18,
+      courses: 44,
+    };
+    cacheServiceMock.get.mockResolvedValue(cached);
+
+    const result = await usersService.getAdminDashboardStats();
+
+    expect(result).toEqual(cached);
+    expect(dataSourceMock.query).not.toHaveBeenCalled();
+  });
+
+  it('getAdminDashboardStats: consulta BD y cachea resumen', async () => {
+    cacheServiceMock.get.mockResolvedValue(null);
+    dataSourceMock.query.mockResolvedValue([
+      {
+        activeStudents: '321',
+        teachers: '27',
+        courses: '66',
+      },
+    ]);
+
+    const result = await usersService.getAdminDashboardStats();
+
+    expect(dataSourceMock.query).toHaveBeenCalledWith(
+      expect.stringContaining('COUNT(DISTINCT u.id)'),
+      [ROLE_CODES.STUDENT, ROLE_CODES.PROFESSOR],
+    );
+    expect(cacheServiceMock.set).toHaveBeenCalledWith(
+      'cache:users:admin-dashboard:stats',
+      {
+        activeStudents: 321,
+        teachers: 27,
+        courses: 66,
+      },
+      expect.any(Number),
+    );
+    expect(result).toEqual({
+      activeStudents: 321,
+      teachers: 27,
+      courses: 66,
+    });
+  });
+
   it('adminOnboard: duplicate de matricula activa se traduce a conflicto', async () => {
     userRepositoryMock.findByEmail.mockResolvedValue(null);
     userRepositoryMock.create.mockResolvedValue({
@@ -725,6 +772,87 @@ describe('UsersService', () => {
         },
       } as any),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('adminOnboard: con matricula creada invalida cache de admin course-cycles', async () => {
+    userRepositoryMock.findByEmail.mockResolvedValue(null);
+    userRepositoryMock.create.mockResolvedValue({
+      id: 'u1',
+      isActive: true,
+      roles: [{ code: ROLE_CODES.STUDENT }],
+    });
+
+    const managerRoleRepo = {
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'r-student', code: ROLE_CODES.STUDENT, name: 'Alumno' },
+        ]),
+    };
+    const managerCourseCycleRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: '100',
+        courseId: '10',
+        academicCycle: {
+          code: '2026-1',
+          startDate: new Date('2026-01-01T00:00:00.000Z'),
+          endDate: new Date('2026-12-31T00:00:00.000Z'),
+        },
+      }),
+      find: jest.fn().mockResolvedValue([]),
+    };
+    const managerEvaluationRepo = {
+      find: jest.fn().mockResolvedValue([]),
+    };
+    const managerEnrollmentRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((data) => data),
+      save: jest.fn().mockResolvedValue({
+        id: 'enr-1',
+        userId: 'u1',
+        courseCycleId: '100',
+      }),
+    };
+
+    const managerMock = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'type-full', code: 'FULL' }])
+        .mockResolvedValueOnce([{ id: 'status-active' }]),
+      getRepository: jest
+        .fn()
+        .mockImplementation((entity: { name?: string }) => {
+          if (entity?.name === 'Role') return managerRoleRepo;
+          if (entity?.name === 'CourseCycle') return managerCourseCycleRepo;
+          if (entity?.name === 'Evaluation') return managerEvaluationRepo;
+          if (entity?.name === 'Enrollment') return managerEnrollmentRepo;
+          return {
+            find: jest.fn().mockResolvedValue([]),
+            findOne: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockImplementation((data) => data),
+            save: jest.fn().mockResolvedValue(null),
+          };
+        }),
+    } as unknown as EntityManager;
+
+    dataSourceMock.transaction.mockImplementationOnce(
+      async (cb: (manager: EntityManager) => unknown) => await cb(managerMock),
+    );
+
+    await usersService.adminOnboard({
+      firstName: 'Alumno',
+      email: 'alumno-ok@test.com',
+      roleCodes: [ROLE_CODES.STUDENT],
+      studentEnrollment: {
+        courseCycleId: '100',
+        enrollmentTypeCode: 'FULL',
+      },
+    } as any);
+
+    expect(cacheServiceMock.invalidateGroup).toHaveBeenCalledWith(
+      COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
+    );
   });
 
   it('adminEdit: rechaza quitar STUDENT si studentStateFinal no esta vacio', async () => {

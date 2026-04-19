@@ -20,6 +20,7 @@ import {
   CourseResourceCard,
   CourseSectionCard,
   CourseSelectQuantityModal,
+  CourseEvaluationDateModal,
   CourseEditorTab,
   ProfessorModalOption,
   getEvaluationTypeMeta,
@@ -70,7 +71,45 @@ type EvaluationDraft = {
   number: number;
   shortName: string;
   fullName: string;
+  startDate: string;
+  endDate: string;
 };
+
+function isoToYMD(iso: string): string {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
+
+function daysBetween(startYMD: string, endYMD: string): number {
+  const s = new Date(startYMD + "T12:00:00");
+  const e = new Date(endYMD + "T12:00:00");
+  return Math.round((e.getTime() - s.getTime()) / 86400000);
+}
+
+function addDays(ymd: string, days: number): string {
+  const d = new Date(ymd + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function distributeDraftDates(
+  drafts: EvaluationDraft[],
+  cycleStart: string,
+  cycleEnd: string,
+): EvaluationDraft[] {
+  const n = drafts.length;
+  if (n === 0 || !cycleStart || !cycleEnd) return drafts;
+  const totalDays = daysBetween(cycleStart, cycleEnd);
+  if (totalDays <= 0) return drafts;
+  return drafts.map((draft, i) => ({
+    ...draft,
+    startDate: addDays(cycleStart, Math.floor((i * totalDays) / n)),
+    endDate: addDays(
+      cycleStart,
+      i === n - 1 ? totalDays : Math.floor(((i + 1) * totalDays) / n) - 1,
+    ),
+  }));
+}
 
 type EvaluationModalMode = "create" | "edit";
 type MaterialModalMode = "create" | "edit";
@@ -157,6 +196,8 @@ function getEvaluationTextMeta(type: Pick<EvaluationType, "code" | "name">) {
 function buildEvaluationDraft(
   type: Pick<EvaluationType, "id" | "code" | "name">,
   number: number,
+  startDate = "",
+  endDate = "",
 ): EvaluationDraft {
   const meta = getEvaluationTextMeta(type);
   return {
@@ -167,6 +208,8 @@ function buildEvaluationDraft(
     number,
     shortName: `${meta.short}${number}`,
     fullName: `${meta.singular} ${number}`,
+    startDate,
+    endDate,
   };
 }
 
@@ -245,6 +288,13 @@ export default function CursoCreateContent() {
   const [evaluationTypeId, setEvaluationTypeId] = useState<string | null>(null);
   const [evaluationQuantity, setEvaluationQuantity] = useState("");
   const [evaluationQuantityError, setEvaluationQuantityError] = useState("");
+  const [evaluationDateModalOpen, setEvaluationDateModalOpen] = useState(false);
+  const [editingEvaluationDraftId, setEditingEvaluationDraftId] = useState<
+    string | null
+  >(null);
+  const [editingStartDate, setEditingStartDate] = useState("");
+  const [editingEndDate, setEditingEndDate] = useState("");
+  const [editingDateError, setEditingDateError] = useState("");
   const [draftEvaluations, setDraftEvaluations] = useState<EvaluationDraft[]>(
     [],
   );
@@ -614,16 +664,37 @@ export default function CursoCreateContent() {
     );
     if (!target) return;
 
-    const quantity = draftEvaluations.filter(
-      (evaluation) => evaluation.evaluationTypeId === target.evaluationTypeId,
-    ).length;
+    setEditingEvaluationDraftId(evaluationId);
+    setEditingStartDate(
+      target.startDate || isoToYMD(currentAcademicCycle?.startDate ?? ""),
+    );
+    setEditingEndDate(
+      target.endDate || isoToYMD(currentAcademicCycle?.endDate ?? ""),
+    );
+    setEditingDateError("");
+    setEvaluationDateModalOpen(true);
+  };
 
-    setEvaluationModalMode("edit");
-    setEditingEvaluationTypeId(target.evaluationTypeId);
-    setEvaluationTypeId(target.evaluationTypeId);
-    setEvaluationQuantity(String(quantity));
-    setEvaluationQuantityError("");
-    setEvaluationModalOpen(true);
+  const handleSaveEvaluationDraftDates = () => {
+    if (!editingStartDate || !editingEndDate) {
+      setEditingDateError("Ambas fechas son obligatorias.");
+      return;
+    }
+    if (editingStartDate > editingEndDate) {
+      setEditingDateError(
+        "La fecha de inicio no puede ser posterior a la fecha de fin.",
+      );
+      return;
+    }
+    setDraftEvaluations((current) =>
+      current.map((draft) =>
+        draft.id === editingEvaluationDraftId
+          ? { ...draft, startDate: editingStartDate, endDate: editingEndDate }
+          : draft,
+      ),
+    );
+    setEvaluationDateModalOpen(false);
+    setEditingEvaluationDraftId(null);
   };
 
   const openEditBankAdditionalModal = (folderId: string) => {
@@ -700,9 +771,10 @@ export default function CursoCreateContent() {
           buildEvaluationDraft(selectedEvaluationType, index + 1),
         );
 
-        return normalizeDrafts(
-          [...baseDrafts, ...nextDrafts],
-          evaluationTypesById,
+        return distributeDraftDates(
+          normalizeDrafts([...baseDrafts, ...nextDrafts], evaluationTypesById),
+          isoToYMD(currentAcademicCycle?.startDate ?? ""),
+          isoToYMD(currentAcademicCycle?.endDate ?? ""),
         );
       }
 
@@ -717,7 +789,11 @@ export default function CursoCreateContent() {
         ),
       );
 
-      return [...current, ...nextDrafts];
+      return distributeDraftDates(
+        [...current, ...nextDrafts],
+        isoToYMD(currentAcademicCycle?.startDate ?? ""),
+        isoToYMD(currentAcademicCycle?.endDate ?? ""),
+      );
     });
 
     showToast({
@@ -738,10 +814,15 @@ export default function CursoCreateContent() {
 
   const handleDeleteEvaluation = (evaluationId: string) => {
     setDraftEvaluations((current) => {
-      const filtered = current.filter(
-        (evaluation) => evaluation.id !== evaluationId,
+      const filtered = normalizeDrafts(
+        current.filter((evaluation) => evaluation.id !== evaluationId),
+        evaluationTypesById,
       );
-      return normalizeDrafts(filtered, evaluationTypesById);
+      return distributeDraftDates(
+        filtered,
+        isoToYMD(currentAcademicCycle?.startDate ?? ""),
+        isoToYMD(currentAcademicCycle?.endDate ?? ""),
+      );
     });
   };
 
@@ -768,7 +849,11 @@ export default function CursoCreateContent() {
       const next = [...current];
       const [draggedItem] = next.splice(draggedIndex, 1);
       next.splice(targetIndex, 0, draggedItem);
-      return next;
+      return distributeDraftDates(
+        next,
+        isoToYMD(currentAcademicCycle?.startDate ?? ""),
+        isoToYMD(currentAcademicCycle?.endDate ?? ""),
+      );
     });
   };
 
@@ -929,12 +1014,16 @@ export default function CursoCreateContent() {
         break;
       case "bank-group":
         setDraftEvaluations((current) =>
-          normalizeDrafts(
-            current.filter(
-              (evaluation) =>
-                evaluation.evaluationTypeId !== deleteTarget.evaluationTypeId,
+          distributeDraftDates(
+            normalizeDrafts(
+              current.filter(
+                (evaluation) =>
+                  evaluation.evaluationTypeId !== deleteTarget.evaluationTypeId,
+              ),
+              evaluationTypesById,
             ),
-            evaluationTypesById,
+            isoToYMD(currentAcademicCycle?.startDate ?? ""),
+            isoToYMD(currentAcademicCycle?.endDate ?? ""),
           ),
         );
         showToast({
@@ -985,7 +1074,7 @@ export default function CursoCreateContent() {
   const missingSaveRequirements = useMemo(() => {
     const items: string[] = [];
     if (!courseName.trim()) items.push("Nombre del curso");
-    if (!courseCode.trim()) items.push("Abreviatura del curso");
+    if (!courseCode.trim()) items.push("Código del Curso");
     if (!selectedType) items.push("Unidad");
     if (!selectedLevel) items.push("Ciclo");
     if (!currentAcademicCycle?.id) items.push("Ciclo académico vigente");
@@ -1032,8 +1121,8 @@ export default function CursoCreateContent() {
         evaluationsToCreate: draftEvaluations.map((evaluation) => ({
           evaluationTypeId: evaluation.evaluationTypeId,
           number: evaluation.number,
-          startDate: currentAcademicCycle.startDate,
-          endDate: currentAcademicCycle.endDate,
+          startDate: evaluation.startDate || currentAcademicCycle.startDate,
+          endDate: evaluation.endDate || currentAcademicCycle.endDate,
         })),
         professorUserIds: selectedProfessors.map((professor) => professor.id),
         materialsTemplate: {
@@ -1044,11 +1133,16 @@ export default function CursoCreateContent() {
         },
       });
 
+      const courseCycleId = response?.courseCycle?.id;
+      if (!courseCycleId) {
+        throw new Error("El servidor no retornó el ID del ciclo de curso creado.");
+      }
+
       const enrollmentResults = await Promise.allSettled(
         draftStudents.map((student) =>
           enrollmentService.create({
             userId: student.userId,
-            courseCycleId: response.courseCycle.id,
+            courseCycleId,
             enrollmentTypeCode: "FULL",
           }),
         ),
@@ -1070,7 +1164,7 @@ export default function CursoCreateContent() {
             : `El curso se creó, pero ${failedEnrollments} matrícula(s) draft no pudieron aplicarse.`,
       });
 
-      router.push(`/plataforma/curso/${response.courseCycle.id}`);
+      router.push(`/plataforma/curso/${courseCycleId}`);
     } catch (error) {
       console.error("Error al crear curso:", error);
       showToast({
@@ -1185,7 +1279,7 @@ export default function CursoCreateContent() {
                   setDragOverEvaluationId(null);
                 }}
                 onEdit={openEditEvaluationModal}
-                onDelete={requestDeleteEvaluation}
+                onDelete={handleDeleteEvaluation}
               />
             )}
           </CourseSectionCard>
@@ -1225,17 +1319,6 @@ export default function CursoCreateContent() {
                       iconWrapperClassName={typeMeta.bg}
                       actions={
                         <div className="inline-flex justify-end items-center gap-2">
-                          <button
-                            onClick={() => openEditEvaluationModal(items[0].id)}
-                            className="p-1 rounded-full flex justify-center items-center gap-1 hover:bg-bg-secondary transition-colors"
-                            title="Editar carpeta"
-                          >
-                            <Icon
-                              name="edit"
-                              size={20}
-                              className="text-icon-tertiary"
-                            />
-                          </button>
                           <button
                             onClick={() =>
                               setDeleteTarget({
@@ -1375,7 +1458,7 @@ export default function CursoCreateContent() {
       <CourseEditorFooter
         onCancel={() => router.push("/plataforma/admin/cursos")}
         onSave={handleSave}
-        saveDisabled={saving}
+        saveDisabled={!canSave || saving}
         saveLoading={saving}
         saveLoadingLabel="Guardando curso..."
       />
@@ -1411,11 +1494,7 @@ export default function CursoCreateContent() {
           resetEvaluationModal();
           setEvaluationModalOpen(false);
         }}
-        title={
-          evaluationModalMode === "edit"
-            ? "Editar Evaluación"
-            : "Crear Nueva Evaluación"
-        }
+        title="Crear Nueva Evaluación"
         selectLabel="Tipo de Evaluación"
         quantityLabel="Cantidad de Evaluaciones"
         selectValue={evaluationTypeId}
@@ -1427,6 +1506,23 @@ export default function CursoCreateContent() {
         quantityError={evaluationQuantityError}
         onSave={handleCreateEvaluations}
         saveDisabled={isEvaluationModalSaveDisabled}
+      />
+
+      <CourseEvaluationDateModal
+        isOpen={evaluationDateModalOpen}
+        title="Editar Fechas de Evaluación"
+        startDate={editingStartDate}
+        endDate={editingEndDate}
+        onStartDateChange={setEditingStartDate}
+        onEndDateChange={setEditingEndDate}
+        error={editingDateError}
+        onClose={() => {
+          setEvaluationDateModalOpen(false);
+          setEditingEvaluationDraftId(null);
+          setEditingDateError("");
+        }}
+        onSave={handleSaveEvaluationDraftDates}
+        saveDisabled={!editingStartDate || !editingEndDate}
       />
 
       <CourseSelectQuantityModal

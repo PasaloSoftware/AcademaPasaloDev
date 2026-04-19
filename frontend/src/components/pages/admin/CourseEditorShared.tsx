@@ -5,6 +5,7 @@ import Modal from "@/components/ui/Modal";
 import Icon from "@/components/ui/Icon";
 import FloatingInput from "@/components/ui/FloatingInput";
 import FloatingSelect from "@/components/ui/FloatingSelect";
+import DatePicker from "@/components/ui/DatePicker";
 import type { AdminCourseCycleProfessor } from "@/services/courses.service";
 
 export type CourseEditorTab = "structure" | "students";
@@ -156,7 +157,7 @@ export function CourseGeneralInfoSection({
         />
         <FloatingInput
           id="course-code"
-          label="Abreviatura del Curso"
+          label="Código del Curso"
           value={courseCode}
           onChange={onCourseCodeChange}
         />
@@ -454,6 +455,195 @@ export function CourseSelectQuantityModal({
             </span>
           ) : null}
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface CourseEvaluationDateModalProps {
+  isOpen: boolean;
+  title: string;
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  error?: string;
+  onClose: () => void;
+  onSave: () => void;
+  saveDisabled: boolean;
+  saving?: boolean;
+}
+
+export function CourseEvaluationDateModal({
+  isOpen,
+  title,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  error,
+  onClose,
+  onSave,
+  saveDisabled,
+  saving = false,
+}: CourseEvaluationDateModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      bodyClassName="overflow-visible"
+      footer={
+        <>
+          <Modal.Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Modal.Button>
+          <Modal.Button
+            onClick={onSave}
+            disabled={saveDisabled}
+            loading={saving}
+            loadingText="Guardando..."
+          >
+            Guardar
+          </Modal.Button>
+        </>
+      }
+    >
+      <div className="self-stretch flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-text-tertiary text-xs font-normal leading-4 px-1">
+            Fecha de inicio
+          </span>
+          <DatePicker
+            value={startDate}
+            onChange={(v) => {
+              onStartDateChange(v);
+              if (endDate && v > endDate) onEndDateChange(v);
+            }}
+            placeholder="Fecha de inicio"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-text-tertiary text-xs font-normal leading-4 px-1">
+            Fecha de fin
+          </span>
+          <DatePicker
+            value={endDate}
+            onChange={onEndDateChange}
+            min={startDate || undefined}
+            placeholder="Fecha de fin"
+          />
+        </div>
+        {error ? (
+          <span className="text-xs font-normal leading-4 text-text-error-primary">
+            {error}
+          </span>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
+interface CourseBankFolderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  typeOptions?: Array<{ value: string; label: string }>;
+  selectedType?: string | null;
+  onTypeChange?: (value: string | null) => void;
+  groupName: string;
+  onGroupNameChange: (value: string) => void;
+  quantity: string;
+  onQuantityChange: (value: string) => void;
+  quantityError?: string;
+  error?: string;
+  saving: boolean;
+  saveDisabled: boolean;
+  onSave: () => void;
+}
+
+export function CourseBankFolderModal({
+  isOpen,
+  onClose,
+  title = "Editar Carpeta del Banco",
+  typeOptions,
+  selectedType,
+  onTypeChange,
+  groupName,
+  onGroupNameChange,
+  quantity,
+  onQuantityChange,
+  quantityError,
+  error,
+  saving,
+  saveDisabled,
+  onSave,
+}: CourseBankFolderModalProps) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      bodyClassName="overflow-visible"
+      footer={
+        <>
+          <Modal.Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Modal.Button>
+          <Modal.Button
+            onClick={onSave}
+            disabled={saveDisabled}
+            loading={saving}
+            loadingText="Guardando..."
+          >
+            Guardar
+          </Modal.Button>
+        </>
+      }
+    >
+      <div className="self-stretch flex flex-col gap-4">
+        {typeOptions && onTypeChange ? (
+          <FloatingSelect
+            id="bank-folder-type"
+            label="Tipo de Evaluación"
+            value={selectedType ?? null}
+            onChange={onTypeChange}
+            options={typeOptions}
+            placeholder="Selecciona un tipo"
+            variant="floating"
+            size="large"
+            className="w-full"
+          />
+        ) : (
+          <FloatingInput
+            id="bank-folder-group-name"
+            label="Nombre de la Carpeta"
+            value={groupName}
+            onChange={onGroupNameChange}
+            maxLength={80}
+          />
+        )}
+        <div className="self-stretch flex flex-col gap-1">
+          <FloatingInput
+            id="bank-folder-quantity"
+            label="Cantidad de Evaluaciones"
+            value={quantity}
+            onChange={onQuantityChange}
+            inputMode="numeric"
+          />
+          {quantityError ? (
+            <span className="text-xs font-normal leading-4 text-text-error-primary">
+              {quantityError}
+            </span>
+          ) : null}
+        </div>
+        {error ? (
+          <span className="text-xs font-normal leading-4 text-text-error-primary">
+            {error}
+          </span>
+        ) : null}
       </div>
     </Modal>
   );

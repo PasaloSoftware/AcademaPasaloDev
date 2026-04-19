@@ -42,11 +42,13 @@ import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { EnrollmentEvaluation } from '@modules/enrollments/domain/enrollment-evaluation.entity';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
+import { USER_CACHE_KEYS } from '@modules/users/domain/user.constants';
 import { ENROLLMENT_CACHE_KEYS } from '@modules/enrollments/domain/enrollment.constants';
 import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
 import { technicalSettings } from '@config/technical-settings';
 import { User } from '@/modules/users/domain/user.entity';
 import { ENROLLMENT_TYPE_CODES } from '@modules/enrollments/domain/enrollment.constants';
+import { COURSE_PRIMARY_COLOR_PALETTE } from '@modules/courses/domain/course-color.constants';
 import {
   STUDENT_EVALUATION_LABELS,
   StudentEvaluationLabel,
@@ -263,6 +265,7 @@ export class CoursesService {
         const endDate = toBusinessDayEndUtc(row.academicCycleEndDate);
         return {
           courseCycleId: row.courseCycleId,
+          studentCount: row.studentCount,
           course: {
             id: row.courseId,
             code: row.courseCode,
@@ -318,19 +321,26 @@ export class CoursesService {
 
     const course = await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Course);
-      const newCourse = repo.create({
-        code: dto.code,
-        name: dto.name,
-        primaryColor: dto.primaryColor,
-        secondaryColor: dto.secondaryColor,
-        courseTypeId: dto.courseTypeId,
-        cycleLevelId: dto.cycleLevelId,
-        createdAt: new Date(),
-      });
-      return await repo.save(newCourse);
+      const createdCourse = await repo.save(
+        repo.create({
+          code: dto.code,
+          name: dto.name,
+          primaryColor: null,
+          secondaryColor: dto.secondaryColor,
+          courseTypeId: dto.courseTypeId,
+          cycleLevelId: dto.cycleLevelId,
+          createdAt: new Date(),
+        }),
+      );
+      const assignedPrimaryColor = this.resolvePrimaryColorByCourseId(
+        createdCourse.id,
+      );
+      createdCourse.primaryColor = assignedPrimaryColor;
+      return await repo.save(createdCourse);
     });
 
     await this.invalidateAdminCourseCyclesListCache();
+    await this.invalidateAdminDashboardStatsCache();
 
     return await this.findCourseById(course.id);
   }
@@ -424,6 +434,7 @@ export class CoursesService {
     });
 
     await this.invalidateAdminCourseCyclesListCache();
+    await this.invalidateAdminDashboardStatsCache();
   }
 
   async assignToCycle(dto: AssignCourseToCycleDto): Promise<CourseCycle> {
@@ -957,6 +968,10 @@ export class CoursesService {
     );
   }
 
+  private async invalidateAdminDashboardStatsCache(): Promise<void> {
+    await this.cacheService.del(USER_CACHE_KEYS.ADMIN_DASHBOARD_STATS);
+  }
+
   private buildCourseContentResponse(
     rawData: {
       cycle: CourseCycle;
@@ -1212,42 +1227,25 @@ export class CoursesService {
 
     if (!items) {
       const bankCards = await this.getBankCardsForCourseCycle(courseCycleId);
-      const structure =
-        await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
-          courseCycleId,
-        );
+      const bankFolderTree = await this.loadBankFolderTree(bankEvaluation.id);
+      const structure = await this.buildStructureFromBankFolderTree(
+        bankFolderTree,
+        bankCards,
+      );
       const { entriesByTypeCode, groupNamesByTypeCode } =
         await this.resolveBankEntriesByTypeCode(
-          bankEvaluation.id,
           bankCards,
-          structure.map((item) => ({
-            evaluationTypeId: String(item.evaluationTypeId),
-            evaluationTypeCode: String(item.evaluationType?.code || '')
-              .trim()
-              .toUpperCase(),
-            evaluationTypeName: this.getBankEvaluationTypePluralName(
-              String(item.evaluationType?.code || '')
-                .trim()
-                .toUpperCase(),
-              String(item.evaluationType?.name || '').trim(),
-            ),
-          })),
+          structure,
+          bankFolderTree,
         );
 
       items = structure.map((item) => ({
-        evaluationTypeId: String(item.evaluationTypeId),
-        evaluationTypeCode: item.evaluationType.code,
+        evaluationTypeId: item.evaluationTypeId,
+        evaluationTypeCode: item.evaluationTypeCode,
         evaluationTypeName:
-          groupNamesByTypeCode[
-            String(item.evaluationType.code || '')
-              .trim()
-              .toUpperCase()
-          ] ||
-          this.getBankEvaluationTypePluralName(
-            item.evaluationType.code,
-            item.evaluationType.name,
-          ),
-        entries: entriesByTypeCode[item.evaluationType.code] || [],
+          groupNamesByTypeCode[item.evaluationTypeCode] ||
+          item.evaluationTypeName,
+        entries: entriesByTypeCode[item.evaluationTypeCode] || [],
       }));
 
       await this.cacheService.set(
@@ -1266,18 +1264,17 @@ export class CoursesService {
   }
 
   private async resolveBankEntriesByTypeCode(
-    bankEvaluationId: string,
     cards: BankCardMeta[],
     structure: Array<{
       evaluationTypeId: string;
       evaluationTypeCode: string;
       evaluationTypeName: string;
     }>,
+    bankFolderTree: LoadedBankFolderTree,
   ): Promise<{
     entriesByTypeCode: Record<string, StudentBankFolderEntry[]>;
     groupNamesByTypeCode: Record<string, string>;
   }> {
-    const bankFolderTree = await this.loadBankFolderTree(bankEvaluationId);
     const leafFolders = bankFolderTree.leafFolders.map((item) => ({
       rootName: String(item.root.name || '').trim(),
       folder: item.folder,
@@ -1376,6 +1373,48 @@ export class CoursesService {
     }
 
     return { entriesByTypeCode, groupNamesByTypeCode };
+  }
+
+  private async buildStructureFromBankFolderTree(
+    tree: LoadedBankFolderTree,
+    bankCards: BankCardMeta[],
+  ): Promise<
+    Array<{
+      evaluationTypeId: string;
+      evaluationTypeCode: string;
+      evaluationTypeName: string;
+    }>
+  > {
+    const codes = new Set<string>();
+    for (const card of bankCards) {
+      codes.add(card.evaluationTypeCode);
+    }
+    for (const root of tree.roots) {
+      const code = this.detectBankRootTypeCode(tree, String(root.id));
+      if (code) {
+        codes.add(code);
+      }
+    }
+
+    const types = await this.evaluationRepository.findTypesByCodes([...codes]);
+    const typeByCode = new Map(
+      types.map((t) => [String(t.code || '').trim().toUpperCase(), t]),
+    );
+
+    return [...codes]
+      .filter((code) => typeByCode.has(code))
+      .map((code) => {
+        const type = typeByCode.get(code)!;
+        return {
+          evaluationTypeId: String(type.id),
+          evaluationTypeCode: code,
+          evaluationTypeName: this.getBankEvaluationTypePluralName(
+            code,
+            String(type.name || '').trim(),
+          ),
+        };
+      })
+      .sort((a, b) => a.evaluationTypeCode.localeCompare(b.evaluationTypeCode));
   }
 
   private normalizeBankFolderName(name: string): string {
@@ -1573,18 +1612,10 @@ export class CoursesService {
         : directCard;
     }
 
-    const structure =
-      await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
-        courseCycleId,
-      );
-    const matchedType =
-      structure.find(
-        (item) =>
-          String(item.evaluationType?.code || '')
-            .trim()
-            .toUpperCase() === normalizedTypeCode,
-      ) || null;
-    if (!matchedType) {
+    const catalogType = await this.evaluationRepository.findTypeByCode(
+      normalizedTypeCode,
+    );
+    if (!catalogType) {
       return null;
     }
 
@@ -1611,11 +1642,11 @@ export class CoursesService {
       }
       return {
         evaluationId: null,
-        evaluationTypeId: String(matchedType.evaluationTypeId),
+        evaluationTypeId: String(catalogType.id),
         evaluationTypeCode: normalizedTypeCode,
         evaluationTypeName: this.getBankEvaluationTypePluralName(
           normalizedTypeCode,
-          String(matchedType.evaluationType?.name || '').trim(),
+          String(catalogType.name || '').trim(),
         ),
         evaluationNumber,
         groupFolderName: String(root.name || '').trim(),
@@ -1660,38 +1691,16 @@ export class CoursesService {
       ),
     );
 
-    if (hasAcademicEvaluations) {
-      const normalizedAcademicItems = academicItems
-        .map((item) =>
-          String(item || '')
-            .trim()
-            .toUpperCase(),
-        )
-        .sort((left, right) => left.localeCompare(right, 'es'));
-      const requestedComparable = [...normalizedRequestedItems].sort(
-        (left, right) => left.localeCompare(right, 'es'),
-      );
-
-      if (
-        normalizedRequestedItems.length > 0 &&
-        JSON.stringify(requestedComparable) !==
-          JSON.stringify(normalizedAcademicItems)
-      ) {
-        throw new ConflictException(
-          'No se puede alterar la lista de subcarpetas de un tipo sincronizado con evaluaciones academicas',
-        );
-      }
-
-      return academicItems
-        .map((item) =>
-          String(item || '')
-            .trim()
-            .toUpperCase(),
-        )
-        .filter(Boolean);
-    }
-
     if (normalizedRequestedItems.length === 0) {
+      if (hasAcademicEvaluations) {
+        return academicItems
+          .map((item) =>
+            String(item || '')
+              .trim()
+              .toUpperCase(),
+          )
+          .filter(Boolean);
+      }
       throw new BadRequestException('items es requerido para tipos solo-banco');
     }
 
@@ -2268,20 +2277,12 @@ export class CoursesService {
       throw new BadRequestException('groupName es requerido');
     }
 
-    const structure =
-      await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
-        courseCycleId,
-      );
-    const matchedType =
-      structure.find(
-        (item) =>
-          String(item.evaluationType?.code || '')
-            .trim()
-            .toUpperCase() === normalizedTypeCode,
-      ) || null;
+    const matchedType = await this.evaluationRepository.findTypeByCode(
+      normalizedTypeCode,
+    );
     if (!matchedType) {
       throw new NotFoundException(
-        'El tipo solicitado no existe en el banco de este curso/ciclo',
+        'El tipo solicitado no existe en el catálogo de evaluaciones',
       );
     }
 
@@ -2306,7 +2307,7 @@ export class CoursesService {
       String(matchedRoot?.name || '').trim() ||
       this.getBankEvaluationTypePluralName(
         normalizedTypeCode,
-        String(matchedType.evaluationType?.name || '').trim(),
+        String(matchedType.name || '').trim(),
       );
 
     this.assertNoConflictingBankGroupName(
@@ -2335,16 +2336,14 @@ export class CoursesService {
     const missingItems = desiredItems.filter(
       (item) => !currentLeafByName.has(item.trim().toUpperCase()),
     );
-    const removedLeafFolders = hasAcademicEvaluations
-      ? []
-      : currentLeafFolders.filter(
-          (folder) =>
-            !desiredItemsSet.has(
-              String(folder.name || '')
-                .trim()
-                .toUpperCase(),
-            ),
-        );
+    const removedLeafFolders = currentLeafFolders.filter(
+      (folder) =>
+        !desiredItemsSet.has(
+          String(folder.name || '')
+            .trim()
+            .toUpperCase(),
+        ),
+    );
 
     if (removedLeafFolders.length > 0) {
       await this.assertFoldersHaveNoMaterials(removedLeafFolders);
@@ -2431,7 +2430,7 @@ export class CoursesService {
     return {
       courseCycleId,
       bankEvaluationId: bankEvaluation.id,
-      evaluationTypeId: String(matchedType.evaluationTypeId),
+      evaluationTypeId: String(matchedType.id),
       evaluationTypeCode: normalizedTypeCode,
       evaluationTypeName: normalizedGroupName,
       groupName: normalizedGroupName,
@@ -2462,20 +2461,12 @@ export class CoursesService {
     const normalizedTypeCode = String(evaluationTypeCode || '')
       .trim()
       .toUpperCase();
-    const structure =
-      await this.courseCycleAllowedEvaluationTypeRepository.findActiveWithTypeByCourseCycleId(
-        courseCycleId,
-      );
-    const matchedType =
-      structure.find(
-        (item) =>
-          String(item.evaluationType?.code || '')
-            .trim()
-            .toUpperCase() === normalizedTypeCode,
-      ) || null;
+    const matchedType = await this.evaluationRepository.findTypeByCode(
+      normalizedTypeCode,
+    );
     if (!matchedType) {
       throw new NotFoundException(
-        'El tipo solicitado no existe en el banco de este curso/ciclo',
+        'El tipo solicitado no existe en el catálogo de evaluaciones',
       );
     }
 
@@ -2497,7 +2488,7 @@ export class CoursesService {
       String(matchedRoot?.name || '').trim() ||
       this.getBankEvaluationTypePluralName(
         normalizedTypeCode,
-        String(matchedType.evaluationType?.name || '').trim(),
+        String(matchedType.name || '').trim(),
       );
     const currentLeafFolders = matchedRoot
       ? bankFolderTree.leafFolders
@@ -2526,20 +2517,6 @@ export class CoursesService {
         await this.materialFolderRepository.save(matchedRoot, manager);
       }
 
-      const remainingEvaluationTypeIds = structure
-        .filter(
-          (item) =>
-            String(item.evaluationType?.code || '')
-              .trim()
-              .toUpperCase() !== normalizedTypeCode,
-        )
-        .map((item) => String(item.evaluationTypeId));
-
-      await this.courseCycleAllowedEvaluationTypeRepository.replaceAllowedTypes(
-        courseCycleId,
-        remainingEvaluationTypeIds,
-        manager,
-      );
     });
 
     await this.invalidateBankCaches(
@@ -2799,6 +2776,31 @@ export class CoursesService {
     if (Number(rows[0]?.isActiveProfessor) !== 1) {
       throw new BadRequestException(
         'El usuario seleccionado no es un profesor activo.',
+      );
+    }
+  }
+
+  private resolvePrimaryColorByCourseId(courseId: string): string {
+    const totalColors = BigInt(COURSE_PRIMARY_COLOR_PALETTE.length);
+    if (totalColors <= 0n) {
+      throw new InternalServerErrorException(
+        'No hay colores configurados para las materias.',
+      );
+    }
+
+    try {
+      const normalizedId = BigInt(courseId);
+      const normalizedOffset = normalizedId > 0n ? normalizedId - 1n : 0n;
+      const colorIndex = Number(normalizedOffset % totalColors);
+      return COURSE_PRIMARY_COLOR_PALETTE[colorIndex];
+    } catch (error) {
+      this.logger.error({
+        message: 'No se pudo resolver el color primario de la materia',
+        courseId,
+        timestamp: new Date().toISOString(),
+      });
+      throw new InternalServerErrorException(
+        'No se pudo asignar el color primario de la materia.',
       );
     }
   }

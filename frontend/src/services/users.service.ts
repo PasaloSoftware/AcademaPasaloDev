@@ -24,6 +24,12 @@ export interface AdminUserListResponse {
   totalPages: number;
 }
 
+export interface AdminDashboardStatsResponse {
+  activeStudents: number;
+  teachers: number;
+  courses: number;
+}
+
 export type AdminUserSortField = 'fullName' | 'email' | 'careerName';
 export type AdminUserSortOrder = 'ASC' | 'DESC';
 
@@ -125,6 +131,16 @@ export const usersService = {
    */
   async getCourseCatalog(): Promise<Array<{ courseId: string; currentCourseCycleId: string; courseCode: string; courseName: string }>> {
     const response = await apiClient.get<Array<{ courseId: string; currentCourseCycleId: string; courseCode: string; courseName: string }>>('/users/catalog/courses');
+    return response.data;
+  },
+
+  /**
+   * Obtener estadisticas base del dashboard administrativo
+   */
+  async getAdminDashboardStats(): Promise<AdminDashboardStatsResponse> {
+    const response = await apiClient.get<AdminDashboardStatsResponse>(
+      '/users/admin-dashboard/stats',
+    );
     return response.data;
   },
 
