@@ -254,7 +254,7 @@ jobs:
               sleep 3
             done
             echo 'Ejecutando migrations...'
-            docker exec academia-pasalo-backend npm run migration:run
+            docker exec academia-pasalo-backend npm run migration:run:prod
             echo '✅ Migrations completadas'
           "
 
