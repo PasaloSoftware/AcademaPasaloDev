@@ -1,11 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthSettingsService } from './auth-settings.service';
 import { SettingsService } from '@modules/settings/application/settings.service';
-import { InternalServerErrorException } from '@nestjs/common';
+import { SystemSettingRepository } from '@modules/settings/infrastructure/system-setting.repository';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('AuthSettingsService', () => {
   let service: AuthSettingsService;
   let settingsService: jest.Mocked<SettingsService>;
+  let settingRepo: jest.Mocked<Pick<SystemSettingRepository, 'updateByKey'>>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -20,42 +25,132 @@ describe('AuthSettingsService', () => {
             invalidateAllCache: jest.fn(),
           },
         },
+        {
+          provide: SystemSettingRepository,
+          useValue: {
+            updateByKey: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AuthSettingsService>(AuthSettingsService);
     settingsService = module.get(SettingsService);
+    settingRepo = module.get(SystemSettingRepository);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
+  // ─────────────────────────────────────────────
+  // getActiveCycleId
+  // ─────────────────────────────────────────────
   describe('getActiveCycleId', () => {
-    it('debe retornar el ID del ciclo activo', async () => {
-      settingsService.getString.mockResolvedValue('CYCLE_2024_1');
+    it('retorna el ID del ciclo activo cuando el setting tiene valor', async () => {
+      settingsService.getString.mockResolvedValue('42');
 
       const result = await service.getActiveCycleId();
 
-      expect(result).toBe('CYCLE_2024_1');
+      expect(result).toBe('42');
       expect(settingsService.getString).toHaveBeenCalledWith('ACTIVE_CYCLE_ID');
     });
 
-    it('debe propagar error si el setting no existe', async () => {
+    it('propaga el error si getString lanza', async () => {
       settingsService.getString.mockRejectedValue(
-        new InternalServerErrorException(
-          'Configuración del sistema incompleta',
-        ),
+        new InternalServerErrorException('Configuración del sistema incompleta'),
       );
 
       await expect(service.getActiveCycleId()).rejects.toThrow(
         InternalServerErrorException,
       );
     });
+
+    it('lanza NotFoundException si ACTIVE_CYCLE_ID está vacío', async () => {
+      settingsService.getString.mockResolvedValue('');
+
+      await expect(service.getActiveCycleId()).rejects.toThrow(NotFoundException);
+    });
+
+    it('el mensaje de NotFoundException indica que no hay ciclo activo', async () => {
+      settingsService.getString.mockResolvedValue('');
+
+      await expect(service.getActiveCycleId()).rejects.toThrow(
+        'No hay ciclo académico activo configurado.',
+      );
+    });
   });
 
+  // ─────────────────────────────────────────────
+  // clearActiveCycleId
+  // ─────────────────────────────────────────────
+  describe('clearActiveCycleId', () => {
+    it('llama a updateByKey con ACTIVE_CYCLE_ID vacío', async () => {
+      settingRepo.updateByKey.mockResolvedValue({
+        settingKey: 'ACTIVE_CYCLE_ID',
+        settingValue: '',
+      } as never);
+      settingsService.invalidateCache.mockResolvedValue(undefined);
+
+      await service.clearActiveCycleId();
+
+      expect(settingRepo.updateByKey).toHaveBeenCalledWith('ACTIVE_CYCLE_ID', '');
+    });
+
+    it('invalida el caché después de actualizar la BD', async () => {
+      settingRepo.updateByKey.mockResolvedValue({
+        settingKey: 'ACTIVE_CYCLE_ID',
+        settingValue: '',
+      } as never);
+      settingsService.invalidateCache.mockResolvedValue(undefined);
+
+      await service.clearActiveCycleId();
+
+      expect(settingsService.invalidateCache).toHaveBeenCalledWith(
+        'ACTIVE_CYCLE_ID',
+      );
+    });
+
+    it('invalida el caché estrictamente después de actualizar la BD', async () => {
+      const callOrder: string[] = [];
+      settingRepo.updateByKey.mockImplementation(() => {
+        callOrder.push('updateByKey');
+        return Promise.resolve({ settingKey: 'ACTIVE_CYCLE_ID', settingValue: '' } as never);
+      });
+      settingsService.invalidateCache.mockImplementation(() => {
+        callOrder.push('invalidateCache');
+        return Promise.resolve();
+      });
+
+      await service.clearActiveCycleId();
+
+      expect(callOrder).toEqual(['updateByKey', 'invalidateCache']);
+    });
+
+    it('lanza InternalServerErrorException si la clave no existe en BD', async () => {
+      settingRepo.updateByKey.mockResolvedValue(null);
+
+      await expect(service.clearActiveCycleId()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+    });
+
+    it('no invalida caché si updateByKey retorna null', async () => {
+      settingRepo.updateByKey.mockResolvedValue(null);
+
+      await expect(service.clearActiveCycleId()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+
+      expect(settingsService.invalidateCache).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getRefreshTokenTtlDays
+  // ─────────────────────────────────────────────
   describe('getRefreshTokenTtlDays', () => {
-    it('debe retornar el TTL de refresh token en días', async () => {
+    it('retorna el TTL de refresh token en días desde technicalSettings', async () => {
       const result = await service.getRefreshTokenTtlDays();
 
       expect(result).toBe(7);
@@ -63,8 +158,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // getAccessTokenTtlMinutes
+  // ─────────────────────────────────────────────
   describe('getAccessTokenTtlMinutes', () => {
-    it('debe retornar el TTL de access token en minutos', async () => {
+    it('retorna el TTL de access token en minutos desde technicalSettings', async () => {
       const result = await service.getAccessTokenTtlMinutes();
 
       expect(result).toBe(180);
@@ -72,8 +170,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // getSessionExpirationWarningMinutes
+  // ─────────────────────────────────────────────
   describe('getSessionExpirationWarningMinutes', () => {
-    it('debe retornar los minutos de advertencia de expiración', async () => {
+    it('retorna los minutos de advertencia de expiración desde technicalSettings', async () => {
       const result = await service.getSessionExpirationWarningMinutes();
 
       expect(result).toBe(10);
@@ -81,8 +182,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // getGeoGpsTimeWindowMinutes
+  // ─────────────────────────────────────────────
   describe('getGeoGpsTimeWindowMinutes', () => {
-    it('debe retornar la ventana de tiempo para GPS', async () => {
+    it('retorna la ventana de tiempo GPS desde el setting', async () => {
       settingsService.getPositiveInt.mockResolvedValue(10);
 
       const result = await service.getGeoGpsTimeWindowMinutes();
@@ -94,8 +198,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // getGeoGpsDistanceKm
+  // ─────────────────────────────────────────────
   describe('getGeoGpsDistanceKm', () => {
-    it('debe retornar la distancia umbral para GPS', async () => {
+    it('retorna la distancia umbral GPS desde el setting', async () => {
       settingsService.getPositiveInt.mockResolvedValue(5);
 
       const result = await service.getGeoGpsDistanceKm();
@@ -107,8 +214,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // getGeoIpTimeWindowMinutes
+  // ─────────────────────────────────────────────
   describe('getGeoIpTimeWindowMinutes', () => {
-    it('debe retornar la ventana de tiempo para IP', async () => {
+    it('retorna la ventana de tiempo IP desde el setting', async () => {
       settingsService.getPositiveInt.mockResolvedValue(30);
 
       const result = await service.getGeoIpTimeWindowMinutes();
@@ -120,8 +230,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // getGeoIpDistanceKm
+  // ─────────────────────────────────────────────
   describe('getGeoIpDistanceKm', () => {
-    it('debe retornar la distancia umbral para IP', async () => {
+    it('retorna la distancia umbral IP desde el setting', async () => {
       settingsService.getPositiveInt.mockResolvedValue(100);
 
       const result = await service.getGeoIpDistanceKm();
@@ -133,8 +246,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // invalidateCache
+  // ─────────────────────────────────────────────
   describe('invalidateCache', () => {
-    it('debe invalidar un setting específico', () => {
+    it('invalida un setting específico via SettingsService', () => {
       service.invalidateCache('ACTIVE_CYCLE_ID');
 
       expect(settingsService.invalidateCache).toHaveBeenCalledWith(
@@ -143,8 +259,11 @@ describe('AuthSettingsService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // invalidateAllCache
+  // ─────────────────────────────────────────────
   describe('invalidateAllCache', () => {
-    it('debe invalidar todo el caché', () => {
+    it('invalida todo el caché via SettingsService', () => {
       service.invalidateAllCache();
 
       expect(settingsService.invalidateAllCache).toHaveBeenCalled();

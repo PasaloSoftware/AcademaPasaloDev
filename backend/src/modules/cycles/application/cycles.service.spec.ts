@@ -26,18 +26,23 @@ const mockCycleRepo = {
 
 const mockAuthSettingsService = {
   getActiveCycleId: jest.fn(),
+  clearActiveCycleId: jest.fn(),
 };
 
 const mockCacheService = {
   invalidateGroup: jest.fn(),
 };
 
-const makeCycle = (id: string, code = 'CYCLE_A'): AcademicCycle =>
+const makeCycle = (
+  id: string,
+  code = 'CYCLE_A',
+  endDate = new Date('2099-12-31'),
+): AcademicCycle =>
   ({
     id,
     code,
     startDate: new Date('2024-01-01'),
-    endDate: new Date('2024-06-30'),
+    endDate,
     createdAt: new Date(),
     updatedAt: new Date(),
   }) as AcademicCycle;
@@ -137,10 +142,112 @@ describe('CyclesService', () => {
       await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
     });
 
-    it('lanza NotFoundException si el ciclo referenciado no existe', async () => {
+    it('lanza NotFoundException si el ciclo referenciado no existe en BD', async () => {
       mockAuthSettingsService.getActiveCycleId.mockResolvedValue('999');
       mockCycleRepo.findById.mockResolvedValue(null);
       await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+    });
+
+    it('no llama a clearActiveCycleId si el ciclo está vigente', async () => {
+      mockAuthSettingsService.getActiveCycleId.mockResolvedValue('10');
+      mockCycleRepo.findById.mockResolvedValue(makeCycle('10'));
+
+      await service.getActiveCycle();
+
+      expect(mockAuthSettingsService.clearActiveCycleId).not.toHaveBeenCalled();
+    });
+
+    // ── Transición lazy al expirar ─────────────
+    describe('transición lazy al expirar', () => {
+      const EXPIRED_ID = '10';
+      // endDate = 2024-01-15 → expira a partir del 2024-01-16T00:00:00Z
+      const expiredCycle = makeCycle(EXPIRED_ID, 'CYCLE_A', new Date('2024-01-15'));
+
+      beforeEach(() => {
+        mockAuthSettingsService.getActiveCycleId.mockResolvedValue(EXPIRED_ID);
+        mockCycleRepo.findById.mockResolvedValue(expiredCycle);
+        mockAuthSettingsService.clearActiveCycleId.mockResolvedValue(undefined);
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-01-16T10:00:00.000Z'));
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('lanza NotFoundException si el endDate ya pasó', async () => {
+        await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+      });
+
+      it('el mensaje indica que el ciclo ha concluido', async () => {
+        await expect(service.getActiveCycle()).rejects.toThrow(
+          'El ciclo académico vigente ha concluido.',
+        );
+      });
+
+      it('llama a clearActiveCycleId para liberar el ciclo expirado', async () => {
+        await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+
+        expect(mockAuthSettingsService.clearActiveCycleId).toHaveBeenCalledTimes(1);
+      });
+
+      it('sigue lanzando NotFoundException aunque clearActiveCycleId falle', async () => {
+        mockAuthSettingsService.clearActiveCycleId.mockRejectedValue(
+          new Error('DB error'),
+        );
+
+        await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+      });
+
+      it('emite logger.warn al detectar expiración', async () => {
+        const warnSpy = jest
+          .spyOn(
+            (service as unknown as { logger: { warn: jest.Mock } }).logger,
+            'warn',
+          )
+          .mockImplementation(() => undefined);
+
+        await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        const logArg = warnSpy.mock.calls[0][0] as Record<string, unknown>;
+        expect(logArg).toHaveProperty('message', 'Ciclo vigente expirado — transición lazy a histórico');
+        expect(logArg).toHaveProperty('cycleId', EXPIRED_ID);
+      });
+
+      it('emite logger.error si clearActiveCycleId falla', async () => {
+        mockAuthSettingsService.clearActiveCycleId.mockRejectedValue(
+          new Error('DB timeout'),
+        );
+        const errorSpy = jest
+          .spyOn(
+            (service as unknown as { logger: { error: jest.Mock } }).logger,
+            'error',
+          )
+          .mockImplementation(() => undefined);
+
+        await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+        const logArg = errorSpy.mock.calls[0][0] as Record<string, unknown>;
+        expect(logArg).toHaveProperty('message', 'No se pudo limpiar ACTIVE_CYCLE_ID tras detectar expiración');
+        expect(logArg).toHaveProperty('error', 'DB timeout');
+      });
+
+      it('ciclo cuyo endDate es hoy no expira antes de la medianoche UTC', async () => {
+        // Mismo endDate (2024-01-15) pero todavía es 23:00 de ese día
+        jest.setSystemTime(new Date('2024-01-15T23:00:00.000Z'));
+
+        await expect(service.getActiveCycle()).resolves.toEqual(expiredCycle);
+        expect(mockAuthSettingsService.clearActiveCycleId).not.toHaveBeenCalled();
+      });
+
+      it('ciclo expira exactamente al pasar 23:59:59.999 UTC del endDate', async () => {
+        jest.setSystemTime(new Date('2024-01-16T00:00:00.000Z'));
+
+        await expect(service.getActiveCycle()).rejects.toThrow(NotFoundException);
+        expect(mockAuthSettingsService.clearActiveCycleId).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
