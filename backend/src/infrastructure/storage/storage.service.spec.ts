@@ -70,11 +70,11 @@ describe('StorageService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('should require GOOGLE_DRIVE_ROOT_FOLDER_ID when drive is enabled', async () => {
+  it('should require GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID when drive is enabled', async () => {
     const configService = createConfigService({
       STORAGE_PROVIDER: 'GDRIVE',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: null,
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: null,
     });
     const service = new StorageService(configService);
 
@@ -108,7 +108,7 @@ describe('StorageService', () => {
     const configService = createConfigService({
       STORAGE_PROVIDER: 'GDRIVE',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: 'invalid-root-id',
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: 'invalid-root-id',
     });
     const service = new StorageService(configService);
     const mockClient = {
@@ -125,7 +125,7 @@ describe('StorageService', () => {
     const configService = createConfigService({
       STORAGE_PROVIDER: 'GDRIVE',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: 'root-1',
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: 'root-1',
     });
     const service = new StorageService(configService);
     const mockClient = {
@@ -151,11 +151,32 @@ describe('StorageService', () => {
     expect(createCalls).toHaveLength(0);
   });
 
+  it('should initialize with GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID', async () => {
+    const configService = createConfigService({
+      STORAGE_PROVIDER: 'GDRIVE',
+      GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: 'real-root-1',
+    });
+    const service = new StorageService(configService);
+    const mockClient = {
+      request: jest.fn().mockResolvedValueOnce({
+        data: {
+          id: 'real-root-1',
+          mimeType: 'application/vnd.google-apps.folder',
+          trashed: false,
+        },
+      }),
+    };
+    googleAuthMocks.__mockGetClient.mockResolvedValue(mockClient);
+
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+
   it('should upload files to Google Drive objects folder', async () => {
     const configService = createConfigService({
       STORAGE_PROVIDER: 'GDRIVE',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: 'root-1',
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: 'root-1',
     });
     const service = new StorageService(configService);
     const mockClient = {
@@ -196,7 +217,7 @@ describe('StorageService', () => {
     const configService = createConfigService({
       STORAGE_PROVIDER: 'GDRIVE',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: 'not-folder',
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: 'not-folder',
     });
     const service = new StorageService(configService);
     const mockClient = {
@@ -215,7 +236,7 @@ describe('StorageService', () => {
     const configService = createConfigService({
       STORAGE_PROVIDER: 'GDRIVE',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\secret.json',
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: 'trashed-folder',
+      GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID: 'trashed-folder',
     });
     const service = new StorageService(configService);
     const mockClient = {

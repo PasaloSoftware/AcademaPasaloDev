@@ -46,7 +46,7 @@ export class StorageService implements OnModuleInit {
   private storagePath: string;
   private readonly storageProvider: StorageProviderCode;
   private readonly googleDriveServiceAccountKeyPath: string | null;
-  private readonly googleDriveRootFolderIdConfig: string | null;
+  private readonly googleDriveRealRootFolderIdConfig: string | null;
 
   constructor(private configService: ConfigService) {
     this.storagePath = this.configService.get<string>(
@@ -72,8 +72,8 @@ export class StorageService implements OnModuleInit {
       'GOOGLE_APPLICATION_CREDENTIALS',
       null,
     );
-    this.googleDriveRootFolderIdConfig = this.configService.get<string>(
-      'GOOGLE_DRIVE_ROOT_FOLDER_ID',
+    this.googleDriveRealRootFolderIdConfig = this.configService.get<string>(
+      'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID',
       null,
     );
   }
@@ -647,13 +647,13 @@ export class StorageService implements OnModuleInit {
   private async getDriveRootFolderId(): Promise<string> {
     if (this.driveRootFolderId) return this.driveRootFolderId;
 
-    if (!this.googleDriveRootFolderIdConfig) {
+    const rootFolderId = this.googleDriveRealRootFolderIdConfig;
+    if (!rootFolderId) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_DRIVE_ROOT_FOLDER_ID en configuración',
+        'Falta GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID en configuración',
       );
     }
 
-    const rootFolderId = this.googleDriveRootFolderIdConfig;
     if (!this.isDriveRootFolderValidated) {
       await this.validateDriveFolderId(rootFolderId);
       this.isDriveRootFolderValidated = true;
@@ -697,25 +697,25 @@ export class StorageService implements OnModuleInit {
         ? String(detailRaw).slice(0, 240)
         : 'sin detalle';
       throw new InternalServerErrorException(
-        `GOOGLE_DRIVE_ROOT_FOLDER_ID inválido/sin permisos o falla de red hacia Google Drive (status=${status}, detail=${detail})`,
+        `GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID inválido/sin permisos o falla de red hacia Google Drive (status=${status}, detail=${detail})`,
       );
     }
 
     if (!response.data.id) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID inválido: no existe en Google Drive',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID inválido: no existe en Google Drive',
       );
     }
 
     if (response.data.mimeType !== 'application/vnd.google-apps.folder') {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID debe apuntar a una carpeta',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID debe apuntar a una carpeta',
       );
     }
 
     if (response.data.trashed) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID apunta a una carpeta en papelera',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID apunta a una carpeta en papelera',
       );
     }
   }
