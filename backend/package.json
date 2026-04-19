@@ -26,7 +26,7 @@
     "migration:run": "typeorm-ts-node-commonjs -d src/infrastructure/database/typeorm.datasource.ts migration:run",
     "migration:show": "typeorm-ts-node-commonjs -d src/infrastructure/database/typeorm.datasource.ts migration:show",
     "migration:revert": "typeorm-ts-node-commonjs -d src/infrastructure/database/typeorm.datasource.ts migration:revert",
-    "migration:run:prod": "typeorm -d dist/infrastructure/database/typeorm.datasource.js migration:run"
+    "migration:run:prod": "typeorm -d dist/src/infrastructure/database/typeorm.datasource.js migration:run"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
