@@ -13,6 +13,7 @@ import {
 } from "@/services/settings.service";
 import {
   cyclesService,
+  type CycleFormPayload,
   type CycleHistoryItem,
   type CycleHistoryResponse,
 } from "@/services/cycles.service";
@@ -48,6 +49,8 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
 function toDateInputValue(date: string): string {
   return date.slice(0, 10);
 }
+
+const CODE_REGEX = /^[A-Za-z0-9_-]+$/;
 
 function clampPositiveInteger(value: string): string {
   return value.replace(/\D/g, "");
@@ -181,6 +184,7 @@ function ModalTextField({
   onChange,
   type = "text",
   helperText,
+  placeholder,
   rightIcon,
   min,
 }: {
@@ -189,6 +193,7 @@ function ModalTextField({
   onChange: (value: string) => void;
   type?: "text" | "number" | "date";
   helperText?: string;
+  placeholder?: string;
   rightIcon?: string;
   min?: string | number;
 }) {
@@ -199,8 +204,9 @@ function ModalTextField({
           type={type}
           value={value}
           min={min}
+          placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
-          className="flex-1 bg-transparent text-text-primary text-base font-normal leading-4 outline-none"
+          className="flex-1 bg-transparent text-text-primary text-base font-normal leading-4 outline-none placeholder:text-text-tertiary"
         />
         {rightIcon ? (
           <Icon name={rightIcon} size={16} className="text-icon-tertiary" />
@@ -259,6 +265,7 @@ export default function ConfiguracionContent() {
   const [historyPage, setHistoryPage] = useState(1);
 
   const [isCurrentCycleModalOpen, setIsCurrentCycleModalOpen] = useState(false);
+  const [isHistoryCycleModalOpen, setIsHistoryCycleModalOpen] = useState(false);
   const [editingHistoryCycle, setEditingHistoryCycle] =
     useState<CycleHistoryItem | null>(null);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
@@ -349,12 +356,14 @@ export default function ConfiguracionContent() {
 
   const canSaveCurrentCycle =
     currentCycleForm.identifier.trim().length > 0 &&
+    CODE_REGEX.test(currentCycleForm.identifier.trim()) &&
     currentCycleForm.startDate.length > 0 &&
     currentCycleForm.endDate.length > 0 &&
     currentCycleForm.startDate <= currentCycleForm.endDate;
 
   const canSaveHistoryCycle =
     historyCycleForm.identifier.trim().length > 0 &&
+    CODE_REGEX.test(historyCycleForm.identifier.trim()) &&
     historyCycleForm.startDate.length > 0 &&
     historyCycleForm.endDate.length > 0 &&
     historyCycleForm.startDate <= historyCycleForm.endDate;
@@ -367,9 +376,7 @@ export default function ConfiguracionContent() {
 
   const openCurrentCycleModal = useCallback(() => {
     setCurrentCycleForm({
-      identifier: settings?.currentCycle
-        ? formatCycleCode(settings.currentCycle.code)
-        : "",
+      identifier: settings?.currentCycle?.code ?? "",
       startDate: settings?.currentCycle
         ? toDateInputValue(settings.currentCycle.startDate)
         : "",
@@ -380,13 +387,25 @@ export default function ConfiguracionContent() {
     setIsCurrentCycleModalOpen(true);
   }, [settings]);
 
+  const closeHistoryCycleModal = useCallback(() => {
+    setIsHistoryCycleModalOpen(false);
+    setEditingHistoryCycle(null);
+  }, []);
+
   const openHistoryCycleModal = useCallback((cycle: CycleHistoryItem) => {
     setEditingHistoryCycle(cycle);
     setHistoryCycleForm({
-      identifier: formatCycleCode(cycle.code),
+      identifier: cycle.code,
       startDate: toDateInputValue(cycle.startDate),
       endDate: toDateInputValue(cycle.endDate),
     });
+    setIsHistoryCycleModalOpen(true);
+  }, []);
+
+  const openCreateHistoryCycleModal = useCallback(() => {
+    setEditingHistoryCycle(null);
+    setHistoryCycleForm({ identifier: "", startDate: "", endDate: "" });
+    setIsHistoryCycleModalOpen(true);
   }, []);
 
   const openSecurityModal = useCallback(() => {
@@ -409,27 +428,70 @@ export default function ConfiguracionContent() {
     setIsRetentionModalOpen(true);
   }, [settings]);
 
-  const handleCyclePersistenceUnavailable = useCallback(
-    async (
-      title: string,
-      close: () => void,
-      setSaving: (value: boolean) => void,
-    ) => {
-      setSaving(true);
-      try {
+  const handleSaveCurrentCycle = useCallback(async () => {
+    setCurrentCycleSaving(true);
+    try {
+      const payload: CycleFormPayload = {
+        code: currentCycleForm.identifier.trim(),
+        startDate: currentCycleForm.startDate,
+        endDate: currentCycleForm.endDate,
+      };
+      await cyclesService.updateActive(payload);
+      setIsCurrentCycleModalOpen(false);
+      showToast({
+        type: "success",
+        title: "Ciclo vigente actualizado",
+        description: "Los datos del ciclo vigente se guardaron correctamente.",
+      });
+      void loadSettings();
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "No se pudo guardar el ciclo vigente",
+        description:
+          error instanceof Error ? error.message : "Ocurrio un error inesperado.",
+      });
+    } finally {
+      setCurrentCycleSaving(false);
+    }
+  }, [currentCycleForm, showToast, loadSettings]);
+
+  const handleSaveHistoryCycle = useCallback(async () => {
+    setHistoryCycleSaving(true);
+    try {
+      const payload: CycleFormPayload = {
+        code: historyCycleForm.identifier.trim(),
+        startDate: historyCycleForm.startDate,
+        endDate: historyCycleForm.endDate,
+      };
+      if (editingHistoryCycle) {
+        await cyclesService.updateHistorical(editingHistoryCycle.id, payload);
         showToast({
-          type: "info",
-          title,
-          description:
-            "El modal ya esta listo, pero la API actual aun no expone un endpoint para guardar cambios de ciclos academicos.",
+          type: "success",
+          title: "Ciclo historico actualizado",
+          description: "Los datos del ciclo se actualizaron correctamente.",
         });
-        close();
-      } finally {
-        setSaving(false);
+      } else {
+        await cyclesService.createHistorical(payload);
+        showToast({
+          type: "success",
+          title: "Ciclo historico registrado",
+          description: "El ciclo historico fue registrado correctamente.",
+        });
       }
-    },
-    [showToast],
-  );
+      closeHistoryCycleModal();
+      void loadHistory();
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "No se pudo guardar el ciclo",
+        description:
+          error instanceof Error ? error.message : "Ocurrio un error inesperado.",
+      });
+    } finally {
+      setHistoryCycleSaving(false);
+    }
+  }, [historyCycleForm, editingHistoryCycle, showToast, closeHistoryCycleModal, loadHistory]);
 
   const handleSaveSecurity = useCallback(async () => {
     setSecuritySaving(true);
@@ -776,14 +838,7 @@ export default function ConfiguracionContent() {
                 </div>
                 <button
                   type="button"
-                  onClick={() =>
-                    showToast({
-                      type: "info",
-                      title: "Registrar ciclo pasado",
-                      description:
-                        "La API actual aun no expone el alta de ciclos historicos desde esta pantalla.",
-                    })
-                  }
+                  onClick={openCreateHistoryCycleModal}
                   className="px-6 py-3 bg-bg-primary rounded-lg outline outline-1 outline-offset-[-1px] outline-stroke-accent-primary flex justify-center items-center gap-1.5 hover:bg-bg-accent-light transition-colors"
                 >
                   <Icon
@@ -992,13 +1047,7 @@ export default function ConfiguracionContent() {
               disabled={!canSaveCurrentCycle}
               loading={currentCycleSaving}
               loadingText="Guardando..."
-              onClick={() =>
-                void handleCyclePersistenceUnavailable(
-                  "Edicion de ciclo vigente",
-                  () => setIsCurrentCycleModalOpen(false),
-                  setCurrentCycleSaving,
-                )
-              }
+              onClick={() => void handleSaveCurrentCycle()}
             >
               Guardar
             </Modal.Button>
@@ -1008,6 +1057,7 @@ export default function ConfiguracionContent() {
         <div className="self-stretch flex flex-col justify-start items-start gap-4">
           <ModalTextField
             label="Identificador"
+            placeholder="2026-2"
             value={currentCycleForm.identifier}
             onChange={(value) =>
               setCurrentCycleForm((prev) => ({ ...prev, identifier: value }))
@@ -1039,15 +1089,15 @@ export default function ConfiguracionContent() {
       </Modal>
 
       <Modal
-        isOpen={Boolean(editingHistoryCycle)}
-        onClose={() => setEditingHistoryCycle(null)}
-        title="Editar Ciclo Historico"
+        isOpen={isHistoryCycleModalOpen}
+        onClose={closeHistoryCycleModal}
+        title={editingHistoryCycle ? "Editar Ciclo Historico" : "Registrar Ciclo Historico"}
         size="lg"
         footer={
           <>
             <Modal.Button
               variant="secondary"
-              onClick={() => setEditingHistoryCycle(null)}
+              onClick={closeHistoryCycleModal}
             >
               Cancelar
             </Modal.Button>
@@ -1055,13 +1105,7 @@ export default function ConfiguracionContent() {
               disabled={!canSaveHistoryCycle}
               loading={historyCycleSaving}
               loadingText="Guardando..."
-              onClick={() =>
-                void handleCyclePersistenceUnavailable(
-                  "Edicion de ciclo historico",
-                  () => setEditingHistoryCycle(null),
-                  setHistoryCycleSaving,
-                )
-              }
+              onClick={() => void handleSaveHistoryCycle()}
             >
               Guardar
             </Modal.Button>
@@ -1071,6 +1115,7 @@ export default function ConfiguracionContent() {
         <div className="self-stretch flex flex-col justify-start items-start gap-4">
           <ModalTextField
             label="Identificador"
+            placeholder="2026-2"
             value={historyCycleForm.identifier}
             onChange={(value) =>
               setHistoryCycleForm((prev) => ({ ...prev, identifier: value }))

@@ -50,19 +50,48 @@ export class CyclesService {
   }
 
   async getActiveCycle(): Promise<AcademicCycle> {
+    let activeCycleId: string;
     try {
-      const activeCycleId = await this.authSettingsService.getActiveCycleId();
-      return await this.findOne(activeCycleId);
-    } catch (error) {
-      this.logger.error({
-        message: 'Error al determinar el ciclo activo',
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        timestamp: new Date().toISOString(),
-      });
+      activeCycleId = await this.authSettingsService.getActiveCycleId();
+    } catch {
       throw new NotFoundException(
         'No se ha podido identificar el ciclo activo del sistema.',
       );
     }
+
+    const cycle = await this.findOne(activeCycleId);
+
+    const endOfDay = new Date(cycle.endDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    if (endOfDay < new Date()) {
+      this.logger.warn({
+        message: 'Ciclo vigente expirado — transición lazy a histórico',
+        cycleId: cycle.id,
+        code: cycle.code,
+        endDate: cycle.endDate,
+        timestamp: new Date().toISOString(),
+      });
+      try {
+        await this.authSettingsService.clearActiveCycleId();
+      } catch (clearError) {
+        this.logger.error({
+          message:
+            'No se pudo limpiar ACTIVE_CYCLE_ID tras detectar expiración',
+          cycleId: cycle.id,
+          error:
+            clearError instanceof Error
+              ? clearError.message
+              : 'Error desconocido',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      throw new NotFoundException(
+        'El ciclo académico vigente ha concluido. Configure un nuevo ciclo para continuar.',
+      );
+    }
+
+    return cycle;
   }
 
   async updateActiveCycle(dto: CycleFormDto): Promise<AcademicCycle> {
