@@ -282,6 +282,85 @@ export class CourseCycleDriveProvisioningService {
     await this.driveScopeProvisioningService.trashDriveFolder(leafFolderId);
   }
 
+  async loadReprovisionData(courseCycleId: string): Promise<{
+    courseCode: string;
+    cycleCode: string;
+    evaluationIds: string[];
+    bankCards: Array<{ evaluationTypeCode: string; number: number }>;
+    bankFolders: Array<{ groupName: string; items: string[] }>;
+  } | null> {
+    const metaRows = await this.dataSource.query<
+      Array<{ courseCode: string; cycleCode: string }>
+    >(
+      `SELECT c.code AS courseCode, ac.code AS cycleCode
+       FROM course_cycle cc
+       INNER JOIN course c ON c.id = cc.course_id
+       INNER JOIN academic_cycle ac ON ac.id = cc.academic_cycle_id
+       WHERE cc.id = ? LIMIT 1`,
+      [courseCycleId],
+    );
+    if (!metaRows[0]) return null;
+
+    const evalRows = await this.dataSource.query<
+      Array<{ id: string; typeCode: string; number: number }>
+    >(
+      `SELECT e.id, UPPER(TRIM(et.code)) AS typeCode, e.number
+       FROM evaluation e
+       INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+       WHERE e.course_cycle_id = ?
+         AND UPPER(TRIM(et.code)) != 'BANCO_ENUNCIADOS'
+       ORDER BY e.number ASC`,
+      [courseCycleId],
+    );
+
+    const bankEvalRows = await this.dataSource.query<Array<{ id: string }>>(
+      `SELECT e.id
+       FROM evaluation e
+       INNER JOIN evaluation_type et ON et.id = e.evaluation_type_id
+       WHERE e.course_cycle_id = ?
+         AND UPPER(TRIM(et.code)) = 'BANCO_ENUNCIADOS'
+         AND e.number = 0
+       LIMIT 1`,
+      [courseCycleId],
+    );
+    const bankEvaluationId = String(bankEvalRows[0]?.id || '').trim();
+
+    const bankFolders: Array<{ groupName: string; items: string[] }> = [];
+    if (bankEvaluationId) {
+      const rootRows = await this.dataSource.query<
+        Array<{ id: string; name: string }>
+      >(
+        `SELECT id, name FROM material_folder
+         WHERE evaluation_id = ? AND parent_folder_id IS NULL
+         ORDER BY name ASC`,
+        [bankEvaluationId],
+      );
+      for (const root of rootRows) {
+        const leafRows = await this.dataSource.query<Array<{ name: string }>>(
+          `SELECT name FROM material_folder
+           WHERE evaluation_id = ? AND parent_folder_id = ?
+           ORDER BY name ASC`,
+          [bankEvaluationId, root.id],
+        );
+        bankFolders.push({
+          groupName: root.name,
+          items: leafRows.map((leaf) => leaf.name),
+        });
+      }
+    }
+
+    return {
+      courseCode: metaRows[0].courseCode,
+      cycleCode: metaRows[0].cycleCode,
+      evaluationIds: evalRows.map((e) => e.id),
+      bankCards: evalRows.map((e) => ({
+        evaluationTypeCode: String(e.typeCode),
+        number: Number(e.number),
+      })),
+      bankFolders,
+    };
+  }
+
   private async syncCurrentEligibleMembers(
     groupEmail: string,
     courseCycleId: string,

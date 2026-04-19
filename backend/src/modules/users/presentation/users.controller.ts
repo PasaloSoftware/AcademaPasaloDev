@@ -24,6 +24,7 @@ import {
   AdminUsersListResponseDto,
   AdminUsersStatusFilterOptionDto,
 } from '@modules/users/dto/admin-users-list.dto';
+import { AdminDashboardStatsDto } from '@modules/users/dto/admin-dashboard-stats.dto';
 import {
   AdminCourseOptionDto,
   AdminUserDetailResponseDto,
@@ -172,6 +173,18 @@ export class UsersController {
   async listCoursesCatalog() {
     const items = await this.usersService.listAdminCourseOptions();
     return plainToInstance(AdminCourseOptionDto, items, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  @Get('admin-dashboard/stats')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage(
+    'Estadisticas base del dashboard administrativo obtenidas exitosamente',
+  )
+  async getAdminDashboardStats() {
+    const stats = await this.usersService.getAdminDashboardStats();
+    return plainToInstance(AdminDashboardStatsDto, stats, {
       excludeExtraneousValues: true,
     });
   }

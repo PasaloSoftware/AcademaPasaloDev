@@ -9,6 +9,7 @@ import { AuthSettingsService } from '@modules/auth/application/auth-settings.ser
 import { ClassEvent } from '@modules/events/domain/class-event.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
+import { CLASS_EVENT_STATUS } from '@modules/events/domain/class-event.constants';
 
 describe('ClassEventsQueryService', () => {
   let service: ClassEventsQueryService;
@@ -52,7 +53,9 @@ describe('ClassEventsQueryService', () => {
           provide: ClassEventRepository,
           useValue: {
             findByUserAndRange: jest.fn(),
+            findMyDayWidgetScheduleByUserAndRange: jest.fn(),
             findGlobalSessionsByCourseCyclesAndRange: jest.fn(),
+            findAdminDayWidgetScheduleByRange: jest.fn(),
           },
         },
         {
@@ -105,6 +108,186 @@ describe('ClassEventsQueryService', () => {
 
       expect(result).toEqual([mockEvent]);
       expect(classEventRepository.findByUserAndRange).toHaveBeenCalled();
+    });
+  });
+
+  describe('getMyDayWidgetSchedule', () => {
+    it('debe retornar agenda resumida personal', async () => {
+      classEventRepository.findMyDayWidgetScheduleByUserAndRange.mockResolvedValue([
+        {
+          id: 'evt-u-1',
+          sessionNumber: 1,
+          title: 'Clase personal',
+          startDatetime: new Date('2026-04-18T15:00:00.000Z'),
+          endDatetime: new Date('2026-04-18T17:00:00.000Z'),
+          liveMeetingUrl: null,
+          isCancelled: false,
+          courseName: 'Fundamentos',
+          courseCode: 'INF101',
+        },
+      ]);
+
+      const result = await service.getMyDayWidgetSchedule(
+        'user-1',
+        startDate,
+        endDate,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: 'evt-u-1',
+        sessionNumber: 1,
+        title: 'Clase personal',
+        courseName: 'Fundamentos',
+        courseCode: 'INF101',
+      });
+      expect(
+        classEventRepository.findMyDayWidgetScheduleByUserAndRange,
+      ).toHaveBeenCalledWith('user-1', startDate, endDate);
+      expect(cacheService.set).toHaveBeenCalled();
+      expect(cacheService.addToIndex).toHaveBeenCalled();
+    });
+
+    it('debe servir desde cache si ya existe', async () => {
+      const cached = [
+        {
+          id: 'evt-u-cache',
+          sessionNumber: 2,
+          title: 'Clase cache',
+          startDatetime: new Date('2026-04-18T10:00:00.000Z'),
+          endDatetime: new Date('2026-04-18T12:00:00.000Z'),
+          liveMeetingUrl: null,
+          isCancelled: false,
+          sessionStatus: CLASS_EVENT_STATUS.PROGRAMADA,
+          courseName: 'Cálculo',
+          courseCode: 'MAT101',
+        },
+      ];
+      cacheService.get.mockResolvedValueOnce(cached as never);
+
+      const result = await service.getMyDayWidgetSchedule(
+        'user-1',
+        startDate,
+        endDate,
+      );
+
+      expect(result).toBe(cached);
+      expect(
+        classEventRepository.findMyDayWidgetScheduleByUserAndRange,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('debe calcular estado CANCELADA cuando el evento esta cancelado', async () => {
+      classEventRepository.findMyDayWidgetScheduleByUserAndRange.mockResolvedValue([
+        {
+          id: 'evt-u-cancelled',
+          sessionNumber: 4,
+          title: 'Clase cancelada',
+          startDatetime: new Date('2026-04-18T15:00:00.000Z'),
+          endDatetime: new Date('2026-04-18T17:00:00.000Z'),
+          liveMeetingUrl: null,
+          isCancelled: true,
+          courseName: 'Fundamentos',
+          courseCode: 'INF101',
+        },
+      ]);
+
+      const result = await service.getMyDayWidgetSchedule(
+        'user-1',
+        startDate,
+        endDate,
+      );
+
+      expect(result[0].sessionStatus).toBe(CLASS_EVENT_STATUS.CANCELADA);
+    });
+  });
+
+  describe('getAdminDayWidgetSchedule', () => {
+    it('debe retornar agenda resumida para admin', async () => {
+      classEventRepository.findAdminDayWidgetScheduleByRange.mockResolvedValue([
+        {
+          id: 'evt-1',
+          sessionNumber: 1,
+          title: 'Clase 1',
+          startDatetime: new Date('2026-04-18T15:00:00.000Z'),
+          endDatetime: new Date('2026-04-18T17:00:00.000Z'),
+          liveMeetingUrl: 'https://meet.google.com/abc',
+          isCancelled: false,
+          courseName: 'Fundamentos',
+          courseCode: 'INF101',
+        },
+      ]);
+
+      const result = await service.getAdminDayWidgetSchedule(startDate, endDate);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: 'evt-1',
+        sessionNumber: 1,
+        title: 'Clase 1',
+        courseName: 'Fundamentos',
+        courseCode: 'INF101',
+        liveMeetingUrl: 'https://meet.google.com/abc',
+        isCancelled: false,
+      });
+      expect(
+        [
+          CLASS_EVENT_STATUS.PROGRAMADA,
+          CLASS_EVENT_STATUS.EN_CURSO,
+          CLASS_EVENT_STATUS.FINALIZADA,
+        ].includes(result[0].sessionStatus),
+      ).toBe(true);
+      expect(
+        classEventRepository.findAdminDayWidgetScheduleByRange,
+      ).toHaveBeenCalledWith(startDate, endDate);
+      expect(cacheService.set).toHaveBeenCalled();
+      expect(cacheService.addToIndex).toHaveBeenCalled();
+    });
+
+    it('debe servir desde cache si ya existe', async () => {
+      const cached = [
+        {
+          id: 'evt-cache',
+          sessionNumber: 2,
+          title: 'Clase cache',
+          startDatetime: new Date('2026-04-18T10:00:00.000Z'),
+          endDatetime: new Date('2026-04-18T12:00:00.000Z'),
+          liveMeetingUrl: null,
+          isCancelled: false,
+          sessionStatus: CLASS_EVENT_STATUS.PROGRAMADA,
+          courseName: 'Cálculo',
+          courseCode: 'MAT101',
+        },
+      ];
+      cacheService.get.mockResolvedValueOnce(cached as never);
+
+      const result = await service.getAdminDayWidgetSchedule(startDate, endDate);
+
+      expect(result).toBe(cached);
+      expect(
+        classEventRepository.findAdminDayWidgetScheduleByRange,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('debe calcular estado EN_CURSO cuando now esta dentro del rango', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-04-18T16:00:00.000Z'));
+      classEventRepository.findAdminDayWidgetScheduleByRange.mockResolvedValue([
+        {
+          id: 'evt-admin-live',
+          sessionNumber: 5,
+          title: 'Clase en curso',
+          startDatetime: new Date('2026-04-18T15:00:00.000Z'),
+          endDatetime: new Date('2026-04-18T17:00:00.000Z'),
+          liveMeetingUrl: 'https://meet.google.com/live',
+          isCancelled: false,
+          courseName: 'Fundamentos',
+          courseCode: 'INF101',
+        },
+      ]);
+
+      const result = await service.getAdminDayWidgetSchedule(startDate, endDate);
+      expect(result[0].sessionStatus).toBe(CLASS_EVENT_STATUS.EN_CURSO);
+      jest.useRealTimers();
     });
   });
 

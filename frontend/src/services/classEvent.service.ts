@@ -10,6 +10,19 @@ export interface MyScheduleParams {
   end: string; // Fecha fin del rango (ISO-8601, ej: 2026-02-07)
 }
 
+export interface AdminDayWidgetScheduleItem {
+  id: string;
+  sessionNumber: number;
+  title: string;
+  startDatetime: string;
+  endDatetime: string;
+  liveMeetingUrl: string | null;
+  isCancelled: boolean;
+  sessionStatus: "PROGRAMADA" | "EN_CURSO" | "FINALIZADA" | "CANCELADA";
+  courseName: string;
+  courseCode: string;
+}
+
 export interface DiscoveryLayer {
   courseCycleId: string;
   courseId: string;
@@ -130,6 +143,24 @@ export const classEventService = {
   async getMySchedule(params: MyScheduleParams): Promise<ClassEvent[]> {
     const response = await apiClient.get<ClassEvent[]>(
       `/class-events/my-schedule?start=${params.start}&end=${params.end}`,
+    );
+    return response.data;
+  },
+
+  async getAdminDayWidgetSchedule(
+    params: MyScheduleParams,
+  ): Promise<AdminDayWidgetScheduleItem[]> {
+    const response = await apiClient.get<AdminDayWidgetScheduleItem[]>(
+      `/class-events/admin/day-widget-schedule?start=${params.start}&end=${params.end}`,
+    );
+    return response.data;
+  },
+
+  async getMyDayWidgetSchedule(
+    params: MyScheduleParams,
+  ): Promise<AdminDayWidgetScheduleItem[]> {
+    const response = await apiClient.get<AdminDayWidgetScheduleItem[]>(
+      `/class-events/my/day-widget-schedule?start=${params.start}&end=${params.end}`,
     );
     return response.data;
   },

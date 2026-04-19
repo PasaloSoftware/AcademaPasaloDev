@@ -18,12 +18,16 @@ import {
   GlobalFilterCatalog,
   GlobalSessionGroup,
 } from '@modules/events/interfaces/class-event.interfaces';
-import { CLASS_EVENT_CACHE_KEYS } from '@modules/events/domain/class-event.constants';
+import {
+  CLASS_EVENT_CACHE_KEYS,
+  CLASS_EVENT_STATUS,
+} from '@modules/events/domain/class-event.constants';
 import { AuthSettingsService } from '@modules/auth/application/auth-settings.service';
 import {
   toBusinessDayEndUtc,
   toBusinessDayStartUtc,
 } from '@common/utils/peru-time.util';
+import { AdminDayWidgetScheduleItemDto } from '@modules/events/dto/admin-day-widget-schedule-item.dto';
 
 @Injectable()
 export class ClassEventsQueryService {
@@ -76,6 +80,88 @@ export class ClassEventsQueryService {
       ),
     ]);
     return events;
+  }
+
+  async getMyDayWidgetSchedule(
+    userId: string,
+    start: Date,
+    end: Date,
+  ): Promise<AdminDayWidgetScheduleItemDto[]> {
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.MY_DAY_WIDGET_SCHEDULE(
+      userId,
+      start.toISOString(),
+      end.toISOString(),
+    );
+    const cached =
+      await this.cacheService.get<AdminDayWidgetScheduleItemDto[]>(cacheKey);
+    if (cached) return cached;
+
+    const rows =
+      await this.classEventRepository.findMyDayWidgetScheduleByUserAndRange(
+        userId,
+        start,
+        end,
+      );
+    const now = new Date();
+    const response: AdminDayWidgetScheduleItemDto[] = rows.map((row) => ({
+      id: row.id,
+      sessionNumber: row.sessionNumber,
+      title: row.title,
+      startDatetime: row.startDatetime,
+      endDatetime: row.endDatetime,
+      liveMeetingUrl: row.liveMeetingUrl,
+      isCancelled: row.isCancelled,
+      sessionStatus: this.resolveSessionStatus(row, now),
+      courseName: row.courseName,
+      courseCode: row.courseCode,
+    }));
+
+    await this.cacheService.set(cacheKey, response, this.EVENT_CACHE_TTL);
+    await this.cacheService.addToIndex(
+      CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_INDEX(userId),
+      cacheKey,
+      this.EVENT_CACHE_TTL,
+    );
+    return response;
+  }
+
+  async getAdminDayWidgetSchedule(
+    start: Date,
+    end: Date,
+  ): Promise<AdminDayWidgetScheduleItemDto[]> {
+    const cacheKey = CLASS_EVENT_CACHE_KEYS.ADMIN_DAY_WIDGET_SCHEDULE(
+      start.toISOString(),
+      end.toISOString(),
+    );
+    const cached =
+      await this.cacheService.get<AdminDayWidgetScheduleItemDto[]>(cacheKey);
+    if (cached) return cached;
+
+    const rows = await this.classEventRepository.findAdminDayWidgetScheduleByRange(
+      start,
+      end,
+    );
+    const now = new Date();
+    const response: AdminDayWidgetScheduleItemDto[] = rows.map((row) => ({
+      id: row.id,
+      sessionNumber: row.sessionNumber,
+      title: row.title,
+      startDatetime: row.startDatetime,
+      endDatetime: row.endDatetime,
+      liveMeetingUrl: row.liveMeetingUrl,
+      isCancelled: row.isCancelled,
+      sessionStatus: this.resolveSessionStatus(row, now),
+      courseName: row.courseName,
+      courseCode: row.courseCode,
+    }));
+
+    await this.cacheService.set(cacheKey, response, this.EVENT_CACHE_TTL);
+    await this.cacheService.addToIndex(
+      CLASS_EVENT_CACHE_KEYS.GLOBAL_SCHEDULE_INDEX,
+      cacheKey,
+      this.EVENT_CACHE_TTL,
+    );
+    return response;
   }
 
   async getDiscoveryLayers(courseCycleId: string): Promise<DiscoveryLayer[]> {
@@ -236,8 +322,12 @@ export class ClassEventsQueryService {
     });
 
     const response: GlobalFilterCatalog = {
-      cycles: [...cyclesMap.values()].sort((a, b) => b.code.localeCompare(a.code)),
-      units: [...unitsMap.values()].sort((a, b) => a.code.localeCompare(b.code)),
+      cycles: [...cyclesMap.values()].sort((a, b) =>
+        b.code.localeCompare(a.code),
+      ),
+      units: [...unitsMap.values()].sort((a, b) =>
+        a.code.localeCompare(b.code),
+      ),
       courseCycles: rows.map((row) => ({
         courseCycleId: row.courseCycleId,
         courseId: row.courseId,
@@ -275,7 +365,8 @@ export class ClassEventsQueryService {
       await this.courseCycleRepository.findCourseCycleIdsByGlobalFilters({
         academicCycleId: params.academicCycleId,
         courseTypeCode: params.courseTypeCode,
-        courseIds: normalizedCourseIds.length > 0 ? normalizedCourseIds : undefined,
+        courseIds:
+          normalizedCourseIds.length > 0 ? normalizedCourseIds : undefined,
       });
 
     if (courseCycleIds.length === 0) {
@@ -304,7 +395,11 @@ export class ClassEventsQueryService {
       );
     const groupedSessions = this.mapGlobalSessionRows(rows);
 
-    await this.cacheService.set(cacheKey, groupedSessions, this.EVENT_CACHE_TTL);
+    await this.cacheService.set(
+      cacheKey,
+      groupedSessions,
+      this.EVENT_CACHE_TTL,
+    );
     return groupedSessions;
   }
 
@@ -368,7 +463,9 @@ export class ClassEventsQueryService {
 
   private mapGlobalSessionRows(
     rows: Awaited<
-      ReturnType<ClassEventRepository['findGlobalSessionsByCourseCyclesAndRange']>
+      ReturnType<
+        ClassEventRepository['findGlobalSessionsByCourseCyclesAndRange']
+      >
     >,
   ): GlobalSessionGroup[] {
     const grouped = new Map<string, GlobalSessionGroup>();
@@ -410,5 +507,26 @@ export class ClassEventsQueryService {
     });
 
     return [...grouped.values()];
+  }
+
+  private resolveSessionStatus(
+    row: {
+      startDatetime: Date;
+      endDatetime: Date;
+      isCancelled: boolean;
+    },
+    nowReference: Date,
+  ) {
+    if (row.isCancelled) {
+      return CLASS_EVENT_STATUS.CANCELADA;
+    }
+
+    const now = nowReference.getTime();
+    const start = row.startDatetime.getTime();
+    const end = row.endDatetime.getTime();
+
+    if (now < start) return CLASS_EVENT_STATUS.PROGRAMADA;
+    if (now >= start && now < end) return CLASS_EVENT_STATUS.EN_CURSO;
+    return CLASS_EVENT_STATUS.FINALIZADA;
   }
 }

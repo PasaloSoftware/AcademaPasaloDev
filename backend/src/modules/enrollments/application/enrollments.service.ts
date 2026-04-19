@@ -14,6 +14,7 @@ import { CreateEnrollmentDto } from '@modules/enrollments/dto/create-enrollment.
 import { EnrollmentOptionsResponseDto } from '@modules/enrollments/dto/enrollment-options.dto';
 import { Enrollment } from '@modules/enrollments/domain/enrollment.entity';
 import { CourseCycle } from '@modules/courses/domain/course-cycle.entity';
+import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MyEnrollmentsResponseDto } from '@modules/enrollments/dto/my-enrollments-response.dto';
@@ -327,6 +328,9 @@ export class EnrollmentsService {
           this.cacheService.invalidateGroup(
             CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(dto.userId),
           ),
+          this.cacheService.invalidateGroup(
+            COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
+          ),
         ]);
 
         this.logger.log({
@@ -387,6 +391,9 @@ export class EnrollmentsService {
       ),
       this.cacheService.invalidateGroup(
         CLASS_EVENT_CACHE_KEYS.USER_SCHEDULE_GROUP(enrollment.userId),
+      ),
+      this.cacheService.invalidateGroup(
+        COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
       ),
     ]);
     await this.mediaAccessMembershipDispatchService.enqueueRevokeForUserEvaluations(

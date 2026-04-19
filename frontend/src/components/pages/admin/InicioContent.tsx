@@ -6,7 +6,6 @@ import Icon from "@/components/ui/Icon";
 import DaySchedule from "@/components/dashboard/DaySchedule";
 import EnrollmentRegistrationModal from "@/components/pages/admin/EnrollmentRegistrationModal";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
-import { coursesService } from "@/services/courses.service";
 import { usersService } from "@/services/users.service";
 
 interface AdminDashboardStats {
@@ -92,23 +91,8 @@ export default function InicioContent() {
     setError(null);
 
     try {
-      const [studentsResponse, teachersResponse, courses] = await Promise.all([
-        usersService.getAdminUsers({
-          roles: "STUDENT",
-          status: "ACTIVE",
-        }),
-        usersService.getAdminUsers({
-          roles: "PROFESSOR",
-          status: "ACTIVE",
-        }),
-        coursesService.findAll(),
-      ]);
-
-      setStats({
-        activeStudents: studentsResponse.totalItems,
-        teachers: teachersResponse.totalItems,
-        courses: courses.length,
-      });
+      const dashboardStats = await usersService.getAdminDashboardStats();
+      setStats(dashboardStats);
     } catch (err) {
       setError(
         err instanceof Error

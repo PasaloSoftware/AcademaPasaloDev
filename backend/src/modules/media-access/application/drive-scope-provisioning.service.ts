@@ -313,6 +313,17 @@ export class DriveScopeProvisioningService {
     });
   }
 
+  async trashDriveFolderIfExists(folderId: string): Promise<void> {
+    const normalizedFolderId = String(folderId || '').trim();
+    if (!normalizedFolderId) return;
+    try {
+      await this.trashDriveFolder(normalizedFolderId);
+    } catch (error) {
+      if (this.getStatusFromError(error) === 404) return;
+      throw error;
+    }
+  }
+
   async getDriveFolderMetadata(folderId: string): Promise<{
     id: string;
     name: string;
@@ -340,11 +351,12 @@ export class DriveScopeProvisioningService {
 
   getRootFolderId(): string {
     const rootFolderId = (
-      this.configService.get<string>('GOOGLE_DRIVE_ROOT_FOLDER_ID', '') || ''
+      this.configService.get<string>('GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID', '') ||
+      ''
     ).trim();
     if (!rootFolderId) {
       throw new InternalServerErrorException(
-        'Falta GOOGLE_DRIVE_ROOT_FOLDER_ID en configuración',
+        'Falta GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID en configuración',
       );
     }
     return rootFolderId;
@@ -361,17 +373,17 @@ export class DriveScopeProvisioningService {
 
     if (!payload.id) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID inválido: no existe',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID inválido: no existe',
       );
     }
     if (payload.mimeType !== DRIVE_FOLDER_MIME_TYPE) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID debe apuntar a carpeta',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID debe apuntar a carpeta',
       );
     }
     if (payload.trashed) {
       throw new InternalServerErrorException(
-        'GOOGLE_DRIVE_ROOT_FOLDER_ID apunta a carpeta en papelera',
+        'GOOGLE_DRIVE_REAL_ROOT_FOLDER_ID apunta a carpeta en papelera',
       );
     }
   }

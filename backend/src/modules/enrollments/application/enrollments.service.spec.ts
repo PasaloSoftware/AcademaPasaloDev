@@ -12,6 +12,7 @@ import { RedisCacheService } from '@infrastructure/cache/redis-cache.service';
 import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { SettingsService } from '@modules/settings/application/settings.service';
 import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
+import { COURSE_CACHE_KEYS } from '@modules/courses/domain/course.constants';
 
 describe('EnrollmentsService', () => {
   let service: EnrollmentsService;
@@ -274,6 +275,9 @@ describe('EnrollmentsService', () => {
       historicalCourseCycleIds: ['90', '80'],
     });
 
+    expect(cacheServiceMock.invalidateGroup).toHaveBeenCalledWith(
+      COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
+    );
     expect(
       mediaAccessMembershipDispatchServiceMock.enqueueGrantForUserCourseCycles,
     ).toHaveBeenCalledWith(
@@ -418,5 +422,26 @@ describe('EnrollmentsService', () => {
         academicCycleCode: '2025-2',
       },
     ]);
+  });
+
+  it('cancelEnrollment invalida cache de admin course-cycles', async () => {
+    enrollmentRepositoryMock.findById.mockResolvedValue({
+      id: 'enr-1',
+      userId: 'u-1',
+      courseCycleId: 'cc-1',
+    });
+    enrollmentEvaluationRepositoryMock.findEvaluationIdsToRevokeAfterEnrollmentCancellation.mockResolvedValue(
+      [],
+    );
+    enrollmentEvaluationRepositoryMock.findCourseCycleIdsToRevokeAfterEnrollmentCancellation.mockResolvedValue(
+      [],
+    );
+    enrollmentRepositoryMock.update.mockResolvedValue(undefined);
+
+    await service.cancelEnrollment('enr-1');
+
+    expect(cacheServiceMock.invalidateGroup).toHaveBeenCalledWith(
+      COURSE_CACHE_KEYS.GLOBAL_ADMIN_COURSE_CYCLES_LIST_GROUP,
+    );
   });
 });

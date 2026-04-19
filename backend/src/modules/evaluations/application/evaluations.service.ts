@@ -7,8 +7,10 @@ import {
 } from '@nestjs/common';
 import { Evaluation } from '@modules/evaluations/domain/evaluation.entity';
 import { CreateEvaluationDto } from '@modules/evaluations/dto/create-evaluation.dto';
+import { UpdateEvaluationDto } from '@modules/evaluations/dto/update-evaluation.dto';
 import { ReorderEvaluationsDto } from '@modules/evaluations/dto/reorder-evaluations.dto';
 import { EvaluationRepository } from '@modules/evaluations/infrastructure/evaluation.repository';
+import { EvaluationDeletionService } from '@modules/evaluations/application/evaluation-deletion.service';
 import { CourseCycleRepository } from '@modules/courses/infrastructure/course-cycle.repository';
 import { CourseCycleProfessorRepository } from '@modules/courses/infrastructure/course-cycle-professor.repository';
 import { CourseCycleAllowedEvaluationTypeRepository } from '@modules/courses/infrastructure/course-cycle-allowed-evaluation-type.repository';
@@ -36,6 +38,7 @@ export class EvaluationsService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly evaluationRepository: EvaluationRepository,
+    private readonly evaluationDeletionService: EvaluationDeletionService,
     private readonly courseCycleRepository: CourseCycleRepository,
     private readonly courseCycleProfessorRepository: CourseCycleProfessorRepository,
     private readonly courseCycleAllowedEvaluationTypeRepository: CourseCycleAllowedEvaluationTypeRepository,
@@ -244,6 +247,74 @@ export class EvaluationsService {
     return this.filterOutBankEvaluations(
       await this.evaluationRepository.findByCourseCycle(courseCycleId),
     );
+  }
+
+  async update(id: string, dto: UpdateEvaluationDto): Promise<Evaluation> {
+    const evaluationId = String(id || '').trim();
+    if (!evaluationId) {
+      throw new BadRequestException('El ID de la evaluacion es obligatorio.');
+    }
+
+    const evaluation =
+      await this.evaluationRepository.findByIdWithTypeAndCycle(evaluationId);
+    if (!evaluation) {
+      throw new NotFoundException('La evaluacion no existe.');
+    }
+
+    const typeCode = String(evaluation.evaluationType?.code ?? '')
+      .trim()
+      .toUpperCase();
+    if (typeCode === EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS) {
+      throw new BadRequestException(
+        'No se puede modificar una evaluacion de tipo banco de enunciados.',
+      );
+    }
+
+    const evalStart = parseBusinessWindowStartToUtc(dto.startDate, 'startDate');
+    const evalEnd = parseBusinessWindowEndToUtc(dto.endDate, 'endDate');
+    const cycleStart = toBusinessDayStartUtc(
+      evaluation.courseCycle.academicCycle.startDate,
+    );
+    const cycleEnd = toBusinessDayEndUtc(
+      evaluation.courseCycle.academicCycle.endDate,
+    );
+
+    if (evalStart < cycleStart || evalEnd > cycleEnd) {
+      throw new BadRequestException(
+        'Las fechas de la evaluacion deben estar dentro del rango del ciclo academico.',
+      );
+    }
+
+    if (evalStart > evalEnd) {
+      throw new BadRequestException(
+        'La fecha de inicio no puede ser posterior a la fecha de fin.',
+      );
+    }
+
+    await this.evaluationRepository.updateDates(
+      evaluationId,
+      evalStart,
+      evalEnd,
+    );
+
+    await this.cacheService.invalidateIndex(
+      COURSE_CACHE_KEYS.CONTENT_BY_CYCLE_INDEX(evaluation.courseCycleId),
+    );
+
+    this.logger.log({
+      message: 'Fechas de evaluacion actualizadas exitosamente',
+      evaluationId,
+      courseCycleId: evaluation.courseCycleId,
+      timestamp: new Date().toISOString(),
+    });
+
+    evaluation.startDate = evalStart;
+    evaluation.endDate = evalEnd;
+    return evaluation;
+  }
+
+  async deleteEvaluation(evaluationId: string): Promise<void> {
+    return this.evaluationDeletionService.delete(evaluationId);
   }
 
   private async assertCourseCycleExists(courseCycleId: string): Promise<void> {

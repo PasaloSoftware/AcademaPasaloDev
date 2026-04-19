@@ -3,16 +3,14 @@ import { DataSource } from 'typeorm';
 import { CourseSetupService } from '@modules/courses/application/course-setup.service';
 import { CoursesService } from '@modules/courses/application/courses.service';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
-import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
-import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 
 describe('CourseSetupService', () => {
   let service: CourseSetupService;
   let dataSource: jest.Mocked<DataSource>;
   let coursesService: jest.Mocked<CoursesService>;
   let evaluationsService: jest.Mocked<EvaluationsService>;
-  let evaluationDriveAccessProvisioningService: jest.Mocked<EvaluationDriveAccessProvisioningService>;
-  let courseCycleDriveProvisioningService: jest.Mocked<CourseCycleDriveProvisioningService>;
+  let mediaAccessDispatchService: jest.Mocked<MediaAccessMembershipDispatchService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,15 +39,9 @@ describe('CourseSetupService', () => {
           },
         },
         {
-          provide: EvaluationDriveAccessProvisioningService,
+          provide: MediaAccessMembershipDispatchService,
           useValue: {
-            provisionByEvaluationId: jest.fn(),
-          },
-        },
-        {
-          provide: CourseCycleDriveProvisioningService,
-          useValue: {
-            provision: jest.fn(),
+            enqueueProvisionCourseSetup: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -59,12 +51,7 @@ describe('CourseSetupService', () => {
     dataSource = module.get(DataSource);
     coursesService = module.get(CoursesService);
     evaluationsService = module.get(EvaluationsService);
-    evaluationDriveAccessProvisioningService = module.get(
-      EvaluationDriveAccessProvisioningService,
-    );
-    courseCycleDriveProvisioningService = module.get(
-      CourseCycleDriveProvisioningService,
-    );
+    mediaAccessDispatchService = module.get(MediaAccessMembershipDispatchService);
   });
 
   function installQueryMock(options: {
@@ -90,6 +77,16 @@ describe('CourseSetupService', () => {
 
       if (query.includes('FROM evaluation_type') && query.includes('WHERE id IN')) {
         return params.map((id: string) => typeById.get(String(id))).filter(Boolean);
+      }
+
+      if (
+        query.includes('FROM evaluation_type') &&
+        query.includes('UPPER(TRIM(code)) != ?')
+      ) {
+        const excludedCode = String(params[0] || '').toUpperCase().trim();
+        return options.types.filter(
+          (t) => String(t.code || '').toUpperCase().trim() !== excludedCode,
+        );
       }
 
       if (
@@ -184,18 +181,6 @@ describe('CourseSetupService', () => {
     (evaluationsService.create as jest.Mock)
       .mockResolvedValueOnce({ id: 'eval-pc1', number: 1 })
       .mockResolvedValueOnce({ id: 'eval-ex1', number: 1 });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-1',
-      introFolderId: 'intro-1',
-      bankFolderId: 'bank-1',
-      viewerGroupEmail: 'cc-1-viewers@test.com',
-      bankLeafFoldersCreated: 2,
-    });
 
     const result = await service.createFullCourseSetup(
       { id: 'admin-1' } as any,
@@ -230,12 +215,12 @@ describe('CourseSetupService', () => {
     );
 
     expect(
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId,
-    ).toHaveBeenCalledTimes(2);
-    expect(courseCycleDriveProvisioningService.provision).toHaveBeenCalledWith({
+      mediaAccessDispatchService.enqueueProvisionCourseSetup,
+    ).toHaveBeenCalledWith({
       courseCycleId: 'cc-1',
       courseCode: 'MAT101',
       cycleCode: '2026-0',
+      evaluationIds: ['eval-pc1', 'eval-ex1'],
       bankCards: [
         { evaluationTypeCode: 'PC', number: 1 },
         { evaluationTypeCode: 'EX', number: 1 },
@@ -284,18 +269,6 @@ describe('CourseSetupService', () => {
       id: 'eval-pc1',
       number: 1,
     });
-    (
-      evaluationDriveAccessProvisioningService.provisionByEvaluationId as jest.Mock
-    ).mockResolvedValue({});
-    (
-      courseCycleDriveProvisioningService.provision as jest.Mock
-    ).mockResolvedValue({
-      scopeFolderId: 'scope-2',
-      introFolderId: 'intro-2',
-      bankFolderId: 'bank-2',
-      viewerGroupEmail: 'cc-2-viewers@test.com',
-      bankLeafFoldersCreated: 5,
-    });
 
     const result = await service.createFullCourseSetup(
       { id: 'admin-2' } as any,
@@ -339,10 +312,13 @@ describe('CourseSetupService', () => {
       ['type-pc', 'type-pd'],
     );
     expect(evaluationsService.create).toHaveBeenCalledTimes(1);
-    expect(courseCycleDriveProvisioningService.provision).toHaveBeenCalledWith({
+    expect(
+      mediaAccessDispatchService.enqueueProvisionCourseSetup,
+    ).toHaveBeenCalledWith({
       courseCycleId: 'cc-2',
       courseCode: 'QUI101',
       cycleCode: '2026-0',
+      evaluationIds: ['eval-pc1'],
       bankCards: [{ evaluationTypeCode: 'PC', number: 1 }],
       bankFolders: [
         { groupName: 'Prácticas Calificadas', items: ['PC1'] },
@@ -479,6 +455,176 @@ describe('CourseSetupService', () => {
       ),
     ).rejects.toThrow(
       'bankFoldersToCreate[0] debe enviar evaluationTypeId o newEvaluationTypeName',
+    );
+  });
+
+  it('registers all catalog evaluation types as allowed regardless of what the frontend sends', async () => {
+    installQueryMock({
+      types: [
+        { id: 'type-pc', code: 'PC', name: 'Practica Calificada' },
+        { id: 'type-ex', code: 'EX', name: 'Examen' },
+        { id: 'type-pd', code: 'PD', name: 'Practica Dirigida' },
+      ],
+      courseMeta: { courseCode: 'FIS101', cycleCode: '2026-0' },
+    });
+
+    (coursesService.create as jest.Mock).mockResolvedValue({
+      id: 'course-7',
+      code: 'FIS101',
+      name: 'Fisica',
+    });
+    (coursesService.assignToCycle as jest.Mock).mockResolvedValue({
+      id: 'cc-7',
+      courseId: 'course-7',
+      academicCycleId: 'ac-7',
+    });
+    (evaluationsService.create as jest.Mock).mockResolvedValue({
+      id: 'eval-pc1',
+      number: 1,
+    });
+
+    await service.createFullCourseSetup(
+      { id: 'admin-7' } as any,
+      {
+        course: {
+          code: 'FIS101',
+          name: 'Fisica',
+          courseTypeId: 'ct-1',
+          cycleLevelId: 'cl-1',
+        },
+        academicCycleId: 'ac-7',
+        allowedEvaluationTypeIds: ['type-pc'],
+        evaluationsToCreate: [
+          {
+            evaluationTypeId: 'type-pc',
+            number: 1,
+            startDate: '2026-01-10',
+            endDate: '2026-01-11',
+          },
+        ],
+        materialsTemplate: { roots: [] },
+      },
+    );
+
+    const callArg = (
+      coursesService.updateCourseCycleEvaluationStructure as jest.Mock
+    ).mock.calls[0][1] as string[];
+    expect(callArg).toHaveLength(3);
+    expect(callArg).toEqual(
+      expect.arrayContaining(['type-pc', 'type-ex', 'type-pd']),
+    );
+  });
+
+  it('excludes BANCO_ENUNCIADOS from allowed types even when present in the catalog', async () => {
+    installQueryMock({
+      types: [
+        { id: 'type-pc', code: 'PC', name: 'Practica Calificada' },
+        {
+          id: 'type-bank',
+          code: 'BANCO_ENUNCIADOS',
+          name: 'Banco de Enunciados',
+        },
+      ],
+      courseMeta: { courseCode: 'FIS102', cycleCode: '2026-0' },
+    });
+
+    (coursesService.create as jest.Mock).mockResolvedValue({
+      id: 'course-8',
+      code: 'FIS102',
+      name: 'Fisica 2',
+    });
+    (coursesService.assignToCycle as jest.Mock).mockResolvedValue({
+      id: 'cc-8',
+      courseId: 'course-8',
+      academicCycleId: 'ac-8',
+    });
+    (evaluationsService.create as jest.Mock).mockResolvedValue({
+      id: 'eval-pc1',
+      number: 1,
+    });
+
+    await service.createFullCourseSetup(
+      { id: 'admin-8' } as any,
+      {
+        course: {
+          code: 'FIS102',
+          name: 'Fisica 2',
+          courseTypeId: 'ct-1',
+          cycleLevelId: 'cl-1',
+        },
+        academicCycleId: 'ac-8',
+        allowedEvaluationTypeIds: ['type-pc'],
+        evaluationsToCreate: [
+          {
+            evaluationTypeId: 'type-pc',
+            number: 1,
+            startDate: '2026-01-10',
+            endDate: '2026-01-11',
+          },
+        ],
+        materialsTemplate: { roots: [] },
+      },
+    );
+
+    const callArg = (
+      coursesService.updateCourseCycleEvaluationStructure as jest.Mock
+    ).mock.calls[0][1] as string[];
+    expect(callArg).toEqual(['type-pc']);
+    expect(callArg).not.toContain('type-bank');
+  });
+
+  it('allows creating evaluations of any catalog type even if not sent in allowedEvaluationTypeIds', async () => {
+    installQueryMock({
+      types: [
+        { id: 'type-pc', code: 'PC', name: 'Practica Calificada' },
+        { id: 'type-pd', code: 'PD', name: 'Practica Dirigida' },
+      ],
+      courseMeta: { courseCode: 'MAT201', cycleCode: '2026-0' },
+    });
+
+    (coursesService.create as jest.Mock).mockResolvedValue({
+      id: 'course-9',
+      code: 'MAT201',
+      name: 'Algebra 2',
+    });
+    (coursesService.assignToCycle as jest.Mock).mockResolvedValue({
+      id: 'cc-9',
+      courseId: 'course-9',
+      academicCycleId: 'ac-9',
+    });
+    (evaluationsService.create as jest.Mock).mockResolvedValue({
+      id: 'eval-pd1',
+      number: 1,
+    });
+
+    // Frontend sends allowedEvaluationTypeIds: [] but creates a PD evaluation
+    await expect(
+      service.createFullCourseSetup(
+        { id: 'admin-9' } as any,
+        {
+          course: {
+            code: 'MAT201',
+            name: 'Algebra 2',
+            courseTypeId: 'ct-1',
+            cycleLevelId: 'cl-1',
+          },
+          academicCycleId: 'ac-9',
+          allowedEvaluationTypeIds: [],
+          evaluationsToCreate: [
+            {
+              evaluationTypeId: 'type-pd',
+              number: 1,
+              startDate: '2026-01-10',
+              endDate: '2026-01-11',
+            },
+          ],
+          materialsTemplate: { roots: [] },
+        },
+      ),
+    ).resolves.toBeDefined();
+
+    expect(evaluationsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ evaluationTypeId: 'type-pd' }),
     );
   });
 

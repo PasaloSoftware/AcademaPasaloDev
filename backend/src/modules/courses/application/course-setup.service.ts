@@ -8,8 +8,7 @@ import { CoursesService } from '@modules/courses/application/courses.service';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
 import { CreateCourseSetupDto } from '@modules/courses/dto/create-course-setup.dto';
 import { UserWithSession } from '@modules/auth/strategies/jwt.strategy';
-import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
-import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
+import { MediaAccessMembershipDispatchService } from '@modules/media-access/application/media-access-membership-dispatch.service';
 import { EVALUATION_TYPE_CODES } from '@modules/evaluations/domain/evaluation.constants';
 import { technicalSettings } from '@config/technical-settings';
 
@@ -46,8 +45,7 @@ export class CourseSetupService {
     private readonly dataSource: DataSource,
     private readonly coursesService: CoursesService,
     private readonly evaluationsService: EvaluationsService,
-    private readonly evaluationDriveAccessProvisioningService: EvaluationDriveAccessProvisioningService,
-    private readonly courseCycleDriveProvisioningService: CourseCycleDriveProvisioningService,
+    private readonly mediaAccessDispatchService: MediaAccessMembershipDispatchService,
   ) {}
 
   async createFullCourseSetup(
@@ -73,10 +71,12 @@ export class CourseSetupService {
         .map((item) => String(item.evaluationTypeId || '').trim())
         .filter(Boolean),
     );
+    const allCatalogTypeIds = await this.listAllNonBankEvaluationTypeIds();
     const allAllowedTypeIds = this.normalizeIds([
       ...allowedTypeIds,
       ...explicitBankEvaluationTypeIds,
       ...resolvedNewEvaluationTypes.map((item) => item.id),
+      ...allCatalogTypeIds,
     ]);
     const evaluationsToCreate = [
       ...(dto.evaluationsToCreate || []),
@@ -221,45 +221,28 @@ export class CourseSetupService {
       bankFolderDefinitions,
     );
 
-    const provisionedEvaluationScopes: string[] = [];
-    for (const createdEvaluation of createdEvaluations) {
-      if (
-        createdEvaluation.evaluationTypeCode ===
-        EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS
-      ) {
-        continue;
-      }
-      await this.evaluationDriveAccessProvisioningService.provisionByEvaluationId(
-        createdEvaluation.id,
-      );
-      provisionedEvaluationScopes.push(createdEvaluation.id);
-    }
-
     const courseCycleMeta = await this.getCourseCycleMeta(
       createdCourseCycle.id,
     );
-    const bankCards = createdEvaluations
-      .filter(
-        (evaluation) =>
-          evaluation.evaluationTypeCode !==
-          EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
-      )
-      .map((evaluation) => ({
+    const academicEvaluations = createdEvaluations.filter(
+      (evaluation) =>
+        evaluation.evaluationTypeCode !== EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS,
+    );
+
+    await this.mediaAccessDispatchService.enqueueProvisionCourseSetup({
+      courseCycleId: createdCourseCycle.id,
+      courseCode: courseCycleMeta.courseCode,
+      cycleCode: courseCycleMeta.cycleCode,
+      evaluationIds: academicEvaluations.map((evaluation) => evaluation.id),
+      bankCards: academicEvaluations.map((evaluation) => ({
         evaluationTypeCode: evaluation.evaluationTypeCode,
         number: evaluation.number,
-      }));
-
-    const courseCycleDrive =
-      await this.courseCycleDriveProvisioningService.provision({
-        courseCycleId: createdCourseCycle.id,
-        courseCode: courseCycleMeta.courseCode,
-        cycleCode: courseCycleMeta.cycleCode,
-        bankCards,
-        bankFolders: bankFolderDefinitions.map((item) => ({
-          groupName: item.groupName,
-          items: item.items,
-        })),
-      });
+      })),
+      bankFolders: bankFolderDefinitions.map((item) => ({
+        groupName: item.groupName,
+        items: item.items,
+      })),
+    });
 
     return {
       course: {
@@ -284,10 +267,7 @@ export class CourseSetupService {
         roots: dto.materialsTemplate.roots || [],
         evaluations: templateCreatedForEvaluations,
       },
-      driveProvisioning: {
-        evaluationScopesProvisioned: provisionedEvaluationScopes,
-        courseCycleScope: courseCycleDrive,
-      },
+      driveProvisioning: { status: 'queued' },
     };
   }
 
@@ -580,6 +560,14 @@ export class CourseSetupService {
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
+  }
+
+  private async listAllNonBankEvaluationTypeIds(): Promise<string[]> {
+    const rows = await this.dataSource.query<EvaluationTypeRow[]>(
+      `SELECT id, code, name FROM evaluation_type WHERE UPPER(TRIM(code)) != ?`,
+      [EVALUATION_TYPE_CODES.BANCO_ENUNCIADOS],
+    );
+    return rows.map((row) => String(row.id));
   }
 
   private async listEvaluationTypesByIds(

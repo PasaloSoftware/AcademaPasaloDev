@@ -2,14 +2,17 @@ import {
   Controller,
   Post,
   Body,
+  Delete,
   Get,
   Param,
+  Patch,
   HttpStatus,
   HttpCode,
   Put,
 } from '@nestjs/common';
 import { EvaluationsService } from '@modules/evaluations/application/evaluations.service';
 import { CreateEvaluationDto } from '@modules/evaluations/dto/create-evaluation.dto';
+import { UpdateEvaluationDto } from '@modules/evaluations/dto/update-evaluation.dto';
 import { ReorderEvaluationsDto } from '@modules/evaluations/dto/reorder-evaluations.dto';
 import { EvaluationTypeResponseDto } from '@modules/evaluations/dto/evaluation-type-response.dto';
 import { Auth } from '@common/decorators/auth.decorator';
@@ -63,5 +66,19 @@ export class EvaluationsController {
     @Body() dto: ReorderEvaluationsDto,
   ) {
     return await this.evaluationsService.reorderByCourseCycle(id, dto);
+  }
+
+  @Patch(':id')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Evaluación académica actualizada exitosamente')
+  async update(@Param('id') id: string, @Body() dto: UpdateEvaluationDto) {
+    return await this.evaluationsService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteEvaluation(@Param('id') id: string): Promise<void> {
+    await this.evaluationsService.deleteEvaluation(id);
   }
 }

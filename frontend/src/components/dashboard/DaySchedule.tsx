@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import { classEventService } from "@/services/classEvent.service";
@@ -15,36 +15,69 @@ import {
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { getCourseColor } from "@/lib/courseColors";
+import { useAuth } from "@/contexts/AuthContext";
+
+type DayScheduleEvent = Pick<
+  ClassEvent,
+  | "id"
+  | "title"
+  | "courseName"
+  | "courseCode"
+  | "startDatetime"
+  | "endDatetime"
+  | "sessionStatus"
+  | "liveMeetingUrl"
+  | "isCancelled"
+>;
 
 export default function DaySchedule() {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<ClassEvent[]>([]);
+  const [events, setEvents] = useState<DayScheduleEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekRange = useMemo(() => {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
+    return {
+      weekStart,
+      weekEnd,
+      weekDays: Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+      weekStartIso: format(weekStart, "yyyy-MM-dd"),
+      weekEndIso: format(weekEnd, "yyyy-MM-dd"),
+    };
+  }, [currentDate]);
+
+  const { weekStart, weekEnd, weekDays, weekStartIso, weekEndIso } = weekRange;
+  const activeRoleCode = useMemo(() => {
+    if (!user?.roles?.length) return null;
+    if (user.lastActiveRoleId) {
+      const activeRole = user.roles.find(
+        (role) => (role.id || role.code) === user.lastActiveRoleId,
+      );
+      if (activeRole) return activeRole.code;
+    }
+    return user.roles[0]?.code || null;
+  }, [user]);
+
+  const isAdminView =
+    activeRoleCode === "ADMIN" || activeRoleCode === "SUPER_ADMIN";
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    void loadSchedule();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
-
-  const loadSchedule = async () => {
+  const loadSchedule = async (start: string, end: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      const start = format(weekStart, "yyyy-MM-dd");
-      const end = format(weekEnd, "yyyy-MM-dd");
-      const eventsData = await classEventService.getMySchedule({ start, end });
+      const eventsData = isAdminView
+        ? await classEventService.getAdminDayWidgetSchedule({ start, end })
+        : await classEventService.getMyDayWidgetSchedule({ start, end });
       setEvents(eventsData);
     } catch {
       setError("Error al cargar los eventos");
@@ -52,6 +85,10 @@ export default function DaySchedule() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    void loadSchedule(weekStartIso, weekEndIso);
+  }, [weekStartIso, weekEndIso, isAdminView]);
 
   const goToPreviousWeek = () => {
     setCurrentDate((prev) => addDays(prev, -7));
@@ -210,7 +247,7 @@ export default function DaySchedule() {
             />
             <p className="text-sm text-error-solid">{error}</p>
             <button
-              onClick={() => void loadSchedule()}
+              onClick={() => void loadSchedule(weekStartIso, weekEndIso)}
               className="mt-2 text-sm text-accent-primary hover:underline"
             >
               Reintentar

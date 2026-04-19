@@ -35,6 +35,17 @@ export class EvaluationRepository {
     });
   }
 
+  async findTypesByCodes(codes: string[]): Promise<EvaluationType[]> {
+    if (codes.length === 0) {
+      return [];
+    }
+
+    return await this.typeOrm.find({
+      where: { code: In(codes) },
+      order: { code: 'ASC' },
+    });
+  }
+
   async findAcademicTypes(): Promise<EvaluationType[]> {
     return await this.typeOrm
       .createQueryBuilder('evaluationType')
@@ -81,6 +92,51 @@ export class EvaluationRepository {
         'courseCycle.course',
       ],
     });
+  }
+
+  async findByIdWithTypeAndCycle(id: string): Promise<Evaluation | null> {
+    return await this.evaluationOrm.findOne({
+      where: { id },
+      relations: ['evaluationType', 'courseCycle', 'courseCycle.academicCycle'],
+    });
+  }
+
+  async updateDates(
+    id: string,
+    startDate: Date,
+    endDate: Date,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const executor = manager ?? this.evaluationOrm;
+    await executor.query(
+      'UPDATE evaluation SET start_date = ?, end_date = ? WHERE id = ?',
+      [startDate, endDate, id],
+    );
+  }
+
+  async findByIdWithType(id: string): Promise<Evaluation | null> {
+    return await this.evaluationOrm.findOne({
+      where: { id },
+      relations: ['evaluationType'],
+    });
+  }
+
+  async findDisplayOrderById(
+    id: string,
+    manager?: EntityManager,
+  ): Promise<number | null> {
+    if (!(await this.hasDisplayOrderColumn(manager))) return null;
+    const executor = manager ?? this.evaluationOrm;
+    const rows = (await executor.query(
+      'SELECT display_order AS displayOrder FROM evaluation WHERE id = ? LIMIT 1',
+      [id],
+    )) as unknown;
+    const row = Array.isArray(rows)
+      ? (rows[0] as { displayOrder?: string | number | null } | undefined)
+      : undefined;
+    if (row?.displayOrder === undefined || row.displayOrder === null)
+      return null;
+    return Number(row.displayOrder);
   }
 
   async create(

@@ -22,6 +22,7 @@ import { GlobalSessionsByFiltersQueryDto } from '@modules/events/dto/global-sess
 import { StartClassEventRecordingUploadDto } from '@modules/events/dto/start-class-event-recording-upload.dto';
 import { FinalizeClassEventRecordingUploadDto } from '@modules/events/dto/finalize-class-event-recording-upload.dto';
 import { HeartbeatClassEventRecordingUploadDto } from '@modules/events/dto/heartbeat-class-event-recording-upload.dto';
+import { AdminDayWidgetScheduleItemDto } from '@modules/events/dto/admin-day-widget-schedule-item.dto';
 import { Auth } from '@common/decorators/auth.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
@@ -126,6 +127,71 @@ export class ClassEventsController {
       end,
     );
     return this.mapEventsToResponse(events);
+  }
+
+  @Get('my/day-widget-schedule')
+  @Roles(
+    ROLE_CODES.STUDENT,
+    ROLE_CODES.PROFESSOR,
+    ROLE_CODES.ADMIN,
+    ROLE_CODES.SUPER_ADMIN,
+  )
+  @ResponseMessage('Agenda resumida personal obtenida exitosamente')
+  async getMyDayWidgetSchedule(
+    @CurrentUser() user: User,
+    @Query('start') startDate: string,
+    @Query('end') endDate: string,
+  ): Promise<AdminDayWidgetScheduleItemDto[]> {
+    const start = startDate
+      ? parseScheduleRangeStartToUtc(startDate, 'start')
+      : new Date();
+    const end = endDate
+      ? parseScheduleRangeEndExclusiveToUtc(endDate, 'end')
+      : new Date(
+          start.getTime() +
+            technicalSettings.cache.events.myScheduleDefaultRangeDays *
+              24 *
+              60 *
+              60 *
+              1000,
+        );
+
+    assertValidDateRange(start, end, 'start', 'end');
+
+    return await this.classEventsQueryService.getMyDayWidgetSchedule(
+      user.id,
+      start,
+      end,
+    );
+  }
+
+  @Get('admin/day-widget-schedule')
+  @Roles(ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN)
+  @ResponseMessage('Agenda resumida de administrador obtenida exitosamente')
+  async getAdminDayWidgetSchedule(
+    @Query('start') startDate: string,
+    @Query('end') endDate: string,
+  ): Promise<AdminDayWidgetScheduleItemDto[]> {
+    const start = startDate
+      ? parseScheduleRangeStartToUtc(startDate, 'start')
+      : new Date();
+    const end = endDate
+      ? parseScheduleRangeEndExclusiveToUtc(endDate, 'end')
+      : new Date(
+          start.getTime() +
+            technicalSettings.cache.events.myScheduleDefaultRangeDays *
+              24 *
+              60 *
+              60 *
+              1000,
+        );
+
+    assertValidDateRange(start, end, 'start', 'end');
+
+    return await this.classEventsQueryService.getAdminDayWidgetSchedule(
+      start,
+      end,
+    );
   }
 
   @Get('discovery/layers/:courseCycleId')

@@ -141,3 +141,157 @@ Estado actual:
 - Pendiente de coordinacion con DevOps para cerrar configuracion final de IP confiable.
 - Objetivo tecnico: usar IP resuelta por la plataforma (`request.ip`) con `trust proxy` correctamente definido segun topologia real de despliegue.
 - Riesgo si no se cierra: posibilidad de contaminar auditoria de seguridad con headers de IP manipulados.
+
+---
+
+## 4. Provisionamiento Asíncrono de Drive (MediaAccessModule)
+
+### Problema Original
+
+La creación de un curso/ciclo académico requería aprovisionar en Google Workspace:
+carpetas de Drive, grupos de Workspace, permisos y subcarpetas de banco. Estas
+operaciones de API externa pueden tardar 10-30 segundos, lo que bloqueaba la respuesta
+HTTP y causaba timeouts en el frontend.
+
+### Solución: Queue BullMQ + Patrón Fire-and-Forget
+
+Al crear un curso, la API persiste todo en base de datos y encola el trabajo de Drive.
+El frontend recibe respuesta en ~1 segundo. El worker procesa en segundo plano.
+
+**Cola utilizada:** `QUEUES.MEDIA_ACCESS = 'media-access-queue'`
+
+**Archivos clave:**
+- `src/modules/media-access/domain/media-access.constants.ts` — constantes de jobs y acciones
+- `src/modules/media-access/application/media-access-membership-dispatch.service.ts` — encola jobs
+- `src/modules/media-access/infrastructure/processors/media-access-membership.processor.ts` — ejecuta jobs
+- `src/modules/courses/application/course-setup.service.ts` — crea el curso y encola el job
+
+---
+
+### A. Flujo de Creación de Curso (CourseSetupService)
+
+**Archivo:** `src/modules/courses/application/course-setup.service.ts`
+
+1. Se recibe la petición con datos del curso, evaluaciones y tarjetas de banco.
+2. Se ejecuta una transacción ACID en base de datos:
+   - Inserta en `course`, `course_cycle`, `academic_cycle`
+   - Inserta evaluaciones en `evaluation`
+   - Inserta estructura de banco en `evaluation` (tipo `BANCO_ENUNCIADOS`) y `material_folder`
+3. Se llama `dispatchService.enqueueProvisionCourseSetup(...)` — **fuera de la transacción**.
+4. La API responde inmediatamente con `driveProvisioning: { status: 'queued' }`.
+
+**Tablas Afectadas en la transacción:**
+- `course`, `course_cycle`, `academic_cycle`
+- `evaluation`, `material_folder`
+
+**Nota de diseño:** El encolado ocurre fuera de la transacción a propósito. Si se encolara
+dentro y la transacción fallara, el worker intentaría provisionar un curso que no existe.
+Al estar fuera, si la transacción falla el encolado nunca ocurre.
+
+---
+
+### B. Job: PROVISION_COURSE_SETUP
+
+**Nombre:** `MEDIA_ACCESS_JOB_NAMES.PROVISION_COURSE_SETUP = 'PROVISION_COURSE_SETUP'`
+
+**Payload (`MediaAccessCourseSetupProvisionJobPayload`):**
+```typescript
+{
+  courseCycleId: string;
+  courseCode: string;
+  cycleCode: string;
+  evaluationIds: string[];          // IDs de evaluaciones académicas (excluye banco)
+  bankCards: Array<{ evaluationTypeCode: string; number: number }>;
+  bankFolders: Array<{ groupName: string; items: string[] }>;
+  requestedAt: string;              // ISO timestamp de cuándo se encoló
+}
+```
+
+**jobId:** `media-access__provision-course-setup__{courseCycleId}`
+(idempotente — si se encola dos veces el mismo ciclo, BullMQ deduplica)
+
+**Ejecución en el processor (`handleProvisionCourseSetup`):**
+1. Para cada `evaluationId` → llama `provisioningService.provisionByEvaluationId(evaluationId)`:
+   - Crea la carpeta raíz de scope en Drive.
+   - Crea el grupo de viewers (`cc-{id}-viewers`) en Google Workspace.
+   - Crea el grupo de profesores (`cc-{id}-profs`) en Google Workspace.
+   - Asigna permisos de los grupos sobre la carpeta.
+2. Llama `courseCycleDriveProvisioningService.provision(...)`:
+   - Crea la carpeta del ciclo (`{courseCode}-{cycleCode}`) bajo el padre del banco.
+   - Crea subcarpetas por tipo de banco (`{evaluationTypeCode}-{number}`).
+   - Sincroniza membresía de profesores en el grupo de profesores.
+3. Loggea éxito: `'Provisioning Drive de course setup completado'`.
+
+**Todas las operaciones son idempotentes:** `findOrCreateDriveFolderUnderParent` y
+`findOrCreateGroup` no duplican recursos si ya existen en Workspace/Drive.
+
+---
+
+### C. Estructura de Grupos Workspace por Curso
+
+Para cada `evaluation` académica del curso:
+
+| Grupo | Email | Propósito |
+|---|---|---|
+| Viewers | `cc-{evaluationId}-viewers@dominio` | Alumnos matriculados con acceso activo |
+| Profesores | `cc-{cycleCode}-profs@dominio` | Profesores del ciclo con acceso editor |
+
+- El grupo de **viewers** se puebla dinámicamente cuando un alumno es matriculado
+  (`MEDIA_ACCESS_JOB_NAMES.SYNC_MEMBERSHIP`).
+- El grupo de **viewers** estará vacío en un curso recién creado sin alumnos — esto es correcto.
+- El grupo de **profesores** se puebla durante el provisioning del ciclo.
+
+---
+
+### D. Endpoint de Re-provisionamiento (Admin)
+
+Permite re-disparar el provisionamiento Drive de un ciclo de curso ya existente.
+Útil cuando el worker falló, la API de Workspace tuvo un error transitorio, o el curso
+fue creado antes de que existiera el sistema de colas.
+
+**Endpoint:**
+```
+POST /api/v1/admin/media-access/course-cycles/:id/reprovision-drive
+```
+
+**Autenticación:** Requiere rol `ADMIN` o `SUPER_ADMIN`.
+
+**Respuesta exitosa (202 Accepted):**
+```json
+{
+  "statusCode": 202,
+  "message": "Reprovisioning Drive encolado exitosamente",
+  "data": {
+    "status": "ENQUEUED",
+    "courseCycleId": "159",
+    "evaluationsToProvision": 2,
+    "bankFolderGroups": 1
+  }
+}
+```
+
+**Archivo:** `src/modules/media-access/presentation/media-access-admin.controller.ts`
+**Método:** `reprovisionCourseCycleDrive`
+
+**Flujo interno:**
+1. Llama `CourseCycleDriveProvisioningService.loadReprovisionData(courseCycleId)`:
+   - Consulta metadatos del ciclo (`courseCode`, `cycleCode`).
+   - Consulta evaluaciones académicas para obtener `evaluationIds` y `bankCards`.
+   - Consulta la estructura `material_folder` del banco para obtener `bankFolders`.
+   - Retorna `null` si el `courseCycleId` no existe → 404.
+2. Encola el job `PROVISION_COURSE_SETUP` con los datos cargados.
+3. El worker ejecuta el mismo flujo idempotente descrito en la sección B.
+
+**Seguridad del re-provisionamiento:** Como todas las operaciones son idempotentes, ejecutar
+este endpoint sobre un curso ya provisionado no genera duplicados en Drive ni en Workspace.
+Solo crea recursos que falten.
+
+---
+
+### E. Logging del Flujo Drive
+
+| Momento | Nivel | Mensaje | Archivo |
+|---|---|---|---|
+| Job encolado | `log` | `'Provisioning Drive de course setup encolado'` | `media-access-membership-dispatch.service.ts` |
+| Job completado | `log` | `'Provisioning Drive de course setup completado'` | `media-access-membership.processor.ts` |
+| Payload inválido | `error` (UnrecoverableError) | `'Payload inválido para provision de course setup Drive'` | `media-access-membership.processor.ts` |

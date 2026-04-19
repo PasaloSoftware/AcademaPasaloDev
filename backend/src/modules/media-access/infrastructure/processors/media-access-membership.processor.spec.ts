@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@modules/users/domain/user.entity';
 import { MediaAccessMembershipProcessor } from '@modules/media-access/infrastructure/processors/media-access-membership.processor';
 import { WorkspaceGroupsService } from '@modules/media-access/application/workspace-groups.service';
+import { DriveScopeProvisioningService } from '@modules/media-access/application/drive-scope-provisioning.service';
 import { EvaluationDriveAccessProvisioningService } from '@modules/media-access/application/evaluation-drive-access-provisioning.service';
+import { CourseCycleDriveProvisioningService } from '@modules/media-access/application/course-cycle-drive-provisioning.service';
 import { EvaluationDriveAccessRepository } from '@modules/media-access/infrastructure/evaluation-drive-access.repository';
 import { MediaAccessReconciliationService } from '@modules/media-access/application/media-access-reconciliation.service';
 import { MediaAccessReconciliationSafetyStopError } from '@modules/media-access/domain/media-access.errors';
@@ -18,7 +20,9 @@ describe('MediaAccessMembershipProcessor', () => {
   let dataSource: jest.Mocked<Partial<DataSource>>;
   let userRepository: jest.Mocked<Partial<Repository<User>>>;
   let workspaceGroupsService: jest.Mocked<WorkspaceGroupsService>;
+  let driveScopeProvisioningService: jest.Mocked<DriveScopeProvisioningService>;
   let provisioningService: jest.Mocked<EvaluationDriveAccessProvisioningService>;
+  let courseCycleDriveProvisioningService: jest.Mocked<CourseCycleDriveProvisioningService>;
   let evaluationDriveAccessRepository: jest.Mocked<EvaluationDriveAccessRepository>;
   let reconciliationService: jest.Mocked<MediaAccessReconciliationService>;
   let configService: jest.Mocked<Partial<ConfigService>>;
@@ -44,10 +48,17 @@ describe('MediaAccessMembershipProcessor', () => {
       ensureMemberInGroup: jest.fn(),
       removeMemberFromGroup: jest.fn(),
       listGroupMembers: jest.fn().mockResolvedValue([]),
+      deleteGroupIfExists: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<WorkspaceGroupsService>;
+    driveScopeProvisioningService = {
+      trashDriveFolderIfExists: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<DriveScopeProvisioningService>;
     provisioningService = {
       provisionByEvaluationId: jest.fn(),
     } as unknown as jest.Mocked<EvaluationDriveAccessProvisioningService>;
+    courseCycleDriveProvisioningService = {
+      provision: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<CourseCycleDriveProvisioningService>;
     evaluationDriveAccessRepository = {
       findByEvaluationId: jest.fn(),
       upsertByEvaluationId: jest.fn(),
@@ -67,7 +78,9 @@ describe('MediaAccessMembershipProcessor', () => {
       dataSource as DataSource,
       userRepository as Repository<User>,
       workspaceGroupsService,
+      driveScopeProvisioningService,
       provisioningService,
+      courseCycleDriveProvisioningService,
       evaluationDriveAccessRepository,
       reconciliationService,
       configService as unknown as ConfigService,
@@ -409,6 +422,97 @@ describe('MediaAccessMembershipProcessor', () => {
         data: {},
       } as unknown as Job),
     ).rejects.toBeInstanceOf(UnrecoverableError);
+  });
+
+  describe('TEARDOWN_EVALUATION_SCOPE', () => {
+    it('elimina grupo Workspace y archiva carpeta Drive cuando hay folderId', async () => {
+      await processor.process({
+        id: 'job-teardown-full',
+        name: MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE,
+        data: {
+          evaluationId: '42',
+          viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+          driveScopeFolderId: 'drive-folder-xyz',
+          requestedAt: new Date().toISOString(),
+        },
+      } as unknown as Job);
+
+      expect(workspaceGroupsService.deleteGroupIfExists).toHaveBeenCalledWith(
+        'ev-42-viewers@academiapasalo.com',
+      );
+      expect(driveScopeProvisioningService.trashDriveFolderIfExists).toHaveBeenCalledWith(
+        'drive-folder-xyz',
+      );
+    });
+
+    it('elimina solo el grupo Workspace cuando driveScopeFolderId es null', async () => {
+      await processor.process({
+        id: 'job-teardown-no-folder',
+        name: MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE,
+        data: {
+          evaluationId: '42',
+          viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+          driveScopeFolderId: null,
+          requestedAt: new Date().toISOString(),
+        },
+      } as unknown as Job);
+
+      expect(workspaceGroupsService.deleteGroupIfExists).toHaveBeenCalledWith(
+        'ev-42-viewers@academiapasalo.com',
+      );
+      expect(driveScopeProvisioningService.trashDriveFolderIfExists).not.toHaveBeenCalled();
+    });
+
+    it('lanza UnrecoverableError cuando evaluationId esta en blanco', async () => {
+      await expect(
+        processor.process({
+          id: 'job-teardown-bad-eval',
+          name: MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE,
+          data: {
+            evaluationId: '   ',
+            viewerGroupEmail: 'ev-42-viewers@academiapasalo.com',
+            driveScopeFolderId: null,
+            requestedAt: new Date().toISOString(),
+          },
+        } as unknown as Job),
+      ).rejects.toBeInstanceOf(UnrecoverableError);
+
+      expect(workspaceGroupsService.deleteGroupIfExists).not.toHaveBeenCalled();
+    });
+
+    it('lanza UnrecoverableError cuando viewerGroupEmail esta en blanco', async () => {
+      await expect(
+        processor.process({
+          id: 'job-teardown-bad-email',
+          name: MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE,
+          data: {
+            evaluationId: '42',
+            viewerGroupEmail: '',
+            driveScopeFolderId: null,
+            requestedAt: new Date().toISOString(),
+          },
+        } as unknown as Job),
+      ).rejects.toBeInstanceOf(UnrecoverableError);
+
+      expect(workspaceGroupsService.deleteGroupIfExists).not.toHaveBeenCalled();
+    });
+
+    it('normaliza viewerGroupEmail a minusculas antes de operar', async () => {
+      await processor.process({
+        id: 'job-teardown-normalize',
+        name: MEDIA_ACCESS_JOB_NAMES.TEARDOWN_EVALUATION_SCOPE,
+        data: {
+          evaluationId: '42',
+          viewerGroupEmail: 'EV-42-VIEWERS@ACADEMIAPASALO.COM',
+          driveScopeFolderId: null,
+          requestedAt: new Date().toISOString(),
+        },
+      } as unknown as Job);
+
+      expect(workspaceGroupsService.deleteGroupIfExists).toHaveBeenCalledWith(
+        'ev-42-viewers@academiapasalo.com',
+      );
+    });
   });
 
   it('otorga membresía de course_cycle y crea grupo si no existe', async () => {
